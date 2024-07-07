@@ -11,6 +11,19 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction){
-  const input = interaction.options.getString('minutes');
-	await interaction.reply('${input}分封殺してやるにゃ…嘘にゃ、未実装にゃ');
+  const nerunonya = interaction.options.getString('minutes');
+  if (nerunonya < 1) {
+        return await interaction.reply({
+            content: '常識的な数字を入力してください。',
+            ephemeral: true
+        });
+    }
+  if (nerunonya > 720) {
+        return await interaction.reply({
+            content: '永遠に寝るつもりにゃ？',
+            ephemeral: true
+        });
+    }
+	await interaction.reply('${nerunonya}分封殺してやるにゃ…嘘にゃ、未実装にゃ');
+  await interaction.member.timeout(60 * 1000 * nerunonya, "メッセージを送ってきたから");
 }
