@@ -14,7 +14,7 @@ export default async(message) => {
     await message.reply("https://rev2.reversion.jp/character/detail/" + message.content);
   }
   //PPP
-    if (message.content.match(/^ｐ３[pnxy][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
+    if (message.content.match(/^p3[pnxy][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply("https://rev1.reversion.jp/character/detail/" + message.content);
   }
   //第六
