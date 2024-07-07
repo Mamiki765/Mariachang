@@ -24,5 +24,5 @@ export async function execute(interaction) {
     }
   }
 
-  await interaction.reply(`${result} が当選しました！`, silent=True);
+  await interaction.reply(`${result} が当選しました！`);
 }
