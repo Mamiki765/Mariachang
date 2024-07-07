@@ -28,10 +28,8 @@ export async function execute(interaction){
         });
     }
   await interaction.member.timeout(60 * 1000 * nerunonya, "/suyasuyaによるセルフタイムアウト");
-  let suyasuya2 = "";
-  suyasuya2 = nerunonya;
 	await interaction.reply({
-    content: "${suyasuya2}" + '分封殺してやるにゃ！精々作業なり睡眠なりするにゃ！'
+    content: a + "を" + nerunonya + '分封殺してやるにゃ！精々作業なり睡眠なりするにゃ！'
   });
 
 }
