@@ -13,7 +13,7 @@ export default async(message) => {
     await message.reply("https://rev2.reversion.jp/character/detail/" + message.content);
   }
   
-  if (message.content.match(/^\!（にゃん|にゃーん|にゃ～ん）$/)) {
+　　if (message.content === "\!にゃん" || "\!にゃーん" || "\!にゃ～ん"){   
     await message.reply("にゃ～ん");
   }
 
