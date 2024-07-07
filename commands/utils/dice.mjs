@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
   .setName('dice')
-  .setDescription('さいころを振るよ～（結果が2000文字を超えるとエラーになります）')
+  .setDescription('ダイスを振ります（結果が2000文字を超えるとエラーになります）')
   .addStringOption(option =>
     option
       .setName('ndn')
@@ -27,6 +27,11 @@ export function ndnDice(ndn){
   
   const result = [];
   let sum = 0;
+  
+//あんまりなダイスは怒るよ
+  if (number > 100　|| number < 1 || sides > 2147483647) {
+        return 'そんなダイス振らないにゃ';
+  }
 
   for (let i = 0; i < number; i++) {
     const dice = Math.floor(Math.random() * sides) + 1;
