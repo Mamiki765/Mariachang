@@ -29,7 +29,7 @@ export async function execute(interaction){
     }
   await interaction.member.timeout(60 * 1000 * nerunonya, "/suyasuyaによるセルフタイムアウト");
 	await interaction.reply({
-    content: a + "を" + nerunonya + '分封殺してやるにゃ！精々作業なり睡眠なりするにゃ！'
+    content: interaction.member.displayName + "を" + nerunonya + '分封殺してやるにゃ！精々作業なり睡眠なりするにゃ！'
   });
 
 }
