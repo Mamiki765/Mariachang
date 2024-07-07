@@ -90,6 +90,7 @@ client.on("ready", async () => {
   console.log(`${client.user.tag} がログインしました！`);
 });
 
+
 Notification.sync({ alter: true });
 YoutubeFeeds.sync({ alter: true });
 YoutubeNotifications.sync({ alter: true });
