@@ -6,10 +6,10 @@ export default async(message) => {
   }
   
   if (message.content.match(/にゃん|にゃーん|にゃ～ん/)) {
-    await message.reply("にゃ～ん");
+    await message.reply("にゃ～ん", silent=True);
   }
   
   if (message.content.match(/^\d+d\d+$/)) {
-    await message.reply(ndnDice(message.content));
+    await message.reply('@silent ' + ndnDice(message.content));
   }
 };
