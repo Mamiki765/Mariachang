@@ -17,7 +17,7 @@ export async function execute(interaction){
   const nerunonya = interaction.options.getString('minutes');
   if (nerunonya < 1) {
         return await interaction.reply({
-            content: '常識的な数字を入力するにゃ。',
+            content: '常識的な数字を入力してくださいにゃ。',
             ephemeral: true
         });
     }
@@ -29,7 +29,7 @@ export async function execute(interaction){
     }
   await interaction.member.timeout(60 * 1000 * nerunonya, "/suyasuyaによるセルフタイムアウト");
 	await interaction.reply({
-    content: interaction.member.displayName + "を" + nerunonya + '分封殺してやるにゃ！精々作業なり睡眠なりするにゃ！'
+    content: interaction.member.displayName + "を" + nerunonya + '分封殺してやるにゃ！精々作業なり睡眠なりするにゃ！（セルフタイムアウトされました）'
   });
 
 }
