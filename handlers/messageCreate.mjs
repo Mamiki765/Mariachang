@@ -9,7 +9,8 @@ export default async(message) => {
     await message.reply("にゃ～ん");
   }
   
-  if (message.content.match(/^\d+d\d+$/)) {
-    await message.reply(ndnDice(message.content));
+  if (message.content.match(/^!\d+d\d+$/)) {
+   let command = message.content.slice(1); // 先頭の1文字目から最後までを取得
+   await message.reply(ndnDice(command));
   }
 };
