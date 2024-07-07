@@ -31,6 +31,7 @@ export async function execute(interaction) {
   const row = new ActionRowBuilder().addComponents(rock, scissors, paper);
 
   const response = await interaction.reply({
+    flags: [ 4096 ],//silent
     content: `じゃんけん...`,
     components: [row],
   });
@@ -47,6 +48,7 @@ export async function execute(interaction) {
 
     while (solve == 0) {
       await confirmation.followUp({
+        flags: [ 4096 ],//silent
         content: `あいこで...`,
         components: [row],
       });
@@ -61,6 +63,7 @@ export async function execute(interaction) {
     
   } catch (e) {
     await interaction.editReply({
+      flags: [ 4096 ],//silent
       content: "時間切れ～(もしくはエラー)",
       components: [],
     });

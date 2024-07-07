@@ -13,7 +13,10 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction){
   const input = interaction.options.getString('ndn');
   if (!input.match(/^\d+d\d+$/)) {
-    await interaction.reply('入力が正しくありません。');
+    await interaction.reply({
+      flags: [ 4096 ],
+      content:'入力が正しくありません。'
+    });
     return;  
   }
 

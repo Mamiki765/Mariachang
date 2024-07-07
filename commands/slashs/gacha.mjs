@@ -15,6 +15,7 @@ export async function execute(interaction) {
   }
   for (let j = 1; j < 12; j++) {
     let random = Math.floor(Math.random() * totalWeight);
+    　　　//result += random + "  ";
     for (let i = 0; i < weight.length; i++) {
       if (random < weight[i]) {
         result += arr[i] + "\n";
@@ -26,6 +27,6 @@ export async function execute(interaction) {
   }  
 
   await interaction.reply({
-    flags: [ 4096 ],
+    flags: [ 4096 ],//silent
     content: `結果\n${result} `});
 }
