@@ -34,5 +34,5 @@ export function ndnDice(ndn){
     result.push(dice);
   }
 
-	return `${number}d${sides} >> ${result}\n合計:${sum}`;
+	return `### ${number}d${sides}\n>> ${result}\n合計:${sum}`;
 }
