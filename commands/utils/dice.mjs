@@ -14,7 +14,7 @@ export async function execute(interaction){
   const input = interaction.options.getString('ndn');
   if (!input.match(/^\d+d\d+$/)) {
     await interaction.reply({
-      flags: [ 4096 ],
+      ephemeral: true,
       content:'入力が正しくありません。'
     });
     return;  
