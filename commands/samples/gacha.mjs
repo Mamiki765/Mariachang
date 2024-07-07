@@ -2,11 +2,11 @@ import { SlashCommandBuilder } from "discord.js";
 
 export const data = new SlashCommandBuilder()
   .setName("gacha")
-  .setDescription("ガチャを引くよ～");
+  .setDescription("闇市を引くにゃ！");
 
 export async function execute(interaction) {
-  const arr = ["SSR 金のじゃがいも", "SR 銀のじゃがいも", "R 銅のじゃがいも", "N ただのじゃがいも"];
-  const weight = [2, 4, 8, 16];
+  const arr = ["レリック　虹のにぼし", "アーティファクト　金のにぼし", "ハイクオリティ　銀のにぼし", "レギュラー　銅のにぼし", "ノービス　にぼし", "カースド　にぼし（賞味期限切れ）"];
+  const weight = [1, 10, 30, 220, 724, 15];
   let result = "";
 
   let totalWeight = 0;
