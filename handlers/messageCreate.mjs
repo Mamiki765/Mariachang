@@ -9,7 +9,7 @@ export default async(message) => {
     await message.reply("にゃ～ん");
   }
   
-  if (message.content.match(/^!\d+d\d+$/)) {
-    await message.reply(ndnDice(message.content);
+  if (message.content.match(/^\d+d\d+$/)) {
+    await message.reply(ndnDice(message.content));
   }
 };
