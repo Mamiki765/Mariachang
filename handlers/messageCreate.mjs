@@ -4,13 +4,20 @@ export default async(message) => {
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
   }
-//ニョワミヤでニョワミヤが出てくる
+//ニョワミヤでニョワミヤが出てくる等
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
     await message.reply({
       flags: [ 4096 ],//@silentになる
       content: "https://cdn.discordapp.com/attachments/1025416223724404766/1110586574598570094/image.png?ex=668c0259&is=668ab0d9&hm=fa9f6ffa7cb5a3641a7334129abe2a2a1af83e90bb6a06a983cf27e6bbca3bf4&"
   });
   }
+  if (message.content.match(/^(ゆづさや)$/)) {
+    await message.reply({
+      flags: [ 4096 ],//@silentになる
+      content: "https://media.discordapp.net/attachments/1025416223724404766/1122185542252105738/megamoji.gif?ex=668cad7a&is=668b5bfa&hm=5c970ab0422c8731d0471ab1d65663b76ae6fd8fb47192481bdbbdadcd792675&"
+  });
+  }
+  
 //ここからステシ変換
   //ロスアカ
     if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
