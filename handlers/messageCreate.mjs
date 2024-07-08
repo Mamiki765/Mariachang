@@ -23,6 +23,7 @@ export default async(message) => {
       content: "https://media.discordapp.net/attachments/1040261246538223637/1175700688219672587/megamoji_4.gif?ex=668ce817&is=668b9697&hm=e26e24e90dc3bd6606255aaefd4f7ad91118f1d8cc5a6be8f48013b7ca2fa58a&"
   });
   }
+//画像いたずら系ここまで
   
 //ここからステシ変換
   //ロスアカ
@@ -75,11 +76,17 @@ export default async(message) => {
 //    await message.reply("６０秒封殺にゃ");
 //    await message.member.timeout(60 * 1000, "「タイムアウトして」により");
 //  }
-  
+//ダイスロール
   if (message.content.match(/^!\d+d\d+$/)) {
    let command = message.content.slice(1); // 先頭の1文字目から最後までを取得
    await message.reply({
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
+//ピンして！
+   if (message.content.match(/^(ピンして|ピン留めして|pin)$/)) {
+    await message.mentions.pin 
+    await message.reply({flags: [ 4096 ], content: "無茶言うにゃ"});
+  }
+//ピンここまで  
 };
