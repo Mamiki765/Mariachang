@@ -83,19 +83,5 @@ export default async(message) => {
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
-//ピンして！(chatgpt制)
-   if (message.content.match(/^(ピンして|ピン留めして|pin)$/)) {
-    // メンションされた最初のメッセージを取得
-     message.mentions.pin()
 
-        .then(() => {
-            message.channel.send('メッセージをピン留めしました。');
-        })
-        .catch(err => {
-            console.error('ピン留め中にエラーが発生しました:', err);
-            message.channel.send('メッセージのピン留め中にエラーが発生しました。');
-        });
-    await message.reply({flags: [ 4096 ], content: "無茶言うにゃ"});
-  }
-//ピンここまで  
 };
