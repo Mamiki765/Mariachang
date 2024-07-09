@@ -5,7 +5,7 @@ export default async(message) => {
     await message.react("🥔");
   }
 //ニョワミヤでニョワミヤが出てくる等
-/*  if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
+  if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
    await message.reply({
     flags: [ 4096 ],//@silentになる
       content: "https://cdn.discordapp.com/attachments/1025416223724404766/1110586574598570094/image.png?ex=668c0259&is=668ab0d9&hm=fa9f6ffa7cb5a3641a7334129abe2a2a1af83e90bb6a06a983cf27e6bbca3bf4&"
@@ -22,10 +22,10 @@ export default async(message) => {
      flags: [ 4096 ],//@silentになる
       content: "https://media.discordapp.net/attachments/1040261246538223637/1175700688219672587/megamoji_4.gif?ex=668ce817&is=668b9697&hm=e26e24e90dc3bd6606255aaefd4f7ad91118f1d8cc5a6be8f48013b7ca2fa58a&"
   });
-  } */
+  } 
 //画像いたずら系ここまで
   
-/*
+
 //ここからステシ変換
   //ロスアカ
     if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
@@ -67,7 +67,7 @@ export default async(message) => {
     });
     }
 //ステシ変換ここまで
-*/  
+ 
 //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){   
   if (message.content.match(/^(!にゃん|!にゃーん|にゃ～ん|にゃあん)$/)) {
     await message.reply({flags: [ 4096 ], content: "にゃ～ん"});
