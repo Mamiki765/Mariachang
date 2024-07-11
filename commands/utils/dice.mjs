@@ -41,6 +41,5 @@ export function ndnDice(ndn){
     sum += dice;
     result.push(dice);
   }
-
 	return `### ${number}d${sides}\n>> ${result}\n合計:${sum}`;
 }
