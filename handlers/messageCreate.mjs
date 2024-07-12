@@ -17,7 +17,7 @@ export default async(message) => {
       content: "https://media.discordapp.net/attachments/1025416223724404766/1122185542252105738/megamoji.gif?ex=668cad7a&is=668b5bfa&hm=5c970ab0422c8731d0471ab1d65663b76ae6fd8fb47192481bdbbdadcd792675&"
   });
   }
-  if (message.content.match(/^(ゆゔさや|ゆヴさや)$/)) {
+  if (message.content.match(/^(ゆゔさや|ゆヴさや|ゆずさや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
       content: "https://media.discordapp.net/attachments/1040261246538223637/1175700688219672587/megamoji_4.gif?ex=668ce817&is=668b9697&hm=e26e24e90dc3bd6606255aaefd4f7ad91118f1d8cc5a6be8f48013b7ca2fa58a&"
