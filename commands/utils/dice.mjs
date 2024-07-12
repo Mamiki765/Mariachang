@@ -41,5 +41,14 @@ export function ndnDice(ndn){
     sum += dice;
     result.push(dice);
   }
+  if(number == 1 && sides ==100){
+    if(sides < 6){
+    sides = sides + "(クリティカル！)";
+    }
+    if(sides > 95)
+      {sides = sides + "(ファンブル！)";}
+    return `### ${number}d${sides}\n>> ${sum}`
+  }
+  
 	return `### ${number}d${sides}\n>> ${result}\n合計:${sum}`;
 }
