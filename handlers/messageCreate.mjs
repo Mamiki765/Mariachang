@@ -6,9 +6,16 @@ export default async(message) => {
   }
 //ニョワミヤでニョワミヤが出てくる等
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
+    //ニョワミヤ画像集
+    const nyowamiya =[
+      "0 https://cdn.discordapp.com/attachments/1261485824378142760/1261485856309645433/image.png?ex=669321c1&is=6691d041&hm=d66360bb898b93ca5cfb1d25e88fe7fd973723d7ee9de0a8ccf63a0789cb6892&"
+      ,"1 https://cdn.discordapp.com/attachments/1261485824378142760/1261486872870518784/IMG_5649.png?ex=669322b3&is=6691d133&hm=1e0780eb1e40e5032833bf1d8ba0db2b6491a5fefd2ddf200042fedcea2117c8&"
+      ,"2　ハズレ（テスト用）"
+    ];
+    //ニョワミヤ画像からランダムで排出（いるかこの機能？）
    await message.reply({
     flags: [ 4096 ],//@silentになる
-      content: "https://cdn.discordapp.com/attachments/1025416223724404766/1110586574598570094/image.png?ex=668c0259&is=668ab0d9&hm=fa9f6ffa7cb5a3641a7334129abe2a2a1af83e90bb6a06a983cf27e6bbca3bf4&"
+    content: nyowamiya[Math.floor(Math.random() * nyowamiya.length)]
   });
   }
   if (message.content.match(/^(ゆづさや)$/)) {
