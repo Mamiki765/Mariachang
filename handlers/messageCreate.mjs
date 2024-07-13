@@ -21,7 +21,7 @@ export default async(message) => {
   });
   }
   //トールちゃん
-  if (message.content.match(/^(トール＝チャン|トール=チャン)$/)) {
+  if (message.content.match(/^(トール＝チャン|トール=チャン|トール＝ちゃん)$/)) {
     //ニョワミヤ画像集
     const toruchan =[
       "https://cdn.discordapp.com/attachments/1261485824378142760/1261589766349258754/image.png?ex=66938287&is=66923107&hm=4d51f1d59f8ee9ed94415e369f852822ef83c94695446b95c373054241f19512&"
