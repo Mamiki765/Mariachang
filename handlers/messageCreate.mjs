@@ -8,9 +8,10 @@ export default async(message) => {
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
     //ニョワミヤ画像集
     const nyowamiya =[
-      "0 https://cdn.discordapp.com/attachments/1261485824378142760/1261485856309645433/image.png?ex=669321c1&is=6691d041&hm=d66360bb898b93ca5cfb1d25e88fe7fd973723d7ee9de0a8ccf63a0789cb6892&"
-      ,"1 https://cdn.discordapp.com/attachments/1261485824378142760/1261486872870518784/IMG_5649.png?ex=669322b3&is=6691d133&hm=1e0780eb1e40e5032833bf1d8ba0db2b6491a5fefd2ddf200042fedcea2117c8&"
-      ,"2　ハズレ（テスト用）"
+      "https://cdn.discordapp.com/attachments/1261485824378142760/1261485856309645433/image.png?ex=669321c1&is=6691d041&hm=d66360bb898b93ca5cfb1d25e88fe7fd973723d7ee9de0a8ccf63a0789cb6892&"
+      ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261486872870518784/IMG_5649.png?ex=669322b3&is=6691d133&hm=1e0780eb1e40e5032833bf1d8ba0db2b6491a5fefd2ddf200042fedcea2117c8&"
+      ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261488516198568016/image.png?ex=6693243b&is=6691d2bb&hm=1d4a93a936f14e0694d112c707a9079a764108deb1ac9ef704c5ec8dbeb60d33&"
+      ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261489905796907119/IMG_5445.png?ex=66932586&is=6691d406&hm=e70733ef25ef2403ddf2dd9e22b8d081d93b70a3ad96d5e239abd48c6a7131de&"
     ];
     //ニョワミヤ画像からランダムで排出（いるかこの機能？）
    await message.reply({
