@@ -5,6 +5,7 @@ export default async(message) => {
     await message.react("🥔");
   }
 //ニョワミヤでニョワミヤが出てくる等
+  //ニョワミヤ
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
     //ニョワミヤ画像集
     const nyowamiya =[
@@ -19,6 +20,21 @@ export default async(message) => {
     content: nyowamiya[Math.floor(Math.random() * nyowamiya.length)]
   });
   }
+  //トールちゃん
+  if (message.content.match(/^(トール＝チャン|トール=チャン)$/)) {
+    //ニョワミヤ画像集
+    const toruchan =[
+      "https://cdn.discordapp.com/attachments/1261485824378142760/1261589766349258754/image.png?ex=66938287&is=66923107&hm=4d51f1d59f8ee9ed94415e369f852822ef83c94695446b95c373054241f19512&"
+      ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261590010105298944/image.png?ex=669382c1&is=66923141&hm=745d160c25dabdbb2deb086dde9afe5d0803d0792376756efeab99025201fe99&"
+      ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261590443305603104/image.png?ex=66938328&is=669231a8&hm=399f2fd3d536fb1dfeab8baec708fa8ca4c0f632f947cefce60abadc48987ef3&"
+      ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261488516198568016/image.png?ex=6693243b&is=6691d2bb&hm=1d4a93a936f14e0694d112c707a9079a764108deb1ac9ef704c5ec8dbeb60d33&"
+    ];
+    //ニョワミヤ画像からランダムで排出（いるかこの機能？）
+   await message.reply({
+    flags: [ 4096 ],//@silentになる
+    content: toruchan[Math.floor(Math.random() * toruchan.length)]
+  });
+  }  
   if (message.content.match(/^(ゆづさや)$/)) {
    await message.reply({
       flags: [ 4096 ],//@silentになる
