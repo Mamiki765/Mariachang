@@ -40,6 +40,7 @@ export default async(message) => {
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261601438061035593/toruchan07.png?ex=66938d66&is=66923be6&hm=fae6984ff7eaf66d3a3cea26c2e17b1e810632319df8fd0fe4c33fb968f64dc1&"
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261601484068622376/toruchan06.png?ex=66938d71&is=66923bf1&hm=4557921994f9111851e3a51e153bf6fbc9d8ce4188bb1dc84237cdc562d6d84a&"
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261601572861902920/toruchan05.png?ex=66938d86&is=66923c06&hm=4edf88910d4465e28d3f7106c9f6c7924c738713e6e6c7377c0f4d4d03e2169c&"
+      ,"https://media.discordapp.net/attachments/1261485824378142760/1261733236854489179/04e2d3bf0a8ddf8f.png?ex=66940825&is=6692b6a5&hm=8d55f49f74919b64e67000cc88edd9783c4080aa2a54d104192c826a37644567&"
     ];
    await message.reply({
     flags: [ 4096 ],//@silentになる
