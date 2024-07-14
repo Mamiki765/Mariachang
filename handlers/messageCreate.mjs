@@ -1,14 +1,10 @@
 import { ndnDice } from "../commands/utils/dice.mjs"
+import { EmbedBuilder } from "discord.js";
 
 export default async(message) => {
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
   }
-//メッセージURLからメッセージを拝領したまえよ
-if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
-  
-}
-//メッセージURLからメッセージ取得　ここまで
 
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
   //ニョワミヤ
