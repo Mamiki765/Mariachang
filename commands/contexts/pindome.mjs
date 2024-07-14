@@ -26,10 +26,10 @@ export async function execute(interaction) {
     		});
     		if (message.pinned){
     			await message.unpin();
-    			interaction.reply("メッセージのピン留めを解除しました。");
+    			interaction.reply("メッセージのピン留めを解除しました。\n対象：" + message.url);
     		} else {
     			await message.pin();
-    			interaction.reply("メッセージのピン留めをしました。");
+    			interaction.reply("メッセージのピン留めをしました。\n対象：" + message.url);
     		};
  	};
  
