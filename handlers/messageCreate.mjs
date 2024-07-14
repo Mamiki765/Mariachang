@@ -110,10 +110,10 @@ export default async(message) => {
   }
 
 
-  if (message.content.match(/^今何時？$/)) {
+  if (message.content.match(/^(今何時？|いまなんじ？|今日何日？|きょう何日？)$/)) {
     const date = new Date();
     const nanjidate = date.getFullYear() +"年" + date.getMonth() +"月" +date.getDate() + "日" + date.getHours() +"時"+date.getMinutes() +"分"+date.getSeconds()+"秒";
-    await message.reply(`${nanjidate} `);
+    await message.reply(`${nanjidate}ですにゃ。`);
 //    await message.member.timeout(60 * 1000, "「タイムアウトして」により");
   }
 
