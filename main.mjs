@@ -7,9 +7,12 @@ import Notification from "./models/notification.mjs";
 
 import Sequelize from "sequelize";
 import Parser from 'rss-parser';
+import cron from 'node-cron';
 const parser = new Parser();
 
-
+//テスト、時間カウントできてるか
+cron.schedule('* * * * * *', () => console.log('毎秒実行'));
+//ここまで
 
 let postCount = 0;
 const app = express();
