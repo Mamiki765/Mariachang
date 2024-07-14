@@ -11,7 +11,7 @@ import cron from 'node-cron';
 const parser = new Parser();
 
 //テスト、時間カウントできてるか
-cron.schedule('* * * * * *', () => console.log('毎秒実行'));
+//cron.schedule('0 * * * * *', () => console.log('毎分実行'));
 //ここまで
 
 let postCount = 0;
@@ -83,6 +83,12 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("ready", async () => {
+//時報テスト
+  const timechannel = await client.channels.fetch(process.env.time_signal_channel)
+  await cron.schedule('0 * * * *', () => {
+     timechannel.send(`${new Date().getHours()} 時になりました。（テスト失礼します）`)
+   })
+//時報テストここまで
   await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
   console.log(`${client.user.tag} がログインしました！`);
 });
