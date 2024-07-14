@@ -92,13 +92,13 @@ client.on("ready", async () => {
 
 
 Notification.sync({ alter: true });
-YoutubeFeeds.sync({ alter: true });
-YoutubeNotifications.sync({ alter: true });
+//YoutubeFeeds.sync({ alter: true });
+//YoutubeNotifications.sync({ alter: true });
 
 CommandsRegister();
 client.login(process.env.TOKEN);
 
-
+/*
 async function trigger() {
   const youtubeNofications = await YoutubeNotifications.findAll({
     attributes: [
@@ -174,3 +174,4 @@ async function checkFeed(channelFeedUrl) {
     },
   );
 }
+*/
