@@ -1,12 +1,10 @@
 import { ContextMenuCommandBuilder,  ApplicationCommandType, EmbedBuilder , PermissionsBitField} from "discord.js";
 
 export const data = new ContextMenuCommandBuilder()
-  .setName("pin")
+  .setName("テスト")
   .setType(ApplicationCommandType.Message);
 
 export async function execute(interaction) {
- 	if (interaction.isMessageContextMenuCommand()){
- 		if (!interaction.guild) return;
  		const { channel } = interaction;
  		if (!channel.permissionsFor(PermissionsBitField.Flags.ViewChannel))
  			return interaction.reply({
@@ -31,4 +29,4 @@ export async function execute(interaction) {
     			interaction.reply("メッセージのピン留めをしました。");
     		};
  	};
- }
+ 
