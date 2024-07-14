@@ -25,8 +25,15 @@ export async function execute(interaction) {
       }
     }
   }  
-
+  
+    const embed = new EmbedBuilder()
+      .setColor(0x5cb85c)
+      .setAuthor({ name: newState.member.displayName, iconURL: newState.member.displayAvatarURL()})
+      .setTitle(`<#${newState.channel.id}> で通話を開始しました！`)
+      .setTimestamp();
+  
   await interaction.reply({
     flags: [ 4096 ],//silent
+    embeds: [embed]
     content: `結果\n${result} `});
 }

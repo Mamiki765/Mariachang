@@ -110,7 +110,7 @@ export default async(message) => {
   }
 
 
-  if (message.content.match(/^(今何時？|いまなんじ？|今日何日？|きょう何日？)$/)) {
+  if (message.content.match(/^(今何時？|いまなんじ？|今日何日？|きょう何日？|ほったいも)$/)) {
     const date = new Date();
     const nanjimonth = date.getMonth()+1;
     const masiroyear = date.getFullYear()+28;
