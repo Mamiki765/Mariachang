@@ -4,7 +4,7 @@ export default async(message) => {
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
   }
-//ニョワミヤでニョワミヤが出てくる等
+//ニョワミヤでニョワミヤが出てくる等画像いたずら系
   //ニョワミヤ
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
     //ニョワミヤ画像集
@@ -109,14 +109,13 @@ export default async(message) => {
     await message.reply({flags: [ 4096 ], content: "にゃ～ん"});
   }
 
-
+//ほったいも
   if (message.content.match(/^(今何時？|いまなんじ？|今日何日？|きょう何日？|ほったいも)$/)) {
     const date = new Date();
     const nanjimonth = date.getMonth()+1;
     const masiroyear = date.getFullYear()+28;
     const nanjidate = date.getFullYear() +"年" + nanjimonth +"月" +date.getDate() + "日" + date.getHours() +"時"+date.getMinutes() +"分"+date.getSeconds()+"秒";
     await message.reply(`${nanjidate}ですにゃ。\nマシロ市は${masiroyear}年ですにゃ。`);
-//    await message.member.timeout(60 * 1000, "「タイムアウトして」により");
   }
 
 //ダイスロール
