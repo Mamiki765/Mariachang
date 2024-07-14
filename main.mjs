@@ -86,7 +86,7 @@ client.on("ready", async () => {
 //時報テスト
   const timechannel = await client.channels.fetch(process.env.time_signal_channel)
   await cron.schedule('0 * * * *', () => {
-     timechannel.send(`${new Date().getHours()} 時になりました。（テスト失礼します）`)
+     timechannel.send(`${new Date().getHours()} 時になりました。`)
    })
 //時報テストここまで
   await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
