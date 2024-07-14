@@ -109,12 +109,12 @@ export default async(message) => {
     await message.reply({flags: [ 4096 ], content: "にゃ～ん"});
   }
 
-/*
-  if (message.content.match(/^タイムアウトして$/)) {
-    await message.reply("６０秒封殺にゃ");
-    await message.member.timeout(60 * 1000, "「タイムアウトして」により");
+
+  if (message.content.match(/^今何時？$/)) {
+    await message.reply(`${new Date().getHours()} 時になりました。`);
+//    await message.member.timeout(60 * 1000, "「タイムアウトして」により");
   }
-*/
+
 //ダイスロール
   if (message.content.match(/^!\d+d\d+$/)) {
    let command = message.content.slice(1); // 先頭の1文字目から最後までを取得
