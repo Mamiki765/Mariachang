@@ -7,7 +7,7 @@ export const data = new ContextMenuCommandBuilder()
 export async function execute(interaction) {
     if (!interaction.guild) return;
  		const { channel } = interaction;
- 	/*管理権限あげてるので見つかるわけがない
+  /*このBOTを導入している時点で管理権限があるのでここは必要ない
   if (!channel.permissionsFor(PermissionsBitField.Flags.ViewChannel))
  			return interaction.reply({
  				content: "BOTにチャンネル閲覧の権限がありません。",
@@ -18,7 +18,7 @@ export async function execute(interaction) {
     				content: "BOTにメッセージ管理の権限がありません。",
     				ephemeral: true
     			});
-          */
+         */
     		const message = interaction.options.getMessage("message")
     		if (message.system) return interaction.reply({
     			content: "システムメッセージはピン留めができません。",
