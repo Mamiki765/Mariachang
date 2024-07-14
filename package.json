@@ -1,7 +1,7 @@
 {
-  "name": "minipotato-bot-by-eoi",
+  "name": "mariachang!",
   "version": "0.1.2",
-  "description": "MiniPotato Bot by EOi",
+  "description": "Alter from MiniPotato Bot by EOi",
   "main": "main.mjs",
   "scripts": {
     "start": "node main.mjs"
