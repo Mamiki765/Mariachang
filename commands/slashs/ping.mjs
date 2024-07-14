@@ -5,5 +5,25 @@ export const data = new SlashCommandBuilder()
   .setDescription('このbotが生きてるかチェックできるにゃ');
 
 export async function execute(interaction){
-	await interaction.reply({ flags: [ 4096 ],content:'ぽんにゃ！'});
+  const apiPing = Date.now() - interaction.createdTimestamp
+	await interaction.reply({ 
+    flags: [ 4096 ],
+    embeds: [
+                    new EmbedBuilder()
+                    .setTitle(":ping_pong:Pongにゃ!")
+                    .setDescription("Ping値を表示します。")
+                    .addFields(
+                        {
+                            name: ":electric_plug:WebSocket Ping",
+                            value: "`" + interaction.client.ws.ping + "ms`"
+                        },
+                        {
+                            name: ":yarn:API Endpoint Ping",
+                            value: "`" + apiPing + "ms`"
+                        }
+                    )
+                    .setColor("#2f3136")
+                    .setTimestamp()
+                ]
+  });
 }
