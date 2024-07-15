@@ -14,6 +14,7 @@ export async function execute(interaction) {
                       .setTitle("神谷マリアbotについて")
                       .setDescription(helptext)
                       .setColor("#B78CFE")
-                  ]
+                      .setFooter({text: "無駄に時間かかったから褒めてくれると嬉しいな…"})
+                  ],            ephemeral: true
     });
 }
