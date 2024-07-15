@@ -2,7 +2,7 @@ import { SlashCommandBuilder ,  EmbedBuilder} from "discord.js";
 
 export const data = new SlashCommandBuilder()
   .setName("gacha")
-  .setDescription("闇市を引くにゃ！(11連対応！)");
+  .setDescription("闇市を引きます(11連対応！)");
 
 export async function execute(interaction) {
   const arr = ["# ★レリック　虹のにぼし", "## ☆アーティファクト　金のにぼし", "### ハイクオリティ　銀のにぼし", "レギュラー　銅のにぼし", "ノービス　にぼし", "カースド　にぼし（賞味期限切れ）","# ★レリック　ゲーミングオーラﾆｮﾜﾐﾔ", "## ☆アーティファクト　ﾆｮﾜﾐﾔﾘｶ（画像加工前）", "### ハイクオリティ　全速前進ﾆｮﾜﾐﾔ", "レギュラー　震えているﾆｮﾜﾐﾔ", "ノービス　ﾆｮﾜﾐﾔﾘｶ", "カースド　まだ本腰入れて探してはないが鍵がない気がするﾆｮﾜﾐﾔ", "ノービス 乙女のぱんつ", "ノービス 宝石"];
@@ -29,7 +29,7 @@ export async function execute(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
       .setAuthor({ name: interaction.member.displayName, iconURL: interaction.member.displayAvatarURL()})
-      .setTitle(`にぼしガチャ11連を回しました`)
+      .setTitle(`にぼしガチャ11連の結果にゃ！`)
       .setDescription(result)
       .setFooter({text: "（PPP闇市仕様）"})
   

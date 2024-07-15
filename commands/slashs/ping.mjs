@@ -2,7 +2,7 @@ import { SlashCommandBuilder,  EmbedBuilder } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ping')
-  .setDescription('このbotが生きてるかチェックできるにゃ');
+  .setDescription('このbotが生きてるかチェックします');
 
 export async function execute(interaction){
   const apiPing = Date.now() - interaction.createdTimestamp
