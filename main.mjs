@@ -19,7 +19,6 @@ const app = express();
 app.listen(3000);
 app.post('/', function(req, res) {
   console.log(`Received POST request.`);
-
   postCount++;
   if (postCount == 10) {
     postCount = 0;
