@@ -5,7 +5,27 @@ export default async(message) => {
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
   }
+//メッセージURLからメッセージを拝領したまえよ
+  const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
+  const matches = MESSAGE_URL_REGEX.exec(message.content);
+  if (matches) {
+    const [_, guildId, channelId, messageId] = matches;
+    const guild = await message.fetch(guildId);
+    const channel = await message.fetch(channelId);
+    const fetchedMessage = await channel.messages.fetch(messageId);
 
+    const Embed = new EmbedBuilder()
+      .setColor('#4d4df7')
+      .setAuthor({ name: fetchedMessage.author.tag, iconURL: fetchedMessage.author.displayAvatarURL() })
+      .setDescription(fetchedMessage.content)
+      .addFields(
+        { name: 'メッセージに飛ぶ', value: `[クリックで飛べます。](${fetchedMessage.url})` }
+      )
+      .setTimestamp(fetchedMessage.createdTimestamp);
+
+    message.channel.send({ embeds: [Embed] });
+  }
+//なんつって
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
   //ニョワミヤ
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {

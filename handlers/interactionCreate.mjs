@@ -1,5 +1,5 @@
 export default async(interaction) => {
-//  if (!interaction.isChatInputCommand()) return;  
+//  コンテキストメニュー（右クリック）も入れる
   if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
 	const command = interaction.client.commands.get(interaction.commandName);
 
