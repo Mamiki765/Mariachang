@@ -28,7 +28,7 @@ export async function execute(interaction) {
     			await message.unpin();
     			interaction.reply({
             flags: [ 4096 ],
-            content: "メッセージのピン留めを解除しました。\n対象：" + message.url});
+            content: "[メッセージ]のピン留めを解除しました。\n対象：" + message.url});
     		} else {
     			await message.pin();
     			interaction.reply({
