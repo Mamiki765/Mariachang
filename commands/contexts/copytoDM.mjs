@@ -8,21 +8,28 @@ export const data = new ContextMenuCommandBuilder()
 export async function execute(interaction) {
     if (!interaction.guild) return;
  		const { channel } = interaction;
-    		const message = interaction.options.getMessage("message")
-    		if (message.system) return interaction.reply({
-    			content: "システムメッセージはピン留めができません。",
-    			ephemeral: true
-    		});
-    		if (message.pinned){
-    			await message.unpin();
-    			interaction.reply({
-            flags: [ 4096 ],
-            content: '**[メッセージ]( ' + message.url + ' )**のピン留めを解除しました。'});
-    		} else {
-    			await message.pin();
-    			interaction.reply({
-            flags: [ 4096 ],
-            content: '**[メッセージ]( ' + message.url + ' )**のピン留めをしました。'});
-    		};
+    const message = interaction.options.getMessage("message")
+
+    const embed = new EmbedBuilder()
+      .setColor(0xEFDCAA)
+      .setAuthor({ name: message.member.displayName, iconURL: message.member.displayAvatarURL()})
+      .setTitle(`にゃーにゃー`)
+      .setDescription(message.cleanContent)
+      .setFooter({text: ""})
+await interaction.reply({
+            flags: [ 4096 ],//silent
+            content: 'DMにメッセージをコピーしたにゃ！',
+            ephemeral  : true
+        });
+  await interaction.member.send({
+    flags: [ 4096 ],//silent
+    embeds: [embed]
+    });
+  await interaction.reply({
+    flags: [ 4096 ],//silent
+    content: "DMにコピーしました。",
+    ephemeral  : true
+  });
+
  	};
  
