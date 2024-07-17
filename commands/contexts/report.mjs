@@ -5,6 +5,8 @@ export const data = new ContextMenuCommandBuilder()
   .setType(ApplicationCommandType.Message);
 
 export async function execute(interaction) {
+    const report = interaction.fields.getTextInputValue("report")
+  	if (!report){
    		const modal = new ModalBuilder()
  				.setTitle("タイトル")
  				.setCustomId("user_submit");
@@ -18,4 +20,9 @@ export async function execute(interaction) {
   			const ActionRow = new ActionRowBuilder().setComponents(TextInput);
    			modal.setComponents(ActionRow);
    			return interaction.showModal(modal);
+    }else{
+      interaction.reply({
+        flags: [ 4096 ],
+        content: 'テキストはちゃんと送られてるにゃ\n' + report});
+    }
 }
