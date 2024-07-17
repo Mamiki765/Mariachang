@@ -55,7 +55,7 @@ export default async(message) => {
       content: "https://media.discordapp.net/attachments/1025416223724404766/1122185542252105738/megamoji.gif?ex=668cad7a&is=668b5bfa&hm=5c970ab0422c8731d0471ab1d65663b76ae6fd8fb47192481bdbbdadcd792675&"
   });
   }
-  //https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&
+  
   if (message.content.match(/^(ゆゔさや|ゆヴさや|ゆずさや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
@@ -65,7 +65,7 @@ export default async(message) => {
   if (message.content.match(/^(ゆ○さや|ゆ●さや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
-      content: "attachment
+      content: "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&"
   });
   } 
 //画像いたずら系ここまで
