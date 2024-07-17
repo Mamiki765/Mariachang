@@ -20,9 +20,10 @@ export async function execute(interaction) {
    			modal.setComponents(ActionRow);
    			return interaction.showModal(modal);
   
-      const report = interaction.fields.getTextInputValue("report")
+      const reported = interaction.fields.getTextInputValue("report")
       interaction.reply({
         flags: [ 4096 ],
-        content: 'テキストはちゃんと送られてるにゃ\n' + report});
+        ephemeral: true,
+        content: 'テキストはちゃんと送られてるにゃ\n' + reported});
  
 }

@@ -3,6 +3,7 @@ export default async(interaction) => {
   if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand() && !interaction.isModalSubmit()) return;
 	const command = interaction.client.commands.get(interaction.commandName);
 
+  //console.log(interaction);//debug
 	if (!command) {
 		console.error(`「${interaction.commandName}」コマンドは見つかりませんでした。`);
 		return;
