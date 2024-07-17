@@ -10,9 +10,6 @@ import Parser from 'rss-parser';
 import cron from 'node-cron';
 const parser = new Parser();
 
-//テスト、時間カウントできてるか
-//cron.schedule('0 * * * * *', () => console.log('毎分実行'));
-//ここまで
 
 let postCount = 0;
 const app = express();
@@ -82,14 +79,21 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("ready", async () => {
-//時報テスト
-  /*
+  /*時報テスト
   const timechannel = await client.channels.fetch(process.env.time_signal_channel)
   await cron.schedule('0 * * * *', () => {
      timechannel.send(`${new Date().getHours()} 時になりました。`)
    })
-   */
-//時報テストここまで
+   時報テストここまで*/
+    client.channels.cache.get(process.env.logch_login).send({
+            embeds: [
+                new EmbedBuilder()
+                .setTitle("起動完了")
+                .setDescription("> Botが起動しました。\n> 運営担当者は動作チェックをお願いします。")
+                .setColor(config.color)
+                .setTimestamp()
+            ]
+        });
   await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
   console.log(`${client.user.tag} がログインしました！`);
 });
