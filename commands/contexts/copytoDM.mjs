@@ -10,12 +10,14 @@ export async function execute(interaction) {
  		const { channel } = interaction;
     const message = interaction.options.getMessage("message")
 
+    //console.log(message.author);//debug
+  
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
-      .setAuthor({ name: message.member.displayName, iconURL: message.member.displayAvatarURL()})
+      .setAuthor({ name: message.author.globalName})
       .setTitle(`にゃーにゃー`)
       .setDescription(message.cleanContent)
-      .setFooter({text: ""})
+ //     .setFooter({text: ""})
 await interaction.reply({
             flags: [ 4096 ],//silent
             content: 'DMにメッセージをコピーしたにゃ！',
