@@ -1,4 +1,5 @@
-import { ContextMenuCommandBuilder,  ApplicationCommandType, EmbedBuilder , PermissionsBitField} from "discord.js";
+import { ContextMenuCommandBuilder,  ApplicationCommandType, EmbedBuilder } from "discord.js";
+// import { PermissionsBitField} from "discord.js";
 
 export const data = new ContextMenuCommandBuilder()
   .setName("ピン留めの登録/解除")
