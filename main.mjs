@@ -85,17 +85,19 @@ client.on("ready", async () => {
      timechannel.send(`${new Date().getHours()} 時になりました。`)
    })
    時報テストここまで*/
+  await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
+  console.log(`${client.user.tag} がログインしました！`);
+  //240718ログイン通知
     client.channels.cache.get(process.env.logch_login).send({
             embeds: [
                 new EmbedBuilder()
                 .setTitle("起動完了")
-                .setDescription("> Botが起動しました。\n> 運営担当者は動作チェックをお願いします。")
-                .setColor(config.color)
+                .setDescription("> Botが起動しました。")
+                .setColor("#B78CFE")
                 .setTimestamp()
             ]
         });
-  await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
-  console.log(`${client.user.tag} がログインしました！`);
+  //ログイン通知ここまで
 });
 
 

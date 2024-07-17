@@ -2,7 +2,7 @@ import { ContextMenuCommandBuilder,  ApplicationCommandType, EmbedBuilder } from
 // import { PermissionsBitField} from "discord.js";
 
 export const data = new ContextMenuCommandBuilder()
-  .setName("ピン留めの登録/解除")
+  .setName("TEST")
   .setType(ApplicationCommandType.Message);
 
 export async function execute(interaction) {
