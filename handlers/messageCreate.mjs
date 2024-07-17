@@ -65,13 +65,14 @@ export default async(message) => {
   if (message.content.match(/^(ゆ○さや|ゆ●さや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
-      content: "attachments/10402612465382
+      content: "attachment
   });
   } 
 //画像いたずら系ここまで
   
 
 //ここからステシ変換
+  //ロスアカ
     if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
