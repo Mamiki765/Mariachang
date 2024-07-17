@@ -28,12 +28,12 @@ export async function execute(interaction) {
     			await message.unpin();
     			interaction.reply({
             flags: [ 4096 ],
-            content: "[メッセージ]のピン留めを解除しました。\n対象：" + message.url});
+            content: '**[メッセージ]( ' + message.url + ' )**のピン留めを解除しました。'});
     		} else {
     			await message.pin();
     			interaction.reply({
             flags: [ 4096 ],
-            content: "メッセージのピン留めをしました。\n対象：" + message.url});
+            content: '**[メッセージ]( ' + message.url + ' )**のピン留めをしました。'});
     		};
  	};
  
