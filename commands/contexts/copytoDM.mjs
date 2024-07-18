@@ -17,8 +17,11 @@ export async function execute(interaction) {
     //そして添付ファイルごとに改行
     if(file){
     for (let i = 0; i < file.length; i++) {
-      
-        otherfile += "\n" + file[i];
+      if(file[i].match(/(png|jpg|webm|gif|jpeg|webp|bmp)$/)){//画像ならimages配列に
+        images.push(file[i]);
+        }else{
+          otherfile += "\n" + file[i];
+        }
       }
     }
     
@@ -34,6 +37,19 @@ export async function execute(interaction) {
       flags: [ 4096 ],//silent
       embeds: [embed]
     });
+//画像を追加（吐きそう…）
+  if(images.length){
+      for (let i = 0; i < images.length; i++) {
+        const embed = new EmbedBuilder()
+        .setColor(0xB78CFE)
+        .setImage(images[i])
+        
+        await interaction.member.send({
+        flags: [ 4096 ],//silent
+        embeds: [embed]
+    });
+      }
+  }
 
   //完了報告
   await interaction.reply({
