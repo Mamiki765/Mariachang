@@ -10,13 +10,16 @@ export async function execute(interaction) {
  		const { channel } = interaction;
     const message = interaction.options.getMessage("message")
 
+    const file = message.attachments.first();
+    if(file && file.height && file.width){
+      }
     //console.log(message.author);//debug
   
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
       .setAuthor({ name: message.author.globalName, iconURL: message.author.displayAvatarURL()})
       .setTitle(message.url)
-      .setDescription(message.cleanContent)
+      .setDescription(message.cleanContent + message.attachments)
       .setFooter({text: "「DMにメッセージをコピー」により"})
       .setTimestamp(message.createdTimestamp)
 await interaction.reply({
