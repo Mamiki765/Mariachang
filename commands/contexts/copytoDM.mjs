@@ -10,14 +10,14 @@ export async function execute(interaction) {
  		const { channel } = interaction;
     const message = interaction.options.getMessage("message")
 
-  　　const flie = message.attachments.map(attachment => attachment.url)
-    console.log(flie);//debug
+  　　const flie = message.attachments.map(attachment => attachment.url)//添付ファイルのURLを配列で取得
+//    console.log(flie);//debug
   
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
       .setAuthor({ name: message.author.globalName, iconURL: message.author.displayAvatarURL()})
       .setTitle(message.url)
-      .setDescription(message.cleanContent)
+      .setDescription(message.cleanContent + "\n" + flie)
       .setFooter({text: "「DMにメッセージをコピー」により"})
       .setTimestamp(message.createdTimestamp)
 await interaction.reply({
