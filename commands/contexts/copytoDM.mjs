@@ -10,25 +10,35 @@ export async function execute(interaction) {
  		const { channel } = interaction;
     const message = interaction.options.getMessage("message")
 
-  　　const flie = message.attachments.map(attachment => attachment.url)//添付ファイルのURLを配列で取得
-//    console.log(flie);//debug
-  
+  　　const file = message.attachments.map(attachment => attachment.url)//添付ファイルのURLを配列で取得
+    //    console.log(flie);//debug
+    let otherfile = "";//画像以外のファイル
+    //
+    if(file){
+    for (let i = 0; i < file.length; i++) {
+    otherfile += "\n" + file[i];
+  }
+    }
+    
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
       .setAuthor({ name: message.author.globalName, iconURL: message.author.displayAvatarURL()})
       .setTitle(message.url)
-      .setDescription(message.cleanContent + "\n" + flie)
+      .setDescription(message.cleanContent + otherfile)
       .setFooter({text: "「DMにメッセージをコピー」により"})
       .setTimestamp(message.createdTimestamp)
-await interaction.reply({
+//コピーを送信
+    await interaction.member.send({
+      flags: [ 4096 ],//silent
+      embeds: [embed]
+    });
+
+  //完了報告
+  await interaction.reply({
             flags: [ 4096 ],//silent
             content: 'DMにメッセージをコピーしたにゃ！',
             ephemeral  : true
         });
-  await interaction.member.send({
-    flags: [ 4096 ],//silent
-    embeds: [embed]
-    });
 
  	};
  
