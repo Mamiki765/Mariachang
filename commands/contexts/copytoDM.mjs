@@ -10,7 +10,8 @@ export async function execute(interaction) {
  		const { channel } = interaction;
     const message = interaction.options.getMessage("message")
 
-    //console.log(message.author);//debug
+  　　const flie = message.attachments.map(attachment => attachment.url)
+    console.log(flie);//debug
   
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
