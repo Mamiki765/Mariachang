@@ -28,7 +28,8 @@ export async function execute(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
       .setAuthor({ name: message.author.globalName, iconURL: message.author.displayAvatarURL()})
-      .setTitle(message.url)
+      .setURL(message.url)
+      .setTitle("メッセージへ")
       .setDescription(message.cleanContent + otherfile)
       .setFooter({text: "「DMにメッセージをコピー」により"})
       .setTimestamp(message.createdTimestamp)
@@ -43,6 +44,7 @@ export async function execute(interaction) {
         const embed = new EmbedBuilder()
         .setColor(0xB78CFE)
         .setImage(images[i])
+        .setURL(message.url)
         
         await interaction.member.send({
         flags: [ 4096 ],//silent
