@@ -18,6 +18,7 @@ export async function execute(interaction) {
       .setTitle(message.url)
       .setDescription(message.cleanContent)
       .setFooter({text: "「DMにメッセージをコピー」により"})
+      .setTimestamp(message.createdTimestamp)
 await interaction.reply({
             flags: [ 4096 ],//silent
             content: 'DMにメッセージをコピーしたにゃ！',
