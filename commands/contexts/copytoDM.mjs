@@ -13,11 +13,11 @@ export async function execute(interaction) {
   　　const file = message.attachments.map(attachment => attachment.url)//添付ファイルのURLを配列で取得
     //    console.log(flie);//debug
     let images = [];
-    let otherfile = "";//画像以外のファイル
+    let otherfile = " ";//画像以外のファイル
     //そして添付ファイルごとに改行
     if(file){
     for (let i = 0; i < file.length; i++) {
-      if(file[i].match(/(png|jpg|webm|gif|jpeg|webp|bmp)$/)){//画像ならimages配列に
+      if(file[i].match(/(png|jpg|webm|gif|jpeg|webp|bmp)\?ex=/)){//画像ならimages配列に
         images.push(file[i]);
         }else{
           otherfile += "\n" + file[i];
