@@ -12,12 +12,14 @@ export async function execute(interaction) {
 
   　　const file = message.attachments.map(attachment => attachment.url)//添付ファイルのURLを配列で取得
     //    console.log(flie);//debug
+    let images = [];
     let otherfile = "";//画像以外のファイル
-    //
+    //そして添付ファイルごとに改行
     if(file){
     for (let i = 0; i < file.length; i++) {
-    otherfile += "\n" + file[i];
-  }
+      
+        otherfile += "\n" + file[i];
+      }
     }
     
     const embed = new EmbedBuilder()
