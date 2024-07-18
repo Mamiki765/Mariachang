@@ -11,17 +11,6 @@ export default async(interaction) => {
 
 	try {
 		await command.execute(interaction);
-  //ログ取得ここから
-      client.channels.cache.get(process.env.logch_login).send({
-            embeds: [
-                new EmbedBuilder()
-                .setTitle("起動完了")
-                .setDescription("> Botが起動しました。")
-                .setColor("#B78CFE")
-                .setTimestamp()
-            ]
-        });
-  //ログ取得ここまで
 	} catch (error) {
 		console.error(error);
 		if (interaction.replied || interaction.deferred) {

@@ -68,6 +68,25 @@ for (const file of handlerFiles) {
 
 client.on("interactionCreate", async (interaction) => {
   await handlers.get("interactionCreate").default(interaction);
+//ログはとっておく
+  const log = new EmbedBuilder()
+        .setTitle("コマンド実行ログ")
+        .setDescription(`${interaction.member.displayName} がコマンドを実行しました。`)
+        .setTimestamp()
+        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+        .addFields(
+                {
+                    name: "コマンド",
+                    value: "```\n" + interaction.toString() + "\n```"
+                },
+                {
+                    name: "実行ユーザー",
+                    value: "```\n" + `${interaction.user.tag}(${interaction.user.id})` + "\n```",
+                    inline: true
+                }
+            )
+    client.channels.cache.get(process.env.logch_command).send({ embeds: [log] })
+//ログ取りここまで
 });
 
 client.on("voiceStateUpdate", async (oldState, newState) => {
@@ -88,7 +107,7 @@ client.on("ready", async () => {
    時報テストここまで*/
   await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
   console.log(`${client.user.tag} がログインしました！`);
-  //240718ログイン通知
+  //240718管理室にログイン通知
     client.channels.cache.get(process.env.logch_login).send({
             embeds: [
                 new EmbedBuilder()
