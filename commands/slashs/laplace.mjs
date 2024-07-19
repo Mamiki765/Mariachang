@@ -1,7 +1,7 @@
 import { SlashCommandBuilder ,  EmbedBuilder} from "discord.js";
 
 export const data = new SlashCommandBuilder()
-  .setName("Laplace")
+  .setName("laplace")
   .setDescription("ラプラスの箱を１１個開けます");
 
 export async function execute(interaction) {
