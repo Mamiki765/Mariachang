@@ -9,7 +9,7 @@ export default async(message) => {
     await message.react('1264010111970574408');
   }
   if (message.content.match(/^(こころ|ココロ|心)…*$/)) {
-    await message.react('1264010111970574408');
+    await message.react('1264756212994674739');
   }
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
   //ニョワミヤ
@@ -123,7 +123,7 @@ export default async(message) => {
   }
 
 //ほったいも
-  if (message.content.match(/^(今何時？|いまなんじ？|今日何日？|きょう何日？|ほったいも)$/)) {
+  if (message.content.match(/^((今|いま)(何時|なんじ)？*|(今日|きょう)(何日|なんにち)？*|ほったいも？*)$/)) {
     const date = new Date();
     const nanjimonth = date.getMonth()+1;
     const masiroyear = date.getFullYear()+28;
