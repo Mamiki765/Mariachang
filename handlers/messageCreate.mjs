@@ -1,16 +1,26 @@
 import { ndnDice } from "../commands/utils/dice.mjs"
-import { EmbedBuilder , Client} from "discord.js";
+import { EmbedBuilder} from "discord.js";
 
 export default async(message) => {
+  //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
   }
   if (message.content.match(/にょわ|ニョワ|ﾆｮﾜ/)) {
     await message.react('1264010111970574408');
   }
+  if (message.content.match(/ミョミョミョワァァーン|ﾐｮﾐｮﾐｮﾜｧｧｰﾝ/)) {
+    await message.react('1264883879794315407');
+  }  else if (message.content.match(/ミョミョミョ|ﾐｮﾐｮﾐｮ/)) {
+    await message.reply({
+      flags: [ 4096 ],//@silentになる
+      content: "ちょっと違うかニャ…"
+      });
+  }
   if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…)/)) {
     await message.react('1264756212994674739');
   }
+  //リアクションここまで
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
   //ニョワミヤ
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
