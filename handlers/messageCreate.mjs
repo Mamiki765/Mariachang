@@ -8,7 +8,7 @@ export default async(message) => {
   if (message.content.match(/にょわ|ニョワ|ﾆｮﾜ/)) {
     await message.react('1264010111970574408');
   }
-  if (message.content.match(/^(こころ|ココロ|心)…*$/)) {
+  if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…)/)) {
     await message.react('1264756212994674739');
   }
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
