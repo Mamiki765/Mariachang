@@ -8,6 +8,9 @@ export default async(message) => {
   if (message.content.match(/にょわ|ニョワ|ﾆｮﾜ/)) {
     await message.react('1264010111970574408');
   }
+  if (message.content.match(/^(こころ|ココロ|心)…*$/)) {
+    await message.react('1264010111970574408');
+  }
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
   //ニョワミヤ
   if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
@@ -20,10 +23,10 @@ export default async(message) => {
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261600905535688746/toruchan14.gif?ex=66938ce7&is=66923b67&hm=4b9b9a46e6c39790321f1c80a35974f5c72cff9d14213f9a4d0c53359606bd64&"
     ];
     //ニョワミヤ画像からランダムで排出（いるかこの機能？）
-   await message.reply({
-    flags: [ 4096 ],//@silentになる
-    content: nyowamiya[Math.floor(Math.random() * nyowamiya.length)]
-  });
+     await message.reply({
+      flags: [ 4096 ],//@silentになる
+      content: nyowamiya[Math.floor(Math.random() * nyowamiya.length)]
+      });
   }
   //トールちゃん
   if (message.content.match(/^(トール＝チャン|トール=チャン|トール＝ちゃん|トール=ちゃん)$/)) {
@@ -46,10 +49,10 @@ export default async(message) => {
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261601572861902920/toruchan05.png?ex=66938d86&is=66923c06&hm=4edf88910d4465e28d3f7106c9f6c7924c738713e6e6c7377c0f4d4d03e2169c&"
       ,"https://media.discordapp.net/attachments/1261485824378142760/1261733236854489179/04e2d3bf0a8ddf8f.png?ex=66940825&is=6692b6a5&hm=8d55f49f74919b64e67000cc88edd9783c4080aa2a54d104192c826a37644567&"
     ];
-   await message.reply({
-    flags: [ 4096 ],//@silentになる
-    content: toruchan[Math.floor(Math.random() * toruchan.length)]
-  });
+     await message.reply({
+      flags: [ 4096 ],//@silentになる
+      content: toruchan[Math.floor(Math.random() * toruchan.length)]
+      });
   }  
   if (message.content.match(/^(ゆづさや)$/)) {
    await message.reply({
@@ -57,7 +60,6 @@ export default async(message) => {
       content: "https://media.discordapp.net/attachments/1025416223724404766/1122185542252105738/megamoji.gif?ex=668cad7a&is=668b5bfa&hm=5c970ab0422c8731d0471ab1d65663b76ae6fd8fb47192481bdbbdadcd792675&"
   });
   }
-  
   if (message.content.match(/^(ゆゔさや|ゆヴさや|ゆずさや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
