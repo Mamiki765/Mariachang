@@ -18,10 +18,16 @@ export default async(message) => {
       });
   }
   if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…)/)) {
-    const toruchan =[1264756212994674739,1265162812758687754
-                     ,1265163072016879636,1265163139637317673
-                     ,1265163377538236476];
-    await message.react(toruchan[Math.floor(Math.random() * toruchan.length)]);
+    if(Math.floor(Math.random() * 100) < 1){ //0-99 1%で大当たり
+      await message.react('1265162645330464898'); await message.react('1265165857445908542');
+      await message.react('1265165940824215583'); await message.react('1265166237399388242');
+      await message.react('1265166293464518666'); await message.react('1265166237399388242');
+    }else{
+      const toruchan =[1264756212994674739,1265162812758687754
+                       ,1265163072016879636,1265163139637317673
+                       ,1265163377538236476];
+      await message.react(toruchan[Math.floor(Math.random() * toruchan.length)]);
+    }
   }
   //リアクションここまで
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
