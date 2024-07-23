@@ -18,7 +18,10 @@ export default async(message) => {
       });
   }
   if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…)/)) {
-    await message.react('1264756212994674739');
+    const toruchan =[1264756212994674739,1265162812758687754
+                     ,1265163072016879636,1265163139637317673
+                     ,1265163377538236476];
+    await message.react(toruchan[Math.floor(Math.random() * toruchan.length)]);
   }
   //リアクションここまで
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
