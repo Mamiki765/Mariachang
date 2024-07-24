@@ -40,7 +40,7 @@ export default async(message) => {
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261488516198568016/image.png?ex=6693243b&is=6691d2bb&hm=1d4a93a936f14e0694d112c707a9079a764108deb1ac9ef704c5ec8dbeb60d33&"
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261489905796907119/IMG_5445.png?ex=66932586&is=6691d406&hm=e70733ef25ef2403ddf2dd9e22b8d081d93b70a3ad96d5e239abd48c6a7131de&"
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261600905535688746/toruchan14.gif?ex=66938ce7&is=66923b67&hm=4b9b9a46e6c39790321f1c80a35974f5c72cff9d14213f9a4d0c53359606bd64&"
-    ];
+　　　　　　];
     //ニョワミヤ画像からランダムで排出（いるかこの機能？）
      await message.reply({
       flags: [ 4096 ],//@silentになる
@@ -48,7 +48,7 @@ export default async(message) => {
       });
   }
   //トールちゃん
-  if (message.content.match(/^(トール＝チャン|トール=チャン|トール＝ちゃん|トール=ちゃん)$/)) {
+  if (message.content.match(/^(トール|とーる|ﾄｰﾙ|姫子|ひめこ|ヒメコ|ﾋﾒｺ)[=＝](ちゃん|チャン|ﾁｬﾝ)$/)) {
     //トールチャン画像集
     const toruchan =[
       "https://cdn.discordapp.com/attachments/1261485824378142760/1261589766349258754/image.png?ex=66938287&is=66923107&hm=4d51f1d59f8ee9ed94415e369f852822ef83c94695446b95c373054241f19512&"
@@ -67,7 +67,9 @@ export default async(message) => {
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261601484068622376/toruchan06.png?ex=66938d71&is=66923bf1&hm=4557921994f9111851e3a51e153bf6fbc9d8ce4188bb1dc84237cdc562d6d84a&"
       ,"https://cdn.discordapp.com/attachments/1261485824378142760/1261601572861902920/toruchan05.png?ex=66938d86&is=66923c06&hm=4edf88910d4465e28d3f7106c9f6c7924c738713e6e6c7377c0f4d4d03e2169c&"
       ,"https://media.discordapp.net/attachments/1261485824378142760/1261733236854489179/04e2d3bf0a8ddf8f.png?ex=66940825&is=6692b6a5&hm=8d55f49f74919b64e67000cc88edd9783c4080aa2a54d104192c826a37644567&"
-    ];
+//姫子だけど
+      ,"https://cdn.discordapp.com/attachments/1261485824378142760/1265501299865288826/image.png?ex=66a1bd6d&is=66a06bed&hm=92eac254bdd01421ab3c84b338578f46c1b3623fffe9fdddc3dbfebd3506a99a&"   
+  　     ];
      await message.reply({
       flags: [ 4096 ],//@silentになる
       content: toruchan[Math.floor(Math.random() * toruchan.length)]
