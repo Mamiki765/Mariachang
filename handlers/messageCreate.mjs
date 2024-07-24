@@ -159,5 +159,12 @@ export default async(message) => {
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
+  //ダイスロール
+  if (message.content.match(/^(ねこど|ひとど)$/)) {
+   let command = "1d100"; 
+   await message.reply({
+     flags: [ 4096 ],//silent
+     content: ndnDice(command)});
+  }
 
 };
