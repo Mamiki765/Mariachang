@@ -166,5 +166,9 @@ export default async(message) => {
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
+  //ニョワスロット
+  if (message.content.match(/^(にょわスロット|ニョワスロット)$/)) {
+    
+  }
 
 };
