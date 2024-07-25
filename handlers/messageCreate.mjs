@@ -169,7 +169,8 @@ export default async(message) => {
   //ニョワスロット
   if (message.content.match(/^(にょわスロット|ニョワスロット)$/)) {
       await message.reply({flags: [ 4096 ],content:"<a:nyowamiyarika_down:1265938514462380144><a:nyowamiyarika_down:1265938514462380144><a:nyowamiyarika_down:1265938514462380144>"});
-    
+      await wait(3000);
+      await message.editreply("しかし　なにもおきなかった！"); 
   }
 
 };
