@@ -17,7 +17,7 @@ export async function execute(interaction) {
   maps[0] = map0.split(/\n/);
   maps[1] = map1.split(/\n/);
   maps[2] = map2.split(/\n/);
-  maps[3] = map2.split(/\n/);
+  maps[3] = map3.split(/\n/);
 //ここまで
   const weight = [15,735,220,30];
   let result = "";
@@ -45,7 +45,7 @@ export async function execute(interaction) {
       .setAuthor({ name: interaction.member.displayName, iconURL: interaction.member.displayAvatarURL()})
       .setTitle(`ひめこガチャ11連の結果にゃ！`)
       .setDescription(result)
-      .setFooter({text: "（ロスアカラプラス仕様）"})
+      .setFooter({text: "アイテム案は随時募集中にゃ！（ロスアカラプラス仕様）"})
   
   await interaction.reply({
     flags: [ 4096 ],//silent
