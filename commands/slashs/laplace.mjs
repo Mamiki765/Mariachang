@@ -7,7 +7,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   // C15　N735 R22０　HQ3０　 1000倍して悪い順に
-  const arr = ["__C__  ", "N  "　, "R  ","### HQ　"];
+  const arr = ["__C__  ", "N  "　, "R  ","### HQ "];
 //240727追加　各レアリティごとのファイルを読み込む
   const map0 = fs.readFileSync("./maps/cursed.txt", 'utf8');
   const map1 = fs.readFileSync("./maps/novice.txt", 'utf8');
