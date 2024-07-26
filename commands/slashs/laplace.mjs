@@ -6,7 +6,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   // C15　N735 R22０　HQ3０　 1000倍して悪い順に
-  const arr = ["__C  デス植木鉢__", "N  チョコミントの葉"　, "R  ドトールくん人形","### HQ　かつおぶしブレード"];
+  const arr = ["__C__  ", "N  "　, "R  ","### HQ　"];
   const weight = [15,735,220,30];
   let result = "";
 //確率を足して
@@ -16,11 +16,11 @@ export async function execute(interaction) {
   }
 //11連する
   for (let j = 1; j < 12; j++) {
-    let random = Math.floor(Math.random() * totalWeight); //レアリティ決定
+    let random = Math.floor(Math.random() * totalWeight); 
     //result += random + "  ";　　//乱数確認用
-    for (let i = 0; i < weight.length; i++) {
-      if (random < weight[i]) {
-        result += arr[i] + "\n";
+    for (let i = 0; i < weight.length; i++) {　
+      if (random < weight[i]) {　　//レアリティ決定
+        result += arr[i] + "\n";　//結果を付け足して次に
         break;
       } else {
         random -= weight[i];
