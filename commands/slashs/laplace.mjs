@@ -5,18 +5,19 @@ export const data = new SlashCommandBuilder()
   .setDescription("ラプラスの箱を１１個開けます");
 
 export async function execute(interaction) {
-  // HQ3０　R22０ N735　C15
-  const arr = ["### HQ　かつおぶしブレード","R  ドトールくん人形"　, "N  チョコミントの葉","__C  デス植木鉢__"];
-  const weight = [30,220,735,15];
+  // C15　N735 R22０　HQ3０　 1000倍して悪い順に
+  const arr = ["__C  デス植木鉢__", "N  チョコミントの葉"　, "R  ドトールくん人形","### HQ　かつおぶしブレード"];
+  const weight = [15,735,220,30];
   let result = "";
-
+//確率を足して
   let totalWeight = 0;
   for (let i = 0; i < weight.length; i++) {
     totalWeight += weight[i];
   }
+//11連する
   for (let j = 1; j < 12; j++) {
-    let random = Math.floor(Math.random() * totalWeight);
-    　　　//result += random + "  ";
+    let random = Math.floor(Math.random() * totalWeight); //レアリティ決定
+    //result += random + "  ";　　//乱数確認用
     for (let i = 0; i < weight.length; i++) {
       if (random < weight[i]) {
         result += arr[i] + "\n";
