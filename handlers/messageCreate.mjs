@@ -32,7 +32,7 @@ export default async(message) => {
   //リアクションここまで
 //ニョワミヤでニョワミヤが出てくる等画像いたずら系
   //ニョワミヤ
-  if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
+  else if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
     //ニョワミヤ画像集
     const nyowamiya =[
       "https://cdn.discordapp.com/attachments/1261485824378142760/1261485856309645433/image.png?ex=669321c1&is=6691d041&hm=d66360bb898b93ca5cfb1d25e88fe7fd973723d7ee9de0a8ccf63a0789cb6892&"
@@ -48,7 +48,7 @@ export default async(message) => {
       });
   }
   //トールちゃん
-  if (message.content.match(/^(トール|とーる|ﾄｰﾙ|姫子|ひめこ|ヒメコ|ﾋﾒｺ)[=＝](ちゃん|チャン|ﾁｬﾝ)$/)) {
+  else if (message.content.match(/^(トール|とーる|ﾄｰﾙ|姫子|ひめこ|ヒメコ|ﾋﾒｺ)[=＝](ちゃん|チャン|ﾁｬﾝ)$/)) {
     //トールチャン画像集
     const toruchan =[
       "https://cdn.discordapp.com/attachments/1261485824378142760/1261589766349258754/image.png?ex=66938287&is=66923107&hm=4d51f1d59f8ee9ed94415e369f852822ef83c94695446b95c373054241f19512&"
@@ -75,19 +75,19 @@ export default async(message) => {
       content: toruchan[Math.floor(Math.random() * toruchan.length)]
       });
   }  
-  if (message.content.match(/^(ゆづさや)$/)) {
+  else if (message.content.match(/^(ゆづさや)$/)) {
    await message.reply({
       flags: [ 4096 ],//@silentになる
       content: "https://media.discordapp.net/attachments/1025416223724404766/1122185542252105738/megamoji.gif?ex=668cad7a&is=668b5bfa&hm=5c970ab0422c8731d0471ab1d65663b76ae6fd8fb47192481bdbbdadcd792675&"
   });
   }
-  if (message.content.match(/^(ゆゔさや|ゆヴさや|ゆずさや)$/)) {
+  else if (message.content.match(/^(ゆゔさや|ゆヴさや|ゆずさや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
       content: "https://media.discordapp.net/attachments/1040261246538223637/1175700688219672587/megamoji_4.gif?ex=668ce817&is=668b9697&hm=e26e24e90dc3bd6606255aaefd4f7ad91118f1d8cc5a6be8f48013b7ca2fa58a&"
   });
   } 
-  if (message.content.match(/^(ゆ○さや|ゆ●さや)$/)) {
+  else if (message.content.match(/^(ゆ○さや|ゆ●さや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
       content: "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&"
@@ -105,32 +105,32 @@ export default async(message) => {
       });
   }
   //PPP
-    if (message.content.match(/^p3[pnxy][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
+    else if (message.content.match(/^p3[pnxy][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
       content: "https://rev1.reversion.jp/character/detail/" + message.content
     });
   }
   //第六
-    if (message.content.match(/^f[0-9][0-9][0-9][0-9][0-9]$/)) {
+    else if (message.content.match(/^f[0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
       content: "https://tw6.jp/character/status/" + message.content});
     }
   //チェンパラ
-    if (message.content.match(/^g[0-9][0-9][0-9][0-9][0-9]$/)) {
+    else if (message.content.match(/^g[0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
       content: "https://tw7.t-walker.jp/character/status/" + message.content});
     }
   //ケルブレ
-    if (message.content.match(/^e[0-9n][0-9][0-9][0-9][0-9]$/)) {
+    else if (message.content.match(/^e[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
       content: "http://tw5.jp/character/status/" + message.content});
     }
   //サイハ
-  　 if (message.content.match(/^d[0-9n][0-9][0-9][0-9][0-9]$/)) {
+  　 else if (message.content.match(/^d[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
       content:"http://tw4.jp/character/status/" + message.content
@@ -144,7 +144,7 @@ export default async(message) => {
   }
 
 //ほったいも
-  if (message.content.match(/^((今|いま)(何時|なんじ)？*|(今日|きょう)(何日|なんにち)？*|ほったいも？*)$/)) {
+  else if (message.content.match(/^((今|いま)(何時|なんじ)？*|(今日|きょう)(何日|なんにち)？*|ほったいも？*)$/)) {
     const date = new Date();
     const nanjimonth = date.getMonth()+1;
     const masiroyear = date.getFullYear()+28;
@@ -153,14 +153,14 @@ export default async(message) => {
   }
 
 //ダイスロール
-  if (message.content.match(/^!\d+d\d+$/)) {
+  else if (message.content.match(/^!\d+d\d+$/)) {
    let command = message.content.slice(1); // 先頭の1文字目から最後までを取得
    await message.reply({
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
   //ダイスロール
-  if (message.content.match(/^(ねこど|ひとど)$/)) {
+  else if (message.content.match(/^(ねこど|ひとど)$/)) {
    let command = "1d100"; 
    await message.reply({
      flags: [ 4096 ],//silent
