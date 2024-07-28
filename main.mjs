@@ -101,7 +101,7 @@ client.on("messageCreate", async (message) => {
 client.on("ready", async () => {
   /*時報テスト
   const timechannel = await client.channels.fetch(process.env.time_signal_channel)
-  await cron.schedule('0 * * * *', () => {
+  await cron.schedule('0 0 * * *', () => {
      timechannel.send(`${new Date().getHours()} 時になりました。`)
    })
    時報テストここまで*/
