@@ -99,12 +99,12 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("ready", async () => {
-  /*時報テスト
+  //時報テスト
   const timechannel = await client.channels.fetch(process.env.time_signal_channel)
-  await cron.schedule('0 * * * *', () => {
+  await cron.schedule('0 8,22 * * *', () => {
      timechannel.send(`${new Date().getHours()} 時になりました。`)
    })
-   時報テストここまで*/
+   //時報テストここまで
   await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
   console.log(`${client.user.tag} がログインしました！`);
   //240718管理室にログイン通知
