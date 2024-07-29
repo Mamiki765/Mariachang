@@ -17,7 +17,7 @@ export default async(message) => {
       content: "ちょっと違うかニャ…"
       });
   }
-  if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…/)) {
+  if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…)/)) {
     if(Math.floor(Math.random() * 100) < 1){ //0-99 1%で大当たり
       await message.react('1265162645330464898'); await message.react('1265165857445908542');
       await message.react('1265165940824215583'); await message.react('1265166237399388242');
