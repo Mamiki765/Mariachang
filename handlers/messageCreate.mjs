@@ -143,8 +143,9 @@ export default async(message) => {
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
     const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
-    message.channel.send(newMessage);
-    await message.delete();
+    message.channel.send({flags: [ 4096 ],//@silent
+      content: newMessage});
+    await message.delete();//元メッセージは消す
     }
  
 //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){   
