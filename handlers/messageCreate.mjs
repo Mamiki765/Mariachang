@@ -137,6 +137,15 @@ export default async(message) => {
     });
     }
 //ステシ変換ここまで
+//Xとかいうカスも変換してやれ
+    else if (message.content.match(/^https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+$/)) {
+    const updatedMessage = message.content
+        .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
+        .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
+    const newMessage = `<@${message.author.id}> (${message.author.id}) : ${updatedMessage}`;
+    message.channel.send(newMessage);
+    await message.delete();
+    }
  
 //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){   
   if (message.content.match(/^(!にゃん|!にゃーん|にゃ～ん|にゃあん)$/)) {
