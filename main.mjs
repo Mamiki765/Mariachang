@@ -102,11 +102,11 @@ client.on("ready", async () => {
   //時報テスト
   const timechannel = await client.channels.fetch(process.env.time_signal_channel)
   await cron.schedule('0 8 * * *', () => {
-      timechannel.send(`朝8時をお知らせしますにゃ。`)
+      timechannel.send(`朝の8時をお知らせしますにゃ。`)
 //    timechannel.send(`${new Date().getHours()} 時になりました。`)
    })
   await cron.schedule('0 22 * * *', () => {
-      timechannel.send(`夜22時をお知らせしますにゃ。`)
+      timechannel.send(`夜の22時をお知らせしますにゃ。`)
    })
    //時報テストここまで
   await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
