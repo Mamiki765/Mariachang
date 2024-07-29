@@ -142,7 +142,7 @@ export default async(message) => {
     const updatedMessage = message.content
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
-    const newMessage = `<@${message.author.id}> (${message.author.id}) : ${updatedMessage}`;
+    const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
     message.channel.send(newMessage);
     await message.delete();
     }
