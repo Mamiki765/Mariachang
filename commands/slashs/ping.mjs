@@ -7,10 +7,11 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction){
   const apiPing = Date.now() - interaction.createdTimestamp
 	await interaction.reply({ 
+    content: `<@${interaction.member.user.id}>`,
     flags: [ 4096 ],
     embeds: [
                     new EmbedBuilder()
-                    .setTitle("<@${message.author.id}>:ping_pong:Pongにゃ!")
+                    .setTitle(":ping_pong:Pongにゃ!")
                     .setDescription("Ping値を表示します。")
                     .addFields(
                         {
@@ -26,4 +27,5 @@ export async function execute(interaction){
                     .setTimestamp()
                 ]
   });
+  //await reply.react('1267692767489036390')
 }
