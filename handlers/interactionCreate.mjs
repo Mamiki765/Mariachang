@@ -1,6 +1,6 @@
 export default async(interaction) => {
-//  左からスラッシュメニュー、コンテキストメニュー（右クリック）、テキスト入力interaction.isModalSubmit
-  if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand() return;
+//  左からスラッシュメニュー、コンテキストメニュー（右クリック）
+  if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
 	const command = interaction.client.commands.get(interaction.commandName);
 
   //console.log(interaction);//debug
