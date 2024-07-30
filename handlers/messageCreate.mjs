@@ -138,11 +138,11 @@ export default async(message) => {
     }
 //ステシ変換ここまで
 //Xとかいうカスも変換してやれ
-    else if (message.content.match(/^https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+(\?.*)?$/)) {
+    else if (message.content.match(/^https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?$/)) {
     const updatedMessage = message.content
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
-    const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
+    const newMessage = `<@${message.author.id}> : ${updatedMessage} [【アプリ】](<${message.content}>)`;
     const twtmessage = await message.channel.send({flags: [ 4096 ],//@silent
       content: newMessage});
     await twtmessage.react('1267692767489036390')
