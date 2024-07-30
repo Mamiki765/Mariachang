@@ -34,6 +34,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMessageReactions,
   ],
 });
 
@@ -99,7 +100,6 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("messageReactionAdd", async (reaction, user) => {
-  console.log(`userid ${user.id} client ${client.user.id} bot ${user.bot}`);
   if (user.id == client.user.id || user.bot) return;
   if(reaction.message.author.id != client.user.id ) return;//今はマリアがリアクションされたかどうかが大事なのでこれも
   await handlers.get("messageReactionAdd").default(reaction, user);
