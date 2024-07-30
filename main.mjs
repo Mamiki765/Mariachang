@@ -98,6 +98,13 @@ client.on("messageCreate", async (message) => {
   await handlers.get("messageCreate").default(message);
 });
 
+client.on("messageReactionAdd", async (reaction, user) => {
+  console.log(`userid ${user.id} client ${client.user.id} bot ${user.bot}`);
+  if (user.id == client.user.id || user.bot) return;
+  if(reaction.message.author.id != client.user.id ) return;//今はマリアがリアクションされたかどうかが大事なのでこれも
+  await handlers.get("messageReactionAdd").default(reaction, user);
+});
+
 client.on("ready", async () => {
   //時報テスト
   const timechannel = await client.channels.fetch(process.env.time_signal_channel)

@@ -10,7 +10,7 @@ export async function execute(interaction){
     flags: [ 4096 ],
     embeds: [
                     new EmbedBuilder()
-                    .setTitle(":ping_pong:Pongにゃ!")
+                    .setTitle("<@${message.author.id}>:ping_pong:Pongにゃ!")
                     .setDescription("Ping値を表示します。")
                     .addFields(
                         {
