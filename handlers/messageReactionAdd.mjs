@@ -1,4 +1,7 @@
 export default async(reaction, user) => {
-  console.log(reaction.emoji.id)
-  if (reaction.emoji.id){}
+  if (reaction.emoji.id = '1267692767489036390'){//削除を押されたら
+    if(reaction.message.content.includes(user.id)){
+      await reaction.message.delete();
+    }
+  }
 };
