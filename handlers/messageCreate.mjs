@@ -143,7 +143,8 @@ export default async(message) => {
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
     const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
-
+    const twtmessage = await message.channel.send({flags: [ 4096 ],//@silent
+      content: newMessage});
     await twtmessage.react('1267692767489036390')
     await message.delete();//元メッセージは消す
     }
