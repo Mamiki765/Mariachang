@@ -109,9 +109,7 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("messageReactionAdd", async (reaction, user) => {
-//  console.log(reaction.message.author.id);
   if (user.id == client.user.id || user.bot) return;
-//  if(reaction.message.author.id != client.user.id ) return;//マリアがリアクションされたか
   await handlers.get("messageReactionAdd").default(reaction, user);
 });
 
