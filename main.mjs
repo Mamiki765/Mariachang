@@ -37,13 +37,15 @@ const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
   ],
 	partials: [
-//		Partials.User,
-//		Partials.Channel,
-//		Partials.GuildMember,
-//		Partials.Message,
-//		Partials.Reaction,
-//		Partials.GuildScheduledEvent,
-//		Partials.ThreadMember,
+/*
+		Partials.User,
+		Partials.Channel,
+		Partials.GuildMember,
+		Partials.Message,
+		Partials.Reaction,
+		Partials.GuildScheduledEvent,
+		Partials.ThreadMember,
+*/
 	],
 });
 
@@ -109,7 +111,6 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("messageReactionAdd", async (reaction, user) => {
-  console.log(`${user.username} reacted with "${reaction.emoji.name}".`);
   if (user.id == client.user.id || user.bot) return;
   if(reaction.message.author.id != client.user.id ) return;//今はマリアがリアクションされたかどうかが大事なのでこれも
   await handlers.get("messageReactionAdd").default(reaction, user);
