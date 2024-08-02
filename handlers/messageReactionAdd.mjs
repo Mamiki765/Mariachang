@@ -33,6 +33,7 @@ export default async(reaction, user) => {
     if(!reaction.count){//キャッシュされてなければ取得
      await reaction.fetch();
       }
+    console.log(parent)
     if(reaction.message.author.bot){return;}
     if(!reaction.message.channel.nsfw){return;}
     const hda = reaction.count
