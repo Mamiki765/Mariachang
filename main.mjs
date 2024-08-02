@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import express from "express";
-import { Client, Collection, Events, GatewayIntentBits, ActivityType,  EmbedBuilder } from "discord.js";
+import { Client, Collection, Events, GatewayIntentBits, ActivityType,  EmbedBuilder , Partials} from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
 import Notification from "./models/notification.mjs";
 
@@ -36,7 +36,15 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.GuildMessageReactions,
   ],
-    partials: ['MESSAGE', 'CHANNEL', 'REACTION']
+	partials: [
+		Partials.User,
+		Partials.Channel,
+//		Partials.GuildMember,
+		Partials.Message,
+		Partials.Reaction,
+//		Partials.GuildScheduledEvent,
+//		Partials.ThreadMember,
+	],
 });
 
 client.commands = new Collection();
