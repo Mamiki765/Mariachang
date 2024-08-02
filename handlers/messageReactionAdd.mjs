@@ -11,7 +11,6 @@ export default async(reaction, user) => {
     }
   }
   //そうだね
-  //240802フォーラムはNSFWを調べられない、さて、どうしようか……
   else if (reaction.emoji.id === '1237471008500224020'){
     if(!reaction.count){//キャッシュされてなければ取得
      await reaction.fetch();
@@ -20,7 +19,7 @@ export default async(reaction, user) => {
     if(reaction.message.author.bot){return;}
     if(reaction.message.reactions.cache.get('1236923430490734672')?.count){return;}
     if(soudane === 7){
-      if(reaction.message.channel.nsfw){
+      if(reaction.message.channel.nsfw || reaction.message.channel.parent.nsfw){
         await reaction.message.reply(`そうだねが7以上に達したため<#1098172139414233108>にコピーされます。`);       
       }else{
         await reaction.message.reply(`そうだねが7以上に達したため<#1098159960942202941>にコピーされます。`);
@@ -33,9 +32,8 @@ export default async(reaction, user) => {
     if(!reaction.count){//キャッシュされてなければ取得
      await reaction.fetch();
       }
-    console.log(parent)
     if(reaction.message.author.bot){return;}
-    if(!reaction.message.channel.nsfw){return;}
+    if(!reaction.message.channel.nsfw && !reaction.message.channel.parent.nsfw){return;}
     const hda = reaction.count
     if(reaction.message.reactions.cache.get('1236923430490734672')?.count){return;}
     if(hda === 7){
