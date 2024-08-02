@@ -11,6 +11,7 @@ export default async(reaction, user) => {
     }
   }
   //そうだね
+  //240802フォーラムはNSFWを調べられない、さて、どうしようか……
   else if (reaction.emoji.id === '1237471008500224020'){
     if(!reaction.count){//キャッシュされてなければ取得
      await reaction.fetch();
