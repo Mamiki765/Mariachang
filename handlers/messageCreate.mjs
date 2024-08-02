@@ -93,6 +93,12 @@ export default async(message) => {
       content: "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&"
   });
   } 
+  else if (message.content.match(/^(結月 沙耶|結月 沙耶)$/)) {
+    await message.reply({
+     flags: [ 4096 ],//@silentになる
+      content: "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&"
+  });
+  } 
 //画像いたずら系ここまで
   
 
