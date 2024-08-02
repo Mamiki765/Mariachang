@@ -14,10 +14,10 @@ export default async(reaction, user) => {
   else if (reaction.emoji.id === '1237471008500224020'){
     let soudane
     if(!reaction.count){//キャッシュされてなければ取得
-      soudane = await reaction.count.fetch();
+      soudane = await reaction.fetch();
     }else {
       soudane = reaction.count
     }
-    console.log(soudane);
+    console.log(reaction.message.channel);
   }
 };
