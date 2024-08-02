@@ -12,20 +12,18 @@ export default async(reaction, user) => {
   }
   //そうだね
   else if (reaction.emoji.id === '1237471008500224020'){
-    let soudane
     if(!reaction.count){//キャッシュされてなければ取得
-      soudane = await reaction.fetch();
-    }else {
-      soudane = reaction.count
-    }
+     await reaction.fetch();
+      }
+    const soudane = reaction.count
+    if(reaction.message.reactions.cache.get('1236923430490734672')?.count){return;}
     if(soudane > 6){
       if(reaction.message.channel.nsfw){
         await reaction.message.reply(`そうだねが7以上に達したため<#1098172139414233108>にコピーされます。`);       
       }else{
         await reaction.message.reply(`そうだねが7以上に達したため<#1098159960942202941>にコピーされます。`);
       }
-      await reaction.message.react('"🥔"');
+      await reaction.message.react('1236923430490734672');
     }
-    console.log(reaction.message.channel.nsfw);
   }
 };
