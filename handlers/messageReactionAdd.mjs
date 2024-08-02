@@ -18,6 +18,14 @@ export default async(reaction, user) => {
     }else {
       soudane = reaction.count
     }
-    console.log(reaction.message.channel);
+    if(soudane > 6){
+      if(reaction.message.channel.nsfw){
+        await reaction.message.reply(`そうだねが7以上に達したため<#1098172139414233108>にコピーされます。`);       
+      }else{
+        await reaction.message.reply(`そうだねが7以上に達したため<#1098159960942202941>にコピーされます。`);
+      }
+      await reaction.message.react('"🥔"');
+    }
+    console.log(reaction.message.channel.nsfw);
   }
 };
