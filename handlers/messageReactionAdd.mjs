@@ -1,6 +1,6 @@
 export default async(reaction, user) => {
-  //削除
-  if (reaction.emoji.id === '1267692767489036390'){//削除を押されたら
+  //削除(古い方と新しい方どちらでも反応)
+  if (reaction.emoji.id === '1267692767489036390' ||reaction.emoji.id ===  '1269022817429753918'){//削除を押されたら
     let message = reaction.message;
     //まずmessage.contentがあるかみる
     if(!message.content){
@@ -27,8 +27,8 @@ export default async(reaction, user) => {
       await reaction.message.react('1236923430490734672');
     }
   }
-　//hda
-    else if (reaction.emoji.id === '1057293963813453914'){
+　//hda(普通のと、2回目の方も)
+    else if (reaction.emoji.id === '1057293963813453914'||reaction.emoji.id === '1233328018437443614'){
     if(!reaction.count){//キャッシュされてなければ取得
      await reaction.fetch();
       }

@@ -151,7 +151,7 @@ export default async(message) => {
     const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
     const twtmessage = await message.channel.send({flags: [ 4096 ],//@silent
       content: newMessage});
-    await twtmessage.react('1267692767489036390')
+    await twtmessage.react('1269022817429753918')
     await message.delete();//元メッセージは消す
     }
  
