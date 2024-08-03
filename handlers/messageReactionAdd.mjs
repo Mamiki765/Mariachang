@@ -6,7 +6,7 @@ export default async(reaction, user) => {
     if(!message.content){
       message = await reaction.message.fetch();//なければ取得
     }
-    if(message.content.includes(user.id)){
+    if(message.mentions.users.has(user.id)) {
       await message.delete();
     }
   }
