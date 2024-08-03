@@ -191,12 +191,13 @@ export default async(message) => {
     if(guildId !== message.guild.id) {return;}
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
-              // Embedを作成
+    if(!fetchedMessage){return;}
+    // Embedを作成
     const embed = new EmbedBuilder()
                 .setTitle('Fetched Message')
                 .setDescription(fetchedMessage.content || 'No content')
                 .setAuthor({
-                    name: fetchedMessage.author.username,
+                    name: fetchedMessage.author.displayName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
                 .setTimestamp(fetchedMessage.createdAt)
