@@ -198,13 +198,14 @@ export default async(message) => {
     await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
     //プライベートスレッドはだめー
-    if (channel.isThread()) {
-        const thread = channel;
-        if (thread.archived || thread.deleted || thread.isPrivate) {
+   // if (channel.isThread()) {
+  //      const thread = channel;
+  //      if (thread.archived || thread.deleted || thread.isPrivate) 
+          if (channel.isPrivate) {
             message.reply('プライベートスレッドや閉じたスレッドへのメッセージは展開できません。');
             return;
                 }
-            }
+   //         }
     //nsfwチャンネルメッセージは通常チャンネルでは展開しません。
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
        message.reply('NSFWチャンネルへのメッセージは展開しません。');
