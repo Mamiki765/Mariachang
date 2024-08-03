@@ -1,5 +1,6 @@
 import { ndnDice } from "../commands/utils/dice.mjs"
 import { EmbedBuilder} from "discord.js";
+    const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
 
 export default async(message) => {
   //リアクション
@@ -184,8 +185,25 @@ export default async(message) => {
      content: ndnDice(command)});
   }
   //ニョワスロット
-  if (message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
-      await message.reply({flags: [ 4096 ],content:"<a:nyowamiyarika_down:1265938514462380144><a:nyowamiyarika_down:1265938514462380144><a:nyowamiyarika_down:1265938514462380144>"});
+  else if (message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
+    const matches = MESSAGE_URL_REGEX.exec(message.content);
+    const [_, guildId, channelId, messageId] = matches;
+    if(guildId !== message.guild.id) {return;}
+    const channel = await message.guild.channels.fetch(channelId);
+    const fetchedMessage = await channel.messages.fetch(messageId);
+              // Embedを作成
+    const embed = new EmbedBuilder()
+                .setTitle('Fetched Message')
+                .setDescription(fetchedMessage.content || 'No content')
+                .setAuthor({
+                    name: fetchedMessage.author.username,
+                    iconURL: fetchedMessage.author.displayAvatarURL(),
+                })
+                .setTimestamp(fetchedMessage.createdAt)
+                .setColor('#0099ff');
+
+            // メッセージを返信
+   await message.channel.send({ embeds: [embed] });
   }
 
 
