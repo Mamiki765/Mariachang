@@ -209,12 +209,20 @@ export default async(message) => {
        message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
        return;
       }
-      　const file = message.attachments.map(attachment => attachment.url)
+      //添付ファイルを並べる
+      　const file = fetchedMessage.attachments.map(attachment => attachment.url)
+       let files = "";
+       if(file){
+      for (let i = 0; i < file.length; i++) {          
+        files += "\n" + file[i];
+        }
+       }
+    const sendmessage = fetchedMessage.content + files;
     // Embedを作成
     const embed = new EmbedBuilder()
                 .setURL(message.content)
                 .setTitle('引用元へ')
-                .setDescription(fetchedMessage.content || 'スタンプや画像のみでメッセージが無いかbotのメッセージです')
+                .setDescription(sendmessage || 'スタンプや画像のみでメッセージが無いかbotのメッセージです')
                 .setAuthor({
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
