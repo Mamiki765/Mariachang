@@ -27,5 +27,6 @@ export async function execute(interaction){
                     .setTimestamp()
                 ]
   });
-  //await reply.react('1267692767489036390')
+  const replyMessage = await interaction.fetchReply()//リプライされたのを確認する必要がある
+  await replyMessage.react('1269022817429753918'); 
 }
