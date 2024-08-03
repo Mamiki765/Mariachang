@@ -198,9 +198,11 @@ export default async(message) => {
     await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
     //プライベートスレッドはだめー
-    if (channel.isThread() && !channel.isPublic()) {
-                message.reply('プライベートスレッドへのメッセージは展開しません。');
-                return;
+    if (channel.isThread()) {
+      if(channel.type === 12){
+       message.reply('プライベートスレッドのメッセージは展開しません。');
+       return;
+      }
             }
     //nsfwチャンネルメッセージは通常チャンネルでは展開しません。
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
@@ -211,7 +213,7 @@ export default async(message) => {
     const embed = new EmbedBuilder()
                 .setURL(message.content)
                 .setTitle('引用元へ')
-                .setDescription(fetchedMessage.content || 'メッセージが無いかbotのメッセージです')
+                .setDescription(fetchedMessage.content || 'スタンプや画像のみでメッセージが無いかbotのメッセージです')
                 .setAuthor({
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
