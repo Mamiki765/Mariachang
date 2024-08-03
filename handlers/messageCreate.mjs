@@ -199,16 +199,17 @@ export default async(message) => {
     if(!fetchedMessage){return;}
     //プライベートスレッドはだめー
     if (channel.isThread()) {
-      if(channel.type === 12){
-       message.reply('プライベートスレッドのメッセージは展開しません。');
+      if(channel.type === 12 && message.channel.id !== channel.id){
+       message.reply({ content : 'プライベートスレッドのメッセージは展開しません。' , ephemeral : true　});
        return;
       }
             }
     //nsfwチャンネルメッセージは通常チャンネルでは展開しません。
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
-       message.reply('NSFWチャンネルへのメッセージは展開しません。');
+       message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
        return;
       }
+      　const file = message.attachments.map(attachment => attachment.url)
     // Embedを作成
     const embed = new EmbedBuilder()
                 .setURL(message.content)
@@ -225,7 +226,7 @@ export default async(message) => {
    await message.channel.send({ embeds: [embed] });
     } catch (error) {
             console.error('Error fetching message:', error);
-            message.reply('メッセージを取得できませんでした。');
+            message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true　});
         }
     }
   }
