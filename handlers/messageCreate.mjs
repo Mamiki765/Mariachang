@@ -1,6 +1,6 @@
 import { ndnDice } from "../commands/utils/dice.mjs"
 import { EmbedBuilder} from "discord.js";
-    const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
+    
 
 export default async(message) => {
   //リアクション
@@ -186,6 +186,7 @@ export default async(message) => {
   }
   //ニョワスロット
   else if (message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
+    const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
     const matches = MESSAGE_URL_REGEX.exec(message.content);
     if (matches) {
     const [_, guildId, channelId, messageId] = matches;
@@ -196,9 +197,15 @@ export default async(message) => {
     await console.log(channel);
     await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
+    //プライベートスレッドはだめー
+      if(channel.isPrivate()){
+       message.reply('プライベートスレッドのメッセージです。');
+       return;
+      }
     //nsfwチャンネルメッセージは通常チャンネルでは展開しません。
-      if(channel.parent.nsfw || channel.nsfw){
+      if((channel.parent.nsfw || channel.nsfw) && (message.channel.parent.nsfw || )) {
        message.reply('NSFWチャンネルへのメッセージは展開しません。');
+       return;
       }
     // Embedを作成
     const embed = new EmbedBuilder()
