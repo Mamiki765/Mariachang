@@ -29,6 +29,14 @@ export async function execute(interaction){
             ephemeral: true
         });
     }
+  if(interaction.memberPermissions.has('ADMINISTRATOR'){
+        return await interaction.reply({
+            flags: [ 4096 ],//silent
+            content: '永遠に寝るつもりにゃ？',
+            ephemeral: true
+        });
+    }
+     
   await interaction.member.timeout(60 * 1000 * nerunonya, "/suyasuyaによるセルフタイムアウト");
 	await interaction.reply({
     flags: [ 4096 ],//silent
