@@ -29,11 +29,10 @@ export async function execute(interaction){
             ephemeral: true
         });
     }
-  if(interaction.memberPermissions.has('ADMINISTRATOR'){
+  if(interaction.memberPermissions.has('ADMINISTRATOR')) {
         return await interaction.reply({
             flags: [ 4096 ],//silent
-            content: '永遠に寝るつもりにゃ？',
-            ephemeral: true
+            content: '依存を治したい気持ちは尊重したいにゃけど管理者権限持ちはタイムアウトできないのにゃ…'
         });
     }
      
