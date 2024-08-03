@@ -189,15 +189,18 @@ export default async(message) => {
     const matches = MESSAGE_URL_REGEX.exec(message.content);
     const [_, guildId, channelId, messageId] = matches;
     if(guildId !== message.guild.id) {return;}
+    try{
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
+    await console.log(channel);
+    await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
     // Embedを作成
     const embed = new EmbedBuilder()
                 .setTitle('Fetched Message')
                 .setDescription(fetchedMessage.content || 'No content')
                 .setAuthor({
-                    name: fetchedMessage.author.displayName,
+                    name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
                 .setTimestamp(fetchedMessage.createdAt)
@@ -205,6 +208,10 @@ export default async(message) => {
 
             // メッセージを返信
    await message.channel.send({ embeds: [embed] });
+    } catch (error) {
+            console.error('Error fetching message:', error);
+            message.reply('メッセージを取得できませんでした。');
+        }
   }
 
 
