@@ -184,7 +184,7 @@ export default async(message) => {
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
-  //ニョワスロット
+  //メッセージから内容チラ見せ
   else if (message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
     const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
     const matches = MESSAGE_URL_REGEX.exec(message.content);
@@ -200,13 +200,13 @@ export default async(message) => {
     //プライベートスレッドはだめー
     if (channel.isThread()) {
       if(channel.type === 12 && message.channel.id !== channel.id){
-       message.reply({ content : 'プライベートスレッドのメッセージは展開しません。' , ephemeral : true　});
+  //     message.reply({ content : 'プライベートスレッドのメッセージは展開しません。' , ephemeral : true　});
        return;
       }
             }
     //nsfwチャンネルメッセージは通常チャンネルでは展開しません。
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
-       message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
+   //    message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
        return;
       }
       //添付ファイルを並べる
