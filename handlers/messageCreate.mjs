@@ -187,6 +187,7 @@ export default async(message) => {
   //ニョワスロット
   else if (message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
     const matches = MESSAGE_URL_REGEX.exec(message.content);
+    if (matches) {
     const [_, guildId, channelId, messageId] = matches;
     if(guildId !== message.guild.id) {return;}
     try{
@@ -195,10 +196,15 @@ export default async(message) => {
     await console.log(channel);
     await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
+    //nsfwチャンネルメッセージは通常チャンネルでは展開しません。
+      if(channel.parent.nsfw || channel.nsfw){
+       message.reply('NSFWチャンネルへのメッセージは展開しません。');
+      }
     // Embedを作成
     const embed = new EmbedBuilder()
-                .setTitle('Fetched Message')
-                .setDescription(fetchedMessage.content || 'No content')
+                .setURL(message.content)
+                .setTitle('引用元へ')
+                .setDescription(fetchedMessage.content || 'メッセージが無いかbotのメッセージです')
                 .setAuthor({
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
@@ -212,6 +218,7 @@ export default async(message) => {
             console.error('Error fetching message:', error);
             message.reply('メッセージを取得できませんでした。');
         }
+    }
   }
 
 
