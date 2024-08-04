@@ -186,7 +186,7 @@ export default async(message) => {
   }
   //メッセージから内容チラ見せ
   else if (message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
-    if (message.channel.type === 'DM') {return;}//dmなら無視
+    if (!message.guild) {return;}//dmなら無視
     const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
     const matches = MESSAGE_URL_REGEX.exec(message.content);
     if (matches) {
