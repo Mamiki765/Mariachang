@@ -206,9 +206,11 @@ export default async(message) => {
               } 
       }
     //nsfwチャンネルメッセージ→全年齢の防止
+      if(channel.parent){//上に何もないのはエントランスだしOK
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
    //    message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
        return;
+        }
       }
   //特定カテゴリの転載防止
       if((channel.parentId === `1128492964939833375`|| channel.parentId === `1075366548329467964`) && message.channel.id !== channel.id){//管理室とクリエイター系
