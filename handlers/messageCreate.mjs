@@ -220,19 +220,18 @@ export default async(message) => {
     const sendmessage = fetchedMessage.content + files;
     // Embedを作成
     const embed = new EmbedBuilder()
-                .setURL(message.content)
-                .setTitle('引用元へ')
+ //              .setURL(message.content)
+ //               .setTitle('引用元へ')
                 .setDescription(sendmessage || 'スタンプや画像のみでメッセージが無いかbotのメッセージです')
                 .setAuthor({
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
-                .setFooter({text: `${message.author.displayName}の引用です。`})
                 .setTimestamp(fetchedMessage.createdAt)
                 .setColor('#0099ff');
 
             // メッセージを返信
-    const newmessage = await message.channel.send({ embeds: [embed] });
+    const newmessage = await message.channel.send({ content:`<@${message.author.id}>:${message.content}`, embeds: [embed],flags: [ 4096 ] });
     await newmessage.react('1269022817429753918')
     await message.delete();//元メッセージは消す
     } catch (error) {
