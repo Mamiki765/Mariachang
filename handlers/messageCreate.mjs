@@ -232,7 +232,8 @@ export default async(message) => {
                 .setColor('#0099ff');
 
             // メッセージを返信
-    await message.channel.send({ embeds: [embed] });
+    const newmessage = await message.channel.send({ embeds: [embed] });
+    await newmessage.react('1269022817429753918')
     await message.delete();//元メッセージは消す
     } catch (error) {
             console.error('Error fetching message:', error);
