@@ -194,8 +194,8 @@ export default async(message) => {
     try{
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
-    await console.log(channel);
-    await console.log(fetchedMessage);
+//    await console.log(channel);
+//    await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
     //プライベートスレッドはだめー
     if (channel.isThread()) {
@@ -212,11 +212,17 @@ export default async(message) => {
       //添付ファイルを並べる
       　const file = fetchedMessage.attachments.map(attachment => attachment.url)
        let files = "";
+       let embedimage = null
+       //ファイル
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
         }
        }
+      //スタンプ
+      if(fetchedMessage.stickers){
+          embedimage = null
+        }
     const sendmessage = fetchedMessage.content + files;
     // Embedを作成
     const embed = new EmbedBuilder()
@@ -227,6 +233,7 @@ export default async(message) => {
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
+                .setImage(embedimage)
                 .setTimestamp(fetchedMessage.createdAt)
                 .setColor('#0099ff');
 
