@@ -217,7 +217,9 @@ export default async(message) => {
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
-        
+        if(file[i].match(/(png|jpg|webm|gif|jpeg|webp|bmp)\?ex=/) && !embedimage){
+          embedimage = file[i];
+        }
         }
        }
       //メッセージを合成
@@ -232,7 +234,7 @@ export default async(message) => {
     const embed = new EmbedBuilder()
  //              .setURL(message.content)
  //               .setTitle('引用元へ')
-                .setDescription(sendmessage || '画像のみでメッセージが無いかbotのメッセージです')
+                .setDescription(sendmessage || 'botのメッセージにゃ。')
                 .setAuthor({
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
