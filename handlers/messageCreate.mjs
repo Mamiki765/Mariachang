@@ -227,11 +227,13 @@ export default async(message) => {
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
+                .setFooter({text: `${message.author.displayName}の引用です。`})
                 .setTimestamp(fetchedMessage.createdAt)
                 .setColor('#0099ff');
 
             // メッセージを返信
-   await message.channel.send({ embeds: [embed] });
+    await message.channel.send({ embeds: [embed] });
+    await message.delete();//元メッセージは消す
     } catch (error) {
             console.error('Error fetching message:', error);
             message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true　});
