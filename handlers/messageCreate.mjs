@@ -195,7 +195,7 @@ export default async(message) => {
     try{
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
-//    await console.log(channel);
+    await console.log(channel);
 //    await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
     //プライベートスレッドはだめー
@@ -203,13 +203,19 @@ export default async(message) => {
       if(channel.type === 12 && message.channel.id !== channel.id){
   //     message.reply({ content : 'プライベートスレッドのメッセージは展開しません。' , ephemeral : true　});
        return;
+              } 
       }
-            }
-    //nsfwチャンネルメッセージは通常チャンネルでは展開しません。
+    //nsfwチャンネルメッセージ→全年齢の防止
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
    //    message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
        return;
       }
+  //特定カテゴリの転載防止
+      if((channel.parentId === `1128492964939833375`|| channel.parentId === `1075366548329467964`) && message.channel.id !== channel.id){//管理室とクリエイター系
+        message.reply({ content : '転載を許可していないカテゴリからの転載を検知しました。', ephemeral : true　}); 
+        return;
+      }
+      
       //添付ファイルを並べる
       　const file = fetchedMessage.attachments.map(attachment => attachment.url)
        let files = "";
