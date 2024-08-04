@@ -212,7 +212,7 @@ export default async(message) => {
       }
   //特定カテゴリの転載防止
       if((channel.parentId === `1128492964939833375`|| channel.parentId === `1075366548329467964`) && message.channel.id !== channel.id){//管理室とクリエイター系
-        message.reply({ content : '転載を許可していないカテゴリからの転載を検知しました。', ephemeral : true　}); 
+ //       message.reply({ content : '転載を許可していないカテゴリからの転載を検知しました。', ephemeral : true　}); 
         return;
       }
       
