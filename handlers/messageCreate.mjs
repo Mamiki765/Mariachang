@@ -217,18 +217,22 @@ export default async(message) => {
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
+        
         }
        }
-      //スタンプ
-      if(fetchedMessage.stickers){
-          embedimage = null
+      //メッセージを合成
+    let sendmessage = fetchedMessage.content + files;
+      //スタンプのときは
+      if(fetchedMessage.stickers && fetchedMessage.stickers.size > 0){
+        // 最初のスタンプを取得
+        const firstSticker = fetchedMessage.stickers.first();
+          sendmessage += "スタンプ：" + firstSticker.name;
         }
-    const sendmessage = fetchedMessage.content + files;
     // Embedを作成
     const embed = new EmbedBuilder()
  //              .setURL(message.content)
  //               .setTitle('引用元へ')
-                .setDescription(sendmessage || 'スタンプや画像のみでメッセージが無いかbotのメッセージです')
+                .setDescription(sendmessage || '画像のみでメッセージが無いかbotのメッセージです')
                 .setAuthor({
                     name: fetchedMessage.author.globalName,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
