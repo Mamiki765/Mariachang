@@ -6,13 +6,13 @@ export const data = new SlashCommandBuilder()
   .addStringOption(option =>
     option
       .setName('ndn')
-      .setDescription('「1d6」形式でダイスロールを指定してね')
+      .setDescription('「1d6」「１ｄ100+10」などの形式でダイスロールを指定してね')
       .setRequired(true)
   );
 
 export async function execute(interaction){
   const input = interaction.options.getString('ndn');
-  if (!input.match(/^\d+d\d+$/)) {
+  if (!input.match(/^(\d+)d(\d+)([+-]\d+)?$/)) {
     await interaction.reply({
       ephemeral: true,
       content:'入力が正しくありません。'
@@ -24,7 +24,14 @@ export async function execute(interaction){
 }
 
 export function ndnDice(ndn){
-  const ndnArr = ndn.split('d');
+//最初に補正値を見る
+  const modifierPattern = /([+-]\d+)$/;
+  const modifierMatch = ndn.match(modifierPattern);
+  const modifier = modifierMatch ? parseInt(modifierMatch[0], 10) : 0;
+  const ndnWithoutModifier = modifierMatch ? ndn.replace(modifierMatch[0], '') : ndn;//補正値を除去
+  const ModifierDisplay = modifier > 0 ? `+${modifier}` : `${modifier}`;
+  
+  const ndnArr = ndnWithoutModifier.split('d');
   const number = ndnArr[0];
   const sides = ndnArr[1];
   
@@ -41,12 +48,12 @@ export function ndnDice(ndn){
     sum += dice;
     result.push(dice);
   }
-  if(number == 1){
-    if(sum < 6 && sides==100){
+  if(number == 1){//1d100であればクリティカル、ファンブルの判定もする
+    if(sum < 6 && sides==100　&& !modifier){
     sum = sum + "**(クリティカル！)**";
     }
-    if(sum > 95&& sides==100)
-      {sum = sum + "**(ファンブル！)**";}
+    if(sum > 95&& sides==100 && !modifier) {
+     sum = sum + "**(ファンブル！)**";}
     return `### ${number}d${sides}\n>> ${sum}`;
   }
   
