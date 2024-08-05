@@ -6,7 +6,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption(option =>
     option
       .setName('ndn')
-      .setDescription('「1d6」「１ｄ100+10」などの形式でダイスロールを指定してね')
+      .setDescription('「1d6」「１d100+10」などの形式でダイスロールを指定してね')
       .setRequired(true)
   );
 
@@ -39,7 +39,7 @@ export function ndnDice(ndn){
   let sum = 0;
   
 //あんまりなダイスは怒るよ
-  if (number > 100　|| number < 1 || sides > 2147483647) {
+  if (number > 100　|| number < 1 || sides > 2147483647 || modifier > 2147483647 || modifier < -2147483647) {
         return 'そんなダイス振らないにゃ';
   }
 
@@ -48,14 +48,20 @@ export function ndnDice(ndn){
     sum += dice;
     result.push(dice);
   }
-  if(number == 1){//1d100であればクリティカル、ファンブルの判定もする
-    if(sum < 6 && sides==100　&& !modifier){
+  if(number === 1 && sides === 100 && modifier === 0){//1d100であればクリティカル、ファンブルの判定もする
+    if(sum < 6){
     sum = sum + "**(クリティカル！)**";
     }
-    if(sum > 95&& sides==100 && !modifier) {
+    if(sum > 95) {
      sum = sum + "**(ファンブル！)**";}
     return `### ${number}d${sides}\n>> ${sum}`;
   }
-  
-	return `### ${number}d${sides}\n>> ${result}\n合計:${sum}`;
+  // 結果の表示
+  if (modifier === 0) {
+    return `### ${number}d${sides}\n>> ${result.join(', ')}\n合計: ${sum}`;
+  } else {
+    const total = sum + modifier;
+    return `### ${number}d${sides}${ModifierDisplay}\n>> ${result.join(', ')}\n合計: ${sum} ${ModifierDisplay} >> ${total}`;
+  }
+
 }

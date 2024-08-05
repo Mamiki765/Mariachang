@@ -171,7 +171,7 @@ export default async(message) => {
   }
 
 //ダイスロール
-  else if (message.content.match(/^!\d+d\d+$/)) {
+  else if (message.content.match(/^!(\d+)d(\d+)([+-]\d+)?$/)) {
    let command = message.content.slice(1); // 先頭の1文字目から最後までを取得
    await message.reply({
      flags: [ 4096 ],//silent
