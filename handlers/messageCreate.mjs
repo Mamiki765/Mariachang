@@ -188,7 +188,7 @@ export default async(message) => {
   if (message.content.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/)) {
     if (!message.guild) {return;}//dmなら無視
         //メッセージのURLを確認する正規表現
-    const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
+    const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
         // 画像URLを抽出する正規表現
     const imageUrlRegex = /https:\/\/[^\s]+?\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?/gi;
     const matches = MESSAGE_URL_REGEX.exec(message.content);
@@ -240,16 +240,16 @@ export default async(message) => {
        }
        */
           // メッセージ内の全ての画像URLを取得
-    const imgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
-    const imageUrls = [...imgmatches].map(match => match[0]);
+        const imgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
+        const imageUrls = [...imgmatches].map(match => match[0]);
           // `images` 配列の末尾に `imageUrls` 配列を追加することでリンクも添付の様に
-          images = [...images, ...imageUrls];
+        images = [...images, ...imageUrls];
       //メッセージを合成
     let sendmessage = fetchedMessage.content + files;
       //スタンプのときは
       if(fetchedMessage.stickers && fetchedMessage.stickers.size > 0){
         // 最初のスタンプを取得
-        const firstSticker = fetchedMessage.stickers.first();
+          const firstSticker = fetchedMessage.stickers.first();
           sendmessage += "スタンプ：" + firstSticker.name;
         }
     // Embedを作成(まずは文章から)
