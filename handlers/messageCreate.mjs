@@ -187,7 +187,10 @@ export default async(message) => {
   //メッセージから内容チラ見せ
   if (message.content.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/)) {
     if (!message.guild) {return;}//dmなら無視
+        //メッセージのURLを確認する正規表現
     const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
+        // 画像URLを抽出する正規表現
+    const imageUrlRegex = /https:\/\/[^\s]+?\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?/gi;
     const matches = MESSAGE_URL_REGEX.exec(message.content);
     if (matches) {
     const [fullMatch, guildId, channelId, messageId] = matches;
@@ -218,11 +221,13 @@ export default async(message) => {
         return;
       }
       
-      //添付ファイルを並べる
+      //添付ファイルを並べ、画像ファイルを取得
       　const file = fetchedMessage.attachments.map(attachment => attachment.url)
        let files = "";
-       //ファイル
-       const images =[];
+       let images =[];
+      //chatgptくんによるとこれでいいらしい
+       images = file.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
+/*
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
@@ -231,6 +236,12 @@ export default async(message) => {
         }
         }
        }
+       */
+          // メッセージ内の全ての画像URLを取得
+    const imgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
+    const imageUrls = [...imgmatches].map(match => match[0]);
+          // `images` 配列の末尾に `imageUrls` 配列を追加することでリンクも添付の様に
+          images = [...images, ...imageUrls];
       //メッセージを合成
     let sendmessage = fetchedMessage.content + files;
       //スタンプのときは
