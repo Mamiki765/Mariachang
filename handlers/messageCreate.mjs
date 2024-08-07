@@ -223,11 +223,13 @@ export default async(message) => {
       
       //添付ファイルを並べ、画像ファイルを取得
       　const file = fetchedMessage.attachments.map(attachment => attachment.url)
-       let files = "";
+  
        let images =[];
       //chatgptくんによるとこれでいいらしい
        images = file.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
+       const files = images.length > 0 ? images.join('\n') : '';
 /*
+       let files = "";
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
