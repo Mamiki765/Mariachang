@@ -195,7 +195,7 @@ export default async(message) => {
     try{
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
-    await console.log(channel);
+//    await console.log(channel);
 //    await console.log(fetchedMessage);
     if(!fetchedMessage){return;}
     //プライベートスレッドはだめー
@@ -251,13 +251,13 @@ export default async(message) => {
                     name: `${fetchedMessage.author.globalName} ${channel.guild.name} ${channel.name}`,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
-                .setImage(embedimage)
+                .setImage(images[0])
                 .setTimestamp(fetchedMessage.createdAt)
                 .setColor('#0099ff');
     embeds.push(embed);
     //次に画像
-      if(images.length){
-      for (let i = 0; i < images.length; i++) {
+      if(images.length > 1){
+      for (let i = 1; i < images.length; i++) {
         const imageembed = new EmbedBuilder()
         .setImage(images[i])
         .setURL(fullMatch)
