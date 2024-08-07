@@ -1,7 +1,7 @@
 export default async(interaction) => {
   if (interaction.isButton()){//ボタンだった場合
        if (interaction.customId == "delete") {//コマンドについてくるボタンが削除ボタンだった場合
-         if(interaction.message.mentions.users.has(interaction.member.user.id)) {
+         if(interaction.message.mentions.users.has(interaction.member.user.id) || interaction.message.mentions.members.size === 0) {//ボタンを押した人がメンションをした人or誰にもメンションがついてないなら
            interaction.message.delete()//メッセージ削除
            }
          }
