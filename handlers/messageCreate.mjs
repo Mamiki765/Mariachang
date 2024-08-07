@@ -185,13 +185,13 @@ export default async(message) => {
      content: ndnDice(command)});
   }
   //メッセージから内容チラ見せ
-  else if (message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
+  else if (message.content.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/)) {
     if (!message.guild) {return;}//dmなら無視
     const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
     const matches = MESSAGE_URL_REGEX.exec(message.content);
     if (matches) {
-    const [_, guildId, channelId, messageId] = matches;
-    if(guildId !== message.guild.id) {return;}
+    const [fullMatch, guildId, channelId, messageId] = matches;
+    if(guildId !== message.guild.id) {return;}//現在のギルドと異なるURLは無視
     try{
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
@@ -206,12 +206,12 @@ export default async(message) => {
               } 
       }
     //nsfwチャンネルメッセージ→全年齢の防止
-      if(channel.parent){//上に何もないのはエントランスだしOK
+  //    if(channel.parent){//カテゴリが存在しないチャンネルが有るときは下の}含めてコメントを外す
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
    //    message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
        return;
         }
-      }
+ //     }
   //特定カテゴリの転載防止
       if((channel.parentId === `1128492964939833375`|| channel.parentId === `1075366548329467964`) && message.channel.id !== channel.id){//管理室とクリエイター系
  //       message.reply({ content : '転載を許可していないカテゴリからの転載を検知しました。', ephemeral : true　}); 
@@ -232,7 +232,8 @@ export default async(message) => {
         }
        }
       //メッセージを合成
-    let sendmessage = fetchedMessage.content + files;
+      let sendmessage = fullMatch + files;//下は全文コピーになっちゃう　こっちはURLだけ。どっちがいいかなあ
+    //let sendmessage = fetchedMessage.content + files;
       //スタンプのときは
       if(fetchedMessage.stickers && fetchedMessage.stickers.size > 0){
         // 最初のスタンプを取得
@@ -255,7 +256,9 @@ export default async(message) => {
             // メッセージを返信
     const newmessage = await message.channel.send({ content:`<@${message.author.id}>:${message.content}`, embeds: [embed],flags: [ 4096 ] });
     await newmessage.react('1269022817429753918')
-    if(message.mentions.members.size === 0){ await message.delete();}//元メッセージは消す
+    if(message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)){
+      await message.delete();//元メッセージは消す
+        }
     } catch (error) {
             console.error('Error fetching message:', error);
             message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true　});
