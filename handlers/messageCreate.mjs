@@ -200,24 +200,21 @@ export default async(message) => {
     const fetchedMessage = await channel.messages.fetch(messageId);
 //    await console.log(channel);
 //    await console.log(fetchedMessage);
-    if(!fetchedMessage){return;}
-    //プライベートスレッドはだめー
+    if(!fetchedMessage){return;}//無を取得したらエラーになるはずだが念の為
+    //以下、プレビューを表示しない様にする処理、ただし同じチャンネル内であれば通す
+    //プライベートスレッドの転載防止
     if (channel.isThread()) {
       if(channel.type === 12 && message.channel.id !== channel.id){
-  //     message.reply({ content : 'プライベートスレッドのメッセージは展開しません。' , ephemeral : true　});
        return;
               } 
       }
     //nsfwチャンネルメッセージ→全年齢の防止
-  //    if(channel.parent){//カテゴリが存在しないチャンネルが有るときは下の}含めてコメントを外す
+ //カテゴリ無し（parentが存在しない）のチャンネルがあるときはchannel.parent.nsfwを調べるとエラーになるので注意（channel.parentがなければココ自体をifでスキップしてしまえばいい）
       if((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) {
-   //    message.reply({ content : 'NSFWチャンネルへのメッセージは展開しません。', ephemeral : true　});
        return;
         }
- //     }
   //特定カテゴリの転載防止
       if((channel.parentId === `1128492964939833375`|| channel.parentId === `1075366548329467964`) && message.channel.id !== channel.id){//管理室とクリエイター系
- //       message.reply({ content : '転載を許可していないカテゴリからの転載を検知しました。', ephemeral : true　}); 
         return;
       }
       
