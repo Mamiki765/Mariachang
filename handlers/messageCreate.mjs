@@ -232,8 +232,7 @@ export default async(message) => {
         }
        }
       //メッセージを合成
-      let sendmessage = fullMatch + files;//下は全文コピーになっちゃう　こっちはURLだけ。どっちがいいかなあ
-    //let sendmessage = fetchedMessage.content + files;
+    let sendmessage = fetchedMessage.content + files;
       //スタンプのときは
       if(fetchedMessage.stickers && fetchedMessage.stickers.size > 0){
         // 最初のスタンプを取得
@@ -254,7 +253,7 @@ export default async(message) => {
                 .setColor('#0099ff');
 
             // メッセージを返信
-    const newmessage = await message.channel.send({ content:`<@${message.author.id}>:${message.content}`, embeds: [embed],flags: [ 4096 ] });
+    const newmessage = await message.channel.send({ content:`<@${message.author.id}>:${fullMatch}`, embeds: [embed],flags: [ 4096 ] });//message.contentなら全文　fullMatchはURL部分だけ
     await newmessage.react('1269022817429753918')
     if(message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)){
       await message.delete();//元メッセージは消す
