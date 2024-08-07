@@ -87,7 +87,7 @@ client.on("interactionCreate", async (interaction) => {
         .addFields(
                 {
                     name: "コマンド",
-                    value: "```\n" + interaction.toString() + "\n```"
+                    value: "```\n" + interaction.toString() + " (" + interaction.commandName +")\n```"
                 },
                 {
                     name: "実行ユーザー",
