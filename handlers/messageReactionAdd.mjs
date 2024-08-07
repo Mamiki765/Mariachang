@@ -16,7 +16,7 @@ export default async(reaction, user) => {
      await reaction.fetch();
       }
     const soudane = reaction.count
-    if(reaction.message.author.bot){return;}
+//    if(reaction.message.author.bot){return;}
     if(reaction.message.reactions.cache.get('1236923430490734672')?.count){return;}
     if(soudane === 7){
       if(reaction.message.channel.nsfw || reaction.message.channel.parent.nsfw){
@@ -32,7 +32,7 @@ export default async(reaction, user) => {
     if(!reaction.count){//キャッシュされてなければ取得
      await reaction.fetch();
       }
-    if(reaction.message.author.bot){return;}
+ //   if(reaction.message.author.bot){return;}
     if(!reaction.message.channel.nsfw && !reaction.message.channel.parent.nsfw){return;}
     const hda = reaction.count
     if(reaction.message.reactions.cache.get('1236923430490734672')?.count){return;}
