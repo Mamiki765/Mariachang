@@ -1,5 +1,5 @@
 export default async(reaction, user) => {
-  //削除(古い方と新しい方どちらでも反応)
+  //削除リアクション（旧式)
   if (reaction.emoji.id === '1267692767489036390' ||reaction.emoji.id ===  '1269022817429753918'){//削除を押されたら
     let message = reaction.message;
     //まずmessage.contentがあるかみる

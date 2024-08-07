@@ -1,9 +1,11 @@
 export default async(interaction) => {
   if (interaction.isButton()){//ボタンだった場合
        if (interaction.customId == "delete") {//コマンドについてくるボタンが削除ボタンだった場合
+         if(interaction.message.mentions.users.has(interaction.member.user.id)) {
            interaction.message.delete()//メッセージ削除
+           }
+         }
        }
-    }
 //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
   if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
 	const command = interaction.client.commands.get(interaction.commandName);

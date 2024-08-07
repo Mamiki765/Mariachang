@@ -152,8 +152,18 @@ export default async(message) => {
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
     const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
     const twtmessage = await message.channel.send({flags: [ 4096 ],//@silent
-      content: newMessage});
-    await twtmessage.react('1269022817429753918')
+      content: newMessage,
+      components: [//コマンド削除ボタン
+         new ActionRowBuilder()
+         .addComponents(
+            new ButtonBuilder()
+             .setLabel("🗑️削除")
+             .setStyle(ButtonStyle.Danger)
+             .setCustomId("delete")
+                    )
+                ]
+                                                  });
+ //   await twtmessage.react('1269022817429753918')
     await message.delete();//元メッセージは消す
     }
  
@@ -263,10 +273,17 @@ export default async(message) => {
         embeds.push(imageembed);
       }
   }
+  //削除ボタン
+    const deletebutton = new ActionRowBuilder()
+         .addComponents(
+            new ButtonBuilder()
+             .setLabel("🗑️削除")
+             .setStyle(ButtonStyle.Danger)
+             .setCustomId("delete")
+                    )
 
             // メッセージを返信
-    const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: embeds,flags: [ 4096 ] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
-    await newmessage.react('1269022817429753918')
+    const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: embeds,flags: [ 4096 ],  components: [deletebutton] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
     if(message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)){
       await message.delete();//元メッセージは消す
         }
