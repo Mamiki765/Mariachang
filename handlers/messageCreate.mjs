@@ -3,6 +3,14 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "disc
     
 
 export default async(message) => {
+  //削除ボタン（なにかとつかう）
+    const deletebutton = new ActionRowBuilder()
+         .addComponents(
+            new ButtonBuilder()
+             .setLabel("🗑️削除")
+             .setStyle(ButtonStyle.Danger)
+             .setCustomId("delete")
+                    )
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
@@ -109,40 +117,48 @@ export default async(message) => {
     if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content : "https://rev2.reversion.jp/character/detail/" + message.content         
+      content : "https://rev2.reversion.jp/character/detail/" + message.content
       });
   }
   //PPP
     else if (message.content.match(/^p3[pnxy][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "https://rev1.reversion.jp/character/detail/" + message.content
+      content: "https://rev1.reversion.jp/character/detail/" + message.content,
+      components: [deletebutton]
     });
   }
   //第六
     else if (message.content.match(/^f[0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "https://tw6.jp/character/status/" + message.content});
+      content: "https://tw6.jp/character/status/" + message.content,
+      components: [deletebutton]
+      });
     }
   //チェンパラ
     else if (message.content.match(/^g[0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "https://tw7.t-walker.jp/character/status/" + message.content});
+      content: "https://tw7.t-walker.jp/character/status/" + message.content,
+      components: [deletebutton]
+      });
     }
   //ケルブレ
     else if (message.content.match(/^e[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "http://tw5.jp/character/status/" + message.content});
+      content: "http://tw5.jp/character/status/" + message.content,
+      components: [deletebutton]
+      });
     }
   //サイハ
   　 else if (message.content.match(/^d[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content:"http://tw4.jp/character/status/" + message.content
-    });
+      content:"http://tw4.jp/character/status/" + message.content,
+      components: [deletebutton]
+      });
     }
 //ステシ変換ここまで
 //Xとかいうカスも変換してやれ
@@ -153,17 +169,8 @@ export default async(message) => {
     const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
     const twtmessage = await message.channel.send({flags: [ 4096 ],//@silent
       content: newMessage,
-      components: [//コマンド削除ボタン
-         new ActionRowBuilder()
-         .addComponents(
-            new ButtonBuilder()
-             .setLabel("🗑️削除")
-             .setStyle(ButtonStyle.Danger)
-             .setCustomId("delete")
-                    )
-                ]
+      components: [deletebutton]
                                                   });
- //   await twtmessage.react('1269022817429753918')
     await message.delete();//元メッセージは消す
     }
  
@@ -273,14 +280,6 @@ export default async(message) => {
         embeds.push(imageembed);
       }
   }
-  //削除ボタン
-    const deletebutton = new ActionRowBuilder()
-         .addComponents(
-            new ButtonBuilder()
-             .setLabel("🗑️削除")
-             .setStyle(ButtonStyle.Danger)
-             .setCustomId("delete")
-                    )
 
             // メッセージを返信
     const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: embeds,flags: [ 4096 ],  components: [deletebutton] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
