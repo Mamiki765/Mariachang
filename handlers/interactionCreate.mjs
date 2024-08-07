@@ -1,5 +1,10 @@
 export default async(interaction) => {
-//  左からスラッシュメニュー、コンテキストメニュー（右クリック）
+  if (interaction.isButton()){//ボタンだった場合
+       if (interaction.customId == "delete") {//コマンドについてくるボタンが削除ボタンだった場合
+           interaction.message.delete()//メッセージ削除
+       }
+    }
+//  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
   if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
 	const command = interaction.client.commands.get(interaction.commandName);
 

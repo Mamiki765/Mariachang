@@ -1,4 +1,4 @@
-import { SlashCommandBuilder,  EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder,  EmbedBuilder , ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ping')
@@ -7,7 +7,6 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction){
   const apiPing = Date.now() - interaction.createdTimestamp
 	await interaction.reply({ 
-  //  content: `<@${interaction.member.user.id}>`,
     flags: [ 4096 ],
     embeds: [
                     new EmbedBuilder()
@@ -25,8 +24,15 @@ export async function execute(interaction){
                     )
                     .setColor("#2f3136")
                     .setTimestamp()
+                ],
+                components: [//コマンド削除ボタン
+                    new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                        .setLabel("🗑️削除")
+                        .setStyle(ButtonStyle.Danger)
+                        .setCustomId("delete")
+                    )
                 ]
   });
-//  const replyMessage = await interaction.fetchReply()//リプライされたのを確認する必要がある
-//  await replyMessage.react('1269022817429753918'); 
 }
