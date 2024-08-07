@@ -88,18 +88,19 @@ export default async(message) => {
       content: "https://media.discordapp.net/attachments/1040261246538223637/1175700688219672587/megamoji_4.gif?ex=668ce817&is=668b9697&hm=e26e24e90dc3bd6606255aaefd4f7ad91118f1d8cc5a6be8f48013b7ca2fa58a&"
   });
   } 
-  else if (message.content.match(/^(ゆ○さや|ゆ●さや)$/)) {
-    await message.reply({
-     flags: [ 4096 ],//@silentになる
-      content: "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&"
-  });
-  } 
   else if (message.content.match(/^(結月 沙耶|結月沙耶|ゆづきさや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
       content: "https://rev1.reversion.jp/character/detail/p3p009126"
   });
   } 
+  else if (message.content.match(/^(ゆ.さや)$/)) {
+    await message.reply({
+     flags: [ 4096 ],//@silentになる
+      content: "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&"
+  });
+  } 
+
 //画像いたずら系ここまで
   
 
