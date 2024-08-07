@@ -24,7 +24,7 @@ export async function execute(interaction) {
         }
       }
     }
-    
+    const embeds =[];
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
       .setAuthor({ name: message.author.globalName, iconURL: message.author.displayAvatarURL()})
@@ -34,25 +34,27 @@ export async function execute(interaction) {
       .setFooter({text: "「DMにメッセージをコピー」により"})
       .setImage(images[0])
       .setTimestamp(message.createdTimestamp)
-//コピーを送信
-    await interaction.member.send({
-      flags: [ 4096 ],//silent
-      embeds: [embed]
-    });
-//画像を追加（吐きそう…）
+    
+     embeds.push(embed);
+
+//添付ファイルの画像を追加
   if(images.length > 1){
       for (let i = 1; i < images.length; i++) {
         const embed = new EmbedBuilder()
         .setColor(0xB78CFE)
         .setImage(images[i])
-        .setURL(message.url)
         
-        await interaction.member.send({
-        flags: [ 4096 ],//silent
-        embeds: [embed]
-    });
+      embeds.push(embed);
       }
   }
+//メッセージ内の画像URLも取得
+    const imgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
+    const imageUrls = [...imgmatches].map(match => match[0]);
+  //コピーを送信
+    await interaction.member.send({
+      flags: [ 4096 ],//silent
+      embeds: embeds
+    });
 
   //完了報告
   await interaction.reply({
