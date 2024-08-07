@@ -24,6 +24,12 @@ export async function execute(interaction) {
         }
       }
     }
+  //メッセージ内の画像URLも取得し添付ファイルに
+    const imageUrlRegex = /https:\/\/[^\s]+?\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?/gi;
+    const imgmatches = message.content.matchAll(imageUrlRegex);
+    const imageUrls = [...imgmatches].map(match => match[0]);
+    images = [...images, ...imageUrls];
+  //コピーを作成
     const embeds =[];
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
@@ -36,6 +42,7 @@ export async function execute(interaction) {
       .setTimestamp(message.createdTimestamp)
     
      embeds.push(embed);
+  
 
 //添付ファイルの画像を追加
   if(images.length > 1){
@@ -47,9 +54,7 @@ export async function execute(interaction) {
       embeds.push(embed);
       }
   }
-//メッセージ内の画像URLも取得
-    const imgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
-    const imageUrls = [...imgmatches].map(match => match[0]);
+
   //コピーを送信
     await interaction.member.send({
       flags: [ 4096 ],//silent
