@@ -37,11 +37,13 @@ export async function execute(interaction){
         });
     }
     */
-     
-  await interaction.member.timeout(60 * 1000 * nerunonya, "/suyasuyaによるセルフタイムアウト");
-	await interaction.reply({
-    flags: [ 4096 ],//silent
-    content: interaction.member.displayName + "を" + nerunonya + '分間封殺するにゃ、精々作業なり睡眠なりするにゃ！（セルフタイムアウトされました）'
-  });
-
+  try{     
+    await interaction.member.timeout(60 * 1000 * nerunonya, "/suyasuyaによるセルフタイムアウト");
+	  await interaction.reply({
+      flags: [ 4096 ],//silent
+      content: interaction.member.displayName + "を" + nerunonya + '分間封殺するにゃ、精々作業なり睡眠なりするにゃ！（セルフタイムアウトされました）'
+    });
+  } catch(error){
+    interaction.reply({flags: [ 4096 ],　content: `エラーが発生しましたにゃ。まさかと思うけど管理人のイタズラじゃあないよにゃ？`});
+  }
 }

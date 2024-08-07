@@ -19,10 +19,14 @@ export async function execute(interaction) {
             flags: [ 4096 ],
             content: '**[メッセージ]( ' + message.url + ' )**のピン留めを解除しました。'});
     		} else {
-    			await message.pin();
-    			interaction.reply({
-            flags: [ 4096 ],
-            content: '**[メッセージ]( ' + message.url + ' )**のピン留めをしました。'});
+          try{
+    			  await message.pin();
+    			  interaction.reply({
+              flags: [ 4096 ],
+              content: '**[メッセージ]( ' + message.url + ' )**のピン留めをしました。'});
+          } catch (error) {
+            interaction.reply({content: `ピン留めができませんでした。上限に到達してる可能性があります。`,  ephemeral : true　});
+        }
     		};
  	};
  
