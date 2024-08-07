@@ -228,24 +228,14 @@ export default async(message) => {
       //chatgptくんによるとこれでいいらしい
        images = file.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
        const files = images.length > 0 ? images.join('\n') : '';
-/*
-       let files = "";
-       if(file){
-      for (let i = 0; i < file.length; i++) {          
-        files += "\n" + file[i];
-        if(file[i].match(/(png|jpg|gif|jpeg|webp)\?ex=/)){
-            images.push(file[i]);
-        }
-        }
-       }
-       */
+
           // メッセージ内の全ての画像URLを取得
         const imgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
         const imageUrls = [...imgmatches].map(match => match[0]);
           // `images` 配列の末尾に `imageUrls` 配列を追加することでリンクも添付の様に
         images = [...images, ...imageUrls];
-      //メッセージを合成
-    let sendmessage = fetchedMessage.content + files;
+      //メッセージを合成（ファイルがあれば改行も忘れずに）
+    let sendmessage = files ? fetchedMessage.content + `\n` + files : fetchedMessage.content;
       //スタンプのときは
       if(fetchedMessage.stickers && fetchedMessage.stickers.size > 0){
         // 最初のスタンプを取得
