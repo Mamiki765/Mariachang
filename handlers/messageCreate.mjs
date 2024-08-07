@@ -226,7 +226,7 @@ export default async(message) => {
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
-        if(file[i].match(/(png|jpg|gif|jpeg|webp|apng|mp4|webm|mov)\?ex=/)){
+        if(file[i].match(/(png|jpg|gif|jpeg|webp)\?ex=/)){
             images.push(file[i]);
         }
         }

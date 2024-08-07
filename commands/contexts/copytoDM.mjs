@@ -17,7 +17,7 @@ export async function execute(interaction) {
     //そして添付ファイルごとに改行
     if(file){
     for (let i = 0; i < file.length; i++) {
-      if(file[i].match(/(png|jpg|gif|jpeg|webp|apng|mp4|webm|mov)\?ex=/)){//画像ならimages配列に
+      if(file[i].match(/(png|jpg|gif|jpeg|webp)\?ex=/)){//画像ならimages配列に
         images.push(file[i]);
         }else{
           otherfile += "\n" + file[i];
@@ -32,6 +32,7 @@ export async function execute(interaction) {
       .setTitle("メッセージへ")
       .setDescription(message.cleanContent + otherfile)
       .setFooter({text: "「DMにメッセージをコピー」により"})
+      .setImage(images[0])
       .setTimestamp(message.createdTimestamp)
 //コピーを送信
     await interaction.member.send({
@@ -39,8 +40,8 @@ export async function execute(interaction) {
       embeds: [embed]
     });
 //画像を追加（吐きそう…）
-  if(images.length){
-      for (let i = 0; i < images.length; i++) {
+  if(images.length > 1){
+      for (let i = 1; i < images.length; i++) {
         const embed = new EmbedBuilder()
         .setColor(0xB78CFE)
         .setImage(images[i])
