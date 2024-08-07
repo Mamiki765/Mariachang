@@ -2,7 +2,7 @@ import { ndnDice } from "../commands/utils/dice.mjs"
 import { EmbedBuilder} from "discord.js";
     
 
-export default async(message) => {
+export default async(message, client) => {
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
@@ -194,9 +194,10 @@ export default async(message) => {
     const matches = MESSAGE_URL_REGEX.exec(message.content);
     if (matches) {
     const [fullMatch, guildId, channelId, messageId] = matches;
-    if(guildId !== message.guild.id) {return;}//現在のギルドと異なるURLは無視
+  //  if(guildId !== message.guild.id) {return;}//現在のギルドと異なるURLは無視
     try{
-    const channel = await message.guild.channels.fetch(channelId);
+    const guild = await client.guilds.fetch(guildId);
+    const channel = await client.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
 //    await console.log(channel);
 //    await console.log(fetchedMessage);
