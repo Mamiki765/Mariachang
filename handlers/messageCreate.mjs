@@ -7,7 +7,8 @@ export default async(message) => {
     const deletebutton = new ActionRowBuilder()
          .addComponents(
             new ButtonBuilder()
-             .setLabel("🗑️削除")
+             .setEmoji('🗑️')
+             .setLabel("削除")
              .setStyle(ButtonStyle.Danger)
              .setCustomId("delete")
                     )
@@ -124,40 +125,35 @@ export default async(message) => {
     else if (message.content.match(/^p3[pnxy][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "https://rev1.reversion.jp/character/detail/" + message.content,
-      components: [deletebutton]
+      content: "https://rev1.reversion.jp/character/detail/" + message.content
     });
   }
   //第六
     else if (message.content.match(/^f[0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "https://tw6.jp/character/status/" + message.content,
-      components: [deletebutton]
+      content: "https://tw6.jp/character/status/" + message.content
       });
     }
   //チェンパラ
     else if (message.content.match(/^g[0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "https://tw7.t-walker.jp/character/status/" + message.content,
-      components: [deletebutton]
+      content: "https://tw7.t-walker.jp/character/status/" + message.content
       });
     }
   //ケルブレ
     else if (message.content.match(/^e[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content: "http://tw5.jp/character/status/" + message.content,
-      components: [deletebutton]
+      content: "http://tw5.jp/character/status/" + message.content
       });
     }
   //サイハ
   　 else if (message.content.match(/^d[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
-      content:"http://tw4.jp/character/status/" + message.content,
-      components: [deletebutton]
+      content:"http://tw4.jp/character/status/" + message.content
       });
     }
 //ステシ変換ここまで
