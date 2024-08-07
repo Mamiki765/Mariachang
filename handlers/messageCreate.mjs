@@ -185,7 +185,7 @@ export default async(message) => {
      content: ndnDice(command)});
   }
   //メッセージから内容チラ見せ
-  else if (message.content.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/)) {
+  if (message.content.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/)) {
     if (!message.guild) {return;}//dmなら無視
     const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/g;
     const matches = MESSAGE_URL_REGEX.exec(message.content);
@@ -241,11 +241,11 @@ export default async(message) => {
         }
     // Embedを作成
     const embed = new EmbedBuilder()
- //              .setURL(message.content)
- //               .setTitle('引用元へ')
+               .setURL(message.content)
+                .setTitle('引用元へ')
                 .setDescription(sendmessage || 'botのメッセージにゃ。')
                 .setAuthor({
-                    name: fetchedMessage.author.globalName,
+                    name: `${fetchedMessage.author.globalName} ${channel.guild.name} ${channel.name}`,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
                 .setImage(embedimage)
@@ -253,7 +253,7 @@ export default async(message) => {
                 .setColor('#0099ff');
 
             // メッセージを返信
-    const newmessage = await message.channel.send({ content:`<@${message.author.id}>:${fullMatch}`, embeds: [embed],flags: [ 4096 ] });//message.contentなら全文　fullMatchはURL部分だけ
+    const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: [embed],flags: [ 4096 ] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
     await newmessage.react('1269022817429753918')
     if(message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)){
       await message.delete();//元メッセージは消す
