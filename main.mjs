@@ -118,7 +118,6 @@ client.on("ready", async () => {
   const timechannel = await client.channels.fetch(process.env.time_signal_channel)
   await cron.schedule('0 8 * * *', () => {
       timechannel.send(`朝の8時をお知らせしますにゃ。`)
-//    timechannel.send(`${new Date().getHours()} 時になりました。`)
    })
   await cron.schedule('0 22 * * *', () => {
       timechannel.send(`夜の22時をお知らせしますにゃ。`)

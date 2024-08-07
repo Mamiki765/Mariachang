@@ -244,7 +244,7 @@ export default async(message) => {
     const embed = new EmbedBuilder()
                 .setURL(fullMatch)
                 .setTitle('引用元へ')
-                .setDescription(sendmessage || 'botのメッセージにゃ。')
+                .setDescription(sendmessage || '(botのメッセージです)')
                 .setAuthor({
                     name: `${fetchedMessage.author.displayName} ${channel.guild.name} ${channel.name}`,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
