@@ -223,11 +223,13 @@ export default async(message) => {
        let files = "";
        let embedimage = null
        //ファイル
+       const images =[];
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
         if(file[i].match(/(png|jpg|webm|gif|jpeg|webp|bmp)\?ex=/) && !embedimage){
-          embedimage = file[i];
+            images.push(file[i]);
+//          embedimage = file[i];
         }
         }
        }
@@ -239,9 +241,10 @@ export default async(message) => {
         const firstSticker = fetchedMessage.stickers.first();
           sendmessage += "スタンプ：" + firstSticker.name;
         }
-    // Embedを作成
+    // Embedを作成(まずは文章から)
+    const embeds =[];
     const embed = new EmbedBuilder()
-               .setURL(message.content)
+                .setURL(fullMatch)
                 .setTitle('引用元へ')
                 .setDescription(sendmessage || 'botのメッセージにゃ。')
                 .setAuthor({
@@ -251,9 +254,19 @@ export default async(message) => {
                 .setImage(embedimage)
                 .setTimestamp(fetchedMessage.createdAt)
                 .setColor('#0099ff');
+    embeds.push(embed);
+    //次に画像
+      if(images.length){
+      for (let i = 0; i < images.length; i++) {
+        const imageembed = new EmbedBuilder()
+        .setImage(images[i])
+        .setURL(fullMatch)
+        embeds.push(imageembed);
+      }
+  }
 
             // メッセージを返信
-    const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: [embed],flags: [ 4096 ] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
+    const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: embeds,flags: [ 4096 ] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
     await newmessage.react('1269022817429753918')
     if(message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)){
       await message.delete();//元メッセージは消す
