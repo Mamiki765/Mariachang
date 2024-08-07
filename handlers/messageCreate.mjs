@@ -255,7 +255,7 @@ export default async(message) => {
             // メッセージを返信
     const newmessage = await message.channel.send({ content:`<@${message.author.id}>:${message.content}`, embeds: [embed],flags: [ 4096 ] });
     await newmessage.react('1269022817429753918')
-    await message.delete();//元メッセージは消す
+    if(message.mentions.members.size === 0){ await message.delete();}//元メッセージは消す
     } catch (error) {
             console.error('Error fetching message:', error);
             message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true　});
