@@ -221,15 +221,13 @@ export default async(message) => {
       //添付ファイルを並べる
       　const file = fetchedMessage.attachments.map(attachment => attachment.url)
        let files = "";
-       let embedimage = null
        //ファイル
        const images =[];
        if(file){
       for (let i = 0; i < file.length; i++) {          
         files += "\n" + file[i];
-        if(file[i].match(/(png|jpg|webm|gif|jpeg|webp|bmp)\?ex=/) && !embedimage){
+        if(file[i].match(/(png|jpg|gif|jpeg|webp|apng|mp4|webm|mov)\?ex=/)){
             images.push(file[i]);
-//          embedimage = file[i];
         }
         }
        }
