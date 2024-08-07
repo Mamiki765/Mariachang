@@ -33,7 +33,7 @@ export async function execute(interaction) {
     const embeds =[];
     const embed = new EmbedBuilder()
       .setColor(0xEFDCAA)
-      .setAuthor({ name: message.author.globalName, iconURL: message.author.displayAvatarURL()})
+      .setAuthor({ name: `${message.author.globalName} ${channel.guild.name} ${channel.name}`, iconURL: message.author.displayAvatarURL()})
       .setURL(message.url)
       .setTitle("メッセージへ")
       .setDescription(message.cleanContent + otherfile)
