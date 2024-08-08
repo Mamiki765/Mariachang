@@ -238,7 +238,7 @@ export default async(message) => {
        let images =[];
       //chatgptくんによるとこれでいいらしい
        images = file.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
-       const files = images.length > 0 ? images.join('\n') : '';
+       const files = file.length > 0 ? file.join('\n') : '';
 
           // メッセージ内の全ての画像URLを取得
         const imgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
