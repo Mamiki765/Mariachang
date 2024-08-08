@@ -252,6 +252,7 @@ export default async(message) => {
         // 最初のスタンプを取得
           const firstSticker = fetchedMessage.stickers.first();
           sendmessage += "スタンプ：" + firstSticker.name;
+          imagesfirstSticker.url;
         }
     // Embedを作成(まずは文章から)
     const embeds =[];
