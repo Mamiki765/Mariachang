@@ -260,7 +260,7 @@ export default async(message) => {
                 .setTitle('引用元へ')
                 .setDescription(sendmessage || '(botのメッセージです)')
                 .setAuthor({
-                    name: `${fetchedMessage.author.displayName} ${channel.guild.name} ${channel.name}`,
+                    name: `${fetchedMessage.author.displayName} #${channel.name}`,
                     iconURL: fetchedMessage.author.displayAvatarURL(),
                 })
                 .setImage(images[0])
