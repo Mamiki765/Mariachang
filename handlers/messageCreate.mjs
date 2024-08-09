@@ -16,7 +16,7 @@ export default async(message) => {
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
   }
-  if (message.content.match(/にょわ|ニョワ|ﾆｮﾜ/)) {
+  if (message.content.match(/にょわ|ニョワ|ﾆｮﾜ|nyowa/)) {
     await message.react('1264010111970574408');
   }
   if (message.content.match(/ミョミョミョワァァーン|ﾐｮﾐｮﾐｮﾜｧｧｰﾝ/)) {
