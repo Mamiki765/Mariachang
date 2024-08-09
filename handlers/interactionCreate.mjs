@@ -10,7 +10,7 @@ export default async(interaction) => {
        if(!interaction.message.mensions){
         await interaction.message.fetch();
        }//なければ取得
-      if(interaction.message.mentions.users.has(interaction.member.user.id) || interaction.message.mentions.members.size === 0) {
+         if(interaction.message.mentions.users.has(interaction.member.user.id)) {
            //確認メッセージを送信
           const confirmationButton = new ButtonBuilder()
             .setCustomId('confirm_delete')

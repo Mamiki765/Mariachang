@@ -8,6 +8,7 @@ export async function execute(interaction){
   const apiPing = Date.now() - interaction.createdTimestamp
 	await interaction.reply({ 
     flags: [ 4096 ],
+    content: `<@${interaction.user.id}>`,
     embeds: [
                     new EmbedBuilder()
                     .setTitle(":ping_pong:Pongにゃ!")
