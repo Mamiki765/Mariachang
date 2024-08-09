@@ -30,7 +30,7 @@ export default async(interaction) => {
           }
          }else if (interaction.customId === 'confirm_delete') {
           // メッセージを削除する処理
-          const messageToDelete = interaction.message; // 削除するメッセージの取得（ここではオリジナルメッセージを削除）
+          const messageToDelete = await interaction.channel.messages.fetch(interaction.message.id); // 削除するメッセージの取得（ここではオリジナルメッセージを削除）
           if (messageToDelete) {
             await messageToDelete.delete();
             await interaction.update({ content: 'メッセージが削除されました。', components: [] });
