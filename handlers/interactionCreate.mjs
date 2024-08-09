@@ -6,7 +6,10 @@ export default async(interaction) => {
     //deleteなら削除ボタン処理
        if (interaction.customId == "delete") {
          //ボタンを押した人がメンションをした人or誰にもメンションがついてないなら
-         if(interaction.message.mentions.users.has(interaction.member.user.id) || interaction.message.mentions.members.size === 0) {
+       if(!interaction.message.content){
+        await interaction.message.fetch();
+       }//なければ取得
+      if(interaction.message.mentions.users.has(interaction.member.user.id) || interaction.message.mentions.members.size === 0) {
            //確認メッセージを送信
           const confirmationButton = new ButtonBuilder()
             .setCustomId('confirm_delete')
@@ -30,7 +33,8 @@ export default async(interaction) => {
           }
          }else if (interaction.customId === 'confirm_delete') {
           // メッセージを削除する処理
-          const messageToDelete = await interaction.channel.messages.fetch(interaction.message.id); // 削除するメッセージの取得（ここではオリジナルメッセージを削除）
+          console.log(interaction.message);
+          const messageToDelete = await interaction.channel.messages.fetch(interaction.message.reference.messageId);// 削除するメッセージの取得（ここではオリジナルメッセージを削除）
           if (messageToDelete) {
             await messageToDelete.delete();
             await interaction.update({ content: 'メッセージが削除されました。', components: [] });
