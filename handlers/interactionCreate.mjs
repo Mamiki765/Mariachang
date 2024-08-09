@@ -1,13 +1,48 @@
+import { ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageActionRow } from 'discord.js';
+
 export default async(interaction) => {
-  if (interaction.isButton()){//ボタンだった場合
-       if (interaction.customId == "delete") {//コマンドについてくるボタンが削除ボタンだった場合
-         if(interaction.message.mentions.users.has(interaction.member.user.id) || interaction.message.mentions.members.size === 0) {//ボタンを押した人がメンションをした人or誰にもメンションがついてないなら
-           interaction.message.delete()//メッセージ削除
-           }
-         }
-       }
+//ボタン
+  if (interaction.isButton()){
+    //deleteなら削除ボタン処理
+       if (interaction.customId == "delete") {
+         //ボタンを押した人がメンションをした人or誰にもメンションがついてないなら
+         if(interaction.message.mentions.users.has(interaction.member.user.id) || interaction.message.mentions.members.size === 0) {
+           //確認メッセージを送信
+          const confirmationButton = new ButtonBuilder()
+            .setCustomId('confirm_delete')
+            .setLabel('削除する')
+            .setStyle(ButtonStyle.Danger);
+          const cancelButton = new ButtonBuilder()
+            .setCustomId('cancel_delete')
+            .setLabel('キャンセル')
+            .setStyle(ButtonStyle.Secondary);
+          const row = new ActionRowBuilder().addComponents(confirmationButton, cancelButton);
+
+          await interaction.reply({
+            content: 'このメッセージを削除しますか？',
+            components: [row],
+            ephemeral: true
+            });
+          return;
+          }else{//削除権限無し
+          await interaction.reply({content: 'このメッセージを削除できるのは投稿者のみです。', ephemeral: true});
+          return;    
+          }
+         }if (interaction.customId === 'confirm_delete') {
+      // メッセージを削除する処理
+      const originalMessage = interaction.message;
+      const messageToDelete = originalMessage; // 削除するメッセージの取得（ここではオリジナルメッセージを削除）
+      if (messageToDelete) {
+        await messageToDelete.delete();
+        await interaction.update({ content: 'メッセージが削除されました。', components: [] });
+      } else {
+        await interaction.update({ content: 'メッセージが見つかりませんでした。', components: [] });
+      }
+      return;
+    }
+  }
 //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
-  if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
+  else if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
 	const command = interaction.client.commands.get(interaction.commandName);
 
   //console.log(interaction);//debug
