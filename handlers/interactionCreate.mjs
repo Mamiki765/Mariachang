@@ -29,7 +29,7 @@ export default async(interaction) => {
             });
           return;
           }else{//削除権限無し
-          await interaction.reply({content: 'このメッセージを削除できるのは投稿者のみです。', ephemeral: true});
+          const reply = await interaction.reply({content: 'このメッセージを削除できるのは投稿者のみです。', ephemeral: true});
           return;    
           }
          }else if (interaction.customId === 'confirm_delete') {
