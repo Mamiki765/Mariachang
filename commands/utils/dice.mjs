@@ -48,7 +48,7 @@ export function ndnDice(ndn){
     sum += dice;
     result.push(dice);
   }
-  if(number === 1 && sides === 100 && modifier === 0){//1d100であればクリティカル、ファンブルの判定もする
+  if(number == 1 && sides == 100 && modifier == 0){//1d100であればクリティカル、ファンブルの判定もする
     if(sum < 6){
     sum = sum + "**(クリティカル！)**";
     }
