@@ -1,4 +1,4 @@
-import { ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageActionRow } from 'discord.js';
+import { ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
 
 export default async(interaction) => {
 //ボタン
@@ -28,17 +28,19 @@ export default async(interaction) => {
           await interaction.reply({content: 'このメッセージを削除できるのは投稿者のみです。', ephemeral: true});
           return;    
           }
-         }if (interaction.customId === 'confirm_delete') {
-      // メッセージを削除する処理
-      const originalMessage = interaction.message;
-      const messageToDelete = originalMessage; // 削除するメッセージの取得（ここではオリジナルメッセージを削除）
-      if (messageToDelete) {
-        await messageToDelete.delete();
-        await interaction.update({ content: 'メッセージが削除されました。', components: [] });
-      } else {
-        await interaction.update({ content: 'メッセージが見つかりませんでした。', components: [] });
-      }
-      return;
+         }else if (interaction.customId === 'confirm_delete') {
+          // メッセージを削除する処理
+          const messageToDelete = interaction.message; // 削除するメッセージの取得（ここではオリジナルメッセージを削除）
+          if (messageToDelete) {
+            await messageToDelete.delete();
+            await interaction.update({ content: 'メッセージが削除されました。', components: [] });
+          } else {
+            await interaction.update({ content: 'メッセージが見つかりませんでした。', components: [] });
+          }
+          return;
+        }else if (interaction.customId === 'cancel_delete') {
+          await interaction.update({ content: '削除がキャンセルされました。', components: [] });
+          return;
     }
   }
 //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
