@@ -167,7 +167,7 @@ export default async(message) => {
       const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
       if (replyToMessage) {
         await replyToMessage.reply({
-          //flags: [ 4096 ],//silent
+          flags: [ 4096 ],//silent
           content: newMessage,
           components: [deletebutton]
           });
@@ -285,14 +285,16 @@ export default async(message) => {
 //返信部分ここまで
 
       // 返信するメッセージを作成
-      const newmessage = message.content;
-      await newmessage.replace(fullMatch, `${fullMatch} **（変換済み)**`);
+      let newmessage = message.content;
+      const regex = new RegExp(fullMatch, 'i');
+      newmessage = newmessage.replace(regex, `**（変換済み)**`);
+      if(newmessage == `**（変換済み)**`) newmessage = "";//URLだけなら消す
       //
       if(message.reference){
       const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
       if (replyToMessage) {
         await replyToMessage.reply({
-          content: `<@${message.author.id}>\n${newmessage}`,
+          content: `<@${message.author.id}>:\n${newmessage}`,
           embeds: embeds,
           flags: [4096],
           components: [deletebutton]
@@ -300,7 +302,7 @@ export default async(message) => {
       }
     }else{
        await message.channel.send({
-        content: `<@${message.author.id}>\n${newmessage}`,
+        content: `<@${message.author.id}>:\n${newmessage}`,
         embeds: embeds,
         flags: [4096],
         components: [deletebutton]
