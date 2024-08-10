@@ -11,8 +11,11 @@ export default async(interaction) => {
         await interaction.message.fetch();
        }//なければ取得<@${interaction.user.id}>
  //        if(interaction.message.mentions.users.has(interaction.member.user.id)) {
-         const regex = `^<@\$\{` + interaction.user.id;
-         if(interaction.message.content.match(regex)) {
+         const userId = interaction.user.id;
+        const regex = new RegExp(^<@${userId}>);
+          if (interaction.message.content.match(regex)) {
+//コード
+}
            //確認メッセージを送信
           const confirmationButton = new ButtonBuilder()
             .setCustomId('confirm_delete')
