@@ -283,50 +283,44 @@ export default async(message) => {
   if(fetchedMessage.reference){
     const refMessage = await channel.messages.fetch(fetchedMessage.reference.messageId);
     if(refMessage){
-            //添付ファイルを並べ、画像ファイルを取得
       　const reffile = refMessage.attachments.map(attachment => attachment.url)
   
        let refimages =[];
-      //表示する用の画像を追加し、メッセージに表示する用にファイル名の一覧を取得
        refimages = reffile.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
        const reffiles = reffile.length > 0 ? reffile.join('\n') : '';
 
-          // メッセージ内の全ての画像URLを取得
+          
         const refimgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
         const refimageUrls = [...refimgmatches].map(match => match[0]);
-          // `images` 配列の末尾に `imageUrls` 配列を追加することでリンクも添付の様に
         refimages = [...refimages, ...refimageUrls];
-      // 画像が5個以上の場合は先頭4つだけを残す
         if (refimages.length > 5) {refimages = refimages.slice(0, 4);}
-      //メッセージを合成（ファイルがあれば改行も忘れずに）
     let refsendmessage = reffiles ? refMessage.content + `\n` + reffiles : refMessage.content;
-      //スタンプのときは
       if(refMessage.stickers && refMessage.stickers.size > 0){
-        // 最初のスタンプを取得
           const reffirstSticker = refMessage.stickers.first();
           refsendmessage += "スタンプ：" + reffirstSticker.name;
-          images.unshift(reffirstSticker.url);
+          refimages.unshift(reffirstSticker.url);
         }
-    // Embedを作成(まずは文章から)
-    const embed = new EmbedBuilder()
-                .setURL(fullMatch)
-                .setTitle('引用元へ')
-                .setDescription(sendmessage || '(botのメッセージです)')
+    //URLは返信先に
+    const refMatch = `https://discord.com/channels/${guildId}/${channelId}/${fetchedMessage.reference.messageId}`; 
+    const refembed = new EmbedBuilder()
+                .setURL(refMatch)
+                .setTitle('引用元の返信先')
+                .setDescription(refsendmessage || '(botのメッセージです)')
                 .setAuthor({
-                    name: `${fetchedMessage.author.displayName} #${channel.name}`,
-                    iconURL: fetchedMessage.author.displayAvatarURL(),
+                    name: `${refMessage.author.displayName} #${channel.name}`,
+                    iconURL: refMessage.author.displayAvatarURL(),
                 })
-                .setImage(images[0])
-                .setTimestamp(fetchedMessage.createdAt)
+                .setImage(refimages[0])
+                .setTimestamp(refMessage.createdAt)
                 .setColor('#0099ff');
-    embeds.push(embed);
+    embeds.push(refembed);
     //次に画像
-      if(images.length > 1){
-      for (let i = 1; i < images.length; i++) {
-        const imageembed = new EmbedBuilder()
-        .setImage(images[i])
-        .setURL(fullMatch)
-        embeds.push(imageembed);
+      if(refimages.length > 1){
+      for (let i = 1; i < refimages.length; i++) {
+        const refimageembed = new EmbedBuilder()
+        .setImage(refimages[i])
+        .setURL(refMatch)
+        embeds.push(refimageembed);
       }
   } 
       
