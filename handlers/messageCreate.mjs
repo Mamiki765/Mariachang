@@ -236,7 +236,7 @@ export default async(message) => {
       　const file = fetchedMessage.attachments.map(attachment => attachment.url)
   
        let images =[];
-      //chatgptくんによるとこれでいいらしい
+      //表示する用の画像を追加し、メッセージに表示する用にファイル名の一覧を取得
        images = file.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
        const files = file.length > 0 ? file.join('\n') : '';
 
@@ -245,6 +245,8 @@ export default async(message) => {
         const imageUrls = [...imgmatches].map(match => match[0]);
           // `images` 配列の末尾に `imageUrls` 配列を追加することでリンクも添付の様に
         images = [...images, ...imageUrls];
+      // 画像が5個以上の場合は先頭4つだけを残す
+        if (images.length > 5) {images = images.slice(0, 4);}
       //メッセージを合成（ファイルがあれば改行も忘れずに）
     let sendmessage = files ? fetchedMessage.content + `\n` + files : fetchedMessage.content;
       //スタンプのときは
