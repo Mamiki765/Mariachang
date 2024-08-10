@@ -214,8 +214,8 @@ export default async(message) => {
     const fetchedMessage = await channel.messages.fetch(messageId);
     //    await console.log(channel);
     //await console.log(fetchedMessage);
-    if(!fetchedMessage){return;}//無を取得したらエラーになるはずだが念の為
-    //以下、プレビューを表示しない様にする処理、ただし同じチャンネル内であれば通す
+      if(!fetchedMessage){return;}//無を取得したらエラーになるはずだが念の為
+      //以下、プレビューを表示しない様にする処理、ただし同じチャンネル内であれば通す
       // プレビューを表示しない様にする処理
       //プライベートスレッド(12)をでないか
       if (channel.isThread() && channel.type === 12 && message.channel.id !== channel.id) return;
@@ -250,6 +250,8 @@ export default async(message) => {
       if (fetchedMessage.reference) {
         const refMessage = await channel.messages.fetch(fetchedMessage.reference.messageId);
         if (refMessage) {
+          //URLは返信先に
+          const refMatch = `https://discord.com/channels/${guildId}/${channelId}/${fetchedMessage.reference.messageId}`;
           const refImages = await getImagesFromMessage(refMessage);
           let refSendMessage = refMessage.attachments.map(attachment => attachment.url).join('\n') ? refMessage.content + `\n` + refMessage.attachments.map(attachment => attachment.url).join('\n') : refMessage.content;
           if (refMessage.stickers && refMessage.stickers.size > 0) {
@@ -257,9 +259,7 @@ export default async(message) => {
             refSendMessage += "スタンプ：" + refFirstSticker.name;
             refImages.unshift(refFirstSticker.url);
           }
-    //URLは返信先に
-          const refMatch = `https://discord.com/channels/${guildId}/${channelId}/${fetchedMessage.reference.messageId}`;
-          const refEmbed = createEmbed(refMatch, '引用元の返信先', refSendMessage, refMessage.author, refImages[0], refMessage.createdAt, '#0099ff');
+          const refEmbed = createEmbed(refMatch, '引用元の返信先', refSendMessage, refMessage.author, refImages[0], refMessage.createdAt, '#B78CFE');
           embeds.push(refEmbed);
 
           if (refImages.length > 1) {
@@ -272,11 +272,17 @@ export default async(message) => {
       }
 //返信部分ここまで
 
-            // メッセージを返信
-    const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: embeds,flags: [ 4096 ],  components: [deletebutton] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
-    if(message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)){
-      await message.delete();//元メッセージは消す
-        }
+      // メッセージを返信
+      const newmessage = await message.channel.send({
+        content: `<@${message.author.id}>`,
+        embeds: embeds,
+        flags: [4096],
+        components: [deletebutton]
+      });
+
+      if (message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
+        await message.delete(); // 元メッセージは消す
+      }
     } catch (error) {
             console.error('Error fetching message:', error);
             message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true});
