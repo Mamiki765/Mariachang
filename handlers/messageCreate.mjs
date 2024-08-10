@@ -312,7 +312,7 @@ export default async(message) => {
                 })
                 .setImage(refimages[0])
                 .setTimestamp(refMessage.createdAt)
-                .setColor('#0099ff');
+                .setColor('#B78CFE');
     embeds.push(refembed);
     //次に画像
       if(refimages.length > 1){
@@ -343,3 +343,37 @@ export default async(message) => {
 
 
 };
+
+// Embedを作成する関数(引用用)
+export function createEmbed(url, title, description, author, imageUrl, timestamp, color) {
+  return new EmbedBuilder()
+    .setURL(url)
+    .setTitle(title)
+    .setDescription(description || '(botのメッセージです)')
+    .setAuthor({
+      name: author.displayName,
+      iconURL: author.displayAvatarURL(),
+    })
+    .setImage(imageUrl)
+    .setTimestamp(timestamp)
+    .setColor(color);
+}
+
+// メッセージから画像URLを取得する関数（引用用）
+export async function getImagesFromMessage(message, imageUrlRegex) {
+  // 添付ファイルを並べ、画像ファイルを取得
+  const fileUrls = message.attachments.map(attachment => attachment.url);
+  let images = fileUrls.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
+
+  // メッセージ内の全ての画像URLを取得
+  const imgMatches = message.content.matchAll(imageUrlRegex);
+  const imageUrls = [...imgMatches].map(match => match[0]);
+  
+  // `images` 配列の末尾に `imageUrls` 配列を追加する
+  images = [...images, ...imageUrls];
+
+  // 画像が5個以上の場合は先頭4つだけを残す
+  if (images.length > 5) images = images.slice(0, 4);
+
+  return images;
+}
