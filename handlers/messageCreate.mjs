@@ -213,7 +213,7 @@ export default async(message) => {
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
 //    await console.log(channel);
-    await console.log(fetchedMessage);
+    //await console.log(fetchedMessage);
     if(!fetchedMessage){return;}//無を取得したらエラーになるはずだが念の為
     //以下、プレビューを表示しない様にする処理、ただし同じチャンネル内であれば通す
     //プライベートスレッドの転載防止
@@ -280,7 +280,58 @@ export default async(message) => {
       }
   }
 //返信があれば
+  if(fetchedMessage.reference){
+    const refMessage = await channel.messages.fetch(fetchedMessage.reference.messageId);
+    if(refMessage){
+            //添付ファイルを並べ、画像ファイルを取得
+      　const reffile = refMessage.attachments.map(attachment => attachment.url)
+  
+       let refimages =[];
+      //表示する用の画像を追加し、メッセージに表示する用にファイル名の一覧を取得
+       refimages = reffile.filter(url => url.match(/\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?$/i));
+       const reffiles = reffile.length > 0 ? reffile.join('\n') : '';
 
+          // メッセージ内の全ての画像URLを取得
+        const refimgmatches = fetchedMessage.content.matchAll(imageUrlRegex);
+        const refimageUrls = [...refimgmatches].map(match => match[0]);
+          // `images` 配列の末尾に `imageUrls` 配列を追加することでリンクも添付の様に
+        refimages = [...refimages, ...refimageUrls];
+      // 画像が5個以上の場合は先頭4つだけを残す
+        if (refimages.length > 5) {refimages = refimages.slice(0, 4);}
+      //メッセージを合成（ファイルがあれば改行も忘れずに）
+    let refsendmessage = reffiles ? refMessage.content + `\n` + reffiles : refMessage.content;
+      //スタンプのときは
+      if(refMessage.stickers && refMessage.stickers.size > 0){
+        // 最初のスタンプを取得
+          const reffirstSticker = refMessage.stickers.first();
+          refsendmessage += "スタンプ：" + reffirstSticker.name;
+          images.unshift(reffirstSticker.url);
+        }
+    // Embedを作成(まずは文章から)
+    const embed = new EmbedBuilder()
+                .setURL(fullMatch)
+                .setTitle('引用元へ')
+                .setDescription(sendmessage || '(botのメッセージです)')
+                .setAuthor({
+                    name: `${fetchedMessage.author.displayName} #${channel.name}`,
+                    iconURL: fetchedMessage.author.displayAvatarURL(),
+                })
+                .setImage(images[0])
+                .setTimestamp(fetchedMessage.createdAt)
+                .setColor('#0099ff');
+    embeds.push(embed);
+    //次に画像
+      if(images.length > 1){
+      for (let i = 1; i < images.length; i++) {
+        const imageembed = new EmbedBuilder()
+        .setImage(images[i])
+        .setURL(fullMatch)
+        embeds.push(imageembed);
+      }
+  } 
+      
+    }
+  }
 
 //返信部分ここまで
 
@@ -291,7 +342,7 @@ export default async(message) => {
         }
     } catch (error) {
             console.error('Error fetching message:', error);
-            message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true　});
+            message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true});
         }
     }
   }
