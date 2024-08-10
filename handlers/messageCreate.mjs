@@ -169,14 +169,14 @@ export default async(message) => {
         await replyToMessage.reply({
           flags: [ 4096 ],//silent
           content: newMessage,
-          flies: message.attachments,
+//          files: message.attachments,
           components: [deletebutton]
           });
       }
     }else{
       await message.channel.send({
       flags: [ 4096 ],//silent
-      flies: message.attachments,
+ //     files: message.attachments,
       content: newMessage,
       components: [deletebutton]});
 
@@ -297,7 +297,7 @@ export default async(message) => {
       if (replyToMessage) {
         await replyToMessage.reply({
           content: `<@${message.author.id}>:\n${newmessage}`,
-          flies: message.attachments,
+//          files: message.attachments,
           embeds: embeds,
           flags: [4096],
           components: [deletebutton]
@@ -306,7 +306,7 @@ export default async(message) => {
     }else{
        await message.channel.send({
         content: `<@${message.author.id}>:\n${newmessage}`,
-        flies: message.attachments,
+//        files: message.attachments,
         embeds: embeds,
         flags: [4096],
         components: [deletebutton]
