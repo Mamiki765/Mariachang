@@ -7,7 +7,6 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction){
 	await interaction.reply({ 
     flags: [ 4096 ],
-    content: `<@${interaction.user.id}>`,
     ephemeral: true,
     embeds: [
                     new EmbedBuilder()
