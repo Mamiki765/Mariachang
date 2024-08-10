@@ -15,7 +15,7 @@ export async function execute(interaction){
                     .setDescription("もしマリアの事を気に入ってくれたらにゃけど…\n（botの制作者にカンパします、しても何も良いことはありません)")
                     .setColor("#2f3136")
                     .setTimestamp()
-                    .setFooter(`…けど、ちょっと生きてて良かったかなって、思います。`)
+                    .setFooter({text:"…けど、ちょっと生きてて良かったかなって、思います。"})
                 ],
                 components: [
                     new ActionRowBuilder()
