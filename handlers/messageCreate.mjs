@@ -229,7 +229,7 @@ export default async(message) => {
       if(!fetchedMessage){return;}//無を取得したらエラーになるはずだが念の為
       //以下、プレビューを表示しない様にする処理、ただし同じチャンネル内であれば通す
       // プレビューを表示しない様にする処理
-      //プライベートスレッド(12)をでないか
+      //プライベートスレッド(type12)ではないか
       if (channel.isThread() && channel.type === 12 && message.channel.id !== channel.id) return;
       //NSFW→健全を避ける(カテゴリ無しのチャンネルが有るときはparentの存在を先にifで探ること)
       if ((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) return;

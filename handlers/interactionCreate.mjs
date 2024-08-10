@@ -5,14 +5,13 @@ export default async(interaction) => {
   if (interaction.isButton()){
     //deleteなら削除ボタン処理
        if (interaction.customId == "delete") {
-         //ボタンを押した人がメンションをした人or誰にもメンションがついてないなら
        if(!interaction.message.mensions){
         await interaction.message.fetch();
-       }//なければ取得<@${interaction.user.id}>
+       }//なければ取得
  //        if(interaction.message.mentions.users.has(interaction.member.user.id)) {
+         //削除ボタンを押されたとき、その本文の文頭にあるメンションの人を投稿者として認識、削除権限の有無を確かめる。
          const userId = interaction.user.id;
-         console.log(interaction.message.content);
-         const userIdPattern = new RegExp(`＾<@${userId}>`, 'i'); // 'i' フラグでケースインセンシティブ
+         const userIdPattern = new RegExp(`^<@${userId}>`, 'i'); // 'i' フラグでケースインセンシティブ
          if (userIdPattern.test(interaction.message.content)) {
            //確認メッセージを送信
           const confirmationButton = new ButtonBuilder()
