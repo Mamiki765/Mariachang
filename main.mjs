@@ -79,7 +79,7 @@ for (const file of handlerFiles) {
 client.on("interactionCreate", async (interaction) => {
   await handlers.get("interactionCreate").default(interaction);
 //ログはとっておく
-  const comname = interaction.commandName !== `undefined` ? interaction.commandName : interaction.customId;
+  const comname = interaction.commandName ? interaction.commandName : interaction.customId;
   const log = new EmbedBuilder()
         .setTitle("コマンド実行ログ")
         .setDescription(`${interaction.member.displayName} がコマンドを実行しました。`)
@@ -88,7 +88,7 @@ client.on("interactionCreate", async (interaction) => {
         .addFields(
                 {
                     name: "コマンド",
-                    value: "```\n" + interaction.toString() + " (" + interaction.commandName +")\n```"
+                    value: "```\n" + interaction.toString() + " (" + comname +")\n```"
                 },
                 {
                     name: "実行ユーザー",
