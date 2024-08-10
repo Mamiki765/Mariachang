@@ -6,11 +6,12 @@ export default async(interaction) => {
     //deleteなら削除ボタン処理
        if (interaction.customId == "delete") {
          //ボタンを押した人がメンションをした人or誰にもメンションがついてないなら
-        console.log(interaction.message.mensions);
+//        console.log(interaction.message.mensions);
        if(!interaction.message.mensions){
         await interaction.message.fetch();
-       }//なければ取得
-         if(interaction.message.mentions.users.has(interaction.member.user.id)) {
+       }//なければ取得<@${interaction.user.id}>
+ //        if(interaction.message.mentions.users.has(interaction.member.user.id)) {
+         if(interaction.message.content.match(/<@${interaction.user.id}>/)) {
            //確認メッセージを送信
           const confirmationButton = new ButtonBuilder()
             .setCustomId('confirm_delete')

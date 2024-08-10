@@ -164,13 +164,22 @@ export default async(message) => {
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
     const newMessage = `<@${message.author.id}>\n${updatedMessage}`;
     if(message.reference){
+      const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
+      if (replyToMessage) {
+        await replyToMessage.reply({
+          //flags: [ 4096 ],//silent
+          content: newMessage,
+          components: [deletebutton]
+          });
+      }
     }else{
       await message.channel.send({
+      flags: [ 4096 ],//silent
       content: newMessage,
       components: [deletebutton]});
-    await message.delete();//元メッセージは消す
-    }
 
+    }
+    await message.delete();//元メッセージは消す
     }
  
 //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){   
