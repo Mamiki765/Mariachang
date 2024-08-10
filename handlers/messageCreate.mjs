@@ -213,7 +213,7 @@ export default async(message) => {
     const channel = await message.guild.channels.fetch(channelId);
     const fetchedMessage = await channel.messages.fetch(messageId);
 //    await console.log(channel);
-//    await console.log(fetchedMessage);
+    await console.log(fetchedMessage);
     if(!fetchedMessage){return;}//無を取得したらエラーになるはずだが念の為
     //以下、プレビューを表示しない様にする処理、ただし同じチャンネル内であれば通す
     //プライベートスレッドの転載防止
@@ -279,6 +279,10 @@ export default async(message) => {
         embeds.push(imageembed);
       }
   }
+//返信があれば
+
+
+//返信部分ここまで
 
             // メッセージを返信
     const newmessage = await message.channel.send({ content:`<@${message.author.id}>`, embeds: embeds,flags: [ 4096 ],  components: [deletebutton] });//もしつけるならmessage.contentなら全文　fullMatchはURL部分だけ
