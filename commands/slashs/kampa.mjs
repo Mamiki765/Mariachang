@@ -2,7 +2,7 @@ import { SlashCommandBuilder,  EmbedBuilder , ActionRowBuilder, ButtonBuilder, B
 
 export const data = new SlashCommandBuilder()
   .setName('kampa')
-  .setDescription('もしよろしければご支援頂ければ幸いです。。。');
+  .setDescription('15円からできるカンパです。');
 
 export async function execute(interaction){
 	await interaction.reply({ 
@@ -11,10 +11,11 @@ export async function execute(interaction){
     ephemeral: true,
     embeds: [
                     new EmbedBuilder()
-                    .setTitle("")
-                    .setDescription("もしこのBOTが気に入ってくれたらにゃけど…")
+                    .setTitle("お願い")
+                    .setDescription("もしマリアの事を気に入ってくれたらにゃけど…\n（botの制作者にカンパします、しても何も良いことはありません)")
                     .setColor("#2f3136")
                     .setTimestamp()
+                    .setFooter(`…けど、ちょっと生きてて良かったかなって、思います。`)
                 ],
                 components: [
                     new ActionRowBuilder()
@@ -22,7 +23,7 @@ export async function execute(interaction){
                         new ButtonBuilder()
                         .setLabel("しょうがないにゃあ")
                         .setStyle(ButtonStyle.Link)
-                        .setURL("https://kampa.me/t/vsf")
+                        .setURL(process.env.kampa)
                     )
                 ]
   });
