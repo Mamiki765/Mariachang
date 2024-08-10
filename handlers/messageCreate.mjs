@@ -217,7 +217,6 @@ export default async(message) => {
     if (!message.guild) {return;}//dmなら無視
         //メッセージのURLを確認する正規表現
     const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
-        // 画像URLを抽出する正規表現
  
     const matches = MESSAGE_URL_REGEX.exec(message.content);
     if (matches) {
@@ -297,7 +296,6 @@ export default async(message) => {
       if (replyToMessage) {
         await replyToMessage.reply({
           content: `<@${message.author.id}>:\n${newmessage}`,
-//          files: message.attachments,
           embeds: embeds,
           flags: [4096],
           components: [deletebutton]
@@ -306,7 +304,6 @@ export default async(message) => {
     }else{
        await message.channel.send({
         content: `<@${message.author.id}>:\n${newmessage}`,
-//        files: message.attachments,
         embeds: embeds,
         flags: [4096],
         components: [deletebutton]
