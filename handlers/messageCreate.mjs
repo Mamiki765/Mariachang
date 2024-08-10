@@ -115,7 +115,7 @@ export default async(message) => {
 
 //ここからステシ変換
   //ロスアカ
-    if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
+    else if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
       flags: [ 4096 ],//@silent
       content : "https://rev2.reversion.jp/character/detail/" + message.content
@@ -158,16 +158,19 @@ export default async(message) => {
     }
 //ステシ変換ここまで
 //Xとかいうカスも変換してやれ
-    else if (message.content.match(/^https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?$/)) {
+    if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {
     const updatedMessage = message.content
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
-    const newMessage = `<@${message.author.id}> : ${updatedMessage}`;
-    const twtmessage = await message.channel.send({flags: [ 4096 ],//@silent
+    const newMessage = `<@${message.author.id}>\n${updatedMessage}`;
+    if(message.reference){
+    }else{
+      await message.channel.send({
       content: newMessage,
-      components: [deletebutton]
-                                                  });
+      components: [deletebutton]});
     await message.delete();//元メッセージは消す
+    }
+
     }
  
 //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){   
@@ -210,10 +213,10 @@ export default async(message) => {
     const [fullMatch, guildId, channelId, messageId] = matches;
     if(guildId !== message.guild.id) {return;}//現在のギルドと異なるURLは無視
     try{
-    const channel = await message.guild.channels.fetch(channelId);
-    const fetchedMessage = await channel.messages.fetch(messageId);
-    //    await console.log(channel);
-    //await console.log(fetchedMessage);
+      const channel = await message.guild.channels.fetch(channelId);
+      const fetchedMessage = await channel.messages.fetch(messageId);
+      //    await console.log(channel);
+      //await console.log(fetchedMessage);
       if(!fetchedMessage){return;}//無を取得したらエラーになるはずだが念の為
       //以下、プレビューを表示しない様にする処理、ただし同じチャンネル内であれば通す
       // プレビューを表示しない様にする処理
