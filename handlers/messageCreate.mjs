@@ -284,17 +284,30 @@ export default async(message) => {
       }
 //返信部分ここまで
 
-      // メッセージを返信
-      const newmessage = await message.channel.send({
-        content: `<@${message.author.id}>`,
+      // 返信するメッセージを作成
+      const newmessage = message.content;
+      await newmessage.replace(fullMatch, `${fullMatch} **（変換済み)**`);
+      //
+      if(message.reference){
+      const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
+      if (replyToMessage) {
+        await replyToMessage.reply({
+          content: `<@${message.author.id}>\n${newmessage}`,
+          embeds: embeds,
+          flags: [4096],
+          components: [deletebutton]
+          });
+      }
+    }else{
+       await message.channel.send({
+        content: `<@${message.author.id}>\n${newmessage}`,
         embeds: embeds,
         flags: [4096],
         components: [deletebutton]
       });
+    }
 
-      if (message.mentions.members.size === 0 && message.content.match(/^https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)$/)) {
-        await message.delete(); // 元メッセージは消す
-      }
+      await message.delete(); // 元メッセージは消す
     } catch (error) {
             console.error('Error fetching message:', error);
             message.reply({content: 'メッセージを取得できませんでした。', ephemeral : true});
