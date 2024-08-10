@@ -6,16 +6,14 @@ export default async(interaction) => {
     //deleteなら削除ボタン処理
        if (interaction.customId == "delete") {
          //ボタンを押した人がメンションをした人or誰にもメンションがついてないなら
-//        console.log(interaction.message.mensions);
        if(!interaction.message.mensions){
         await interaction.message.fetch();
        }//なければ取得<@${interaction.user.id}>
  //        if(interaction.message.mentions.users.has(interaction.member.user.id)) {
          const userId = interaction.user.id;
-        const regex = new RegExp(^<@${userId}>);
-          if (interaction.message.content.match(regex)) {
-//コード
-}
+         console.log(interaction.message.content);
+         const userIdPattern = new RegExp(`＾<@${userId}>`, 'i'); // 'i' フラグでケースインセンシティブ
+         if (userIdPattern.test(interaction.message.content)) {
            //確認メッセージを送信
           const confirmationButton = new ButtonBuilder()
             .setCustomId('confirm_delete')
