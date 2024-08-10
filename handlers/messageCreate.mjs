@@ -162,7 +162,7 @@ export default async(message) => {
     const updatedMessage = message.content
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
-    const newMessage = `<@${message.author.id}>\n${updatedMessage}`;
+    const newMessage = `<@${message.author.id}>:\n${updatedMessage}`;
     if(message.reference){
       const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
       if (replyToMessage) {
