@@ -163,20 +163,21 @@ export default async(message) => {
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
     const newMessage = `<@${message.author.id}>:\n${updatedMessage}`;
+    const fileUrls = message.attachments.map(attachment => attachment.url);
     if(message.reference){
       const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
       if (replyToMessage) {
         await replyToMessage.reply({
           flags: [ 4096 ],//silent
           content: newMessage,
-//          files: message.attachments,
+         files: fileUrls,
           components: [deletebutton]
           });
       }
     }else{
       await message.channel.send({
       flags: [ 4096 ],//silent
- //     files: message.attachments,
+　　　 files: fileUrls,
       content: newMessage,
       components: [deletebutton]});
 
@@ -286,6 +287,7 @@ export default async(message) => {
 //返信部分ここまで
 
       // 返信するメッセージを作成
+      const fileUrls = message.attachments.map(attachment => attachment.url);
       let newmessage = message.content;
       const regex = new RegExp(fullMatch, 'i');
       newmessage = newmessage.replace(regex, `**（変換済み)**`);
@@ -296,6 +298,7 @@ export default async(message) => {
       if (replyToMessage) {
         await replyToMessage.reply({
           content: `<@${message.author.id}>:\n${newmessage}`,
+          files: fileUrls,
           embeds: embeds,
           flags: [4096],
           components: [deletebutton]
@@ -304,6 +307,7 @@ export default async(message) => {
     }else{
        await message.channel.send({
         content: `<@${message.author.id}>:\n${newmessage}`,
+        files: fileUrls,
         embeds: embeds,
         flags: [4096],
         components: [deletebutton]
