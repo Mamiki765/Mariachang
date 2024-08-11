@@ -103,6 +103,12 @@ export default async(message) => {
       content: "https://rev1.reversion.jp/character/detail/p3p009126"
   });
   } 
+  else if (message.content.match(/^(てんこ)$/)) {
+   await message.reply({
+      flags: [ 4096 ],//@silentになる
+      content: "https://cdn.discordapp.com/attachments/1261485824378142760/1272199248297070632/megamoji_4.gif?ex=66ba1b61&is=66b8c9e1&hm=981808c1aa6e48d88ec48712ca268fc5b772fba5440454f144075267e84e7edf&"
+  });
+  }
   else if (message.content.match(/^(ゆ.さや)$/)) {
     await message.reply({
      flags: [ 4096 ],//@silentになる
