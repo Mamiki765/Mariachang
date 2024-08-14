@@ -169,8 +169,10 @@ export default async(message) => {
     const updatedMessage = message.content
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
-    const newMessage = `<@${message.author.id}>:\n${updatedMessage}`;
+//    const newMessage = `<@${message.author.id}>:\n${updatedMessage}`;
     const fileUrls = message.attachments.map(attachment => attachment.url);
+    await sendMessage(message ,updatedMessage, fileUrls , null, 4096 )
+      /*
     if(message.reference){
       const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
       if (replyToMessage) {
@@ -189,6 +191,7 @@ export default async(message) => {
       components: [deletebutton]});
 
     }
+    */
     await message.delete();//元メッセージは消す
     }
  
@@ -301,7 +304,6 @@ export default async(message) => {
       if(newmessage == `**（変換済み)**`) newmessage = "";//URLだけなら消す
 //メッセージを送信する
       await sendMessage(message ,newmessage, fileUrls , embeds, 4096 )
-
       await message.delete(); // 元メッセージは消す
     } catch (error) {
             console.error('Error fetching message:', error);
@@ -356,10 +358,11 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
    //本人に見せかけてメッセージを送信するスクリプト
    //メッセージ発信者の名前とアバターURL
    const nickname = message.member.displayName;
-   const avatarURL = message.author.avatarURL({dynamic : true});
+   const avatarURL = message.author.displayAvatarURL({dynamic : true});
    //Webhookの取得（なければ作成する）
-  const webhook = null;
-  const Threadid = null;
+  let webhook = null;
+  let Threadid = null;
+  //スレッドであるかチェックし、スレッドならチャンネルのwebhookを用いてスレッドに投稿する形を取る
   if(!message.channel.isThread()){
     webhook = await getWebhookInChannel(message.channel);
   }else{
@@ -380,6 +383,7 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
       files: fileUrls,
       embeds: embeds,
       flags: [4096],
+      threadId:Threadid ,
       components: [deletebutton]
        });
     }else{
@@ -392,6 +396,7 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
     flags: [flag],
     components: [deletebutton],
      username : nickname,
+     threadId:Threadid ,
      avatarURL : avatarURL,
    });
   }catch(e){
