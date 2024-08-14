@@ -21,10 +21,12 @@ export  const deletebuttonanyone = new ActionRowBuilder()
 
 //削除時の確認ボタン2種類
 const confirmationButton = new ButtonBuilder()
+            .setEmoji('✅')
             .setCustomId('confirm_delete')
             .setLabel('削除する')
             .setStyle(ButtonStyle.Danger);
 const cancelButton = new ButtonBuilder()
+            .setEmoji(':x:')
             .setCustomId('cancel_delete')
             .setLabel('キャンセル')
             .setStyle(ButtonStyle.Secondary);
