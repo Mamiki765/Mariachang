@@ -1,8 +1,8 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder , ActivityType} from 'discord.js';
 import cron from 'node-cron';
 
 export default async (client) => {
-  // 時報テスト
+  // 8時と22時に時報
   const timechannel = await client.channels.fetch(process.env.time_signal_channel);
   await cron.schedule('0 8 * * *', () => {
     timechannel.send(`朝の8時をお知らせしますにゃ。`);
@@ -10,7 +10,7 @@ export default async (client) => {
   await cron.schedule('0 22 * * *', () => {
     timechannel.send(`夜の22時をお知らせしますにゃ。`);
   });
-  // 時報テストここまで
+  // 時報ここまで
 
   await client.user.setActivity('🍙', { type: ActivityType.Custom, state: "今日も雨宿り中" });
   console.log(`${client.user.tag} がログインしました！`);

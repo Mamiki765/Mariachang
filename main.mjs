@@ -76,25 +76,29 @@ for (const file of handlerFiles) {
   });
 }
 
-client.on("interactionCreate", async (interaction) => {
+client.on("interactionCreate", async (interaction) => {//インタラクション時
   await handlers.get("interactionCreate").default(interaction);
 });
 
-client.on("voiceStateUpdate", async (oldState, newState) => {
+client.on("voiceStateUpdate", async (oldState, newState) => {//ボイスチャンネルの状態変化
   await handlers.get("voiceStateUpdate").default(oldState, newState);
 });
 
-client.on("messageCreate", async (message) => {
+client.on("messageCreate", async (message) => {//メッセージの送信時
   if (message.author.id == client.user.id || message.author.bot) return;
   await handlers.get("messageCreate").default(message);
 });
 
-client.on("messageReactionAdd", async (reaction, user) => {
+client.on("messageReactionAdd", async (reaction, user) => {//リアクションが追加されたとき
   if (user.id == client.user.id || user.bot) return;
   await handlers.get("messageReactionAdd").default(reaction, user);
 });
 
-client.on("ready", async () => {
+client.on('warn', (info) => {// 警告メッセージのリスニング
+  console.warn('Discord.js warning:', info);
+});
+
+client.on("ready", async () => {//Bot の起動時に必要な全ての初期設定や処理
   await handlers.get("ready").default(client);
 });
 
