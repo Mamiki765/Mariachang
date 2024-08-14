@@ -9,10 +9,10 @@ export async function execute(interaction) {
   // C15　N735 R22０　HQ3０　 1000倍して悪い順に
   const arr = ["__C__  ", "N  "　, "R  ","### HQ "];
 //240727追加　各レアリティごとのファイルを読み込む
-  const map0 = fs.readFileSync("./arrays/cursed.txt", 'utf8');
-  const map1 = fs.readFileSync("./arrays/novice.txt", 'utf8');
-  const map2 = fs.readFileSync("./arrays/regular.txt", 'utf8');
-  const map3 = fs.readFileSync("./arrays/HighQuality.txt", 'utf8');
+  const map0 = fs.readFileSync("./database/cursed.txt", 'utf8');
+  const map1 = fs.readFileSync("./database/novice.txt", 'utf8');
+  const map2 = fs.readFileSync("./database/regular.txt", 'utf8');
+  const map3 = fs.readFileSync("./database/HighQuality.txt", 'utf8');
   const maps = [];
   maps[0] = map0.split(/\n/);
   maps[1] = map1.split(/\n/);

@@ -6,7 +6,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('このBOTの機能を説明します')
 
 export async function execute(interaction) {
-  const helptext = fs.readFileSync("./arrays/help.txt", 'utf8');
+  const helptext = fs.readFileSync("./database/help.txt", 'utf8');
   await interaction.reply({ 
       flags: [ 4096 ],
       embeds: [

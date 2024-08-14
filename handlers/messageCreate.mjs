@@ -48,7 +48,7 @@ export default async(message) => {
   //ニョワミヤ（いるかこの機能？）
   else if (message.content.match(/^(ニョワミヤ|ﾆｮﾜﾐﾔ|ニョワミヤリカ|ﾆｮﾜﾐﾔﾘｶ)$/)) {
     //ニョワミヤ画像集をロード
-    const nyowa = fs.readFileSync("./arrays/nyowamiyarika.txt", 'utf8');
+    const nyowa = fs.readFileSync("./database/nyowamiyarika.txt", 'utf8');
     const nyowamiya = nyowa.split(/\n/);
     //ランダムで排出
      await message.reply({
@@ -59,7 +59,7 @@ export default async(message) => {
   //トールちゃん
   else if (message.content.match(/^(トール|とーる|ﾄｰﾙ|姫子|ひめこ|ヒメコ|ﾋﾒｺ)[=＝](ちゃん|チャン|ﾁｬﾝ)$/)) {
     //トールチャン画像集
-    const toru = fs.readFileSync("./arrays/toruchan.txt", 'utf8');
+    const toru = fs.readFileSync("./database/toruchan.txt", 'utf8');
     const toruchan = toru.split(/\n/);
      await message.reply({
       flags: [ 4096 ],//@silentになる
