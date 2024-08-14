@@ -280,7 +280,7 @@ export default async(message) => {
             refSendMessage += "スタンプ：" + refFirstSticker.name;
             refImages.unshift(refFirstSticker.url);
           }
-          const refEmbed = createEmbed(refMatch, '引用元の返信先', refSendMessage, refMessage.author, refImages[0], refMessage.createdAt, '#B78CFE');
+          const refEmbed = createEmbed(refMatch, '引用元の返信先', refSendMessage, refMessage.author, refImages[0], refMessage.createdAt, '#B78CFE','神谷マリアの提供でお送りしますにゃ！');
           embeds.push(refEmbed);
 
           if (refImages.length > 1) {
@@ -312,6 +312,8 @@ export default async(message) => {
           });
       }
     }else{
+      await sendMessage(message ,newmessage, fileUrls , embeds, 4096 )
+       /*
        await message.channel.send({
         content: `<@${message.author.id}>:\n${newmessage}`,
         files: fileUrls,
@@ -319,6 +321,8 @@ export default async(message) => {
         flags: [4096],
         components: [deletebutton]
       });
+      */
+      
     }
 
       await message.delete(); // 元メッセージは消す
@@ -333,7 +337,7 @@ export default async(message) => {
 };
 
 // Embedを作成する関数(引用用)
-export function createEmbed(url, title, description, author, imageUrl, timestamp, color) {
+export function createEmbed(url, title, description, author, imageUrl, timestamp, color,footertxt) {
   return new EmbedBuilder()
     .setURL(url)
     .setTitle(title)
@@ -344,6 +348,7 @@ export function createEmbed(url, title, description, author, imageUrl, timestamp
     })
     .setImage(imageUrl)
     .setTimestamp(timestamp)
+    .setFooter({text: footertxt})
     .setColor(color);
 }
 
@@ -370,7 +375,7 @@ export async function getImagesFromMessage(message) {
 //メッセージ送信系
 //webhookのキャッシュ
 const cacheWebhooks = new Map();
-export async function sendMessage(message , newmessage, fileUrls ,embeds, flags) {
+export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) {
    //本人に見せかけてメッセージを送信するスクリプト
    //メッセージ発信者の名前とアバターURL
    const nickname = message.member.displayName;
@@ -381,18 +386,23 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flags)
    //usernameとavatarURLをメッセージ発信者のものに指定するのがミソ
   try{
    webhook.send({
-     content : message.content,
+    content: `<@${message.author.id}>:\n${newmessage}`,
+    files: fileUrls,
+    embeds: embeds,
+    flags: [flag],
+    components: [deletebutton],
      username : nickname,
      avatarURL : avatarURL,
    });
   }catch(e){
-   await message.channel.send({
+   message.channel.send({
     content: `<@${message.author.id}>:\n${newmessage}`,
     files: fileUrls,
     embeds: embeds,
-    flags: [4096],
+    flags: [flag],
     components: [deletebutton]
       });
+    console.error('Error fetching message:', e);
   }
  }
 
