@@ -1,4 +1,7 @@
 import {getWebhookInChannel , getWebhook} from "../utils/webhook.mjs"
+import { deletebutton } from "../components/buttons.mjs"
+import { EmbedBuilder} from "discord.js";
+
 // Embedを作成する関数(引用用)
 export function createEmbed(url, title, description, author, imageUrl, timestamp, color,footertxt) {
   return new EmbedBuilder()

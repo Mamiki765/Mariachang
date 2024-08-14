@@ -1,4 +1,5 @@
 import { SlashCommandBuilder,  EmbedBuilder , ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { deletebutton } from "../../components/buttons.mjs"
 
 export const data = new SlashCommandBuilder()
   .setName('ping')
@@ -26,14 +27,6 @@ export async function execute(interaction){
                     .setColor("#2f3136")
                     .setTimestamp()
                 ],
-                components: [//コマンド削除ボタン
-                    new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                        .setLabel("🗑️削除")
-                        .setStyle(ButtonStyle.Danger)
-                        .setCustomId("delete")
-                    )
-                ]
+                components: [deletebutton]
   });
 }
