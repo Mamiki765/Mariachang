@@ -246,7 +246,7 @@ export default async(message) => {
 
       if (images.length > 1) {
         for (let i = 1; i < images.length; i++) {
-          const imageEmbed = createEmbed(fullMatch, '', '', { displayName: '', displayAvatarURL: () => '' }, images[i], fetchedMessage.createdAt, '#0099ff',null);
+          const imageEmbed = createEmbed(fullMatch, null, null, { displayName: null, displayAvatarURL: () =>null }, images[i], fetchedMessage.createdAt, '#0099ff',null);
           embeds.push(imageEmbed);
         }
       }
@@ -268,7 +268,7 @@ export default async(message) => {
 
           if (refImages.length > 1) {
             for (let i = 1; i < refImages.length; i++) {
-              const refImageEmbed = createEmbed(refMatch, '', '', { displayName: '', displayAvatarURL: () => '' }, refImages[i], refMessage.createdAt, '#B78CFE',null);
+              const refImageEmbed = createEmbed(refMatch, null, null, { displayName: null, displayAvatarURL: () => null }, refImages[i], refMessage.createdAt, '#B78CFE',null);
               embeds.push(refImageEmbed);
             }
           }
