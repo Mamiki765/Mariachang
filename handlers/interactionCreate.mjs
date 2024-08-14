@@ -25,6 +25,7 @@ export default async(interaction) => {
 //ボタン
     if (interaction.isButton()) {
       await handleButtonInteraction(interaction);
+      return;
     }
   
 //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。

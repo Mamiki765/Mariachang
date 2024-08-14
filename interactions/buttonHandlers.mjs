@@ -29,7 +29,8 @@ export default async function handleButtonInteraction(interaction) {
             ephemeral: true
             });
           return;
-          }else{//削除権限無し
+          //削除権限無し
+          }else{
           const reply = await interaction.reply({content: 'このメッセージを削除できるのは投稿者のみです。', ephemeral: true});
           return;    
           }

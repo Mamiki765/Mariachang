@@ -1,5 +1,7 @@
-import { ndnDice } from "../commands/utils/dice.mjs"
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import fs from "fs";
+
+import { ndnDice } from "../commands/utils/dice.mjs"
 import {getWebhookInChannel , getWebhook} from "../models/webhook.mjs"
 
   //削除ボタン（なにかとつかう）
@@ -29,8 +31,8 @@ export default async(message) => {
       content: "ちょっと違うかニャ…"
       });
   }
-  if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…)/)) {
-    if(Math.floor(Math.random() * 100) < 1){ //0-99 1%で大当たり
+  if (message.content.match(/(^(こころ|ココロ|心)…*$|ココロ…|ココロー！)/)) {
+    if(Math.floor(Math.random() * 100) < 1){ //0-99 1%で大当たり　ココロー！
       await message.react('1265162645330464898'); await message.react('1265165857445908542');
       await message.react('1265165940824215583'); await message.react('1265166237399388242');
       await message.react('1265166293464518666'); await message.react("‼️");
