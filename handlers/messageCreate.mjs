@@ -258,12 +258,12 @@ export default async(message) => {
       }
       // Embedを作成
       const embeds = [];
-      const embed = createEmbed(fullMatch, '引用元へ', sendmessage, fetchedMessage.author, images[0], fetchedMessage.createdAt, '#0099ff');
+      const embed = createEmbed(fullMatch, '引用元へ', sendmessage, fetchedMessage.author, images[0], fetchedMessage.createdAt, '#0099ff','神谷マリアの提供でお送りしますにゃ！');
       embeds.push(embed);
 
       if (images.length > 1) {
         for (let i = 1; i < images.length; i++) {
-          const imageEmbed = createEmbed(fullMatch, '', '', { displayName: '', displayAvatarURL: () => '' }, images[i], fetchedMessage.createdAt, '#0099ff');
+          const imageEmbed = createEmbed(fullMatch, '', '', { displayName: '', displayAvatarURL: () => '' }, images[i], fetchedMessage.createdAt, '#0099ff',null);
           embeds.push(imageEmbed);
         }
       }
@@ -280,12 +280,12 @@ export default async(message) => {
             refSendMessage += "スタンプ：" + refFirstSticker.name;
             refImages.unshift(refFirstSticker.url);
           }
-          const refEmbed = createEmbed(refMatch, '引用元の返信先', refSendMessage, refMessage.author, refImages[0], refMessage.createdAt, '#B78CFE','神谷マリアの提供でお送りしますにゃ！');
+          const refEmbed = createEmbed(refMatch, '引用元の返信先', refSendMessage, refMessage.author, refImages[0], refMessage.createdAt, '#B78CFE',null);
           embeds.push(refEmbed);
 
           if (refImages.length > 1) {
             for (let i = 1; i < refImages.length; i++) {
-              const refImageEmbed = createEmbed(refMatch, '', '', { displayName: '', displayAvatarURL: () => '' }, refImages[i], refMessage.createdAt, '#B78CFE');
+              const refImageEmbed = createEmbed(refMatch, '', '', { displayName: '', displayAvatarURL: () => '' }, refImages[i], refMessage.createdAt, '#B78CFE',null);
               embeds.push(refImageEmbed);
             }
           }
@@ -300,8 +300,10 @@ export default async(message) => {
       newmessage = newmessage.replace(regex, `**（変換済み)**`);
       if(newmessage == `**（変換済み)**`) newmessage = "";//URLだけなら消す
       //
+      let replyToMessage ="";
       if(message.reference){
-      const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
+       replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
+      }
       if (replyToMessage) {
         await replyToMessage.reply({
           content: `<@${message.author.id}>:\n${newmessage}`,
@@ -310,8 +312,7 @@ export default async(message) => {
           flags: [4096],
           components: [deletebutton]
           });
-      }
-    }else{
+      }else{
       await sendMessage(message ,newmessage, fileUrls , embeds, 4096 )
        /*
        await message.channel.send({
@@ -384,6 +385,11 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
    const webhook = await getWebhookInChannel(message.channel);
    //メッセージ送信（今回は受け取ったものをそのまま送信）
    //usernameとavatarURLをメッセージ発信者のものに指定するのがミソ
+   //元メッセージの返信があるかチェック
+   if(message.reference){
+   const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
+   }else{
+//元メッセージが返信でない場合
   try{
    webhook.send({
     content: `<@${message.author.id}>:\n${newmessage}`,
@@ -405,6 +411,7 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
     console.error('Error fetching message:', e);
   }
  }
+}
 
 export  async function getWebhookInChannel(channel) {
    //webhookのキャッシュを自前で保持し速度向上
