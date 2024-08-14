@@ -26,7 +26,7 @@ const confirmationButton = new ButtonBuilder()
             .setLabel('削除する')
             .setStyle(ButtonStyle.Danger);
 const cancelButton = new ButtonBuilder()
-            .setEmoji(':x:')
+            .setEmoji('❌')
             .setCustomId('cancel_delete')
             .setLabel('キャンセル')
             .setStyle(ButtonStyle.Secondary);
