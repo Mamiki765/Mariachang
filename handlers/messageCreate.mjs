@@ -1,8 +1,10 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import fs from "fs";
 
+import config from '../config.mjs'; 
 import { ndnDice } from "../commands/utils/dice.mjs"
 import {createEmbed, getImagesFromMessage, sendMessage} from "../utils/messageutil.mjs"
+
 
 
 
@@ -198,7 +200,7 @@ export default async(message) => {
       //NSFW→健全を避ける(カテゴリ無しのチャンネルが有るときはparentの存在を先にifで探ること)
       if ((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) return;
       //クリエイターチャンネルや管理人室は他のチャンネルに転載禁止
-      if ((channel.parentId === `1128492964939833375` || channel.parentId === `1075366548329467964`) && message.channel.id !== channel.id) return;
+      if (config.privatecategory.includes(channel.parentId) && message.channel.id !== channel.id) return;
       
       // メッセージから画像URLを取得
       const images = await getImagesFromMessage(fetchedMessage);
