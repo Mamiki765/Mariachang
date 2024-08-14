@@ -358,9 +358,14 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
    const nickname = message.member.displayName;
    const avatarURL = message.author.avatarURL({dynamic : true});
    //Webhookの取得（なければ作成する）
-  if(!channel.isThread()){
-    const webhook = await getWebhookInChannel(message.channel);
-  }else{}
+  const webhook = null;
+  const Threadid = null;
+  if(!message.channel.isThread()){
+    webhook = await getWebhookInChannel(message.channel);
+  }else{
+    webhook = await getWebhookInChannel(message.channel.parent);
+    Threadid = message.channel.id
+  }
    //メッセージ送信（今回は受け取ったものをそのまま送信）
    //usernameとavatarURLをメッセージ発信者のものに指定するのがミソ
    //元メッセージの返信があるかチェック
@@ -402,7 +407,7 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
  }
 }
 
-export  async function getWebhookInChannel(channel) {
+export async function getWebhookInChannel(channel) {
    //webhookのキャッシュを自前で保持し速度向上
    const webhook = cacheWebhooks.get(channel.id) ?? await getWebhook(channel)
    return webhook;
