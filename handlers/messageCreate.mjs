@@ -1,5 +1,6 @@
 import { ndnDice } from "../commands/utils/dice.mjs"
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import {getWebhookInChannel , getWebhook} from "../models/webhook.mjs"
 
   //削除ボタン（なにかとつかう）
     const deletebutton = new ActionRowBuilder()
@@ -169,29 +170,8 @@ export default async(message) => {
     const updatedMessage = message.content
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
-//    const newMessage = `<@${message.author.id}>:\n${updatedMessage}`;
     const fileUrls = message.attachments.map(attachment => attachment.url);
     await sendMessage(message ,updatedMessage, fileUrls , null, 4096 )
-      /*
-    if(message.reference){
-      const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
-      if (replyToMessage) {
-        await replyToMessage.reply({
-          flags: [ 4096 ],//silent
-          content: newMessage,
-         files: fileUrls,
-          components: [deletebutton]
-          });
-      }
-    }else{
-      await message.channel.send({
-      flags: [ 4096 ],//silent
-　　　 files: fileUrls,
-      content: newMessage,
-      components: [deletebutton]});
-
-    }
-    */
     await message.delete();//元メッセージは消す
     }
  
@@ -352,8 +332,6 @@ export async function getImagesFromMessage(message) {
 }
 
 //メッセージ送信系
-//webhookのキャッシュ
-const cacheWebhooks = new Map();
 export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) {
    //本人に見せかけてメッセージを送信するスクリプト
    //メッセージ発信者の名前とアバターURL
@@ -411,19 +389,3 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
   }
  }
 }
-
-export async function getWebhookInChannel(channel) {
-   //webhookのキャッシュを自前で保持し速度向上
-   const webhook = cacheWebhooks.get(channel.id) ?? await getWebhook(channel)
-   return webhook;
- }
- 
-export  async function getWebhook(channel) {
-   //チャンネル内のWebhookを全て取得
-   const webhooks = await channel.fetchWebhooks();
-   //tokenがある（＝webhook製作者がbot自身）Webhookを取得、なければ作成する
-   const webhook = webhooks?.find((v) => v.token) ?? await channel.createWebhook({name: "マリアのWebhook"});
-   //キャッシュに入れて次回以降使い回す
-   if (webhook) cacheWebhooks.set(channel.id, webhook);
-   return webhook;
- }
