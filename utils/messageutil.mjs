@@ -33,7 +33,7 @@ export async function getImagesFromMessage(message) {
   // `images` 配列の末尾に `imageUrls` 配列を追加する
   images = [...images, ...imageUrls];
 
-  // 画像が5個以上の場合は先頭4つだけを残す
+  // 画像が5個以上の場合は先頭4つだけを残す（discordの画像サムネは4つまでなので無駄なembedを作らない)
   if (images.length > 5) images = images.slice(0, 4);
 
   return images;
@@ -48,7 +48,7 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
    //Webhookの取得（なければ作成する）
   let webhook = null;
   let Threadid = null;
-  //スレッドであるかチェックし、スレッドならチャンネルのwebhookを用いてスレッドに投稿する形を取る
+  //スレッドであるかチェックし、スレッドなら親チャンネルのwebhookを用いてスレッドに投稿する形を取る
   if(!message.channel.isThread()){
     webhook = await getWebhookInChannel(message.channel);
   }else{
@@ -68,7 +68,7 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
       content: `<@${message.author.id}>:\n${newmessage}`,
       files: fileUrls,
       embeds: embeds,
-      flags: [4096],
+      flags: [flag],
       threadId:Threadid ,
       components: [deletebutton]
        });

@@ -103,10 +103,16 @@ client.on('error', async (error) => {// エラー発生時の処理
     const channel = await client.channels.fetch(process.env.logch_error);
     if (channel.isTextBased()) { // チャンネルがテキストチャンネルであることを確認
       const embed = new EmbedBuilder()
-        .setTitle('エラーが発生しました')
-        .setDescription(`エラー内容:\n\`\`\`\n${error.message}\n\`\`\``) // コードブロックで囲む
+        .setTitle('エラーログ')
+        .setDescription(`エラーが発生しました\n\`\`\`\n${error.message}\n\`\`\``) // コードブロックで囲む
         .setColor('#ff0000') // 赤色
-        .setTimestamp();
+        .setTimestamp()
+        .addFields(
+                {
+                    name: "エラーメッセージ",
+                    value: "```\n" + error.message + " (" + comname +")\n```"
+                }
+            );
 
       await channel.send({ embeds: [embed] });
     }
