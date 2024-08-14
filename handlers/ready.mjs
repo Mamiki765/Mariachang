@@ -4,7 +4,7 @@ import config from '../config.mjs';
 
 export default async (client) => {
   // 8時と22時に時報
-  const timechannel = await client.channels.fetch(config.timesignal);
+  const timechannel = await client.channels.fetch(config.timesignalch);
   await cron.schedule('0 8 * * *', () => {
     timechannel.send(`朝の8時をお知らせしますにゃ。`);
   });

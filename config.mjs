@@ -1,3 +1,5 @@
+//トークンなど機密事項やタイムゾーンはdotenvで管理すること！
+//import config from '../config.mjs'; などで読み込む
 export default {
     privatecategory: [//プライベートカテゴリのIDリスト
         "1128492964939833375",//クリエイターロール
