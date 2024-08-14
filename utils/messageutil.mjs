@@ -2,7 +2,7 @@ import {getWebhookInChannel , getWebhook} from "../utils/webhook.mjs"
 import { deletebutton } from "../components/buttons.mjs"
 import { EmbedBuilder} from "discord.js";
 
-// Embedを作成する関数(引用用)
+// Embedを作成する関数(引用プレビュー用)
 export function createEmbed(url, title, description, author, imageUrl, timestamp, color,footertxt) {
   return new EmbedBuilder()
     .setURL(url)
@@ -19,7 +19,7 @@ export function createEmbed(url, title, description, author, imageUrl, timestamp
 
 ;}
 
-// メッセージから画像URLを取得する関数（引用用）
+// メッセージから画像URLを取得する関数（引用プレビュー用）
 export async function getImagesFromMessage(message) {
   const imageUrlRegex = /https:\/\/[^\s]+?\.(png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?/gi;
   // 添付ファイルを並べ、画像ファイルを取得
@@ -41,7 +41,7 @@ export async function getImagesFromMessage(message) {
 
 //メッセージ送信系
 export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) {
-   //本人に見せかけてメッセージを送信するスクリプト
+   //本人に見せかけてメッセージを送信しなおすスクリプト
    //メッセージ発信者の名前とアバターURL
    const nickname = message.member.displayName;
    const avatarURL = message.author.displayAvatarURL({dynamic : true});
