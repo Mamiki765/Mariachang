@@ -104,15 +104,10 @@ client.on('error', async (error) => {// エラー発生時の処理
     if (channel.isTextBased()) { // チャンネルがテキストチャンネルであることを確認
       const embed = new EmbedBuilder()
         .setTitle('エラーログ')
-        .setDescription(`エラーが発生しました\n\`\`\`\n${error.message}\n\`\`\``) // コードブロックで囲む
+        .setDescription(`エラーが発生しました`)
         .setColor('#ff0000') // 赤色
         .setTimestamp()
-        .addFields(
-                {
-                    name: "エラーメッセージ",
-                    value: "```\n" + error.message + " (" + comname +")\n```"
-                }
-            );
+        .addFields({name: "エラーメッセージ",value: "```\n" + error.message +"\n```"});
 
       await channel.send({ embeds: [embed] });
     }
