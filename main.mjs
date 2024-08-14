@@ -98,6 +98,23 @@ client.on('warn', (info) => {// 警告メッセージのリスニング
   console.warn('Discord.js warning:', info);
 });
 
+client.on('error', async (error) => {// エラー発生時の処理
+  try {
+    const channel = await client.channels.fetch(process.env.logch_error);
+    if (channel.isTextBased()) { // チャンネルがテキストチャンネルであることを確認
+      const embed = new EmbedBuilder()
+        .setTitle('エラーが発生しました')
+        .setDescription(`エラー内容:\n\`\`\`\n${error.message}\n\`\`\``) // コードブロックで囲む
+        .setColor('#ff0000') // 赤色
+        .setTimestamp();
+
+      await channel.send({ embeds: [embed] });
+    }
+  } catch (err) {
+    console.error('エラーメッセージの送信に失敗しました:', err);
+  }
+});
+
 client.on("ready", async () => {//Bot の起動時に必要な全ての初期設定や処理
   await handlers.get("ready").default(client);
 });
