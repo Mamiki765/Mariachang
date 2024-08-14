@@ -1,5 +1,5 @@
 import { SlashCommandBuilder,  EmbedBuilder , ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { deletebutton } from "../../components/buttons.mjs"
+import { deletebuttonanyone } from "../../components/buttons.mjs"
 
 export const data = new SlashCommandBuilder()
   .setName('ping')
@@ -9,7 +9,7 @@ export async function execute(interaction){
   const apiPing = Date.now() - interaction.createdTimestamp
 	await interaction.reply({ 
     flags: [ 4096 ],
-    content: `<@${interaction.user.id}>`,
+//    content: `<@${interaction.user.id}>`,
     embeds: [
                     new EmbedBuilder()
                     .setTitle(":ping_pong:Pongにゃ!")
@@ -27,6 +27,6 @@ export async function execute(interaction){
                     .setColor("#2f3136")
                     .setTimestamp()
                 ],
-                components: [deletebutton]
+                components: [deletebuttonanyone]
   });
 }

@@ -1,26 +1,19 @@
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder} from 'discord.js';
+import { confirmationButton, cancelButton　} from "../components/buttons.mjs"
 
 export default async function handleButtonInteraction(interaction) {
       //ボタン処理
       //deleteなら削除
-       if (interaction.customId == "delete") {
+       if (interaction.customId == "delete" || interaction.customId == "deleteanyone" ) {
        if(!interaction.message.mensions){
         await interaction.message.fetch();
        }//なければ取得
  //        if(interaction.message.mentions.users.has(interaction.member.user.id)) {
-         //削除ボタンを押されたとき、その本文の文頭にあるメンションの人を投稿者として認識、削除権限の有無を確かめる。
+         //削除ボタンを押されたとき、消せる人がanyoneでないならその本文の文頭にあるメンションの人を投稿者として認識、削除権限の有無を確かめる。
          const userId = interaction.user.id;
          const userIdPattern = new RegExp(`^<@${userId}>`, 'i'); // 'i' フラグでケースインセンシティブ
-         if (userIdPattern.test(interaction.message.content)) {
+         if (userIdPattern.test(interaction.message.content) || interaction.customId == "deleteanyone") {
            //確認メッセージを送信
-          const confirmationButton = new ButtonBuilder()
-            .setCustomId('confirm_delete')
-            .setLabel('削除する')
-            .setStyle(ButtonStyle.Danger);
-          const cancelButton = new ButtonBuilder()
-            .setCustomId('cancel_delete')
-            .setLabel('キャンセル')
-            .setStyle(ButtonStyle.Secondary);
           const row = new ActionRowBuilder().addComponents(confirmationButton, cancelButton);
 
           await interaction.reply({
