@@ -299,32 +299,8 @@ export default async(message) => {
       const regex = new RegExp(fullMatch, 'i');
       newmessage = newmessage.replace(regex, `**（変換済み)**`);
       if(newmessage == `**（変換済み)**`) newmessage = "";//URLだけなら消す
-      //
-      let replyToMessage ="";
-      if(message.reference){
-       replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
-      }
-      if (replyToMessage) {
-        await replyToMessage.reply({
-          content: `<@${message.author.id}>:\n${newmessage}`,
-          files: fileUrls,
-          embeds: embeds,
-          flags: [4096],
-          components: [deletebutton]
-          });
-      }else{
+//メッセージを送信する
       await sendMessage(message ,newmessage, fileUrls , embeds, 4096 )
-       /*
-       await message.channel.send({
-        content: `<@${message.author.id}>:\n${newmessage}`,
-        files: fileUrls,
-        embeds: embeds,
-        flags: [4096],
-        components: [deletebutton]
-      });
-      */
-      
-    }
 
       await message.delete(); // 元メッセージは消す
     } catch (error) {
@@ -382,13 +358,26 @@ export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) 
    const nickname = message.member.displayName;
    const avatarURL = message.author.avatarURL({dynamic : true});
    //Webhookの取得（なければ作成する）
-   const webhook = await getWebhookInChannel(message.channel);
+  if(!channel.isThread()){
+    const webhook = await getWebhookInChannel(message.channel);
+  }else{}
    //メッセージ送信（今回は受け取ったものをそのまま送信）
    //usernameとavatarURLをメッセージ発信者のものに指定するのがミソ
    //元メッセージの返信があるかチェック
+   let replyToMessage = null;
    if(message.reference){
-   const replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
-   }else{
+   replyToMessage = message.reference.messageId ? await message.channel.messages.fetch(message.reference.messageId) : null;
+   }
+//返信ならwebhookを用いず
+  if (replyToMessage) {
+    await replyToMessage.reply({
+      content: `<@${message.author.id}>:\n${newmessage}`,
+      files: fileUrls,
+      embeds: embeds,
+      flags: [4096],
+      components: [deletebutton]
+       });
+    }else{
 //元メッセージが返信でない場合
   try{
    webhook.send({
