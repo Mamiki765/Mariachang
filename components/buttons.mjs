@@ -19,7 +19,8 @@ export  const deletebuttonanyone = new ActionRowBuilder()
              .setCustomId("deleteanyone")
                     )
 
-//削除時の確認ボタン2種
+//削除時の確認ボタン
+export  const deleteconfirm = new ActionRowBuilder().addComponents(confirmationButton, cancelButton);
 export  const confirmationButton = new ButtonBuilder()
             .setCustomId('confirm_delete')
             .setLabel('削除する')

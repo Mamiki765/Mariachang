@@ -1,5 +1,5 @@
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder} from 'discord.js';
-import { confirmationButton, cancelButton　} from "../components/buttons.mjs"
+import { deleteconfirm　} from "../components/buttons.mjs"
 
 export default async function handleButtonInteraction(interaction) {
       //ボタン処理
@@ -14,11 +14,9 @@ export default async function handleButtonInteraction(interaction) {
          const userIdPattern = new RegExp(`^<@${userId}>`, 'i'); // 'i' フラグでケースインセンシティブ
          if (userIdPattern.test(interaction.message.content) || interaction.customId == "deleteanyone") {
            //確認メッセージを送信
-          const row = new ActionRowBuilder().addComponents(confirmationButton, cancelButton);
-
           await interaction.reply({
             content: 'このメッセージを削除しますか？',
-            components: [row],
+            components: [deleteconfirm],
             ephemeral: true
             });
           return;
