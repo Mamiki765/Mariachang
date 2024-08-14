@@ -1,8 +1,6 @@
 import { ndnDice } from "../commands/utils/dice.mjs"
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-    
 
-export default async(message) => {
   //削除ボタン（なにかとつかう）
     const deletebutton = new ActionRowBuilder()
          .addComponents(
@@ -12,6 +10,9 @@ export default async(message) => {
              .setStyle(ButtonStyle.Danger)
              .setCustomId("delete")
                     )
+
+export default async(message) => {
+
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
@@ -365,3 +366,48 @@ export async function getImagesFromMessage(message) {
 
   return images;
 }
+
+//メッセージ送信系
+//webhookのキャッシュ
+const cacheWebhooks = new Map();
+export async function sendMessage(message , newmessage, fileUrls ,embeds, flags) {
+   //本人に見せかけてメッセージを送信するスクリプト
+   //メッセージ発信者の名前とアバターURL
+   const nickname = message.member.displayName;
+   const avatarURL = message.author.avatarURL({dynamic : true});
+   //Webhookの取得（なければ作成する）
+   const webhook = await getWebhookInChannel(message.channel);
+   //メッセージ送信（今回は受け取ったものをそのまま送信）
+   //usernameとavatarURLをメッセージ発信者のものに指定するのがミソ
+  try{
+   webhook.send({
+     content : message.content,
+     username : nickname,
+     avatarURL : avatarURL,
+   });
+  }catch(e){
+   await message.channel.send({
+    content: `<@${message.author.id}>:\n${newmessage}`,
+    files: fileUrls,
+    embeds: embeds,
+    flags: [4096],
+    components: [deletebutton]
+      });
+  }
+ }
+
+export  async function getWebhookInChannel(channel) {
+   //webhookのキャッシュを自前で保持し速度向上
+   const webhook = cacheWebhooks.get(channel.id) ?? await getWebhook(channel)
+   return webhook;
+ }
+ 
+export  async function getWebhook(channel) {
+   //チャンネル内のWebhookを全て取得
+   const webhooks = await channel.fetchWebhooks();
+   //tokenがある（＝webhook製作者がbot自身）Webhookを取得、なければ作成する
+   const webhook = webhooks?.find((v) => v.token) ?? await channel.createWebhook({name: "マリアのWebhook"});
+   //キャッシュに入れて次回以降使い回す
+   if (webhook) cacheWebhooks.set(channel.id, webhook);
+   return webhook;
+ }
