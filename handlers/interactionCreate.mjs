@@ -4,9 +4,10 @@ import handleButtonInteraction from '../interactions/buttonHandlers.mjs';
 export default async(interaction) => {
 //ログとり
   const comname = interaction.commandName ? interaction.commandName : interaction.customId;
+  const user = interaction.member ? interaction.member : interaction.user;//DMならuser
   const log = new EmbedBuilder()
         .setTitle("コマンド実行ログ")
-        .setDescription(`${interaction.member.displayName} がコマンドを実行しました。`)
+        .setDescription(`${user.displayName} がコマンドを実行しました。`)
         .setTimestamp()
         .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
         .addFields(

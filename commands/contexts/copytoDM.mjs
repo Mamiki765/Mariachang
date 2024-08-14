@@ -1,6 +1,8 @@
 import { ContextMenuCommandBuilder,  ApplicationCommandType, EmbedBuilder } from "discord.js";
 // import { PermissionsBitField} from "discord.js";
 
+import { deletebuttonanyone } from "../../components/buttons.mjs"
+
 export const data = new ContextMenuCommandBuilder()
   .setName("DMにメッセージをコピー")
   .setType(ApplicationCommandType.Message);
@@ -58,7 +60,8 @@ export async function execute(interaction) {
   //コピーを送信
     await interaction.member.send({
       flags: [ 4096 ],//silent
-      embeds: embeds
+      embeds: embeds,
+      components: [deletebuttonanyone]
     });
 
   //完了報告
