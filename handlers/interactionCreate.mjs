@@ -1,6 +1,26 @@
-import { ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
+import { ButtonBuilder, ButtonStyle, ActionRowBuilder,EmbedBuilder } from 'discord.js';
 
 export default async(interaction) => {
+//ログとり
+  const comname = interaction.commandName ? interaction.commandName : interaction.customId;
+  const log = new EmbedBuilder()
+        .setTitle("コマンド実行ログ")
+        .setDescription(`${interaction.member.displayName} がコマンドを実行しました。`)
+        .setTimestamp()
+        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+        .addFields(
+                {
+                    name: "コマンド",
+                    value: "```\n" + interaction.toString() + " (" + comname +")\n```"
+                },
+                {
+                    name: "実行ユーザー",
+                    value: "```\n" + `${interaction.user.tag}(${interaction.user.id})` + "\n```",
+                    inline: true
+                }
+            )
+    interaction.client.channels.cache.get(process.env.logch_command).send({ embeds: [log] })
+//ログ取りここまで
 //ボタン
   if (interaction.isButton()){
     //deleteなら削除ボタン処理

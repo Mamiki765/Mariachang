@@ -79,26 +79,6 @@ for (const file of handlerFiles) {
 
 client.on("interactionCreate", async (interaction) => {
   await handlers.get("interactionCreate").default(interaction);
-//ログはとっておく
-  const comname = interaction.commandName ? interaction.commandName : interaction.customId;
-  const log = new EmbedBuilder()
-        .setTitle("コマンド実行ログ")
-        .setDescription(`${interaction.member.displayName} がコマンドを実行しました。`)
-        .setTimestamp()
-        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-        .addFields(
-                {
-                    name: "コマンド",
-                    value: "```\n" + interaction.toString() + " (" + comname +")\n```"
-                },
-                {
-                    name: "実行ユーザー",
-                    value: "```\n" + `${interaction.user.tag}(${interaction.user.id})` + "\n```",
-                    inline: true
-                }
-            )
-    client.channels.cache.get(process.env.logch_command).send({ embeds: [log] })
-//ログ取りここまで
 });
 
 client.on("voiceStateUpdate", async (oldState, newState) => {

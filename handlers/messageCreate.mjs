@@ -165,15 +165,6 @@ export default async(message) => {
       });
     }
 //ステシ変換ここまで
-//Xとかいうカスも変換してやれ
-    if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {
-    const updatedMessage = message.content
-        .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
-        .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
-    const fileUrls = message.attachments.map(attachment => attachment.url);
-    await sendMessage(message ,updatedMessage, fileUrls , null, 4096 )
-    await message.delete();//元メッセージは消す
-    }
  
 //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){   
   if (message.content.match(/^(!にゃん|!にゃーん|にゃ～ん|にゃあん)$/)) {
@@ -203,8 +194,18 @@ export default async(message) => {
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
+  //X、メッセージリンクを処理
+  //両方あったらXを優先
+    if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {
+    const updatedMessage = message.content
+        .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
+        .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
+    const fileUrls = message.attachments.map(attachment => attachment.url);
+    await sendMessage(message ,updatedMessage, fileUrls , null, 4096 )
+    await message.delete();//元メッセージは消す
+    }
   //メッセージから内容チラ見せ
-  if (message.content.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/)) {
+  else if (message.content.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/)) {
     if (!message.guild) {return;}//dmなら無視
         //メッセージのURLを確認する正規表現
     const MESSAGE_URL_REGEX = /https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
@@ -307,9 +308,10 @@ export function createEmbed(url, title, description, author, imageUrl, timestamp
     })
     .setImage(imageUrl)
     .setTimestamp(timestamp)
+    .setColor(color)
     .setFooter({text: footertxt})
-    .setColor(color);
-}
+
+;}
 
 // メッセージから画像URLを取得する関数（引用用）
 export async function getImagesFromMessage(message) {
