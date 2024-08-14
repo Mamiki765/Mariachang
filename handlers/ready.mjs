@@ -1,9 +1,10 @@
 import { EmbedBuilder , ActivityType} from 'discord.js';
 import cron from 'node-cron';
+import config from '../config.mjs'; 
 
 export default async (client) => {
   // 8時と22時に時報
-  const timechannel = await client.channels.fetch(process.env.time_signal_channel);
+  const timechannel = await client.channels.fetch(config.timesignal);
   await cron.schedule('0 8 * * *', () => {
     timechannel.send(`朝の8時をお知らせしますにゃ。`);
   });
@@ -16,7 +17,7 @@ export default async (client) => {
   console.log(`${client.user.tag} がログインしました！`);
 
   // 240718管理室にログイン通知
-  client.channels.cache.get(process.env.logch_login).send({
+  client.channels.cache.get(config.logch.login).send({
     embeds: [
       new EmbedBuilder()
         .setTitle("起動完了")

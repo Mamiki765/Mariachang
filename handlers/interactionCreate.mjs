@@ -1,5 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import handleButtonInteraction from '../interactions/buttonHandlers.mjs';
+import config from '../config.mjs'; 
 
 export default async(interaction) => {
 //ログとり
@@ -21,7 +22,7 @@ export default async(interaction) => {
                     inline: true
                 }
             )
-    interaction.client.channels.cache.get(process.env.logch_command).send({ embeds: [log] })
+    interaction.client.channels.cache.get(config.logch.command).send({ embeds: [log] })
 //ログ取りここまで
 //ボタン
     if (interaction.isButton()) {

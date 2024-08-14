@@ -199,7 +199,7 @@ export default async(message) => {
       if (channel.isThread() && channel.type === 12 && message.channel.id !== channel.id) return;
       //NSFW→健全を避ける(カテゴリ無しのチャンネルが有るときはparentの存在を先にifで探ること)
       if ((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) return;
-      //クリエイターチャンネルや管理人室は他のチャンネルに転載禁止
+      //プライベートなカテゴリは他のチャンネルに転載禁止。クリエイターや管理人室など
       if (config.privatecategory.includes(channel.parentId) && message.channel.id !== channel.id) return;
       
       // メッセージから画像URLを取得

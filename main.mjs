@@ -4,6 +4,7 @@ import express from "express";
 import { Client, Collection, Events, GatewayIntentBits, ActivityType,  EmbedBuilder , Partials} from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
 import Notification from "./models/notification.mjs";
+import config from './config.mjs'; 
 
 import Sequelize from "sequelize";
 import Parser from 'rss-parser';
@@ -100,7 +101,7 @@ client.on('warn', (info) => {// 警告メッセージのリスニング
 
 client.on('error', async (error) => {// エラー発生時の処理
   try {
-    const channel = await client.channels.fetch(process.env.logch_error);
+    const channel = await client.channels.fetch(config.logch.error);
     if (channel.isTextBased()) { // チャンネルがテキストチャンネルであることを確認
       const embed = new EmbedBuilder()
         .setTitle('エラーログ')
