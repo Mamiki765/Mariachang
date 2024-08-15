@@ -1,11 +1,12 @@
 import {
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  EmbedBuilder
 } from "discord.js";
 
 
 export const data = new SlashCommandBuilder()
   .setName('suyasuya')
-  .setDescription('【！注意！】発言ができなくなります！（自粛用にどうぞ）')
+  .setDescription('【⚠️注意】発言・VC参加をできない状態にします。依存対策にどうぞ。')
   .addStringOption(option =>
     option
       .setName('minutes')
@@ -29,11 +30,19 @@ export async function execute(interaction){
             ephemeral: true
         });
     }
-  try{     
-    await interaction.member.timeout(60 * 1000 * nerunonya, "/suyasuyaによるセルフタイムアウト");
+  try{
+    const sleaptime = 60 * 1000 * nerunonya;
+    
+    await interaction.member.timeout(sleaptime, "/suyasuyaによるセルフタイムアウト");
 	  await interaction.reply({
       flags: [ 4096 ],//silent
-      content: interaction.member.displayName + "を" + nerunonya + '分間封殺するにゃ、精々作業なり睡眠なりするにゃ！（セルフタイムアウトされました）'
+       embeds: [
+                      new EmbedBuilder()
+                      .setTitle("セルフタイムアウト")
+                      .setDescription(`${interaction.member.displayName}を${nerunonya}分間封殺するにゃ！`)
+                      .setColor("#FF0000")
+                      .setFooter({text: "精々作業なり睡眠なりするにゃ！"})
+                  ]
     });
   } catch(error){
     interaction.reply({flags: [ 4096 ],　content: `エラーが発生しましたにゃ。流石にマリアより上の役職はタイムアウトできないにゃ…`});
