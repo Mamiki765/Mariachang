@@ -216,7 +216,7 @@ export default async(message) => {
       // Embedを作成
       const embeds = [];
 　　　　const channelname = `#${channel.name}`;
-      const embed = createEmbed(fullMatch, '引用元へ', sendmessage, fetchedMessage.author, images[0], fetchedMessage.createdAt, '#0099ff', channelname);
+      const embed = createEmbed(fullMatch, '引用元へ', sendmessage, fetchedMessage.author, images[0], fetchedMessage.createdAt, '#0099ff',channelname);
       embeds.push(embed);
 
       if (images.length > 1) {
