@@ -32,7 +32,8 @@ export async function execute(interaction){
     }
   try{
     const sleaptime = 60 * 1000 * nerunonya;
-    
+    const timestamp = Math.floor(Date.now() / 1000);
+    const waketimestamp = Math.floor((Date.now() + sleaptime) / 1000);
     await interaction.member.timeout(sleaptime, "/suyasuyaによるセルフタイムアウト");
 	  await interaction.reply({
       flags: [ 4096 ],//silent
@@ -42,6 +43,17 @@ export async function execute(interaction){
                       .setDescription(`${interaction.member.displayName}を${nerunonya}分間封殺するにゃ！`)
                       .setColor("#FF0000")
                       .setFooter({text: "精々作業なり睡眠なりするにゃ！"})
+                      .addFields(
+                      {
+                        name: "開始時刻",
+                        value: `<t:${timestamp}:f>`
+                      },
+                      {
+                        name: "終了時刻",
+                        value: `<t:${waketimestamp}:f>`,
+                        inline: true
+                      }
+            )
                   ]
     });
   } catch(error){
