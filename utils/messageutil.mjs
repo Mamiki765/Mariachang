@@ -43,8 +43,9 @@ export async function getImagesFromMessage(message) {
 //tenorのURLチェック
     // メッセージにTenorのURLが含まれているかをチェック
 export async function getURLFromTenor(message) {
+    console.log(message);
     const tenorUrlRegex = /https:\/\/tenor\.com\/view\/[^"]+/i;
-    const match = message.content.match(tenorUrlRegex);
+    const match = message.match(tenorUrlRegex);
 
     if (match) {
         try {
@@ -63,6 +64,7 @@ export async function getURLFromTenor(message) {
             return message;
         }
     }
+  console.log(message);
   return message;
 }
 //メッセージ送信系
