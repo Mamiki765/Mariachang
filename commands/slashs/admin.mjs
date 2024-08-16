@@ -7,16 +7,30 @@ export const data = new SlashCommandBuilder()
   .setDescription("管理用")
 // 管理者権限のみで実行可能
   .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator.toString())
+//マリアで発言機能登録
   .addSubcommand((subcommand) =>
     subcommand
       .setName("chatasmaria").setDescription("匿名としてマリアが発言します（作成中）")
       .addStringOption(option =>
-    option
-      .setName('content')
-      .setDescription('発言内容を記述(改行は\n、<br>、@@@のどれかでできます)')
-      .setRequired(true)
-    )
+        option
+          .setName('content')
+          .setDescription('発言内容を記述(改行は\n、<br>、@@@のどれかでできます)')
+          .setRequired(true)
+    )        
+  .addChannelOption(option =>
+        option
+          .setName('channel')
+          .setDescription('送信先チャンネルを指定してください')
+          .addChannelTypes(
+            0,  // テキストチャンネル
+            5,  // ニュースチャンネル
+            10, // ニューススレッド
+            11, //公開スレッド
+            12, //プライベートスレッド
+          )
+      )
   );
+//マリアで発言機能登録ここまで
 
 export async function execute(interaction) {
  const subcommand = interaction.options.getSubcommand();
@@ -39,10 +53,15 @@ export async function execute(interaction) {
                       .setTitle("管理者発言ログ")
                       .setColor("#FFD700")
                       .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
+                      .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
                       .addFields(
                       {
+                        name: "送信者",
+                        value: `${interaction.member.displayName}`
+                      }
+                      ,{
                         name: "送信チャンネル",
-                        value: `${interaction.channel}`
+                        value: `${interaction.channel.name}`
                       })
                   ]
     });
