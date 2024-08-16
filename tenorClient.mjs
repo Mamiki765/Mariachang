@@ -1,7 +1,8 @@
-import TenorFetch from 'tenor-fetch';
+import tenorFetchModule from 'tenor-fetch';
+console.log(tenorFetchModule); // { default: [Function: TenorFetch] }
 
-//const tenorClient = new TenorFetch(process.env.tenor_apikey);
-try{
-const tf = new TenorFetch(process.env.tenor_apikey);
+// デフォルトエクスポートから関数を取り出して使用
+const TenorFetch = tenorFetchModule.default;
+const tenorClient = new TenorFetch(process.env.tenor_apikey);
 
-export default null;
+export default tenorClient;
