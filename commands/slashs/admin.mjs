@@ -19,6 +19,13 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
  const subcommand = interaction.options.getSubcommand();
   if(subcommand == "chatasmaria"){
-    
+    const content = interaction.options.getString('content');
+    await interaction.channel.send({
+     content: content 
+    });
+    await interaction.reply({ 
+      ephemeral: true,
+      content: `メッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
+  });
   }
 }
