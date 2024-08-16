@@ -58,7 +58,7 @@ export async function execute(interaction) {
                       .addFields(
                       {
                         name: "送信者",
-                        value: `${interaction.member.displayName}(${interaction.user.id})`
+                        value: `${interaction.member.displayName}(ID:${interaction.user.id})`
                       }
                       ,{
                         name: "送信チャンネル",
