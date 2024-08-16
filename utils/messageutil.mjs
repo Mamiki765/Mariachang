@@ -1,6 +1,7 @@
 import {getWebhookInChannel , getWebhook} from "../utils/webhook.mjs"
 import { deletebutton } from "../components/buttons.mjs"
 import { EmbedBuilder} from "discord.js";
+import tenorclient from '../tenorClient.mjs';
 
 // Embedを作成する関数(引用プレビュー用)
 export function createEmbed(url, title, description, author, imageUrl, timestamp, color,footertxt) {
@@ -39,6 +40,30 @@ export async function getImagesFromMessage(message) {
   return images;
 }
 
+//tenorのURLチェック
+    // メッセージにTenorのURLが含まれているかをチェック
+export async function getURLFromTenor(message) {
+    const tenorUrlRegex = /https:\/\/tenor\.com\/view\/[^"]+/i;
+    const match = message.content.match(tenorUrlRegex);
+
+    if (match) {
+        try {
+            // TenorのURLからGIFを取得
+            const searchQuery = match[0];
+            const response = await tenorclient(searchQuery);
+
+            // GIFのURLを取得
+            const gifUrl = response.results[0].media[0].gif.url;
+
+            // メッセージに返信
+            return gifUrl;
+        } catch (error) {
+            console.error('Error fetching GIF from Tenor:', error);
+            return message;
+        }
+    }
+  return message;
+}
 //メッセージ送信系
 export async function sendMessage(message , newmessage, fileUrls ,embeds, flag) {
    //本人に見せかけてメッセージを送信しなおすスクリプト
