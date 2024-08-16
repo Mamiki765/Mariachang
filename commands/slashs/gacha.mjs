@@ -48,5 +48,37 @@ export async function execute(interaction) {
     flags: [ 4096 ],//silent
     embeds: [embed]
     });
-  }else if(subcommand == "laplace")
+  }else if(subcommand == "laplace"){
+  let result = "";
+//確率を足して
+  let totalWeight = 0;
+  for (let i = 0; i < weight.length; i++) {
+    totalWeight += weight[i];
+  }
+//11連する
+  for (let j = 1; j < 12; j++) {
+    let random = Math.floor(Math.random() * totalWeight); 
+    //result += random + "  ";　　//乱数確認用
+    for (let i = 0; i < weight.length; i++) {　
+      if (random < weight[i]) {　　//レアリティ決定
+        result += arr[i] + maps[i][Math.floor(Math.random() * maps[i].length)] + "\n";　//結果を付け足して次に
+        break;
+      } else {
+        random -= weight[i];
+      }
+    }
+  }  
+  
+    const embed = new EmbedBuilder()
+      .setColor(0xEFDCAA)
+      .setAuthor({ name: interaction.member.displayName, iconURL: interaction.member.displayAvatarURL()})
+      .setTitle(`ひめこガチャ11連の結果にゃ！`)
+      .setDescription(result)
+      .setFooter({text: "アイテム案は随時募集中にゃ！（ロスアカラプラス仕様）"})
+  
+  await interaction.reply({
+    flags: [ 4096 ],//silent
+    embeds: [embed]
+    });
+ }
 }
