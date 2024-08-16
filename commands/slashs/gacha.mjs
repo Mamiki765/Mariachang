@@ -2,7 +2,10 @@ import { SlashCommandBuilder ,  EmbedBuilder} from "discord.js";
 
 export const data = new SlashCommandBuilder()
   .setName("gacha")
-  .setDescription("闇市を引きます(11連対応！)");
+  .setDescription("闇市を11回引きます")
+  .addSubcommand((subcommand) =>
+    subcommand.setName("status").setDescription("闇市を11回引きます")
+  );
 
 export async function execute(interaction) {
   // RL1 AF10 HQ30 R220 N724 
