@@ -20,7 +20,7 @@ export const data = new SlashCommandBuilder()
   .addChannelOption(option =>
         option
           .setName('channel')
-          .setDescription('送信先チャンネルを指定してください')
+          .setDescription('送信先チャンネルを指定してください(指定が無ければ現在のチャンネルに送信します)')
           .addChannelTypes(
             0,  // テキストチャンネル
             5,  // ニュースチャンネル
@@ -36,17 +36,18 @@ export async function execute(interaction) {
  const subcommand = interaction.options.getSubcommand();
   if(subcommand == "chatasmaria"){
     let content = interaction.options.getString('content');
+    const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
       .replace(/<br>/g, '\n')
       .replace(/\\n/g, '\n');
-    
-    await interaction.channel.send({
-     content: content 
-    });
+    try{    
+      // メッセージを指定されたチャンネルに送信
+      await targetChannel.send({
+        content: content
+      });
     await interaction.client.channels.cache.get(config.logch.admin).send({
-      content: `管理者メッセージが送信されました。`,
       flags: [ 4096 ],
       embeds: [
                       new EmbedBuilder()
@@ -57,11 +58,11 @@ export async function execute(interaction) {
                       .addFields(
                       {
                         name: "送信者",
-                        value: `${interaction.member.displayName}`
+                        value: `${interaction.member.displayName}(${interaction.user.id})`
                       }
                       ,{
                         name: "送信チャンネル",
-                        value: `${interaction.channel.name}`
+                        value: `#${targetChannel.name} (<#${targetChannel.id}>)`
                       })
                   ]
     });
@@ -69,5 +70,12 @@ export async function execute(interaction) {
       ephemeral: true,
       content: `メッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
   });
+      }catch(e){
+    console.error('メッセージ送信に失敗しました:', e);
+    await interaction.reply({
+      ephemeral: true,
+      content: `メッセージの送信に失敗しました: ${e.message}`
+    });
+    }
   }
 }
