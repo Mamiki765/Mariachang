@@ -56,7 +56,8 @@ export async function getURLFromTenor(message) {
             const gifUrl = response.results[0].media[0].gif.url;
 
             // メッセージに返信
-            return gifUrl;
+            const updatedMessage = message.replace(tenorUrlRegex, gifUrl);
+            return updatedMessage;
         } catch (error) {
             console.error('Error fetching GIF from Tenor:', error);
             return message;

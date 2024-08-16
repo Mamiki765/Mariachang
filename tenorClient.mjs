@@ -1,6 +1,9 @@
-import tenorFetch from 'tenor-fetch';
+//import TenorFetch from 'tenor-fetch';
 
 // TenorのAPIキーを設定
-const tenorClient = tenorFetch(process.env.tenor_apikey);
+//const tenorClient = new TenorFetch(process.env.tenor_apikey);
+import TenorFetch from 'tenor-fetch';
 
-export default tenorClient;
+const tf = new TenorFetch(process.env.tenor_apikey);
+
+export default tf;

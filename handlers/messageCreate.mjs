@@ -3,7 +3,7 @@ import fs from "fs";
 
 import config from '../config.mjs'; 
 import { ndnDice } from "../commands/utils/dice.mjs"
-import {createEmbed, getImagesFromMessage, sendMessage} from "../utils/messageutil.mjs"
+import {createEmbed, getImagesFromMessage, sendMessage, getURLFromTenor} from "../utils/messageutil.mjs"
 
 
 
@@ -207,6 +207,8 @@ export default async(message) => {
       const files = fetchedMessage.attachments.map(attachment => attachment.url).join('\n');
       let sendmessage = files ? fetchedMessage.content + `\n` + files : fetchedMessage.content;
       
+      //tenorの確認
+      sendmessage = getURLFromTenor(sendmessage);
       //スタンプのときは
       if (fetchedMessage.stickers && fetchedMessage.stickers.size > 0) {
         const firstSticker = fetchedMessage.stickers.first();
@@ -233,6 +235,7 @@ export default async(message) => {
           const refMatch = `https://discord.com/channels/${guildId}/${channelId}/${fetchedMessage.reference.messageId}`;
           const refImages = await getImagesFromMessage(refMessage);
           let refSendMessage = refMessage.attachments.map(attachment => attachment.url).join('\n') ? refMessage.content + `\n` + refMessage.attachments.map(attachment => attachment.url).join('\n') : refMessage.content;
+          refSendMessage = getURLFromTenor(refSendMessage);
           if (refMessage.stickers && refMessage.stickers.size > 0) {
             const refFirstSticker = refMessage.stickers.first();
             refSendMessage += "スタンプ：" + refFirstSticker.name;
