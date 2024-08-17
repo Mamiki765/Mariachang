@@ -41,6 +41,7 @@ export async function execute(interaction) {
     let content = interaction.options.getString('content');
     const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
     const attachment = interaction.options.getAttachment('image');
+    const files = attachment? attachment.url : null;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -49,12 +50,10 @@ export async function execute(interaction) {
     try{    
       // メッセージを指定されたチャンネルに送信
       await targetChannel.send({
-        content: content,
-        files: [attachment.url],
+        content: content
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
       flags: [ 4096 ],
-      files: [attachment.url],
       embeds: [
                       new EmbedBuilder()
                       .setTitle("管理者発言ログ")
