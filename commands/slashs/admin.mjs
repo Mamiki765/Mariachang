@@ -55,6 +55,7 @@ export async function execute(interaction) {
                       .setColor("#FFD700")
                       .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
                       .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+                      .setTimestamp()
                       .addFields(
                       {
                         name: "送信者",

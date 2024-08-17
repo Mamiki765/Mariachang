@@ -2,7 +2,7 @@ import { ContextMenuCommandBuilder,  ApplicationCommandType, EmbedBuilder,  Butt
 import config from "../../config.mjs"
 
 export const data = new ContextMenuCommandBuilder()
-  .setName("このメッセージを報告(準備中)")
+  .setName("このメッセージを報告")
   .setType(ApplicationCommandType.Message);
 
 export async function execute(interaction) {
@@ -49,23 +49,33 @@ export async function execute(interaction) {
 
         if (adminChannel) {
           const embed = new EmbedBuilder()
-            .setTitle('メッセージ報告')
-            .setDescription(`:\n`)
+            .setTitle('通報ログ')
+            .setDescription(`メッセージの報告がありました。`)
             .setAuthor({ name: `報告者: ${interaction.user.displayName}(@${interaction.user.tag})`, iconURL: interaction.user.displayAvatarURL()})
             .setColor('#FF0000')
+            .setTimestamp()
             .addFields(
                       {
-                        name: "送信者",
-                        value: `${message.author.globalName}`
+                        name: "メッセージの送信者",
+                        value: `${message.author.globalName}(<@${message.author.id}>)`
                       },
                       {
-                        name: "送信チャンネル",
+                        name: "送信されたチャンネル",
                         value: `#${channel.name} (<#${channel.id}>)`
                       },
                       {
                         name: "メッセージ",
-                        value: `#${channel.name} (<#${channel.id}>)`
-                      });
+                        value: `${message.content}`
+                      },
+                      {
+                        name: "送信された日時",
+                        value: `<t:${Math.floor(message.createdTimestamp / 1000)}:f>`
+                      },
+                      {
+                        name: "メッセージリンク",
+                        value: `[リンクを開く](https://discord.com/channels/${interaction.guild.id}/${channel.id}/${message.id})` 
+                      }
+            );
           
           await adminChannel.send({ embeds: [embed] });
           await interaction.editReply({
