@@ -29,11 +29,6 @@ export const data = new SlashCommandBuilder()
             12, //プライベートスレッド
           )
       )
-  .addAttachmentOption(option =>
-        option
-          .setName('attachment')
-          .setDescription('画像を添付できます')
-  )
   );
 //マリアで発言機能登録ここまで
 
@@ -42,7 +37,6 @@ export async function execute(interaction) {
   if(subcommand == "chatasmaria"){
     let content = interaction.options.getString('content');
     const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
-    const attachment = interaction.options.getChannel('attachment') || null;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
