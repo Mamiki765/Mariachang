@@ -71,14 +71,17 @@ export async function execute(interaction) {
                       {
                         name: "送信された日時",
                         value: `<t:${Math.floor(message.createdTimestamp / 1000)}:f>`
-                      },
-                      {
-                        name: "メッセージリンク",
-                        value: `[リンクを開く](https://discord.com/channels/${interaction.guild.id}/${channel.id}/${message.id})` 
                       }
             );
+        const link = new ActionRowBuilder()
+                          .addComponents(
+                            new ButtonBuilder()
+                            .setLabel("メッセージへ")
+                            .setStyle(ButtonStyle.Link)
+                            .setURL(`https://discord.com/channels/${interaction.guild.id}/${channel.id}/${message.id}`)
+                        )
           
-          await adminChannel.send({ embeds: [embed] });
+          await adminChannel.send({ content:`<@&${config.moderator}>` ,embeds: [embed],components: [link] });
           await interaction.editReply({
             content: "報告が送信されました。",
             components: [],
