@@ -29,6 +29,9 @@ export const data = new SlashCommandBuilder()
             12, //プライベートスレッド
           )
       )
+  .addAttachmentOption(option =>
+      option.setName('image')
+        .setDescription('添付ファイルはこちらにどうぞこちらにどうぞ'))
   );
 //マリアで発言機能登録ここまで
 
@@ -37,6 +40,7 @@ export async function execute(interaction) {
   if(subcommand == "chatasmaria"){
     let content = interaction.options.getString('content');
     const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
+    const attachment = interaction.options.getAttachment('image');
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -45,10 +49,12 @@ export async function execute(interaction) {
     try{    
       // メッセージを指定されたチャンネルに送信
       await targetChannel.send({
-        content: content
+        content: content,
+        files: [attachment.url],
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
       flags: [ 4096 ],
+      files: [attachment.url],
       embeds: [
                       new EmbedBuilder()
                       .setTitle("管理者発言ログ")
@@ -74,7 +80,7 @@ export async function execute(interaction) {
     console.error('メッセージ送信に失敗しました:', e);
     await interaction.reply({
       ephemeral: true,
-      content: `メッセージの送信に失敗しました: ${e.message}`
+      content: `メッセージの送信に失敗しました`
     });
     }
   }
