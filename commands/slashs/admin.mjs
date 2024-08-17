@@ -10,14 +10,14 @@ export const data = new SlashCommandBuilder()
 //マリアで発言機能登録
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("chatasmaria").setDescription("匿名としてマリアが発言します（作成中）")
+      .setName("chatasmaria").setDescription("管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。")
       .addStringOption(option =>
         option
           .setName('content')
-          .setDescription('発言内容を記述(改行は\n、<br>、@@@のどれかでできます)')
+          .setDescription('発言内容を記述(改行は\n、<br>、@@@などでもできます)')
           .setRequired(true)
     )        
-  .addChannelOption(option =>
+      .addChannelOption(option =>
         option
           .setName('channel')
           .setDescription('送信先チャンネルを指定してください(指定が無ければ現在のチャンネルに送信します)')
