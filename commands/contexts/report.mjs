@@ -50,8 +50,22 @@ export async function execute(interaction) {
         if (adminChannel) {
           const embed = new EmbedBuilder()
             .setTitle('メッセージ報告')
-            .setDescription(`報告者: ${interaction.user.tag}\nメッセージ:\n\`\`\`\n${message.content}\n\`\`\``)
-            .setColor('#FF0000');
+            .setDescription(`:\n`)
+            .setAuthor({ name: `報告者: ${interaction.user.displayName}(@${interaction.user.tag})`, iconURL: interaction.user.displayAvatarURL()})
+            .setColor('#FF0000')
+            .addFields(
+                      {
+                        name: "送信者",
+                        value: `${message.author.globalName}`
+                      },
+                      {
+                        name: "送信チャンネル",
+                        value: `#${channel.name} (<#${channel.id}>)`
+                      },
+                      {
+                        name: "メッセージ",
+                        value: `#${channel.name} (<#${channel.id}>)`
+                      });
           
           await adminChannel.send({ embeds: [embed] });
           await interaction.editReply({
@@ -60,7 +74,7 @@ export async function execute(interaction) {
           });
         } else {
           await interaction.editReply({
-            content: "管理人室チャンネルが見つかりません。",
+            content: "管理人室チャンネルが見つかりませんでした。お手数をおかけしますがお問い合わせよりご報告願います。",
             components: [],
           });
         }
@@ -71,6 +85,7 @@ export async function execute(interaction) {
           content: "報告がキャンセルされました。",
           components: [],
         });
+        return;
       }
     });
 

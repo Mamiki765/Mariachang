@@ -36,7 +36,6 @@ export default async function handleButtonInteraction(interaction) {
     }
   
     else{//ボタンが不明のとき
-      await interaction.reply({content: '不明なボタンです。', ephemeral: true});
       return; 
   }
   
