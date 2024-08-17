@@ -46,6 +46,7 @@ export async function execute(interaction) {
       if (i.customId === 'confirm_report') {
         collector.stop(); // コレクターを停止
         const adminChannel = interaction.guild.channels.cache.get(config.logch.admin);
+        const content = message.content ? message.content :"本文がありません。";
 
         if (adminChannel) {
           const embed = new EmbedBuilder()
@@ -65,7 +66,7 @@ export async function execute(interaction) {
                       },
                       {
                         name: "メッセージ",
-                        value: `${message.content}`
+                        value: `${content}`
                       },
                       {
                         name: "送信された日時",
