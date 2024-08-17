@@ -29,9 +29,6 @@ export const data = new SlashCommandBuilder()
             12, //プライベートスレッド
           )
       )
-  .addAttachmentOption(option =>
-      option.setName('image')
-        .setDescription('添付ファイルはこちらにどうぞこちらにどうぞ'))
   );
 //マリアで発言機能登録ここまで
 
@@ -40,8 +37,6 @@ export async function execute(interaction) {
   if(subcommand == "chatasmaria"){
     let content = interaction.options.getString('content');
     const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
-    const attachment = interaction.options.getAttachment('image');
-    const files = attachment? attachment.url : null;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -79,7 +74,7 @@ export async function execute(interaction) {
     console.error('メッセージ送信に失敗しました:', e);
     await interaction.reply({
       ephemeral: true,
-      content: `メッセージの送信に失敗しました`
+      content: `メッセージの送信に失敗しました: ${e.message}`
     });
     }
   }
