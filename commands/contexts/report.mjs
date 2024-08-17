@@ -2,7 +2,7 @@ import { ContextMenuCommandBuilder,  ApplicationCommandType, EmbedBuilder,  Butt
 import config from "../../config.mjs"
 
 export const data = new ContextMenuCommandBuilder()
-  .setName("このメッセージを報告")
+  .setName("【このメッセージを報告】")
   .setType(ApplicationCommandType.Message);
 
 export async function execute(interaction) {
