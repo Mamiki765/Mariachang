@@ -13,7 +13,7 @@ export const data = new SlashCommandBuilder()
       .setName("chat_as_maria").setDescription("管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。")
       .addStringOption(option =>
         option
-          .setName('content')
+          .setName('message')
           .setDescription('発言内容を記述(改行は\n、<br>、@@@などでもできます)')
           .setRequired(true)
     )        
@@ -35,17 +35,25 @@ export const data = new SlashCommandBuilder()
       .setName("dm_from_maria").setDescription("管理人としてマリアからDMを送信します。（未実装）")
       .addStringOption(option =>
         option
-          .setName('content')
+          .setName('message')
           .setDescription('発言内容を記述(改行は\n、<br>、@@@などでもできます)')
           .setRequired(true)
-    )   
+    )
+      .addUserOption(option =>
+        option
+          .setName('user')
+          .setDescription('DMを送信する相手を指定してください。')
+          .setRequired(true)
+    )
+    
                    );
 //マリアで発言機能登録ここまで
 
 export async function execute(interaction) {
  const subcommand = interaction.options.getSubcommand();
+  //chat as maria
   if(subcommand == "chat_as_maria"){
-    let content = interaction.options.getString('content');
+    let content = interaction.options.getString('message');
     const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
     // 改行文字を置き換え
     content = content
@@ -88,7 +96,49 @@ export async function execute(interaction) {
       content: `メッセージの送信に失敗しました: ${e.message}`
     });
     }
-  } else if(subcommand == "chatasmaria") {
-    
+  } else if(subcommand == "dm_from_maria") {
+        let content = interaction.options.getString('message');
+    const targetUser = interaction.options.getChannel('user');
+    // 改行文字を置き換え
+    content = content
+      .replace(/@@@/g, '\n')
+      .replace(/<br>/g, '\n')
+      .replace(/\\n/g, '\n');
+        try{    
+      // メッセージを指定されたチャンネルに送信
+      await targetUser.send({
+        content: `` + content
+      });
+    await interaction.client.channels.cache.get(config.logch.admin).send({
+      flags: [ 4096 ],
+      embeds: [
+                      new EmbedBuilder()
+                      .setTitle("管理者発言ログ")
+                      .setColor("#FFD700")
+                      .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
+                      .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+                      .setTimestamp()
+                      .addFields(
+                      {
+                        name: "送信者",
+                        value: `${interaction.member.displayName}(ID:${interaction.user.id})`
+                      }
+                      ,{
+                        name: "送信チャンネル",
+                        value: `#${targetChannel.name} (<#${targetChannel.id}>)`
+                      })
+                  ]
+    });
+    await interaction.reply({ 
+      ephemeral: true,
+      content: `メッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
+  });
+      }catch(e){
+    console.error('メッセージ送信に失敗しました:', e);
+    await interaction.reply({
+      ephemeral: true,
+      content: `メッセージの送信に失敗しました: ${e.message}`
+    });
+    }
   }
 }
