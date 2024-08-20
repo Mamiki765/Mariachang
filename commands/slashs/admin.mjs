@@ -10,7 +10,7 @@ export const data = new SlashCommandBuilder()
 //マリアで発言機能登録
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("chatasmaria").setDescription("管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。")
+      .setName("chat_as_maria").setDescription("管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。")
       .addStringOption(option =>
         option
           .setName('content')
@@ -29,12 +29,22 @@ export const data = new SlashCommandBuilder()
             12, //プライベートスレッド
           )
       )
-  );
+  )
+ .addSubcommand((subcommand) =>
+    subcommand
+      .setName("dm_from_maria").setDescription("管理人としてマリアからDMを送信します。（未実装）")
+      .addStringOption(option =>
+        option
+          .setName('content')
+          .setDescription('発言内容を記述(改行は\n、<br>、@@@などでもできます)')
+          .setRequired(true)
+    )   
+                   );
 //マリアで発言機能登録ここまで
 
 export async function execute(interaction) {
  const subcommand = interaction.options.getSubcommand();
-  if(subcommand == "chatasmaria"){
+  if(subcommand == "chat_as_maria"){
     let content = interaction.options.getString('content');
     const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
     // 改行文字を置き換え
@@ -78,5 +88,7 @@ export async function execute(interaction) {
       content: `メッセージの送信に失敗しました: ${e.message}`
     });
     }
+  } else if(subcommand == "chatasmaria") {
+    
   }
 }
