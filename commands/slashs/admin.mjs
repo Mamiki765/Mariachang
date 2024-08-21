@@ -107,7 +107,7 @@ export async function execute(interaction) {
     const targetUser = interaction.options.getUser('user');
     let replyable = interaction.options.getBoolean('reply');
     replyable = replyable ===null ? true : replyable;
-    const replybutton = replyable ? [replyfromDM] : [];
+    const replybutton = replyable ? [replyfromDM] : null;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
