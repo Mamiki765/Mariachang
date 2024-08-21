@@ -39,6 +39,10 @@ export const data = new SlashCommandBuilder()
           .setDescription('DMを送信する相手を指定してください。')
           .setRequired(true)
     )
+      .addBooleanOption(option =>
+        option
+      .setName('reply')
+			.setDescription('【未実装】このDMに対する返信を許可するか(デフォルトはTrue)'))
       .addStringOption(option =>
         option
           .setName('message')
@@ -99,6 +103,7 @@ export async function execute(interaction) {
   } else if(subcommand == "dm_from_maria") {
         let content = interaction.options.getString('message');
     const targetUser = interaction.options.getUser('user');
+    const replyable = interaction.options.getBoolean('reply') || true;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -110,10 +115,10 @@ export async function execute(interaction) {
     .setDescription(content)
     .setTimestamp()
     .setColor("#FFD700")
-    .setFooter({text: "このbotへの返信は受信できません、ご了承ください"});    
+    .setFooter({text: "このダイレクトメールへの書き込みには返信できません、ご了承ください"});    
       // メッセージを指定されたチャンネルに送信
       await targetUser.send({
-        content: `このメッセージの下の埋め込みが見えない場合「埋め込みとリンクのプレビュー」の設定をONにしてください。`,
+        content: `【重要】このメッセージの下の埋め込みが見えない場合「埋め込みとリンクのプレビュー」の設定をONにしてください。`,
         embeds : [embed]
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({

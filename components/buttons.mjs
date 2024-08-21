@@ -31,3 +31,10 @@ const cancelButton = new ButtonBuilder()
             .setLabel('キャンセル')
             .setStyle(ButtonStyle.Secondary);
 export  const deleteconfirm = new ActionRowBuilder().addComponents(confirmationButton, cancelButton);
+
+//(管理用)DMにつけられた返信ボタン
+export const cancelButton = new ButtonBuilder()
+            .setEmoji('❌')
+            .setCustomId('cancel_delete')
+            .setLabel('キャンセル')
+            .setStyle(ButtonStyle.Secondary);
