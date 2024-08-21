@@ -34,14 +34,20 @@ export  const deleteconfirm = new ActionRowBuilder().addComponents(confirmationB
 
 //(admin用)
 //DMにつけられた返信ボタン
-export const replyfromDM = new ButtonBuilder()
+export const replyfromDM = new ActionRowBuilder()
+         .addComponents(
+      new ButtonBuilder()
             .setEmoji('✉️')
             .setCustomId('admin_replyfromDM')
             .setLabel('返信')
-            .setStyle(ButtonStyle.Secondary);
+            .setStyle(ButtonStyle.Secondary)
+           );
 //DMからの返信に更に返信するボタン
-export const replytoDM = new ButtonBuilder()
+export const replytoDM = new ActionRowBuilder()
+         .addComponents(
+           new ButtonBuilder()
             .setEmoji('✉️')
             .setCustomId('admin_replytoDM')
             .setLabel('返信')
-            .setStyle(ButtonStyle.Secondary);
+            .setStyle(ButtonStyle.Secondary)
+           );

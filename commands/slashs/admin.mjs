@@ -106,7 +106,7 @@ export async function execute(interaction) {
         let content = interaction.options.getString('message');
     const targetUser = interaction.options.getUser('user');
     const replyable = interaction.options.getBoolean('reply') || true;
-    const replybutton = replyable ? replyfromDM :null;
+    const replybutton = replyable ? replyfromDM : null;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -143,7 +143,7 @@ export async function execute(interaction) {
                         name: "送信相手",
                         value: `\@${targetUser.username} (<@${targetUser.id}>)`
                       }
-                      ,{
+                    ,{
                         name: "返信可否",
                         value: `${replyable}`          })
                   ]
