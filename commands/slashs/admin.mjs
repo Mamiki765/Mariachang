@@ -132,7 +132,7 @@ export async function execute(interaction) {
                       }
                       ,{
                         name: "送信相手",
-                        value: `#${targetUser.username} (<@${targetUser.id}>)`
+                        value: `\@${targetUser.username} (<@${targetUser.id}>)`
                       })
                   ]
     });
