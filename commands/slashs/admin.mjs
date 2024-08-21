@@ -1,4 +1,5 @@
 import { SlashCommandBuilder,  EmbedBuilder , PermissionsBitField} from 'discord.js';
+import {createEmbed} from "../utils/messageutil.mjs"
 
 import config from "../../config.mjs"
 
@@ -104,10 +105,14 @@ export async function execute(interaction) {
       .replace(/@@@/g, '\n')
       .replace(/<br>/g, '\n')
       .replace(/\\n/g, '\n');
-        try{    
+        try{
+      const embed = createEmbed(null, '管理人からのメッセージ', sendmessage, fetchedMessage.author, images[0], fetchedMessage.createdAt, '#FFD700', "このbotへの返信
+                                
+                  は");    
       // メッセージを指定されたチャンネルに送信
       await targetUser.send({
-        content: `# 管理人室からのメッセージです\nこのbotへの返信には対応できません、ご了承ください。以下内容：\n` + content
+        content: `# 管理人室からメッセージがありました。以下内容：\n` + content,
+        
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
       flags: [ 4096 ],
@@ -124,7 +129,7 @@ export async function execute(interaction) {
                         value: `${interaction.member.displayName}(ID:${interaction.user.id})`
                       }
                       ,{
-                        name: "送信チャンネル",
+                        name: "送信相手",
                         value: `#${targetUser.username} (<@${targetUser.id}>)`
                       })
                   ]
