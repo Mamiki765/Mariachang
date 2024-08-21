@@ -33,6 +33,12 @@ export const data = new SlashCommandBuilder()
  .addSubcommand((subcommand) =>
     subcommand
       .setName("dm_from_maria").setDescription("管理人としてマリアからDMを送信します。（未実装）")
+      .addUserOption(option =>
+        option
+          .setName('user')
+          .setDescription('DMを送信する相手を指定してください。')
+          .setRequired(true)
+    )
       .addStringOption(option =>
         option
           .setName('message')
