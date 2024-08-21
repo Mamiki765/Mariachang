@@ -32,9 +32,16 @@ const cancelButton = new ButtonBuilder()
             .setStyle(ButtonStyle.Secondary);
 export  const deleteconfirm = new ActionRowBuilder().addComponents(confirmationButton, cancelButton);
 
-//(管理用)DMにつけられた返信ボタン
-export const cancelButton = new ButtonBuilder()
-            .setEmoji('❌')
-            .setCustomId('cancel_delete')
-            .setLabel('キャンセル')
+//(admin用)
+//DMにつけられた返信ボタン
+export const replyfromDM = new ButtonBuilder()
+            .setEmoji('✉️')
+            .setCustomId('admin_replyfromDM')
+            .setLabel('返信')
+            .setStyle(ButtonStyle.Secondary);
+//DMからの返信に更に返信するボタン
+export const replytoDM = new ButtonBuilder()
+            .setEmoji('✉️')
+            .setCustomId('admin_replytoDM')
+            .setLabel('返信')
             .setStyle(ButtonStyle.Secondary);

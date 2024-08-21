@@ -1,6 +1,7 @@
 import { SlashCommandBuilder,  EmbedBuilder , PermissionsBitField} from 'discord.js';
 
 import config from "../../config.mjs"
+import {replyfromDM} from "../../components/buttons.mjs"
 
 export const data = new SlashCommandBuilder()
   .setName("admin")
@@ -104,6 +105,7 @@ export async function execute(interaction) {
         let content = interaction.options.getString('message');
     const targetUser = interaction.options.getUser('user');
     const replyable = interaction.options.getBoolean('reply') || true;
+    const replybutton = replyable ? replyfromDM :null;
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -119,7 +121,8 @@ export async function execute(interaction) {
       // メッセージを指定されたチャンネルに送信
       await targetUser.send({
         content: `【重要】このメッセージの下の埋め込みが見えない場合「埋め込みとリンクのプレビュー」の設定をONにしてください。`,
-        embeds : [embed]
+        embeds : [embed],
+        components : [replybutton]
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
       flags: [ 4096 ],
@@ -138,7 +141,10 @@ export async function execute(interaction) {
                       ,{
                         name: "送信相手",
                         value: `\@${targetUser.username} (<@${targetUser.id}>)`
-                      })
+                      }
+                      ,{
+                        name: "返信可否",
+                        value: replyable          })
                   ]
     });
     await interaction.reply({ 
