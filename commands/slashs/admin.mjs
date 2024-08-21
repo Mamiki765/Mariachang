@@ -105,8 +105,9 @@ export async function execute(interaction) {
   } else if(subcommand == "dm_from_maria") {
         let content = interaction.options.getString('message');
     const targetUser = interaction.options.getUser('user');
-    const replyable = interaction.options.getBoolean('reply') || true;
-    const replybutton = replyable ? replyfromDM : null;
+    let replyable = interaction.options.getBoolean('reply');
+    replyable = replyable ===null ? true : replyable;
+    const replybutton = replyable ? [replyfromDM] : [];
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -123,7 +124,7 @@ export async function execute(interaction) {
       await targetUser.send({
         content: `【重要】このメッセージの下の埋め込みが見えない場合「埋め込みとリンクのプレビュー」の設定をONにしてください。`,
         embeds : [embed],
-        components : [replybutton]
+        components : replybutton
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
       flags: [ 4096 ],
