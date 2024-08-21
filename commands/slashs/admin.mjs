@@ -39,12 +39,6 @@ export const data = new SlashCommandBuilder()
           .setDescription('発言内容を記述(改行は\n、<br>、@@@などでもできます)')
           .setRequired(true)
     )
-      .addUserOption(option =>
-        option
-          .setName('user')
-          .setDescription('DMを送信する相手を指定してください。')
-          .setRequired(true)
-    )
     
                    );
 //マリアで発言機能登録ここまで
@@ -113,7 +107,7 @@ export async function execute(interaction) {
     .setFooter({text: "このbotへの返信は受信できません、ご了承ください"});    
       // メッセージを指定されたチャンネルに送信
       await targetUser.send({
-        content: ``,
+        content: `このメッセージの下の埋め込みが見えない場合「埋め込みとリンクのプレビュー」の設定をONにしてください。`,
         embeds : [embed]
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
