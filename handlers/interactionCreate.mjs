@@ -1,5 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import handleButtonInteraction from '../interactions/buttonHandlers.mjs';
+import handleModalInteraction from '../interactions/modalHandlers.mjs';
 import config from '../config.mjs'; 
 
 export default async(interaction) => {
@@ -28,6 +29,11 @@ export default async(interaction) => {
     if (interaction.isButton()) {
       await handleButtonInteraction(interaction);
       return;
+    }
+//モーダル
+  else if(interaction.isModalSubmit()){
+    await handleButtonInteraction(interaction);
+    return;
     }
   
 //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
