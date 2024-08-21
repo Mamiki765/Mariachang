@@ -69,7 +69,7 @@ export async function execute(interaction) {
       flags: [ 4096 ],
       embeds: [
                       new EmbedBuilder()
-                      .setTitle("管理者発言ログ")
+                      .setTitle("管理者発言ログ(チャンネル)")
                       .setColor("#FFD700")
                       .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
                       .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
@@ -98,7 +98,7 @@ export async function execute(interaction) {
     }
   } else if(subcommand == "dm_from_maria") {
         let content = interaction.options.getString('message');
-    const targetUser = interaction.options.getChannel('user');
+    const targetUser = interaction.options.getUser('user');
     // 改行文字を置き換え
     content = content
       .replace(/@@@/g, '\n')
@@ -107,13 +107,13 @@ export async function execute(interaction) {
         try{    
       // メッセージを指定されたチャンネルに送信
       await targetUser.send({
-        content: `` + content
+        content: `# 管理人室からのメッセージです\nこのbotへの返信には対応できません、ご了承ください。以下内容：\n` + content
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
       flags: [ 4096 ],
       embeds: [
                       new EmbedBuilder()
-                      .setTitle("管理者発言ログ")
+                      .setTitle("管理者発言ログ(DM)")
                       .setColor("#FFD700")
                       .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
                       .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
@@ -125,13 +125,13 @@ export async function execute(interaction) {
                       }
                       ,{
                         name: "送信チャンネル",
-                        value: `#${targetChannel.name} (<#${targetChannel.id}>)`
+                        value: `#${targetUser.username} (<@${targetUser.id}>)`
                       })
                   ]
     });
     await interaction.reply({ 
       ephemeral: true,
-      content: `メッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
+      content: `${targetUser.Displayname}にメッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
   });
       }catch(e){
     console.error('メッセージ送信に失敗しました:', e);
