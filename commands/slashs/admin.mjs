@@ -31,6 +31,7 @@ export const data = new SlashCommandBuilder()
           )
       )
   )
+
  .addSubcommand((subcommand) =>
     subcommand
       .setName("dm_from_maria").setDescription("管理人としてマリアからDMを送信します。（未実装）")
@@ -40,16 +41,16 @@ export const data = new SlashCommandBuilder()
           .setDescription('DMを送信する相手を指定してください。')
           .setRequired(true)
     )
-      .addBooleanOption(option =>
-        option
-      .setName('reply')
-			.setDescription('【未実装】このDMに対する返信を許可するか(デフォルトはTrue)'))
       .addStringOption(option =>
         option
           .setName('message')
           .setDescription('発言内容を記述(改行は\n、<br>、@@@などでもできます)')
           .setRequired(true)
     )
+    .addBooleanOption(option =>
+        option
+      .setName('reply')
+			.setDescription('【未実装】このDMに対する返信を許可するか(デフォルトはTrue)'))
     
                    );
 //マリアで発言機能登録ここまで
@@ -144,7 +145,7 @@ export async function execute(interaction) {
                       }
                       ,{
                         name: "返信可否",
-                        value: replyable          })
+                        value: `${replyable}`          })
                   ]
     });
     await interaction.reply({ 
