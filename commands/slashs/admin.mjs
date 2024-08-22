@@ -72,7 +72,6 @@ export async function execute(interaction) {
         content: content
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
-      flags: [ 4096 ],
       embeds: [
                       new EmbedBuilder()
                       .setTitle("管理者発言ログ(チャンネル)")
@@ -127,7 +126,6 @@ export async function execute(interaction) {
         components : replybutton
       });
     await interaction.client.channels.cache.get(config.logch.admin).send({
-      flags: [ 4096 ],
       embeds: [
                       new EmbedBuilder()
                       .setTitle("管理者発言ログ(DM)")
@@ -146,12 +144,12 @@ export async function execute(interaction) {
                       }
                     ,{
                         name: "返信可否",
-                        value: `${replyable}`          })
+                        value: `${replyable}`})
                   ]
     });
     await interaction.reply({ 
       ephemeral: true,
-      content: `${targetUser.Displayname}にメッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
+      content: `${targetUser.username}にメッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
   });
       }catch(e){
     console.error('メッセージ送信に失敗しました:', e);

@@ -169,7 +169,8 @@ export default async(message) => {
   }
   //X、メッセージリンクを処理
   //両方あったらXを優先
-    if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {
+    if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {  
+    if (!message.guild) {return;}//dmなら無視 
     const updatedMessage = message.content
         .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
         .replace(/https:\/\/x\.com/g, 'https://fixupx.com');

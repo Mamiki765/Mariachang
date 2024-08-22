@@ -39,15 +39,18 @@ export const replyfromDM = new ActionRowBuilder()
       new ButtonBuilder()
             .setEmoji('✉️')
             .setCustomId('admin_replyfromDM')
-            .setLabel('返信')
+            .setLabel('返信(1度だけできます)')
             .setStyle(ButtonStyle.Secondary)
            );
 //DMからの返信に更に返信するボタン
-export const replytoDM = new ActionRowBuilder()
-         .addComponents(
-           new ButtonBuilder()
-            .setEmoji('✉️')
-            .setCustomId('admin_replytoDM')
-            .setLabel('返信')
-            .setStyle(ButtonStyle.Secondary)
-           );
+// 引数で受け取った番号を使って CustomId を設定する
+export function replytoDM(id) {
+  return new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setEmoji('✉️')
+        .setCustomId(`admin_replytoDM-${id}`)
+        .setLabel('返信')
+        .setStyle(ButtonStyle.Secondary)
+    );
+}

@@ -3,7 +3,7 @@ import path from "path";
 import express from "express";
 import { Client, Collection, Events, GatewayIntentBits, ActivityType,  EmbedBuilder , Partials} from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
-import Notification from "./models/notification.mjs";
+//import Notification from "./models/notification.mjs";
 import config from './config.mjs'; 
 
 import Sequelize from "sequelize";
@@ -80,10 +80,11 @@ for (const file of handlerFiles) {
 client.on("interactionCreate", async (interaction) => {//インタラクション時
   await handlers.get("interactionCreate").default(interaction);
 });
-
+/*
 client.on("voiceStateUpdate", async (oldState, newState) => {//ボイスチャンネルの状態変化
   await handlers.get("voiceStateUpdate").default(oldState, newState);
 });
+*/
 
 client.on("messageCreate", async (message) => {//メッセージの送信時
   if (message.author.id == client.user.id || message.author.bot) return;
@@ -122,7 +123,7 @@ client.on("ready", async () => {//Bot の起動時に必要な全ての初期設
 });
 
 
-Notification.sync({ alter: true });
+//Notification.sync({ alter: true });
 
 CommandsRegister();
 client.login(process.env.TOKEN);
