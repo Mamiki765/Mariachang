@@ -1,6 +1,6 @@
 
 export default async function handleModalInteraction(interaction) {
-      //ボタン
+      //モーダル
        if (interaction.customId == "hoge") {
          
     }
