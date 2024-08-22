@@ -32,7 +32,7 @@ export default async(interaction) => {
     }
 //モーダル
   else if(interaction.isModalSubmit()){
-    await handleButtonInteraction(interaction);
+    await handleModalInteraction(interaction);
     return;
     }
   

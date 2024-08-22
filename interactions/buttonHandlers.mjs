@@ -1,6 +1,9 @@
 import { deleteconfirm　} from "../components/buttons.mjs"
+import { ModalBuilder,TextInputBuilder,TextInputStyle,ActionRowBuilder} from "discord.js"
 
 export default async function handleButtonInteraction(interaction) {
+    const DMregex = /^admin_replytoDM-(\d+)$/;
+    const DMmatch = interaction.customId.match(DMregex);
       //削除ボタン
        if (interaction.customId == "delete" || interaction.customId == "deleteanyone" ) {
        if(!interaction.message.mensions){
@@ -33,9 +36,45 @@ export default async function handleButtonInteraction(interaction) {
         }else if (interaction.customId === 'cancel_delete') {
           await interaction.update({ content: '削除がキャンセルされました。', components: [] });
           return;
-    }
-  
-    else{//ボタンが不明のとき
+    //admin系、DMからの返信を受け取るmodal
+    }else if(interaction.customId === 'admin_replyfromDM'){
+  			const modal = new ModalBuilder()
+ 				.setTitle("管理人室に返信します")
+ 				.setCustomId("admin_replyfromDM_submit");
+ 			const TextInput = new TextInputBuilder()
+ 				.setLabel("メッセージ")
+ 				.setCustomId("message")
+ 				.setStyle(TextInputStyle.Paragraph)
+ 				.setMaxLength(2000)
+ 				.setMinLength(2)
+ 				.setRequired(true);
+ 			const ActionRow = new ActionRowBuilder().setComponents(TextInput);
+ 			modal.setComponents(ActionRow);
+ 			return interaction.showModal(modal);
+    //admin、dmからきた返信に更に返信するmodal
+    }else if(DMmatch){
+      const modal = new ModalBuilder()
+ 				.setTitle("DMに再度管理人室より返信します")
+ 				.setCustomId(`admin_replytoDM_submit-${DMmatch[1]}`);
+ 			const TextInput = new TextInputBuilder()
+ 				.setLabel("メッセージ")
+ 				.setCustomId("message")
+ 				.setStyle(TextInputStyle.Paragraph)
+ 				.setMaxLength(2000)
+ 				.setMinLength(2)
+ 				.setRequired(true);
+      const replyInput =new TextInputBuilder()
+       	.setLabel("返信を許可するか(0で禁止)")
+ 				.setCustomId("replyable")
+       	.setMaxLength(1)
+      	.setValue('1')
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
+ 			const ActionRow = new ActionRowBuilder().setComponents(TextInput);
+      const ActionRowSecond = new ActionRowBuilder().setComponents(replyInput);
+ 			modal.setComponents(ActionRow,ActionRowSecond);
+ 			return interaction.showModal(modal);
+ 		}else{//ボタンが不明のとき
       return; 
   }
   
