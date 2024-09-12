@@ -7,7 +7,7 @@ export function createEmbed(url, title, description, author, imageUrl, timestamp
   return new EmbedBuilder()
     .setURL(url)
     .setTitle(title)
-    .setDescription(description || '(botのメッセージです)')
+    .setDescription(description || '(本文がありません)')
     .setAuthor({
       name: author.displayName,
       iconURL: author.displayAvatarURL(),

@@ -226,6 +226,11 @@ export default async(message) => {
           embeds.push(imageEmbed);
         }
       }
+      //引用元にembedがあれば1個目だけ取得(画像やtenorは無視))
+      if(fetchedMessage.embeds[0] && fetchedMessage.embeds[0].data.type !== 'image' &&  fetchedMessage.embeds[0].data.type !== 'gifv' ){
+        embeds.push(fetchedMessage.embeds[0]);
+        console.log(fetchedMessage.embeds[0])
+      }
       // 返信があれば同じ様に
       if (fetchedMessage.reference) {
         const refMessage = await channel.messages.fetch(fetchedMessage.reference.messageId);
@@ -247,6 +252,9 @@ export default async(message) => {
               const refImageEmbed = createEmbed(refMatch, null, null, { displayName: null, displayAvatarURL: () => null }, refImages[i], refMessage.createdAt, '#B78CFE',null);
               embeds.push(refImageEmbed);
             }
+          }
+        if(refMessage.embeds[0] && refMessage.embeds[0].data.type !== 'image' &&  refMessage.embeds[0].data.type !== 'gifv'){
+        embeds.push(refMessage.embeds[0]);
           }
         }
       }
