@@ -30,6 +30,7 @@ export const data = new SlashCommandBuilder()
     )   
 
 export async function execute(interaction){
+
   const chara = interaction.options.getString('chara');
   let message = interaction.options.getString('message');
     // 改行文字を置き換え
@@ -64,4 +65,5 @@ export async function execute(interaction){
     console.error('メッセージ送信に失敗しました:', error);
     interaction.reply({flags: [ 4096 ],　content: `error!`,ephemeral: true});
   }
+//}
 }

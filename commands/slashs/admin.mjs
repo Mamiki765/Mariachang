@@ -11,7 +11,8 @@ export const data = new SlashCommandBuilder()
 //マリアで発言機能登録
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("chat_as_maria").setDescription("管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。")
+      .setName("chat_as_maria")
+      .setDescription("管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。")
       .addStringOption(option =>
         option
           .setName('message')
