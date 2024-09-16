@@ -47,5 +47,23 @@ const Icon = sequelize.define('Icon', {
   timestamps: false
 });
 
+// ポイントモデル
+const Point = sequelize.define('Point', {
+  userId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  point: {
+    type: DataTypes.INTEGER //整数型
+  },
+  totalpoint: {
+    type: DataTypes.INTEGER //整数型
+  }
+}, {
+  tableName: 'points',
+  timestamps: false
+});
 
-export { sequelize, Character, Icon };
+
+export { sequelize, Character, Icon, Point };

@@ -4,7 +4,7 @@ import express from "express";
 import { Client, Collection, Events, GatewayIntentBits, ActivityType,  EmbedBuilder , Partials} from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
 //import Notification from "./models/notification.mjs";
-import {Character, Icon} from "./models/roleplay.mjs";
+import {Character, Icon ,Point} from "./models/roleplay.mjs";
 import config from './config.mjs'; 
 
 import Sequelize from "sequelize";
@@ -126,7 +126,8 @@ client.on("ready", async () => {//Bot の起動時に必要な全ての初期設
 
 //Notification.sync({ alter: true });
 Character.sync({ alter: true }); 
-Icon.sync({ alter: true }); 
+Icon.sync({ alter: true });
+Point.sync({ alter: true });
 
 CommandsRegister();
 client.login(process.env.TOKEN);
