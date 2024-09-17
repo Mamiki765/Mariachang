@@ -4,6 +4,7 @@ import fs from "fs";
 import config from '../config.mjs'; 
 import { ndnDice } from "../commands/utils/dice.mjs"
 import {createEmbed, getImagesFromMessage, sendMessage} from "../utils/messageutil.mjs"
+import { CurrentDomino, DominoHistory } from '../models/roleplay.mjs';
 
 
 
@@ -167,8 +168,55 @@ export default async(message) => {
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
-  //X、メッセージリンクを処理
-  //両方あったらXを優先
+  /*
+  ここから大きな処理1つ目、ドミノを並べる。
+  便宜的にドミノと言われた時に反応
+  */
+  if(message.content.match(/(どみの|ドミノ)/)){
+    // 0-99の乱数を振る
+    const randomNum = Math.floor(Math.random() * 100);
+    const currentDomino = await CurrentDomino.findOne();
+    if (!currentDomino) {
+      await CurrentDomino.create({ attemptNumber: 1, totalCount: 0, totalPlayers: 0 });
+    }
+    if (randomNum === 0) {//ガシャーン！
+            await message.reply({flags: [ 4096 ],content:`# 100　あなたは${currentDomino.totalPlayers}人が並べた${currentDomino.totalCount}枚のドミノを崩してしまいました！\n${currentDomino.attemptNumber}回目の開催は終わり、${message.author.username}の名が刻まれました。`});
+
+            const history = await DominoHistory.findOne();
+            //保存
+            if (!history) {
+               await DominoHistory.create({ highestRecord:0,highestRecordHolder: null,zeroCount: 0, players:[],totals:[],losers:[]});
+            }else{
+                if(currentDomino.totalCount === 0){
+                  await history.increment('zeroCount');
+                  await message.channel.send({flags: [ 4096 ],content:`【特別賞】0枚で終わった回数：${history.zeroCount}回目`});
+                }
+              // 最高記録の更新
+                 if (currentDomino.totalCount > history.highestRecord) {
+                    await history.update({
+                        highestRecord: currentDomino.totalCount,
+                        highestRecordHolder: message.author.username,
+                    });
+                    await message.channel.send({flags: [ 4096 ],content:`【特別賞】新記録：${currentDomino.totalCount}枚`});
+                }
+              //保存
+                await history.update({
+                    players: [...history.players, currentDomino.totalPlayers],
+                    totals: [...history.totals, currentDomino.totalCount],
+                    losers: [...history.losers, message.author.username]
+                });
+            }
+            await CurrentDomino.update({ attemptNumber: currentDomino.attemptNumber + 1 , totalCount: 0,  totalPlayers: 0 }, { where: {} });
+        }else {//セーフ
+            await message.reply({flags: [ 4096 ],content:`${randomNum}枚のドミノを並べました。${currentDomino.totalCount + randomNum}枚になりました。`});
+            await CurrentDomino.update({ totalCount: currentDomino.totalCount + randomNum, totalPlayers: currentDomino.totalPlayers + 1 }, { where: {} });
+        }
+  } 
+  /*
+  ここから大きな処理２つめ
+  X、メッセージリンクを検知して処理する。
+  両方あったらXを優先する。
+  */
     if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {  
     if (!message.guild) {return;}//dmなら無視 
     const updatedMessage = message.content
@@ -278,3 +326,7 @@ export default async(message) => {
 
 
 };
+
+/*
+メッセージ処理ここまで、以下サブルーチン
+*/
