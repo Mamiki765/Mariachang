@@ -2,6 +2,13 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
 import { Character, Icon , Point} from '../../models/roleplay.mjs';
 
+//絵文字　ここの数がスロット数になる
+const emojis = ['🍎', '🍌', '🍉', '🍇'];
+const slotChoices = emojis.map((emoji, index) => ({
+  name: index === 0 ? `${emoji}スロット${index}(デフォルト)` : `${emoji}スロット${index}`,
+  value: index
+}));
+
 //権利表記の特定部分をIL名で置き換えて権利表記を生成するためのパーツ
 const illustratorname = 'illustratorname';
 
@@ -37,12 +44,7 @@ export const data = new SlashCommandBuilder()
         option
           .setName('slot')
           .setDescription('保存するキャラクタースロットを選択（デフォルトは0)')
-          .addChoices(
-            { name: 'スロット0(デフォルト)', value: 0 },
-            { name: 'スロット1', value: 1 },
-            { name: 'スロット2', value: 2 },
-            { name: 'スロット3', value: 3 }
-          )
+          .addChoices(...slotChoices)
       )
       .addAttachmentOption(option =>
         option.setName('icon')
@@ -79,12 +81,7 @@ export const data = new SlashCommandBuilder()
         option
           .setName('slot')
           .setDescription('保存するキャラクタースロットを選択（デフォルトは0)')
-          .addChoices(
-            { name: 'スロット0(デフォルト)', value: 0 },
-            { name: 'スロット1', value: 1 },
-            { name: 'スロット2', value: 2 },
-            { name: 'スロット3', value: 3 }
-          )
+          .addChoices(...slotChoices)
       )
       .addAttachmentOption(option =>
         option.setName('icon')
@@ -260,7 +257,7 @@ export async function execute(interaction) {
       const point = loadpoint ? loadpoint.point : 0;
       const totalpoint = loadpoint ? loadpoint.totalpoint : 0;
       
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < emojis.length; i++) {
         //ファイル名決定
         const charaslot = dataslot(interaction.user.id, i)
         
@@ -282,13 +279,13 @@ export async function execute(interaction) {
 
         const embed = new EmbedBuilder()
           .setColor('#0099ff')
-          .setTitle(`スロット${i}`)
+          .setTitle(`${emojis[i]}スロット${i}`)
           .setDescription(description || 'キャラが設定されていません')
           .setThumbnail(iconUrl || 'https://via.placeholder.com/150')
         embeds.push(embed);
         }
       }
-        await interaction.reply({ content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# IL名変更の時は下線部が変更されます。`,embeds: embeds, ephemeral: true });
+        await interaction.reply({ content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# 登録後24時間が経過したアイコンは非表示になりますが、発言の際は表示されます。\n-# IL名変更の時は下線部が変更されます。`,embeds: embeds, ephemeral: true });
       } catch (error) {
         console.error('キャラデータの表示に失敗しました:', error);
         await interaction.reply({ flags: [4096], content: `キャラデータの表示でエラーが発生しました。`, ephemeral: true });
@@ -298,6 +295,10 @@ export async function execute(interaction) {
 
 //サブルーチン
 //ロードするデータを選択
+function dataslot(id, slot) {
+  return slot >= 0 ? `${id}${slot > 0 ? `-${slot}` : ''}` : `${id}`;
+}
+/*
 function dataslot(id,slot){
   if(slot === 0){
     return `${id}`;
@@ -311,6 +312,7 @@ function dataslot(id,slot){
     return `${id}`;
   }
 }
+*/
 
 //発言するたびにポイント+1
 async function updatePoints(userId) {

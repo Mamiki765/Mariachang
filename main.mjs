@@ -78,6 +78,14 @@ for (const file of handlerFiles) {
   });
 }
 
+client.on("guildCreate", async (guild) => { // ギルドに参加した時
+  await handlers.get("guildCreate").default(guild,client);
+});
+
+client.on("guildDelete", async (guild) => { // ギルドから退会した時
+  await handlers.get("guildDelete").default(guild,client);
+});
+
 client.on("interactionCreate", async (interaction) => {//インタラクション時
   await handlers.get("interactionCreate").default(interaction);
 });
