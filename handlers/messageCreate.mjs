@@ -3,8 +3,8 @@ import fs from "fs";
 
 import config from '../config.mjs'; 
 import { ndnDice } from "../commands/utils/dice.mjs"
+import { dominoeffect } from "../commands/utils/domino.mjs"
 import {createEmbed, getImagesFromMessage, sendMessage} from "../utils/messageutil.mjs"
-import { CurrentDomino, DominoHistory } from '../models/roleplay.mjs';
 
 
 
@@ -172,70 +172,10 @@ export default async(message) => {
   ここから大きな処理1つ目、ドミノを並べる。
   便宜的にドミノと言われた時に反応
   */
-  if(message.content.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino)/)){
-    // 0-99の乱数を振る
-    const randomNum = Math.floor(Math.random() * 100);
-    // 十の桁と一の桁を取得
-    const tens = Math.floor(randomNum / 10); // 十の桁
-    const ones = randomNum % 10; // 一の桁
-    // サイコロのリアクションを取得
-    const redResult = config.reddice[tens]; 
-    const blueResult = config.bluedice[ones];
-    await message.react(redResult);
-    await message.react(blueResult);
-    //ログ送信チャンネルを選択
-    const dominochannel = message.client.channels.cache.get(config.dominoch);
-    
-    const currentDomino = await CurrentDomino.findOne();
-    if (!currentDomino) {
-      await CurrentDomino.create({ attemptNumber: 1, totalCount: 0, totalPlayers: 0 });
-    }
-    if (randomNum === 0) {//ガシャーン！
-      await message.react("💥");
-            await dominochannel.send({flags: [ 4096 ],content:`# 100　<@${message.author.id}>は${currentDomino.totalPlayers}人が並べた${currentDomino.totalCount}枚のドミノを崩してしまいました！\n${currentDomino.attemptNumber}回目の開催は終わり、${message.author.username}の名が刻まれました。`});
-
-            const history = await DominoHistory.findOne();
-            //保存
-            if (!history) {
-               await DominoHistory.create({ highestRecord:0,highestRecordHolder: null,zeroCount: 0, players:[],totals:[],losers:[]});
-            }
-                if(currentDomino.totalCount === 0){
-                  await history.increment('zeroCount');
-                  await dominochannel.send({flags: [ 4096 ],content:`【特別賞】0枚で終わった回数：${history.zeroCount}回目`});
-                }
-              // 最高記録の更新
-                 if (currentDomino.totalCount > history.highestRecord) {
-                    await history.update({
-                        highestRecord: currentDomino.totalCount,
-                        highestRecordHolder: message.author.username,
-                    });
-                    await dominochannel.send({flags: [ 4096 ],content:`【特別賞】新記録：${currentDomino.totalCount}枚`});
-                }
-              //保存
-                await history.update({
-                    players: [...history.players, currentDomino.totalPlayers],
-                    totals: [...history.totals, currentDomino.totalCount],
-                    losers: [...history.losers, message.author.username]
-                });
-
-            await CurrentDomino.update({ attemptNumber: currentDomino.attemptNumber + 1 , totalCount: 0,  totalPlayers: 0 }, { where: {} });
-            const replyMessage = await message.reply({flags: [4096],content: `# ガッシャーン！`
-});
-            setTimeout(() => {
-              replyMessage.delete();
-              }, 5000);
-        }else {//セーフ
-            let dpname = null;
-            if(!message.member){dpname = message.author.displayName;}else{dpname = message.member.displayName;}
-            await dominochannel.send({flags: [ 4096 ],content:`${dpname}が${randomNum}枚ドミノを並べました。現在:${currentDomino.totalCount + randomNum}枚`});
-            await CurrentDomino.update({ totalCount: currentDomino.totalCount + randomNum, totalPlayers: currentDomino.totalPlayers + 1 }, { where: {} });
-          //5秒後に消える奴
-            const replyMessage = await message.reply({flags: [4096],content: `ドミドミ…Take${currentDomino.totalPlayers + 1}:${currentDomino.totalCount + randomNum}枚`
-});
-            setTimeout(() => {
-              replyMessage.delete();
-              }, 5000);
-        }
+  if(message.content.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i)){
+    let dpname = null;
+    if(!message.member){dpname = message.author.displayName;}else{dpname = message.member.displayName;}
+    await dominoeffect(message,message.client,message.author.id,message.author.username,dpname);
   } 
   /*
   ここから大きな処理２つめ

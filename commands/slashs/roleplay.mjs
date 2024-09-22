@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
 import { Character, Icon , Point} from '../../models/roleplay.mjs';
+import { dominoeffect} from '../utils/domino.mjs';
 
 //絵文字　ここの数がスロット数になる
 const emojis = ['🍎', '🍌', '🍉', '🍇'];
@@ -197,7 +198,7 @@ export async function execute(interaction) {
       // `illustratorname` を `copyright` で置き換えます。
       pbwflag = pbwflag.replace(illustratorname, copyright);
     } else {
-      // `illustratorname` が含まれていない場合はエラーとして返します。
+      // `illustratorname` が含まれていない場合はエラーとして返します。(初期のデータとの互換のため)
       interaction.reply({ flags: [4096], content: `大変お手数をおかけしますが、再度キャラを登録し直してください`, ephemeral: true });
       return;
     }
@@ -233,7 +234,7 @@ export async function execute(interaction) {
       }
     }
       
-      webhook.send({
+      const postmessage = await webhook.send({
         content: message,
         username: name,
         threadId: Threadid,
@@ -241,10 +242,18 @@ export async function execute(interaction) {
         flags : flags
       });
       
+      //ドミノを振る機能
+      if(message.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i)){
+      const user = interaction.member;//DMならuser
+      dominoeffect(postmessage,interaction.client,user.id,user.user.username,name);
+      }
       // IDに対してポイントの更新処理を追加
       await updatePoints(interaction.user.id);
 
-      interaction.reply({ flags: [4096], content: `送信しました`, ephemeral: true });
+      const confirmMessage = await interaction.reply({ flags: [4096], content: `送信しました (このメッセージは自動で消えます)`, ephemeral: true });
+              setTimeout(() => {
+              confirmMessage.delete();
+              }, 5000);
     } catch (error) {
       console.error('メッセージ送信に失敗しました:', error);
       interaction.reply({ flags: [4096], content: `エラーが発生しました。`, ephemeral: true });
@@ -304,10 +313,7 @@ function dataslot(id,slot){
     return `${id}`;
   }else if(slot ===1){
     return `${id}-1`;
-  }else if(slot ===2){
-    return `${id}-2`;
-  }else if(slot ===3){
-    return `${id}-3`;
+    //…
   }else{
     return `${id}`;
   }
