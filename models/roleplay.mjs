@@ -1,4 +1,7 @@
-import { Sequelize, DataTypes } from 'sequelize';
+import {
+  Sequelize,
+  DataTypes
+} from 'sequelize';
 
 
 const sequelize = new Sequelize({
@@ -72,21 +75,21 @@ const Point = sequelize.define('Point', {
 
 // 現在のドミノ 開催数、ドミノの数、並べた人数
 const CurrentDomino = sequelize.define('CurrentDomino', {
-    attemptNumber: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 1,
-    },
-    totalCount: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-    },
-    totalPlayers: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-    }
+  attemptNumber: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+  },
+  totalCount: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  },
+  totalPlayers: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  }
 }, {
   tableName: 'currentdominos',
   timestamps: false
@@ -94,35 +97,35 @@ const CurrentDomino = sequelize.define('CurrentDomino', {
 
 // ドミノの履歴
 const DominoHistory = sequelize.define('DominoHistory', {
-    highestRecord: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-    },
-    highestRecordHolder: {
-        type: DataTypes.STRING,
-        allowNull: true,
-    },
-    zeroCount: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-    },
-    players: {
-        type: DataTypes.JSON, // JSON型に変更
-        allowNull: false,
-        defaultValue: [],
-    },
-    totals: {
-        type: DataTypes.JSON, // JSON型に変更
-        allowNull: false,
-        defaultValue: [],
-    },
-    losers: {
-        type: DataTypes.JSON, // JSON型に変更
-        allowNull: false,
-        defaultValue: [],
-    }
+  highestRecord: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  },
+  highestRecordHolder: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  zeroCount: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  },
+  players: {
+    type: DataTypes.JSON, // JSON型に変更
+    allowNull: false,
+    defaultValue: [],
+  },
+  totals: {
+    type: DataTypes.JSON, // JSON型に変更
+    allowNull: false,
+    defaultValue: [],
+  },
+  losers: {
+    type: DataTypes.JSON, // JSON型に変更
+    allowNull: false,
+    defaultValue: [],
+  }
 }, {
   tableName: 'dominohistorys',
   timestamps: false
@@ -130,12 +133,29 @@ const DominoHistory = sequelize.define('DominoHistory', {
 
 // データベースの同期処理をまとめて行う
 async function syncModels() {
-  await Character.sync({ alter: true });
-  await Icon.sync({ alter: true });
-  await Point.sync({ alter: true });
-  await CurrentDomino.sync({ alter: true });
-  await DominoHistory.sync({ alter: true });
+  await Character.sync({
+    alter: true
+  });
+  await Icon.sync({
+    alter: true
+  });
+  await Point.sync({
+    alter: true
+  });
+  await CurrentDomino.sync({
+    alter: true
+  });
+  await DominoHistory.sync({
+    alter: true
+  });
 }
 
-export { sequelize, Character, Icon, Point, CurrentDomino,DominoHistory, syncModels };
-
+export {
+  sequelize,
+  Character,
+  Icon,
+  Point,
+  CurrentDomino,
+  DominoHistory,
+  syncModels
+};

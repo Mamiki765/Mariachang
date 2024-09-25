@@ -31,7 +31,7 @@ export async function execute(interaction) {
   const row = new ActionRowBuilder().addComponents(rock, scissors, paper);
 
   const response = await interaction.reply({
-    flags: [ 4096 ],//silent
+    flags: [4096], //silent
     content: `じゃんけん...`,
     components: [row],
   });
@@ -48,7 +48,7 @@ export async function execute(interaction) {
 
     while (solve == 0) {
       await confirmation.followUp({
-        flags: [ 4096 ],//silent
+        flags: [4096], //silent
         content: `あいこで...`,
         components: [row],
       });
@@ -60,10 +60,10 @@ export async function execute(interaction) {
     }
 
     await confirmation.followUp(result[solve]);
-    
+
   } catch (e) {
     await interaction.editReply({
-      flags: [ 4096 ],//silent
+      flags: [4096], //silent
       content: "時間切れ～(もしくはエラー)",
       components: [],
     });
@@ -71,7 +71,11 @@ export async function execute(interaction) {
 }
 
 async function janken(confirmation) {
-  const hands = { rock: "0", scissors: "1", paper: "2" };
+  const hands = {
+    rock: "0",
+    scissors: "1",
+    paper: "2"
+  };
   const handsEmoji = [":fist:", ":v:", ":hand_splayed:"];
 
   const botHand = Math.floor(Math.random() * 3);
@@ -91,7 +95,7 @@ async function janken(confirmation) {
 
   const confirmedRow = new ActionRowBuilder().addComponents(playersHandButton);
 
-  const text =　(confirmation.message.content == "じゃんけん...")? "じゃんけん...\nぽん！": "あいこで...\nしょ！";
+  const text = (confirmation.message.content == "じゃんけん...") ? "じゃんけん...\nぽん！" : "あいこで...\nしょ！";
 
   await confirmation.update({
     content: `${text}${handsEmoji[botHand]}`,

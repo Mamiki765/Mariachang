@@ -1,11 +1,11 @@
 import fs from "fs";
 import path from "path";
 import express from "express";
-import { Client, Collection, Events, GatewayIntentBits, ActivityType,  EmbedBuilder , Partials} from "discord.js";
+import { Client, Collection, Events, GatewayIntentBits, ActivityType, EmbedBuilder, Partials } from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
 //import Notification from "./models/notification.mjs";
-import {syncModels} from "./models/roleplay.mjs";
-import config from './config.mjs'; 
+import { syncModels } from "./models/roleplay.mjs";
+import config from './config.mjs';
 
 import Sequelize from "sequelize";
 import Parser from 'rss-parser';
@@ -15,16 +15,16 @@ const parser = new Parser();
 let postCount = 0;
 const app = express();
 app.listen(3000);
-app.post('/', function(req, res) {
+app.post('/', function (req, res) {
   console.log(`Received POST request.`);
   postCount++;
   if (postCount == 10) {
     postCount = 0;
   }
-  
+
   res.send('POST response by glitch');
 })
-app.get('/', function(req, res) {
+app.get('/', function (req, res) {
   res.send('<a href="https://note.com/exteoi/n/n0ea64e258797</a> に解説があります。');
 })
 
@@ -38,15 +38,15 @@ const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildWebhooks,
   ],
-	partials: [
-		Partials.User,
-		Partials.Channel,
-		Partials.GuildMember,
-		Partials.Message,
-		Partials.Reaction,
-//		Partials.GuildScheduledEvent,
-		Partials.ThreadMember,
-	],
+  partials: [
+    Partials.User,
+    Partials.Channel,
+    Partials.GuildMember,
+    Partials.Message,
+    Partials.Reaction,
+    //		Partials.GuildScheduledEvent,
+    Partials.ThreadMember,
+  ],
 });
 
 client.commands = new Collection();
@@ -57,7 +57,7 @@ const commandFolders = fs.readdirSync(categoryFoldersPath);
 for (const folder of commandFolders) {
   const commandsPath = path.join(categoryFoldersPath, folder);
   const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".mjs"));
-  
+
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     import(filePath).then((module) => {
@@ -79,11 +79,11 @@ for (const file of handlerFiles) {
 }
 
 client.on("guildCreate", async (guild) => { // ギルドに参加した時
-  await handlers.get("guildCreate").default(guild,client);
+  await handlers.get("guildCreate").default(guild, client);
 });
 
 client.on("guildDelete", async (guild) => { // ギルドから退会した時
-  await handlers.get("guildDelete").default(guild,client);
+  await handlers.get("guildDelete").default(guild, client);
 });
 
 client.on("interactionCreate", async (interaction) => {//インタラクション時
@@ -118,7 +118,7 @@ client.on('error', async (error) => {// エラー発生時の処理
         .setDescription(`エラーが発生しました`)
         .setColor('#ff0000') // 赤色
         .setTimestamp()
-        .addFields({name: "エラーメッセージ",value: "```\n" + error.message +"\n```"});
+        .addFields({ name: "エラーメッセージ", value: "```\n" + error.message + "\n```" });
 
       await channel.send({ embeds: [embed] });
     }

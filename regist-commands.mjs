@@ -6,7 +6,7 @@ const commands = [];
 const foldersPath = path.join(process.cwd(), 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
-export default async() => {
+export default async () => {
   for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.mjs'));
@@ -28,7 +28,7 @@ export default async() => {
         Routes.applicationCommands(process.env.APPLICATION_ID),
         { body: commands },
       );
-      
+
       const dataGuild = await rest.put(
         Routes.applicationCommands(process.env.APPLICATION_ID),
         { body: commands },

@@ -1,43 +1,49 @@
-export default async(reaction, user) => {
+export default async (reaction, user) => {
   //削除リアクション（旧式)
-  if (reaction.emoji.id === '1267692767489036390' ||reaction.emoji.id ===  '1269022817429753918'){//削除を押されたら
+  if (reaction.emoji.id === '1267692767489036390' || reaction.emoji.id === '1269022817429753918') { //削除を押されたら
     let message = reaction.message;
     //まずmessage.contentがあるかみる
-    if(!message.content){
-      message = await reaction.message.fetch();//なければ取得
+    if (!message.content) {
+      message = await reaction.message.fetch(); //なければ取得
     }
-    if(message.mentions.users.has(user.id)) {
+    if (message.mentions.users.has(user.id)) {
       await message.delete();
     }
   }
   //そうだね
-  else if (reaction.emoji.id === '1237471008500224020'){
-    if(!reaction.count){//キャッシュされてなければ取得
-     await reaction.fetch();
-      }
+  else if (reaction.emoji.id === '1237471008500224020') {
+    if (!reaction.count) { //キャッシュされてなければ取得
+      await reaction.fetch();
+    }
     const soudane = reaction.count
-//    if(reaction.message.author.bot){return;}
-    if(reaction.message.reactions.cache.get('1236923430490734672')?.count){return;}
-    if(soudane === 7){
-      if(reaction.message.channel.nsfw || reaction.message.channel.parent.nsfw){
-        await reaction.message.reply(`そうだねが7以上に達したため<#1098172139414233108>にコピーされます。`);       
-      }else{
+    //    if(reaction.message.author.bot){return;}
+    if (reaction.message.reactions.cache.get('1236923430490734672')?.count) {
+      return;
+    }
+    if (soudane === 7) {
+      if (reaction.message.channel.nsfw || reaction.message.channel.parent.nsfw) {
+        await reaction.message.reply(`そうだねが7以上に達したため<#1098172139414233108>にコピーされます。`);
+      } else {
         await reaction.message.reply(`そうだねが7以上に達したため<#1098159960942202941>にコピーされます。`);
       }
       await reaction.message.react('1236923430490734672');
     }
   }
-　//hda(普通のと、2回目の方も)
-    else if (reaction.emoji.id === '1057293963813453914'||reaction.emoji.id === '1233328018437443614'){
-    if(!reaction.count){//キャッシュされてなければ取得
-     await reaction.fetch();
-      }
- //   if(reaction.message.author.bot){return;}
-    if(!reaction.message.channel.nsfw && !reaction.message.channel.parent.nsfw){return;}
+  //hda(普通のと、2回目の方も)
+  else if (reaction.emoji.id === '1057293963813453914' || reaction.emoji.id === '1233328018437443614') {
+    if (!reaction.count) { //キャッシュされてなければ取得
+      await reaction.fetch();
+    }
+    //   if(reaction.message.author.bot){return;}
+    if (!reaction.message.channel.nsfw && !reaction.message.channel.parent.nsfw) {
+      return;
+    }
     const hda = reaction.count
-    if(reaction.message.reactions.cache.get('1236923430490734672')?.count){return;}
-    if(hda === 7){
-        await reaction.message.reply(`えっちだが7以上に達したため<#1098172139414233108>にコピーされます。`);       
+    if (reaction.message.reactions.cache.get('1236923430490734672')?.count) {
+      return;
+    }
+    if (hda === 7) {
+      await reaction.message.reply(`えっちだが7以上に達したため<#1098172139414233108>にコピーされます。`);
       await reaction.message.react('1236923430490734672');
     }
   }
