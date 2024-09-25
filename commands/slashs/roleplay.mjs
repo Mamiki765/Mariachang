@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
 import { Character, Icon , Point} from '../../models/roleplay.mjs';
 import { dominoeffect} from '../utils/domino.mjs';
+import config from '../../config.mjs';
 
 //絵文字　ここの数がスロット数になる
 const emojis = ['🍎', '🍌', '🍉', '🍇'];
@@ -243,7 +244,7 @@ export async function execute(interaction) {
       });
       
       //ドミノを振る機能
-      if(message.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i)){
+      if(message.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) || interaction.channel.id === config.dominoch){
       const user = interaction.member;//DMならuser
       dominoeffect(postmessage,interaction.client,user.id,user.user.username,name);
       }

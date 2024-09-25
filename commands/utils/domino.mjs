@@ -33,7 +33,7 @@ export async function execute(interaction) {
         const formattedsumd = new Intl.NumberFormat('ja-JP').format(sumd);
         const formattedsump = new Intl.NumberFormat('ja-JP').format(sump);
         //出力
-        response = `現在のドミノ:第${currentDomino.attemptNumber}回 ${currentDomino.totalPlayers}人 ${currentDomino.totalCount}枚\n-# 最高記録：${history.highestRecord}枚 崩した人:${history.highestRecordHolder}\n-# 総ドミノ:${formattedsumd}枚　総人数:${formattedsump}人　虚無崩し(0枚):${history.zeroCount}回\n★直近5回のドミノゲームの履歴★\n`;
+        response = `現在のドミノ:第${currentDomino.attemptNumber}回 ${currentDomino.totalPlayers}人 ${currentDomino.totalCount}枚\n-# 最高記録：${history.highestRecord}枚 崩した人:${escapeDiscordText(history.highestRecordHolder)}\n-# 総ドミノ:${formattedsumd}枚　総人数:${formattedsump}人　虚無崩し(0枚):${history.zeroCount}回\n★直近5回のドミノゲームの履歴★\n`;
         history.players.slice(-5).forEach((player, index) => {
         const actualIndex = history.players.length - 5 + index; // 正しいインデックスを計算
         response += `-# 第${actualIndex + 1}回:${history.totals[actualIndex]}枚 ${player}人 崩した人:${history.losers[actualIndex]}\n`;
@@ -57,7 +57,7 @@ export async function execute(interaction) {
         // 上位5位をレスポンスに追加
         response += "★崩した人上位5位★\n";
         sortedLosers.forEach(([player, count], index) => {
-        response += `-# ${index + 1}位: ${player} (${count}回)\n`;
+        response += `-# ${index + 1}位: ${escapeDiscordText(player)} (${count}回)\n`;
         }); 
         
 //        response += "君も「ドミノ」と発言してレッツドミノ！1d100代わりにもどうぞ";
@@ -67,10 +67,9 @@ export async function execute(interaction) {
         const endIndex = Math.min(startIndex + 10, history.players.length); // 最大インデックスを超えないように
         response = `★第${indexOption}回から10回分のドミノゲームの履歴★\n`;
         for (let i = startIndex; i < endIndex; i++) {
-          response += `-# 第${i + 1}回:${history.totals[i]}枚 ${history.players[i]}人 崩した人:${history.losers[i]}\n`;
+          response += `-# 第${i + 1}回:${history.totals[i]}枚 ${history.players[i]}人 崩した人:${escapeDiscordText(history.losers[i])}\n`;
         }
       }
-
 
       await interaction.reply(response);
 }
@@ -95,7 +94,7 @@ export async function dominoeffect(message,client,id,username,dpname){
     }
     if (randomNum === 0) {//ガシャーン！
       await message.react("💥");
-            await dominochannel.send({flags: [ 4096 ],content:`# 100　<@${id}>は${currentDomino.totalPlayers}人が並べた${currentDomino.totalCount}枚のドミノを崩してしまいました！\n${currentDomino.attemptNumber}回目の開催は終わり、${username}の名が刻まれました。`});
+            await dominochannel.send({flags: [ 4096 ],content:`# 100　<@${id}>は${currentDomino.totalPlayers}人が並べた${currentDomino.totalCount}枚のドミノを崩してしまいました！\n${currentDomino.attemptNumber}回目の開催は終わり、${escapeDiscordText(username)}の名が刻まれました。`});
 
             const history = await DominoHistory.findOne();
             //保存
@@ -132,10 +131,17 @@ export async function dominoeffect(message,client,id,username,dpname){
             await dominochannel.send({flags: [ 4096 ],content:`Take${dpplayer}:${dpname}が${randomNum}枚ドミノを並べました。現在:${currentDomino.totalCount + randomNum}枚`});
             await CurrentDomino.update({ totalCount: currentDomino.totalCount + randomNum, totalPlayers: currentDomino.totalPlayers + 1 }, { where: {} });
           //5秒後に消える奴
+          if(message.channel.id !== config.dominoch){
             const replyMessage = await message.reply({flags: [4096],content: `ドミドミ…Take${currentDomino.totalPlayers + 1}:${currentDomino.totalCount + randomNum}枚`
 });
             setTimeout(() => {
               replyMessage.delete();
               }, 5000);
+          }
         }
   }
+
+// エスケープ処理のサブルーチン（例 hoge_fuga_がhogefuga(fugaが斜体)にならないように
+function escapeDiscordText(text) {
+  return text.replace(/([_*`])/g, '\\$1'); // 特殊文字をエスケープ
+}
