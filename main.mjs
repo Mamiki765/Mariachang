@@ -4,7 +4,7 @@ import express from "express";
 import { Client, Collection, Events, GatewayIntentBits, ActivityType,  EmbedBuilder , Partials} from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
 //import Notification from "./models/notification.mjs";
-import {Character, Icon ,Point} from "./models/roleplay.mjs";
+import {syncModels} from "./models/roleplay.mjs";
 import config from './config.mjs'; 
 
 import Sequelize from "sequelize";
@@ -78,6 +78,14 @@ for (const file of handlerFiles) {
   });
 }
 
+client.on("guildCreate", async (guild) => { // ギルドに参加した時
+  await handlers.get("guildCreate").default(guild,client);
+});
+
+client.on("guildDelete", async (guild) => { // ギルドから退会した時
+  await handlers.get("guildDelete").default(guild,client);
+});
+
 client.on("interactionCreate", async (interaction) => {//インタラクション時
   await handlers.get("interactionCreate").default(interaction);
 });
@@ -125,9 +133,7 @@ client.on("ready", async () => {//Bot の起動時に必要な全ての初期設
 
 
 //Notification.sync({ alter: true });
-Character.sync({ alter: true }); 
-Icon.sync({ alter: true });
-Point.sync({ alter: true });
+syncModels(); // データベースの同期処理を起動時に実行
 
 CommandsRegister();
 client.login(process.env.TOKEN);

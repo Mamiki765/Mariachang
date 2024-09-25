@@ -3,6 +3,7 @@ import fs from "fs";
 
 import config from '../config.mjs'; 
 import { ndnDice } from "../commands/utils/dice.mjs"
+import { dominoeffect } from "../commands/utils/domino.mjs"
 import {createEmbed, getImagesFromMessage, sendMessage} from "../utils/messageutil.mjs"
 
 
@@ -167,8 +168,20 @@ export default async(message) => {
      flags: [ 4096 ],//silent
      content: ndnDice(command)});
   }
-  //X、メッセージリンクを処理
-  //両方あったらXを優先
+  /*
+  ここから大きな処理1つ目、ドミノを並べる。
+  便宜的にドミノと言われた時に反応
+  */
+  if(message.content.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) || message.channel.id === config.dominoch){
+    let dpname = null;
+    if(!message.member){dpname = message.author.displayName;}else{dpname = message.member.displayName;}
+    await dominoeffect(message,message.client,message.author.id,message.author.username,dpname);
+  } 
+  /*
+  ここから大きな処理２つめ
+  X、メッセージリンクを検知して処理する。
+  両方あったらXを優先する。
+  */
     if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {  
     if (!message.guild) {return;}//dmなら無視 
     const updatedMessage = message.content
@@ -278,3 +291,7 @@ export default async(message) => {
 
 
 };
+
+/*
+メッセージ処理ここまで、以下サブルーチン
+*/

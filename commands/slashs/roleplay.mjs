@@ -1,6 +1,15 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
 import { Character, Icon , Point} from '../../models/roleplay.mjs';
+import { dominoeffect} from '../utils/domino.mjs';
+import config from '../../config.mjs';
+
+//絵文字　ここの数がスロット数になる
+const emojis = ['🍎', '🍌', '🍉', '🍇'];
+const slotChoices = emojis.map((emoji, index) => ({
+  name: index === 0 ? `${emoji}スロット${index}(デフォルト)` : `${emoji}スロット${index}`,
+  value: index
+}));
 
 //権利表記の特定部分をIL名で置き換えて権利表記を生成するためのパーツ
 const illustratorname = 'illustratorname';
@@ -37,12 +46,7 @@ export const data = new SlashCommandBuilder()
         option
           .setName('slot')
           .setDescription('保存するキャラクタースロットを選択（デフォルトは0)')
-          .addChoices(
-            { name: 'スロット0(デフォルト)', value: 0 },
-            { name: 'スロット1', value: 1 },
-            { name: 'スロット2', value: 2 },
-            { name: 'スロット3', value: 3 }
-          )
+          .addChoices(...slotChoices)
       )
       .addAttachmentOption(option =>
         option.setName('icon')
@@ -79,12 +83,7 @@ export const data = new SlashCommandBuilder()
         option
           .setName('slot')
           .setDescription('保存するキャラクタースロットを選択（デフォルトは0)')
-          .addChoices(
-            { name: 'スロット0(デフォルト)', value: 0 },
-            { name: 'スロット1', value: 1 },
-            { name: 'スロット2', value: 2 },
-            { name: 'スロット3', value: 3 }
-          )
+          .addChoices(...slotChoices)
       )
       .addAttachmentOption(option =>
         option.setName('icon')
@@ -200,7 +199,7 @@ export async function execute(interaction) {
       // `illustratorname` を `copyright` で置き換えます。
       pbwflag = pbwflag.replace(illustratorname, copyright);
     } else {
-      // `illustratorname` が含まれていない場合はエラーとして返します。
+      // `illustratorname` が含まれていない場合はエラーとして返します。(初期のデータとの互換のため)
       interaction.reply({ flags: [4096], content: `大変お手数をおかけしますが、再度キャラを登録し直してください`, ephemeral: true });
       return;
     }
@@ -236,7 +235,7 @@ export async function execute(interaction) {
       }
     }
       
-      webhook.send({
+      const postmessage = await webhook.send({
         content: message,
         username: name,
         threadId: Threadid,
@@ -244,10 +243,18 @@ export async function execute(interaction) {
         flags : flags
       });
       
+      //ドミノを振る機能
+      if(message.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) || interaction.channel.id === config.dominoch){
+      const user = interaction.member;//DMならuser
+      dominoeffect(postmessage,interaction.client,user.id,user.user.username,name);
+      }
       // IDに対してポイントの更新処理を追加
       await updatePoints(interaction.user.id);
 
-      interaction.reply({ flags: [4096], content: `送信しました`, ephemeral: true });
+      const confirmMessage = await interaction.reply({ flags: [4096], content: `送信しました (このメッセージは自動で消えます)`, ephemeral: true });
+              setTimeout(() => {
+              confirmMessage.delete();
+              }, 5000);
     } catch (error) {
       console.error('メッセージ送信に失敗しました:', error);
       interaction.reply({ flags: [4096], content: `エラーが発生しました。`, ephemeral: true });
@@ -260,7 +267,7 @@ export async function execute(interaction) {
       const point = loadpoint ? loadpoint.point : 0;
       const totalpoint = loadpoint ? loadpoint.totalpoint : 0;
       
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < emojis.length; i++) {
         //ファイル名決定
         const charaslot = dataslot(interaction.user.id, i)
         
@@ -282,13 +289,13 @@ export async function execute(interaction) {
 
         const embed = new EmbedBuilder()
           .setColor('#0099ff')
-          .setTitle(`スロット${i}`)
+          .setTitle(`${emojis[i]}スロット${i}`)
           .setDescription(description || 'キャラが設定されていません')
           .setThumbnail(iconUrl || 'https://via.placeholder.com/150')
         embeds.push(embed);
         }
       }
-        await interaction.reply({ content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# IL名変更の時は下線部が変更されます。`,embeds: embeds, ephemeral: true });
+        await interaction.reply({ content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# 登録後24時間が経過したアイコンは非表示になりますが、発言の際は表示されます。\n-# IL名変更の時は下線部が変更されます。`,embeds: embeds, ephemeral: true });
       } catch (error) {
         console.error('キャラデータの表示に失敗しました:', error);
         await interaction.reply({ flags: [4096], content: `キャラデータの表示でエラーが発生しました。`, ephemeral: true });
@@ -298,19 +305,21 @@ export async function execute(interaction) {
 
 //サブルーチン
 //ロードするデータを選択
+function dataslot(id, slot) {
+  return slot >= 0 ? `${id}${slot > 0 ? `-${slot}` : ''}` : `${id}`;
+}
+/*
 function dataslot(id,slot){
   if(slot === 0){
     return `${id}`;
   }else if(slot ===1){
     return `${id}-1`;
-  }else if(slot ===2){
-    return `${id}-2`;
-  }else if(slot ===3){
-    return `${id}-3`;
+    //…
   }else{
     return `${id}`;
   }
 }
+*/
 
 //発言するたびにポイント+1
 async function updatePoints(userId) {
