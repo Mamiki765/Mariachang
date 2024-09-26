@@ -14,8 +14,8 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption(option =>
     option
     .setName('index')
-    .setDescription('指定回数から10回分の履歴を閲覧できます（空白で最新５回）')
-    .setMinValue(1)
+    .setDescription('指定回数から10回分の履歴を閲覧できます（-1で最新10回）')
+    .setMinValue(-1)
   );
 
 export async function execute(interaction) {
@@ -26,7 +26,7 @@ export async function execute(interaction) {
     return;
   }
   let response = null;
-  if (!indexOption) {
+  if (indexOption　=== null) {
     //index指定がない時、統計データ＋最近５回
     const currentDomino = await CurrentDomino.findOne();
     if (!currentDomino) {
@@ -73,7 +73,7 @@ export async function execute(interaction) {
     //        response += "君も「ドミノ」と発言してレッツドミノ！1d100代わりにもどうぞ";
   } else { //指定あるとき
     // 指定したインデックスから10個取得
-    const startIndex = indexOption - 1;
+    const startIndex = indexOption !== -1 ? indexOption - 1 : history.players.length - 10;
     const endIndex = Math.min(startIndex + 10, history.players.length); // 最大インデックスを超えないように
     response = `★第${indexOption}回から10回分のドミノゲームの履歴★\n`;
     for (let i = startIndex; i < endIndex; i++) {

@@ -95,6 +95,10 @@ client.on("voiceStateUpdate", async (oldState, newState) => {//ボイスチャ�
 });
 */
 
+client.on('threadCreate', async (thread) => { //スレッドが建てられた時
+    await handlers.get("threadCreate").default(thread);
+});
+
 client.on("messageCreate", async (message) => {//メッセージの送信時
   if (message.author.id == client.user.id || message.author.bot) return;
   await handlers.get("messageCreate").default(message);
