@@ -199,14 +199,20 @@ export default async (message) => {
   ここから大きな処理２つめ
   X、メッセージリンクを検知して処理する。
   両方あったらXを優先する。
+  まずはX、ついでにNsfwならpixivも
   */
-  if (message.content.match(/https:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?/)) {
+  if (message.content.match(/https?:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+\/?(\?.*)?|https?:\/\/www\.pixiv\.net\/artworks\/\d+/)) {
     if (!message.guild) {
       return;
     } //dmなら無視 
-    const updatedMessage = message.content
+    let updatedMessage = message.content
       .replace(/https:\/\/twitter\.com/g, 'https://fxtwitter.com')
       .replace(/https:\/\/x\.com/g, 'https://fixupx.com');
+   //nsfwチャンネルならpixivも
+    if (message.channel.nsfw || message.channel.parent?.nsfw) {
+      updatedMessage = updatedMessage
+      .replace(/https?:\/\/www\.pixiv\.net\/artworks\//g, 'https://www.phixiv.net/artworks/')
+    }
     const fileUrls = message.attachments.map(attachment => attachment.url);
     await sendMessage(message, updatedMessage, fileUrls, null, 4096)
     await message.delete(); //元メッセージは消す
@@ -237,8 +243,9 @@ export default async (message) => {
         // プレビューを表示しない様にする処理
         //プライベートスレッド(type12)ではないか
         if (channel.isThread() && channel.type === 12 && message.channel.id !== channel.id) return;
-        //NSFW→健全を避ける(カテゴリ無しのチャンネルが有るときはparentの存在を先にifで探ること)
-        if ((channel.parent.nsfw || channel.nsfw) && !(message.channel.parent.nsfw || message.channel.nsfw)) return;
+        //NSFW→健全を避ける
+        if ((channel.parent?.nsfw || channel.nsfw) && !(message.channel.parent?.nsfw || message.channel.nsfw)) return;
+        
         //プライベートなカテゴリは他のチャンネルに転載禁止。クリエイターや管理人室など
         if (config.privatecategory.includes(channel.parentId) && message.channel.id !== channel.id) return;
 

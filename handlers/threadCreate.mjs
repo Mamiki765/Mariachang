@@ -29,6 +29,9 @@ export default async (thread) => {
                 const message = messages.last();
                 
                 const content = message ? message.content : '本文無し';
+                if(content.match(/非通知/)) {
+    return;
+  }
 
                 const attachments = message && message.attachments ? message.attachments.map(att => att.url) : [];
                 const firstImage = attachments.length > 0 ? attachments[0] : null;
