@@ -129,7 +129,7 @@ export async function dominoeffect(message, client, id, username, dpname) {
       await history.increment('zeroCount');
       await dominochannel.send({
         flags: [4096],
-        content: `# __★★【特別賞】0枚で終わった回数：${history.zeroCount}回目__`
+        content: `# __★★【特別賞】0枚で終わった回数：${history.zeroCount + 1}回目__`
       });
     }
     // 最高記録の更新

@@ -57,7 +57,7 @@ export const data = new SlashCommandBuilder()
     .addBooleanOption(option =>
       option
       .setName('reply')
-      .setDescription('【未実装】このDMに対する返信を許可するか(デフォルトはTrue)'))
+      .setDescription('このDMに対する返信を許可するか(デフォルトはTrue)'))
 
   );
 //マリアで発言機能登録ここまで
