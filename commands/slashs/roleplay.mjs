@@ -1,145 +1,161 @@
-import {
-  SlashCommandBuilder,
-  EmbedBuilder
-} from 'discord.js';
-import {
-  getWebhookInChannel,
-  getWebhook
-} from "../../utils/webhook.mjs";
-import {
-  Character,
-  Icon,
-  Point
-} from '../../models/roleplay.mjs';
-import {
-  dominoeffect
-} from '../utils/domino.mjs';
-import config from '../../config.mjs';
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
+import { Character, Icon, Point } from "../../models/roleplay.mjs";
+import { dominoeffect } from "../utils/domino.mjs";
+import config from "../../config.mjs";
 
 //絵文字　ここの数がスロット数になる
-const emojis = ['🍎', '🍌', '🍉', '🍇'];
+const emojis = ["🍎", "🍌", "🍉", "🍇"];
 const slotChoices = emojis.map((emoji, index) => ({
-  name: index === 0 ? `${emoji}スロット${index}(デフォルト)` : `${emoji}スロット${index}`,
-  value: index
+  name:
+    index === 0
+      ? `${emoji}スロット${index}(デフォルト)`
+      : `${emoji}スロット${index}`,
+  value: index,
 }));
 
 //権利表記の特定部分をIL名で置き換えて権利表記を生成するためのパーツ
-const illustratorname = 'illustratorname';
+const illustratorname = "illustratorname";
 
 export const data = new SlashCommandBuilder()
   .setName("roleplay")
   .setDescription("ロールプレイに関する内容")
   // 登録
-  .addSubcommand(subcommand =>
+  .addSubcommand((subcommand) =>
     subcommand
-    .setName("register")
-    .setDescription("ロールプレイをするキャラを登録します。")
-    .addStringOption(option =>
-      option
-      .setName('chara')
-      .setDescription('キャラクター名')
-      .setRequired(true)
-    )
-    .addStringOption(option =>
-      option
-      .setName('pbw')
-      .setDescription('アイコンの権利表記フォーマット')
-      .addChoices({
-        name: 'ロスト・アーカディア',
-        value: 'rev2'
-      }, {
-        name: 'PandoraPartyProject',
-        value: 'rev1'
-      }, {
-        name: 'チェインパラドクス',
-        value: 'tw7'
-      }, {
-        name: '第六猟兵',
-        value: 'tw6'
-      }, {
-        name: 'アルパカコネクト（ワールド名は別途記載！）',
-        value: 'alpaca'
-      }, {
-        name: 'その他（権利表記は自分で書く）',
-        value: 'other'
-      }, )
-      .setRequired(true)
-    )
-    .addIntegerOption(option =>
-      option
-      .setName('slot')
-      .setDescription('保存するキャラクタースロットを選択（デフォルトは0)')
-      .addChoices(...slotChoices)
-    )
-    .addAttachmentOption(option =>
-      option.setName('icon')
-      .setDescription('アイコンをアップロードできます')
-    )
-    .addStringOption(option =>
-      option
-      .setName('illustrator')
-      .setDescription('投稿アイコンのイラストレーター様(その他選択時は不要)')
-    )
-    .addStringOption(option =>
-      option
-      .setName('world')
-      .setDescription('【アルパカコネクト社のみ】所属ワールドをどうぞ')
-    )
-    .addStringOption(option =>
-      option
-      .setName('権利表記')
-      .setDescription('【その他選択時のみ】権利表記を記載してください。末尾にby（表示名)がつきます。')
-    )
+      .setName("register")
+      .setDescription("ロールプレイをするキャラを登録します。")
+      .addStringOption((option) =>
+        option
+          .setName("chara")
+          .setDescription("キャラクター名")
+          .setRequired(true)
+      )
+      .addStringOption((option) =>
+        option
+          .setName("pbw")
+          .setDescription("アイコンの権利表記フォーマット")
+          .addChoices(
+            {
+              name: "ロスト・アーカディア",
+              value: "rev2",
+            },
+            {
+              name: "PandoraPartyProject",
+              value: "rev1",
+            },
+            {
+              name: "チェインパラドクス",
+              value: "tw7",
+            },
+            {
+              name: "第六猟兵",
+              value: "tw6",
+            },
+            {
+              name: "アルパカコネクト（ワールド名は別途記載！）",
+              value: "alpaca",
+            },
+            {
+              name: "その他（権利表記は自分で書く）",
+              value: "other",
+            }
+          )
+          .setRequired(true)
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName("slot")
+          .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
+          .addChoices(...slotChoices)
+      )
+      .addAttachmentOption((option) =>
+        option.setName("icon").setDescription("アイコンをアップロードできます")
+      )
+      .addStringOption((option) =>
+        option
+          .setName("illustrator")
+          .setDescription(
+            "投稿アイコンのイラストレーター様(その他選択時は不要)"
+          )
+      )
+      .addStringOption((option) =>
+        option
+          .setName("world")
+          .setDescription("【アルパカコネクト社のみ】所属ワールドをどうぞ")
+      )
+      .addStringOption((option) =>
+        option
+          .setName("権利表記")
+          .setDescription(
+            "【その他選択時のみ】権利表記を記載してください。末尾にby（表示名)がつきます。"
+          )
+      )
   )
   // 発言
-  .addSubcommand(subcommand =>
+  .addSubcommand((subcommand) =>
     subcommand
-    .setName("post")
-    .setDescription("登録したキャラデータと最後に使用したアイコンでRPします。")
-    .addStringOption(option =>
-      option
-      .setName('message')
-      .setDescription('発言内容を記述(改行は\n、<br>、@@@などでもできます)')
-      .setRequired(true)
-    )
-    .addIntegerOption(option =>
-      option
-      .setName('slot')
-      .setDescription('保存するキャラクタースロットを選択（デフォルトは0)')
-      .addChoices(...slotChoices)
-    )
-    .addAttachmentOption(option =>
-      option.setName('icon')
-      .setDescription('アイコンを変更する時はこちら（別ILのアイコンにした時は権利表記オプションもつけること！）')
-    )
-    .addStringOption(option =>
-      option
-      .setName('illustrator')
-      .setDescription('（アイコンのILを変えたときのみ）IL名、権利表記を自分で書く時はフルで')
-    )
+      .setName("post")
+      .setDescription(
+        "登録したキャラデータと最後に使用したアイコンでRPします。"
+      )
+      .addStringOption((option) =>
+        option
+          .setName("message")
+          .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
+          .setRequired(true)
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName("slot")
+          .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
+          .addChoices(...slotChoices)
+      )
+      .addAttachmentOption((option) =>
+        option
+          .setName("icon")
+          .setDescription(
+            "アイコンを変更する時はこちら（別ILのアイコンにした時は権利表記オプションもつけること！）"
+          )
+      )
+      .addStringOption((option) =>
+        option
+          .setName("illustrator")
+          .setDescription(
+            "（アイコンのILを変えたときのみ）IL名、権利表記を自分で書く時はフルで"
+          )
+      )
+      .addBooleanOption((option) =>
+        option
+          .setName("nocredit")
+          .setDescription(
+            "【非推奨】権利表記を非表示にします、RP中などに(デフォルトはfalse)"
+          )
+      )
   )
   // 表示
-  .addSubcommand(subcommand =>
+  .addSubcommand((subcommand) =>
     subcommand
-    .setName("display")
-    .setDescription("登録したキャラデータを表示します。")
+      .setName("display")
+      .setDescription("登録したキャラデータを表示します。")
   );
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === "register") {
-    const name = interaction.options.getString('chara');
-    const pbw = interaction.options.getString('pbw');
-    const slot = interaction.options.getInteger('slot') || 0;
+    const name = interaction.options.getString("chara");
+    const pbw = interaction.options.getString("pbw");
+    const slot = interaction.options.getInteger("slot") || 0;
     const icon = interaction.options.getAttachment("icon");
     const world = interaction.options.getString("world");
-    const illustrator = interaction.options.getString('illustrator') || "絵師様";
-    const copyright = interaction.options.getString('権利表記') || "";
+    const illustrator =
+      interaction.options.getString("illustrator") || "絵師様";
+    const copyright = interaction.options.getString("権利表記") || "";
 
     const iconUrl = icon ? icon.attachment : null;
     //ファイル名決定
-    const charaslot = dataslot(interaction.user.id, slot)
+    const charaslot = dataslot(interaction.user.id, slot);
 
     let pbwflag = null;
     if (pbw === "rev1") {
@@ -160,55 +176,55 @@ export async function execute(interaction) {
       await Character.upsert({
         userId: charaslot,
         name: name,
-        pbwflag: pbwflag
+        pbwflag: pbwflag,
       });
       if (pbw !== "other") {
         await Icon.upsert({
           userId: charaslot,
           iconUrl: iconUrl,
           illustrator: illustrator,
-          pbw: pbw
+          pbw: pbw,
         });
       } else {
         await Icon.upsert({
           userId: charaslot,
           iconUrl: iconUrl,
           illustrator: copyright,
-          pbw: pbw
+          pbw: pbw,
         }); //${copyright}が代わりに入る
       }
       const checkchara = await Character.findOne({
         where: {
-          userId: charaslot
-        }
+          userId: charaslot,
+        },
       });
       const checkicon = await Icon.findOne({
         where: {
-          userId: charaslot
-        }
+          userId: charaslot,
+        },
       });
 
-      console.log('Character Data:', checkchara);
-      console.log('Icon Data:', checkicon);
+      console.log("Character Data:", checkchara);
+      console.log("Icon Data:", checkicon);
       interaction.reply({
         flags: [4096],
         content: `スロット${slot}にキャラデータを登録しました`,
-        ephemeral: true
+        ephemeral: true,
       });
     } catch (error) {
-      console.error('キャラ登録に失敗しました。:', error);
+      console.error("キャラ登録に失敗しました。:", error);
       interaction.reply({
         flags: [4096],
         content: `スロット${slot}へのキャラ登録でエラーが発生しました。`,
-        ephemeral: true
+        ephemeral: true,
       });
     }
-
   } else if (subcommand === "post") {
-    let message = interaction.options.getString('message');
-    const slot = interaction.options.getInteger('slot') || 0;
+    let message = interaction.options.getString("message");
+    const slot = interaction.options.getInteger("slot") || 0;
     const icon = interaction.options.getAttachment("icon");
-    const illustrator = interaction.options.getString('illustrator');
+    const illustrator = interaction.options.getString("illustrator");
+    const nocredit = interaction.options.getBoolean("nocredit");
     let name = null,
       pbwflag = null,
       face = null,
@@ -217,25 +233,25 @@ export async function execute(interaction) {
       loadicon = null,
       flags = null;
     //ファイル名決定
-    const charaslot = dataslot(interaction.user.id, slot)
+    const charaslot = dataslot(interaction.user.id, slot);
 
     try {
       loadchara = await Character.findOne({
         where: {
-          userId: charaslot
-        }
+          userId: charaslot,
+        },
       });
       loadicon = await Icon.findOne({
         where: {
-          userId: charaslot
-        }
+          userId: charaslot,
+        },
       });
     } catch (error) {
-      console.error('キャラデータのロードに失敗しました:', error);
+      console.error("キャラデータのロードに失敗しました:", error);
       interaction.reply({
         flags: [4096],
         content: `キャラデータのロードでエラーが発生しました。`,
-        ephemeral: true
+        ephemeral: true,
       });
       return;
     }
@@ -244,34 +260,34 @@ export async function execute(interaction) {
       interaction.reply({
         flags: [4096],
         content: `スロット${slot}にキャラデータがありません。`,
-        ephemeral: true
+        ephemeral: true,
       });
       return;
     }
 
     name = loadchara.name;
     pbwflag = loadchara.pbwflag;
-    copyright = loadicon.illustrator
+    copyright = loadicon.illustrator;
     if (icon) {
       face = icon.attachment;
       // 新しいアイコンがアップロードされた場合は、データベースを更新
       if (illustrator !== null) {
         //IL名があれば更新
-        copyright = illustrator
+        copyright = illustrator;
       }
       try {
         await Icon.upsert({
           userId: charaslot,
           iconUrl: face,
           illustrator: copyright,
-          pbw: loadicon.pbw
+          pbw: loadicon.pbw,
         });
       } catch (error) {
-        console.error('スロット${slot}のアイコンの更新に失敗しました:', error);
+        console.error("スロット${slot}のアイコンの更新に失敗しました:", error);
         interaction.reply({
           flags: [4096],
           content: `スロット${slot}のアイコンの更新でエラーが発生しました。`,
-          ephemeral: true
+          ephemeral: true,
         });
         return;
       }
@@ -287,16 +303,18 @@ export async function execute(interaction) {
       interaction.reply({
         flags: [4096],
         content: `大変お手数をおかけしますが、再度キャラを登録し直してください`,
-        ephemeral: true
+        ephemeral: true,
       });
       return;
     }
 
     message = message
-      .replace(/@@@/g, '\n')
-      .replace(/<br>/g, '\n')
-      .replace(/\\n/g, '\n');
-    message = message + "\n" + `-# ` + pbwflag;
+      .replace(/@@@/g, "\n")
+      .replace(/<br>/g, "\n")
+      .replace(/\\n/g, "\n");
+    if (!nocredit) {
+      message = message + "\n" + `-# ` + pbwflag;
+    }
 
     try {
       let webhook = null;
@@ -310,13 +328,13 @@ export async function execute(interaction) {
 
       //連投確認
       const messages = await interaction.channel.messages.fetch({
-        limit: 2
+        limit: 2,
       });
       const lastMessage = messages.first();
       if (lastMessage) {
         const now = Date.now();
         const lastMessageTime = lastMessage.createdTimestamp;
-        const isRecent = (now - lastMessageTime) <= 10 * 60 * 1000; // 10分以内
+        const isRecent = now - lastMessageTime <= 10 * 60 * 1000; // 10分以内
         const isWebhook = lastMessage.webhookId != null;
         const isSilent = lastMessage.flags.has(4096); // 4096はサイレントメッセージのフラグ
 
@@ -330,13 +348,22 @@ export async function execute(interaction) {
         username: name,
         threadId: Threadid,
         avatarURL: face,
-        flags: flags
+        flags: flags,
       });
 
       //ドミノを振る機能
-      if (message.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) || interaction.channel.id === config.dominoch) {
+      if (
+        message.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) ||
+        interaction.channel.id === config.dominoch
+      ) {
         const user = interaction.member; //DMならuser
-        dominoeffect(postmessage, interaction.client, user.id, user.user.username, name);
+        dominoeffect(
+          postmessage,
+          interaction.client,
+          user.id,
+          user.user.username,
+          name
+        );
       }
       // IDに対してポイントの更新処理を追加
       await updatePoints(interaction.user.id);
@@ -344,81 +371,76 @@ export async function execute(interaction) {
       const confirmMessage = await interaction.reply({
         flags: [4096],
         content: `送信しました (このメッセージは自動で消えます)`,
-        ephemeral: true
+        ephemeral: true,
       });
       setTimeout(() => {
         confirmMessage.delete();
       }, 5000);
     } catch (error) {
-      console.error('メッセージ送信に失敗しました:', error);
+      console.error("メッセージ送信に失敗しました:", error);
       interaction.reply({
         flags: [4096],
         content: `エラーが発生しました。`,
-        ephemeral: true
+        ephemeral: true,
       });
     }
-
   } else if (subcommand === "display") {
     try {
       const embeds = [];
       const loadpoint = await Point.findOne({
         where: {
-          userId: interaction.user.id
-        }
+          userId: interaction.user.id,
+        },
       });
       const point = loadpoint ? loadpoint.point : 0;
       const totalpoint = loadpoint ? loadpoint.totalpoint : 0;
 
       for (let i = 0; i < emojis.length; i++) {
         //ファイル名決定
-        const charaslot = dataslot(interaction.user.id, i)
+        const charaslot = dataslot(interaction.user.id, i);
 
         const loadchara = await Character.findOne({
           where: {
-            userId: charaslot
-          }
+            userId: charaslot,
+          },
         });
         const loadicon = await Icon.findOne({
           where: {
-            userId: charaslot
-          }
+            userId: charaslot,
+          },
         });
 
         if (!loadchara) {
           const embed = new EmbedBuilder()
             .setTitle(`スロット${i}`)
-            .setDescription('キャラは登録されていません。');
+            .setDescription("キャラは登録されていません。");
           embeds.push(embed);
         } else {
-
-          const {
-            name,
-            pbwflag
-          } = loadchara;
+          const { name, pbwflag } = loadchara;
           const iconUrl = loadicon ? loadicon.iconUrl : null;
           const replace = "__" + loadicon.illustrator + "__";
           const copyright = pbwflag.replace(illustratorname, replace);
           const description = `### ${name}\n-# ${copyright}`;
 
           const embed = new EmbedBuilder()
-            .setColor('#0099ff')
+            .setColor("#0099ff")
             .setTitle(`${emojis[i]}スロット${i}`)
-            .setDescription(description || 'キャラが設定されていません')
-            .setThumbnail(iconUrl || 'https://via.placeholder.com/150')
+            .setDescription(description || "キャラが設定されていません")
+            .setThumbnail(iconUrl || "https://via.placeholder.com/150");
           embeds.push(embed);
         }
       }
       await interaction.reply({
         content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# 登録後24時間が経過したアイコンは非表示になりますが、発言の際は表示されます。\n-# IL名変更の時は下線部が変更されます。`,
         embeds: embeds,
-        ephemeral: true
+        ephemeral: true,
       });
     } catch (error) {
-      console.error('キャラデータの表示に失敗しました:', error);
+      console.error("キャラデータの表示に失敗しました:", error);
       await interaction.reply({
         flags: [4096],
         content: `キャラデータの表示でエラーが発生しました。`,
-        ephemeral: true
+        ephemeral: true,
       });
     }
   }
@@ -427,7 +449,7 @@ export async function execute(interaction) {
 //サブルーチン
 //ロードするデータを選択
 function dataslot(id, slot) {
-  return slot >= 0 ? `${id}${slot > 0 ? `-${slot}` : ''}` : `${id}`;
+  return slot >= 0 ? `${id}${slot > 0 ? `-${slot}` : ""}` : `${id}`;
 }
 /*
 function dataslot(id,slot){
@@ -448,29 +470,32 @@ async function updatePoints(userId) {
     // ユーザーのポイントデータを取得
     const pointEntry = await Point.findOne({
       where: {
-        userId: userId
-      }
+        userId: userId,
+      },
     });
 
     if (pointEntry) {
       // ポイントデータが存在する場合、ポイントを更新
-      await Point.update({
-        point: pointEntry.point + 1,
-        totalpoint: pointEntry.totalpoint + 1
-      }, {
-        where: {
-          userId: userId
+      await Point.update(
+        {
+          point: pointEntry.point + 1,
+          totalpoint: pointEntry.totalpoint + 1,
+        },
+        {
+          where: {
+            userId: userId,
+          },
         }
-      });
+      );
     } else {
       // ポイントデータが存在しない場合、新規作成
       await Point.create({
         userId: userId,
         point: 1,
-        totalpoint: 1
+        totalpoint: 1,
       });
     }
   } catch (error) {
-    console.error('ポイントの更新に失敗しました:', error);
+    console.error("ポイントの更新に失敗しました:", error);
   }
 }
