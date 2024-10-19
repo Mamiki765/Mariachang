@@ -241,7 +241,7 @@ export default async (message) => {
           let thumbnails = [];
 
           // URLごとに処理する
-          matches.forEach((match) => {
+          const fetchThumbnailForMatch = async (match) => {
             // URLが一致するEmbedを探す
             const embed = fetchedMessage.embeds.find(
               (embed) => embed.url === match[0]
@@ -249,52 +249,53 @@ export default async (message) => {
 
             // 一致するEmbedがあれば、サムネイルURLを配列に追加
             if (embed && embed.thumbnail && embed.thumbnail.url) {
-              thumbnails.push(embed.thumbnail.url);
+              if (!thumbnails.includes(embed.thumbnail.url)) {
+                thumbnails.push(embed.thumbnail.url);
+              }
             } else {
               console.log(
                 `URL ${match[0]} に一致するEmbedが見つかりませんでした`
               );
 
               // 10秒後に再試行
-              setTimeout(async () => {
-                try {
-                  const retryFetchedMessage =
-                    await message.channel.messages.fetch(message.id);
-                  const retryEmbed = retryFetchedMessage.embeds.find(
-                    (embed) => embed.url === match[0]
-                  );
-
-                  // リトライ結果を確認
-                  if (
-                    retryEmbed &&
-                    retryEmbed.thumbnail &&
-                    retryEmbed.thumbnail.url
-                  ) {
-                    thumbnails.push(retryEmbed.thumbnail.url);
-                  } else {
-                    console.log(
-                      `リトライでもURL ${match[0]} に一致するEmbedが見つかりませんでした`
+              await new Promise((resolve) => {
+                setTimeout(async () => {
+                  try {
+                    const retryFetchedMessage =
+                      await message.channel.messages.fetch(message.id);
+                    const retryEmbed = retryFetchedMessage.embeds.find(
+                      (embed) => embed.url === match[0]
                     );
-                  }
 
-                  // サムネイルURLがあれば、それを1つのメッセージにまとめて送信
-                  if (thumbnails.length > 0) {
-                    const messageContent = thumbnails.join("\n"); // サムネイルURLを改行で区切って結合
-                    message.channel.send({
-                      flags: [4096],
-                      content: messageContent,
-                      components: [component],
-                    });
+                    // リトライ結果を確認
+                    if (
+                      retryEmbed &&
+                      retryEmbed.thumbnail &&
+                      retryEmbed.thumbnail.url
+                    ) {
+                      if (!thumbnails.includes(retryEmbed.thumbnail.url)) {
+                        thumbnails.push(retryEmbed.thumbnail.url);
+                      }
+                    } else {
+                      console.log(
+                        `リトライでもURL ${match[0]} に一致するEmbedが見つかりませんでした`
+                      );
+                    }
+                    resolve(); // リトライ後に処理を進める
+                  } catch (retryError) {
+                    console.error(
+                      "リトライ時のメッセージの再取得に失敗しました:",
+                      retryError
+                    );
+                    resolve(); // エラー時も処理を進める
                   }
-                } catch (retryError) {
-                  console.error(
-                    "リトライ時のメッセージの再取得に失敗しました:",
-                    retryError
-                  );
-                }
-              }, 10000); // 10000ミリ秒 = 10秒
+                }, 10000); // 10000ミリ秒 = 10秒
+              });
             }
-          });
+          };
+
+          // すべてのマッチに対して非同期でサムネイルを取得
+          await Promise.all(matches.map(fetchThumbnailForMatch));
 
           // サムネイルURLがあれば、それを1つのメッセージにまとめて送信
           if (thumbnails.length > 0) {
