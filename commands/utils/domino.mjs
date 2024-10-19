@@ -54,7 +54,7 @@ export async function execute(interaction) {
     )}\n-# 総ドミノ:${formattedsumd}枚　総人数:${formattedsump}人　虚無崩し(0枚):${
       history.zeroCount
     }回\n`;
-/*     
+    /*     
     response += "★直近5回のドミノゲームの履歴★\n";
     history.players.slice(-5).forEach((player, index) => {
       const actualIndex = history.players.length - 5 + index; // 正しいインデックスを計算
@@ -202,53 +202,38 @@ export async function dominoeffect(message, client, id, username, dpname) {
     //セーフ
     const dpplayer = String(currentDomino.totalPlayers + 1).padStart(4, "0");
     //ドミノを並べたログここから
+    //共通部分手前
     let uniqueMessage = `Take${dpplayer}:`;
-    switch (randomNum) {
-      case 1:
-        uniqueMessage += `${dpname}がドミノを崩しそうになりましたが、辛うじて1枚並べました。`;
-        break;
-      case 11:
-        uniqueMessage += `${dpname}が11枚の特別なドミノを並べました！`;
-        break;
-      case 22:
-        uniqueMessage += `${dpname}が22枚のドミノを並べていたところ謎のメンダコ生命体が通り過ぎました。`;
-        break;
-      case 33:
-        uniqueMessage += `${dpname}が33枚のドミノを並べようとしましたが、既に並んでいました。`;
-        break;
-      case 44:
-        uniqueMessage += `${dpname}が44枚のドミノ以外の物を並べようとしたところ、ドミノになりました。`;
-        break;
-      case 55:
-        uniqueMessage += `${dpname}が55枚のドミノを勢い良く並べました、ゴーゴー。`;
-        break;
-      case 66:
-        uniqueMessage += `${dpname}が66枚のドミノをどこからか召喚しました。`;
-        break;
-      case 77:
-        uniqueMessage += `${dpname}が77枚の幸運を引き寄せるドミノを並べました。`;
-        break;
-      case 79:
-        uniqueMessage += `${dpname}が79枚ドミノを並べました<:IL_nack:1293532891015548929>`;
-        break;
-      case 88:
-        uniqueMessage += `${dpname}が88枚のドミノを並べながらその木目調に目を回しました。`;
-        break;
-      case 99:
-        uniqueMessage += `${dpname}が99枚もドミノを並べました！えらい！`;
-        break;
-      // 他の特定の数字に対応
-      default:
-        uniqueMessage += `${dpname}が${randomNum}枚ドミノを並べました。`;
-    }
-
-    // 共通部分を追加
+    // config.mjs から対応するメッセージを取得
+    const messageFunc =
+      config.dominoMessages[randomNum] || config.dominoMessages.default;
+    uniqueMessage += messageFunc(dpname, randomNum);
+    // 共通部分後ろ
     uniqueMessage += ` 現在:${currentDomino.totalCount + randomNum}枚`;
-    //ここまで
-    await dominochannel.send({
-      flags: [4096],
-      content: uniqueMessage,
-    });
+
+    // 10000枚達成した場合に画像を添付
+    if (
+      currentDomino.totalCount < 10000 &&
+      currentDomino.totalCount + randomNum >= 10000
+    ) {
+      const celebrationImage =
+        config.domino10000Images[
+          Math.floor(Math.random() * config.domino10000Images.length)
+        ];
+
+      // メッセージ送信時に画像を添付
+      await dominochannel.send({
+        flags: [4096],
+        content: uniqueMessage,
+        files: [celebrationImage], // 画像URLを添付ファイルとして送信
+      });
+    } else {
+      // 10000枚未満の場合は通常メッセージを送信
+      await dominochannel.send({
+        flags: [4096],
+        content: uniqueMessage,
+      });
+    }
     await CurrentDomino.update(
       {
         totalCount: currentDomino.totalCount + randomNum,
