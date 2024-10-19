@@ -14,6 +14,11 @@ import {
   getImagesFromMessage,
   sendMessage,
 } from "../utils/messageutil.mjs";
+import { deletebuttonunique } from "../components/buttons.mjs";
+
+//ロスアカのアトリエURL検知用
+const rev2AtelierurlPattern =
+  /https:\/\/rev2\.reversion\.jp\/illust\/detail\/(\d+)/g;
 
 export default async (message) => {
   //リアクション
@@ -213,10 +218,104 @@ export default async (message) => {
       content: ndnDice(command),
     });
   }
-  /*
-  ここから大きな処理1つ目、ドミノを並べる。
-  便宜的にドミノと言われた時に反応
-  */
+  //ロスアカアトリエURLが貼られた時、画像を取得する機能
+  if (
+    message.content.match(
+      /https:\/\/rev2\.reversion\.jp\/illust\/detail\/(\d+)/
+    )
+  ) {
+    const matches = [...message.content.matchAll(rev2AtelierurlPattern)]; // 全てのマッチを取得
+
+    if (matches.length > 0) {
+      try {
+        // 削除ボタンを作成しておく（message.author.idを使用）
+        const component = deletebuttonunique(message.author.id);
+
+        // メッセージを再取得
+        const fetchMessage = async () => {
+          const fetchedMessage = await message.channel.messages.fetch(
+            message.id
+          );
+
+          // サムネイルURLを格納する配列
+          let thumbnails = [];
+
+          // URLごとに処理する
+          const fetchThumbnailForMatch = async (match) => {
+            // URLが一致するEmbedを探す
+            const embed = fetchedMessage.embeds.find(
+              (embed) => embed.url === match[0]
+            );
+
+            // 一致するEmbedがあれば、サムネイルURLを配列に追加
+            if (embed && embed.thumbnail && embed.thumbnail.url) {
+              if (!thumbnails.includes(embed.thumbnail.url)) {
+                thumbnails.push(embed.thumbnail.url);
+              }
+            } else {
+              console.log(
+                `URL ${match[0]} に一致するEmbedが見つかりませんでした`
+              );
+
+              // 10秒後に再試行
+              await new Promise((resolve) => {
+                setTimeout(async () => {
+                  try {
+                    const retryFetchedMessage =
+                      await message.channel.messages.fetch(message.id);
+                    const retryEmbed = retryFetchedMessage.embeds.find(
+                      (embed) => embed.url === match[0]
+                    );
+
+                    // リトライ結果を確認
+                    if (
+                      retryEmbed &&
+                      retryEmbed.thumbnail &&
+                      retryEmbed.thumbnail.url
+                    ) {
+                      if (!thumbnails.includes(retryEmbed.thumbnail.url)) {
+                        thumbnails.push(retryEmbed.thumbnail.url);
+                      }
+                    } else {
+                      console.log(
+                        `リトライでもURL ${match[0]} に一致するEmbedが見つかりませんでした`
+                      );
+                    }
+                    resolve(); // リトライ後に処理を進める
+                  } catch (retryError) {
+                    console.error(
+                      "リトライ時のメッセージの再取得に失敗しました:",
+                      retryError
+                    );
+                    resolve(); // エラー時も処理を進める
+                  }
+                }, 10000); // 10000ミリ秒 = 10秒
+              });
+            }
+          };
+
+          // すべてのマッチに対して非同期でサムネイルを取得
+          await Promise.all(matches.map(fetchThumbnailForMatch));
+
+          // サムネイルURLがあれば、それを1つのメッセージにまとめて送信
+          if (thumbnails.length > 0) {
+            const messageContent = thumbnails.join("\n"); // サムネイルURLを改行で区切って結合
+            message.channel.send({
+              flags: [4096],
+              content: messageContent,
+              components: [component],
+            });
+          }
+        };
+
+        await fetchMessage(); // 初回のfetchを呼び出し
+      } catch (error) {
+        console.error("メッセージの再取得に失敗しました:", error);
+      }
+    }
+  }
+
+  //ドミノを並べる処理
   if (
     message.content.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) ||
     message.channel.id === config.dominoch
