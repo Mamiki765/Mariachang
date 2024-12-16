@@ -5,7 +5,7 @@ import { dominoeffect } from "../utils/domino.mjs";
 import config from "../../config.mjs";
 
 //絵文字　ここの数がスロット数になる
-const emojis = ["🍎", "🍌", "🍉", "🍇"];
+const emojis = ["🍎", "🍌", "🍉", "🍇", "🍊"];
 const slotChoices = emojis.map((emoji, index) => ({
   name:
     index === 0
@@ -294,6 +294,7 @@ export async function execute(interaction) {
     } else {
       face = loadicon ? loadicon.iconUrl : null;
     }
+
     // `illustratorname` が `pbwflag` に含まれているか確認します。
     if (pbwflag.includes(illustratorname)) {
       // `illustratorname` を `copyright` で置き換えます。
@@ -425,13 +426,13 @@ export async function execute(interaction) {
           const embed = new EmbedBuilder()
             .setColor("#0099ff")
             .setTitle(`${emojis[i]}スロット${i}`)
-            .setDescription(description || "キャラが設定されていません")
+            .setDescription(description + "\n" + iconUrl || "キャラが設定されていません")
             .setThumbnail(iconUrl || "https://via.placeholder.com/150");
           embeds.push(embed);
         }
       }
       await interaction.reply({
-        content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# 登録後24時間が経過したアイコンは非表示になりますが、発言の際は表示されます。\n-# IL名変更の時は下線部が変更されます。`,
+        content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# 登録後しばらく(24時間？）経過したアイコンは使用できなくなるため再度アップロードしてください。`,
         embeds: embeds,
         ephemeral: true,
       });

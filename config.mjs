@@ -75,6 +75,6 @@ export default {
       `${dpname}が${randomNum}枚ドミノを並べました。`,
   },
   domino10000Images: [
-    "https://cdn.discordapp.com/attachments/1261485824378142760/1297191924519669831/241019.png?ex=6715079f&is=6713b61f&hm=86ec4bc0f16e0e957916200538825c870f52f48556097b304f3e12216dddc823&",
+    "https://i.imgur.com/Y8Vf4SW.png",
   ],
 };

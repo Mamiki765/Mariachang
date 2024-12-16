@@ -5,16 +5,18 @@ import {
   TextInputStyle,
   ActionRowBuilder,
 } from "discord.js";
+import { timeout_confirm, timeout_cancel } from "../commands/slashs/suyasuya.mjs";
 
 export default async function handleButtonInteraction(interaction) {
   //以下変数定義
   //各種IDを含むボタン系の処理
   //マリアからユーザーにメッセージを送信する送信先
-  const DMregex = /^admin_replytoDM-(\d+)$/;
-  const DMmatch = interaction.customId.match(DMregex);
+  const DMmatch = interaction.customId.match(/^admin_replytoDM-(\d+)$/);
   //本人だけに押せる削除ボタンのチェック
-  const UniqueDeleteregex = /UniqueDelete-(\d+)/;
-  const UniqueDeletematch = interaction.customId.match(UniqueDeleteregex);
+  const UniqueDeletematch = interaction.customId.match(/UniqueDelete-(\d+)/);
+  const Selftimeoutmatch = interaction.customId.match(
+    /confirm_selftimeout-(\d+)/
+  );
   //以下ボタン処理
   //削除ボタン
   if (
@@ -46,6 +48,7 @@ export default async function handleButtonInteraction(interaction) {
       return;
     }
   } else if (UniqueDeletematch) {
+    //削除ボタンがIDを持っていたときの挙動
     //useridが削除ボタンに入ってるやつ 　UniqueDelete-(ID)
     //削除ボタンを押されたとき、消せる人がanyoneでないならその本文の文頭にあるメンションの人を投稿者として認識、削除権限の有無を確かめる。
     const userIdFromCustomId = UniqueDeletematch[1]; // カスタムIDから数字（USERID）を取得
@@ -127,7 +130,11 @@ export default async function handleButtonInteraction(interaction) {
     const ActionRowSecond = new ActionRowBuilder().setComponents(replyInput);
     modal.setComponents(ActionRow, ActionRowSecond);
     return interaction.showModal(modal);
-    //削除ボタンがIDを持っていたときの挙動
+  } else if (Selftimeoutmatch) {
+    //セルフタイムアウト
+    return timeout_confirm(interaction, Selftimeoutmatch[1]);
+  } else if (interaction.customId === "cancel_selftimeout") {
+    return timeout_cancel(interaction);
   } else {
     //ボタンが不明のとき
     return;

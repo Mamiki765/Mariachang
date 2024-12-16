@@ -18,9 +18,25 @@ import { deletebuttonunique } from "../components/buttons.mjs";
 
 //ロスアカのアトリエURL検知用
 const rev2AtelierurlPattern =
-  /https:\/\/rev2\.reversion\.jp\/illust\/detail\/(\d+)/g;
+  /https:\/\/rev2\.reversion\.jp\/illust\/detail\/ils(\d+)/g;
+//その他ロスアカ短縮形検知
+// パターンと対応するURLのテンプレート
+const rev2urlPatterns = {
+  ils: "https://rev2.reversion.jp/illust/detail/ils",
+  snd: "https://rev2.reversion.jp/sound/detail/snd",
+  sce: "https://rev2.reversion.jp/scenario/opening/sce",
+  nvl: "https://rev2.reversion.jp/scenario/ss/detail/nvl",
+  not: "https://rev2.reversion.jp/note/not",
+  com: "https://rev2.reversion.jp/community/detail/com",
+};
 
 export default async (message) => {
+  //定義系
+  //ロスアカ短縮形
+  const rev2urlmatch = message.content.match(
+    /(ils|snd|sce|nvl|not|com)(\d{8})/
+  );
+
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
@@ -151,6 +167,13 @@ export default async (message) => {
       content: "https://tw7.t-walker.jp/character/status/" + message.content,
     });
   }
+  //エデン
+  else if (message.content.match(/^h[0-9][0-9][0-9][0-9][0-9]$/)) {
+    await message.reply({
+      flags: [4096], //@silent
+      content: "https://tw8.t-walker.jp/character/status/" + message.content,
+    });
+  }
   //ケルブレ
   else if (message.content.match(/^e[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
@@ -166,7 +189,17 @@ export default async (message) => {
     });
   }
   //ステシ変換ここまで
-
+  //ロスアカ短縮形処理
+  else if (rev2urlmatch) {
+    const [fullMatch, prefix, digits] = rev2urlmatch; // 例: fullMatch="ils12345678", prefix="ils", digits="12345678"
+    if (rev2urlPatterns[prefix]) {
+      const replyUrl = `${rev2urlPatterns[prefix]}${digits}`;
+      message.reply({
+        flags: [4096],
+        content: `${replyUrl}`,
+      });
+    }
+  }
   //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){
   if (message.content.match(/^(!にゃん|!にゃーん|にゃ～ん|にゃあん)$/)) {
     await message.reply({
@@ -221,7 +254,7 @@ export default async (message) => {
   //ロスアカアトリエURLが貼られた時、画像を取得する機能
   if (
     message.content.match(
-      /https:\/\/rev2\.reversion\.jp\/illust\/detail\/(\d+)/
+      /https:\/\/rev2\.reversion\.jp\/illust\/detail\/ils(\d+)/
     )
   ) {
     const matches = [...message.content.matchAll(rev2AtelierurlPattern)]; // 全てのマッチを取得

@@ -132,12 +132,14 @@ export async function dominoeffect(message, client, id, username, dpname) {
   }
   if (randomNum === 0) {
     //ガシャーン！
+    const rarity = 1 / 0.99 ** currentDomino.totalPlayers;
+    const fixrarity = rarity.toFixed(2);
     await message.react("💥");
     await dominochannel.send({
       flags: [4096],
       content: `# 100　<@${id}>は${currentDomino.totalPlayers}人が並べた${
         currentDomino.totalCount
-      }枚のドミノを崩してしまいました！\n${
+      }枚のドミノを崩してしまいました！\nこれは${fixrarity}回に1回しか見られないドミノだったようです。\n${
         currentDomino.attemptNumber
       }回目の開催は終わり、${escapeDiscordText(username)}の名が刻まれました。`,
     });

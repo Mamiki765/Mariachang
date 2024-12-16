@@ -64,3 +64,19 @@ export function replytoDM(id) {
       .setStyle(ButtonStyle.Secondary)
   );
 }
+
+//セルフタイムアウトの確認ボタン
+export function selftimeout_check(minutes) {
+  const timeout_ok = new ButtonBuilder()
+    .setEmoji("💤")
+    .setCustomId(`confirm_selftimeout-${minutes}`)
+    .setLabel(`${minutes}分タイムアウトする`)
+    .setStyle(ButtonStyle.Danger);
+  const timeout_cancel = new ButtonBuilder()
+    .setEmoji("❌")
+    .setCustomId(`cancel_selftimeout`)
+    .setLabel("キャンセル")
+    .setStyle(ButtonStyle.Secondary);
+  const timeout =new ActionRowBuilder().addComponents(timeout_ok, timeout_cancel);
+  return [timeout];
+}
