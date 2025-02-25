@@ -34,8 +34,10 @@ export default async (message) => {
   //定義系
   //ロスアカ短縮形
   const rev2urlmatch = message.content.match(
-    /(ils|snd|sce|nvl|not|com)(\d{8})/
+    /^(ils|snd|sce|nvl|not|com)(\d{8})$/
   );
+  //ccやchoiceでのテスト
+  const ccmatch = message.content.match(/^!(cc|choice)(x?)(\d*)\s+/);
 
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
@@ -250,7 +252,57 @@ export default async (message) => {
       flags: [4096], //silent
       content: ndnDice(command),
     });
+  } else if (message.content.match(/^(チンチロリン)$/)) {
+    await message.reply({
+      flags: [4096], //silent
+      content: `### うみみゃあ！\n### ${Math.floor(Math.random() * 6) + 1}、${
+        Math.floor(Math.random() * 6) + 1
+      }、${Math.floor(Math.random() * 6) + 1}`,
+    });
+  } else if (message.content.match(/^(チンチ口リン)$/)) {
+    await message.reply({
+      flags: [4096], //silent
+      content: `### うみみゃあ！(シゴロ賽)\n### ${Math.floor(Math.random() * 3) + 4}、${
+        Math.floor(Math.random() * 3) + 4
+      }、${Math.floor(Math.random() * 3) + 4}`,
+    });
   }
+  // 抽選コマンド処理 cc choice
+  else if (ccmatch) {
+    const baseCommand = ccmatch[1]; // cc or choice
+    const allowDuplicates = ccmatch[2] === "x"; // x がついてるか
+    let count = ccmatch[3] ? parseInt(ccmatch[3], 10) : 1; // 数字がある場合は取得、なければ1
+
+    const args = message.content.slice(ccmatch[0].length).trim().split(/\s+/); // 選択肢を取得
+
+    if (args.length === 0) {
+      let command = "1d100";
+      await message.reply({
+        flags: [4096], //silent
+        content: ndnDice(command),
+      });
+    }
+    if (!allowDuplicates && count > args.length) {
+      message.reply("選択肢より多くは選べません！");
+      return;
+    }
+
+    let results = [];
+    if (allowDuplicates) {
+      for (let i = 0; i < count; i++) {
+        results.push(args[Math.floor(Math.random() * args.length)]);
+      }
+    } else {
+      let shuffled = [...args].sort(() => Math.random() - 0.5);
+      results = shuffled.slice(0, count);
+    }
+
+    message.reply({
+      flags: [4096],
+      content: `抽選結果: ${results.join(", ")}`,
+    });
+  }
+
   //ロスアカアトリエURLが貼られた時、画像を取得する機能
   if (
     message.content.match(

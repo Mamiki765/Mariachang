@@ -45,6 +45,10 @@ export const data = new SlashCommandBuilder()
               value: "rev1",
             },
             {
+              name: "√EDEN",
+              value: "tw8",
+            },
+            {
               name: "チェインパラドクス",
               value: "tw7",
             },
@@ -166,6 +170,8 @@ export async function execute(interaction) {
       pbwflag = `『第六猟兵』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
     } else if (pbw === "tw7") {
       pbwflag = `『チェインパラドクス』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
+    } else if (pbw === "tw8") {
+      pbwflag = `『√EDEN』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
     } else if (pbw === "alpaca") {
       pbwflag = `illustratorname/${world}/(C)アルパカコネクト by <@${interaction.user.id}>`;
     } else if (pbw === "other") {
@@ -426,7 +432,9 @@ export async function execute(interaction) {
           const embed = new EmbedBuilder()
             .setColor("#0099ff")
             .setTitle(`${emojis[i]}スロット${i}`)
-            .setDescription(description + "\n" + iconUrl || "キャラが設定されていません")
+            .setDescription(
+              description + "\n" + iconUrl || "キャラが設定されていません"
+            )
             .setThumbnail(iconUrl || "https://via.placeholder.com/150");
           embeds.push(embed);
         }
