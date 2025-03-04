@@ -6,6 +6,7 @@ import {
 
 import config from "../../config.mjs";
 import { replyfromDM } from "../../components/buttons.mjs";
+import { AdminMemo } from "../../models/roleplay.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("admin")
@@ -86,10 +87,48 @@ export const data = new SlashCommandBuilder()
       .addAttachmentOption((option) =>
         option.setName("newimage").setDescription("新しい画像を添付")
       )
+  )
+  //管理メモ
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("memo_add")
+      .setDescription("指定ユーザーにメモを追加")
+      .addUserOption((option) =>
+        option
+          .setName("user")
+          .setDescription("メモを追加するユーザー")
+          .setRequired(true)
+      )
+      .addStringOption((option) =>
+        option.setName("content").setDescription("メモの内容").setRequired(true)
+      )
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("memo_list")
+      .setDescription("指定ユーザーのメモ一覧を表示")
+      .addUserOption((option) =>
+        option
+          .setName("user")
+          .setDescription("メモを確認するユーザー")
+          .setRequired(true)
+      )
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("memo_remove")
+      .setDescription("指定メモを削除")
+      .addIntegerOption((option) =>
+        option
+          .setName("memo_id")
+          .setDescription("削除するメモのID")
+          .setRequired(true)
+      )
   );
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
+  const serverId = interaction.guild ? interaction.guild.id : "DM";
   //chat as maria
   if (subcommand == "chat_as_maria") {
     let content = interaction.options.getString("message");
@@ -252,5 +291,111 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
+    //メモ機能、まずは登録
+  } else if (subcommand === "memo_add") {
+    const user = interaction.options.getUser("user");
+    const content = interaction.options.getString("content");
+
+    await AdminMemo.create({
+      guildId: serverId, // 修正: serverIdをguildIdフィールドに渡す
+      userId: user.id,
+      content: content,
+      authorId: interaction.user.id,
+    });
+    await interaction.reply({
+      content: `✅ メモを追加しました: ${content}`,
+      ephemeral: true,
+    });
+    //メモを保存したログを出力
+
+    // メモ登録時にログを送信
+    await interaction.client.channels.cache.get(config.logch.admin).send({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("新しい管理者メモ登録")
+          .setColor("#FFD700")
+          .setDescription(`メモ内容\`\`\`\n${content}\n\`\`\``)
+          .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+          .setTimestamp()
+          .addFields(
+            {
+              name: "登録者",
+              value: `${interaction.user.username} (ID:${interaction.user.id})`,
+            },
+            {
+              name: "対象ユーザー",
+              value: `${user.username} (ID:${user.id})`,
+            },
+            {
+              name: "サーバーID",
+              value: serverId,
+            }
+          ),
+      ],
+    });
+    //メモ機能、開示
+  } else if (subcommand === "memo_list") {
+    const user = interaction.options.getUser("user");
+    const memos = await AdminMemo.findAll({
+      where: { guildId: serverId, userId: user.id, isVisible: true },
+    });
+
+    if (memos.length === 0) {
+      return interaction.reply({
+        content: "❌ メモが見つかりません。",
+        ephemeral: true,
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`${user.username} のメモ一覧`)
+      .setColor("#FFD700")
+      .setDescription(
+        (
+          await Promise.all(
+            memos.map(async (memo) => {
+              let author = memo.authorId; // 見つからない場合に備えてIDを入力
+              try {
+                const userObj = await interaction.guild.members.fetch(
+                  memo.authorId
+                );
+                author = userObj ? userObj.user.username : memo.authorId; // Fallback to authorId if the user is not found
+              } catch (error) {
+                // ユーザーが見つからない場合IDはそのまま
+              }
+
+              return (
+                `**ID:** ${memo.id} - ${memo.content}\n` +
+                `-# **作者:** ${author} | **作成日時:** ${memo.createdAt.toLocaleString(
+                  "ja-JP"
+                )}`
+              );
+            })
+          )
+        ).join("\n") // Promise.allの結果をjoinで結合
+      );
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    //メモ機能、削除（非表示）
+  } else if (subcommand === "memo_remove") {
+    const memoId = interaction.options.getInteger("memo_id");
+    const memo = await AdminMemo.findOne({
+      where: { id: memoId, guildId: serverId },
+    });
+
+    if (!memo) {
+      return interaction.reply({
+        content: "❌ 指定されたメモが見つかりません。",
+        ephemeral: true,
+      });
+    }
+    // メモのisVisibleをfalseにして非表示にする
+    memo.isVisible = false;
+    await memo.save();
+
+    await interaction.reply({
+      content: `✅ メモ (ID: ${memoId}) を非表示にしました。`,
+      ephemeral: true,
+    });
   }
 }

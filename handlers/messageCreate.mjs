@@ -38,7 +38,7 @@ export default async (message) => {
   );
   //ccやchoiceでのテスト
   const ccmatch = message.content.match(/^!(cc|choice)(x?)(\d*)\s+/);
-
+  // ここから反応
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
@@ -262,13 +262,13 @@ export default async (message) => {
   } else if (message.content.match(/^(チンチ口リン)$/)) {
     await message.reply({
       flags: [4096], //silent
-      content: `### うみみゃあ！(シゴロ賽)\n### ${Math.floor(Math.random() * 3) + 4}、${
+      content: `### うみみゃあ！(シゴロ賽)\n### ${
         Math.floor(Math.random() * 3) + 4
-      }、${Math.floor(Math.random() * 3) + 4}`,
+      }、${Math.floor(Math.random() * 3) + 4}、${
+        Math.floor(Math.random() * 3) + 4
+      }`,
     });
-  }
-  // 抽選コマンド処理 cc choice
-  else if (ccmatch) {
+  }  else if (ccmatch) {   // 抽選コマンド処理 cc choice
     const baseCommand = ccmatch[1]; // cc or choice
     const allowDuplicates = ccmatch[2] === "x"; // x がついてるか
     let count = ccmatch[3] ? parseInt(ccmatch[3], 10) : 1; // 数字がある場合は取得、なければ1
@@ -638,6 +638,22 @@ export default async (message) => {
       }
     }
   }
+ //デバッグ用 データベース手動バックアップ
+ else if (message.content === process.env.backup_command && message.author.id === config.administrator){
+     try {
+    await message.reply({
+      content: "SQLite3データベースのバックアップを取得しました。",
+      files: [".data/roleplaydb.sqlite3"],
+      ephemeral: true, // 管理者のみに表示
+    });
+  } catch (error) {
+    console.error("バックアップの送信に失敗しました:", error);
+    await message.reply({
+      content: "バックアップの送信に失敗しました。",
+      ephemeral: true,
+    });
+  }
+ }
 };
 
 /*

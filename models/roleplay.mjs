@@ -131,6 +131,38 @@ const DominoHistory = sequelize.define('DominoHistory', {
   timestamps: false
 });
 
+//管理メモモデル
+const AdminMemo = sequelize.define('AdminMemo', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  userId: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  guildId: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  content: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  authorId: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  isVisible: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  }
+}, {
+  tableName: 'admin_memos',  // テーブル名を明示的に指定
+  timestamps: true  // createdAt, updatedAt を自動管理
+});
+
 // データベースの同期処理をまとめて行う
 async function syncModels() {
   await Character.sync({
@@ -148,6 +180,9 @@ async function syncModels() {
   await DominoHistory.sync({
     alter: true
   });
+  await AdminMemo.sync({
+    alter: true
+  });
 }
 
 export {
@@ -157,5 +192,6 @@ export {
   Point,
   CurrentDomino,
   DominoHistory,
+  AdminMemo,
   syncModels
 };
