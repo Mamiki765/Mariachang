@@ -9,6 +9,9 @@ import { selftimeout_check } from "../../components/buttons.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("suyasuya")
+.setNameLocalizations({
+            ja: "セルフタイムアウト",
+          })
   .setDescription(
     "【⚠️注意】発言・VC参加をできない状態にします。依存対策にどうぞ。"
   )

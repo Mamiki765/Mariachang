@@ -19,15 +19,24 @@ const illustratorname = "illustratorname";
 
 export const data = new SlashCommandBuilder()
   .setName("roleplay")
+  .setNameLocalizations({
+    ja: "ロールプレイ",
+  })
   .setDescription("ロールプレイに関する内容")
   // 登録
   .addSubcommand((subcommand) =>
     subcommand
       .setName("register")
+      .setNameLocalizations({
+        ja: "キャラ登録",
+      })
       .setDescription("ロールプレイをするキャラを登録します。")
       .addStringOption((option) =>
         option
           .setName("chara")
+          .setNameLocalizations({
+            ja: "キャラ名",
+          })
           .setDescription("キャラクター名")
           .setRequired(true)
       )
@@ -57,7 +66,7 @@ export const data = new SlashCommandBuilder()
               value: "tw6",
             },
             {
-              name: "アルパカコネクト（ワールド名は別途記載！）",
+              name: "アルパカコネクト（ワールド名は別途記載）",
               value: "alpaca",
             },
             {
@@ -70,11 +79,19 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption((option) =>
         option
           .setName("slot")
+          .setNameLocalizations({
+            ja: "セーブデータ",
+          })
           .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
           .addChoices(...slotChoices)
       )
       .addAttachmentOption((option) =>
-        option.setName("icon").setDescription("アイコンをアップロードできます")
+        option
+          .setName("icon")
+          .setNameLocalizations({
+            ja: "アイコン",
+          })
+          .setDescription("アイコンをアップロードできます")
       )
       .addStringOption((option) =>
         option
@@ -86,7 +103,10 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName("world")
-          .setDescription("【アルパカコネクト社のみ】所属ワールドをどうぞ")
+          .setNameLocalizations({
+            ja: "ワールド",
+          })
+          .setDescription("【アルパカコネクト社のみ】所属ワールドを入力")
       )
       .addStringOption((option) =>
         option
@@ -100,24 +120,36 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("post")
+      .setNameLocalizations({
+        ja: "発言",
+      })
       .setDescription(
         "登録したキャラデータと最後に使用したアイコンでRPします。"
       )
       .addStringOption((option) =>
         option
           .setName("message")
+          .setNameLocalizations({
+            ja: "内容",
+          })
           .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
           .setRequired(true)
       )
       .addIntegerOption((option) =>
         option
           .setName("slot")
+          .setNameLocalizations({
+            ja: "セーブデータ",
+          })
           .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
           .addChoices(...slotChoices)
       )
       .addAttachmentOption((option) =>
         option
           .setName("icon")
+          .setNameLocalizations({
+            ja: "アイコン変更",
+          })
           .setDescription(
             "アイコンを変更する時はこちら（別ILのアイコンにした時は権利表記オプションもつけること！）"
           )
@@ -132,8 +164,11 @@ export const data = new SlashCommandBuilder()
       .addBooleanOption((option) =>
         option
           .setName("nocredit")
+          .setNameLocalizations({
+            ja: "権利表記省略",
+          })
           .setDescription(
-            "【非推奨】権利表記を非表示にします、RP中などに(デフォルトはfalse)"
+            "【非推奨】権利表記を非表示にします、RP中や自作品などに(デフォルトはfalse)"
           )
       )
   )
@@ -141,6 +176,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("display")
+      .setNameLocalizations({
+        ja: "セーブデータ確認",
+      })
       .setDescription("登録したキャラデータを表示します。")
   );
 
@@ -424,7 +462,15 @@ export async function execute(interaction) {
           embeds.push(embed);
         } else {
           const { name, pbwflag } = loadchara;
-          const iconUrl = loadicon ? loadicon.iconUrl : null;
+
+          let iconUrl = loadicon ? loadicon.iconUrl : null;
+          // URLの検証
+          try {
+            new URL(iconUrl);
+          } catch (error) {
+            iconUrl = null; // 無効なURLの場合はnullにする
+          }
+
           const replace = "__" + loadicon.illustrator + "__";
           const copyright = pbwflag.replace(illustratorname, replace);
           const description = `### ${name}\n-# ${copyright}`;
@@ -432,10 +478,11 @@ export async function execute(interaction) {
           const embed = new EmbedBuilder()
             .setColor("#0099ff")
             .setTitle(`${emojis[i]}スロット${i}`)
+            .setThumbnail(iconUrl || "https://via.placeholder.com/150")
             .setDescription(
               description + "\n" + iconUrl || "キャラが設定されていません"
-            )
-            .setThumbnail(iconUrl || "https://via.placeholder.com/150");
+            );
+
           embeds.push(embed);
         }
       }

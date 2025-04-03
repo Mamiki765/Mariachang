@@ -19,18 +19,27 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("chat_as_maria")
+      .setNameLocalizations({
+        ja: "マリアで発言",
+      })
       .setDescription(
         "管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。"
       )
       .addStringOption((option) =>
         option
           .setName("message")
+          .setNameLocalizations({
+            ja: "内容",
+          })
           .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
           .setRequired(true)
       )
       .addChannelOption((option) =>
         option
           .setName("channel")
+          .setNameLocalizations({
+            ja: "チャンネル",
+          })
           .setDescription(
             "送信先チャンネルを指定してください(指定が無ければ現在のチャンネルに送信します)"
           )
@@ -48,22 +57,34 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("dm_from_maria")
+      .setNameLocalizations({
+        ja: "ダイレクトメール",
+      })
       .setDescription("管理人としてマリアからDMを送信します。")
       .addUserOption((option) =>
         option
           .setName("user")
+          .setNameLocalizations({
+            ja: "送信先",
+          })
           .setDescription("DMを送信する相手を指定してください。")
           .setRequired(true)
       )
       .addStringOption((option) =>
         option
           .setName("message")
+          .setNameLocalizations({
+            ja: "内容",
+          })
           .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
           .setRequired(true)
       )
       .addBooleanOption((option) =>
         option
           .setName("reply")
+          .setNameLocalizations({
+            ja: "返信許可",
+          })
           .setDescription("このDMに対する返信を許可するか(デフォルトはTrue)")
       )
   )
@@ -71,6 +92,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("edit_maria_message")
+      .setNameLocalizations({
+        ja: "発言修正",
+      })
       .setDescription("マリアの発言メッセージを編集します")
       .addStringOption((option) =>
         option
@@ -81,17 +105,28 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName("newmessage")
+          .setNameLocalizations({
+            ja: "新しい内容",
+          })
           .setDescription("新しいメッセージ内容")
           .setRequired(true)
       )
       .addAttachmentOption((option) =>
-        option.setName("newimage").setDescription("新しい画像を添付")
+        option
+          .setName("newimage")
+          .setNameLocalizations({
+            ja: "画像",
+          })
+          .setDescription("新しい画像を添付")
       )
   )
   //管理メモ
   .addSubcommand((subcommand) =>
     subcommand
       .setName("memo_add")
+      .setNameLocalizations({
+        ja: "メモを残す",
+      })
       .setDescription("指定ユーザーにメモを追加")
       .addUserOption((option) =>
         option
@@ -100,12 +135,21 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
       )
       .addStringOption((option) =>
-        option.setName("content").setDescription("メモの内容").setRequired(true)
+        option
+          .setName("content")
+          .setNameLocalizations({
+            ja: "内容",
+          })
+          .setDescription("メモの内容")
+          .setRequired(true)
       )
   )
   .addSubcommand((subcommand) =>
     subcommand
       .setName("memo_list")
+      .setNameLocalizations({
+        ja: "メモを見る",
+      })
       .setDescription("指定ユーザーのメモ一覧を表示")
       .addUserOption((option) =>
         option
@@ -117,6 +161,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("memo_remove")
+      .setNameLocalizations({
+        ja: "メモを削除",
+      })
       .setDescription("指定メモを削除")
       .addIntegerOption((option) =>
         option

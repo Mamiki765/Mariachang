@@ -7,6 +7,9 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("janken")
+      .setNameLocalizations({
+        ja: "じゃんけん",
+      })
   .setDescription("じゃんけんで対決！");
 
 export async function execute(interaction) {

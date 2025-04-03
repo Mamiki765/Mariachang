@@ -4,10 +4,16 @@ import config from "../../config.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("domino")
+  .setNameLocalizations({
+    ja: "ドミノ履歴",
+  })
   .setDescription("ドミノを崩した人の履歴を見れます")
   .addIntegerOption((option) =>
     option
       .setName("index")
+      .setNameLocalizations({
+        ja: "回数",
+      })
       .setDescription("指定回数から10回分の履歴を閲覧できます（-1で最新10回）")
       .setMinValue(-1)
   );
