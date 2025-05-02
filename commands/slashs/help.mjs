@@ -31,7 +31,7 @@ export async function execute(interaction) {
         },
         {
           name: "/ロールプレイ セーブデータ確認",
-          description: "登録したキャラを確認できます。。",
+          description: "登録したキャラを確認できます。",
           usage:
             "各キャラのリンクをクリックするとアイコンが継続使用可能か確認できます。\n表示されない時は再度アップロードしてください",
         },
@@ -101,13 +101,19 @@ export async function execute(interaction) {
     },
     chat1: {
       title: "チャット系コマンド(真面目)",
-      description: "直接発言欄に書き込むことで反応する機能です。",
+      description: "直接発言欄に書き込むことなどで反応する機能です。",
       commands: [
         {
           name: "ステータスシート変換",
           description:
             "キャラクターIDのみ入力すると該当のステータスシートへのリンクに変換します",
           usage: "Rev1-2 TW4-8に対応",
+        },
+        {
+          name: "「自由雑談」新スレ通知",
+          description:
+            "「自由雑談」に建てられたスレを「雑談」チャンネルでお知らせします",
+          usage: "地下自由雑談も地下雑談で通知が出ます。\n通知してほしくない時は「非通知」とスレ立ての本文のどこかに入れてください。",
         },
         {
           name: "見せびらかし機能（仮）",

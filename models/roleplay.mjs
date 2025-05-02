@@ -1,187 +1,211 @@
-import {
-  Sequelize,
-  DataTypes
-} from 'sequelize';
-
+import { Sequelize, DataTypes } from "sequelize";
 
 const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: '.data/roleplaydb.sqlite3',
+  dialect: "sqlite",
+  storage: ".data/roleplaydb.sqlite3",
   logging: (msg) => {
     // エラーメッセージだけを表示
-    if (msg.includes('ERROR')) {
+    if (msg.includes("ERROR")) {
       console.error(msg);
     }
-  }
+  },
 });
 
 // キャラクターモデル
-const Character = sequelize.define('Character', {
-  userId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
+const Character = sequelize.define(
+  "Character",
+  {
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    pbwflag: {
+      type: DataTypes.STRING,
+    },
   },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  pbwflag: {
-    type: DataTypes.STRING
+  {
+    tableName: "characters",
+    timestamps: false,
   }
-}, {
-  tableName: 'characters',
-  timestamps: false
-});
+);
 
 // アイコンモデル
-const Icon = sequelize.define('Icon', {
-  userId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
+const Icon = sequelize.define(
+  "Icon",
+  {
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    iconUrl: {
+      type: DataTypes.STRING,
+    },
+    deleteHash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    illustrator: {
+      type: DataTypes.STRING,
+    },
+    pbw: {
+      type: DataTypes.STRING,
+    },
   },
-  iconUrl: {
-    type: DataTypes.STRING
-  },
-  illustrator: {
-    type: DataTypes.STRING
-  },
-  pbw: {
-    type: DataTypes.STRING
+  {
+    tableName: "icons",
+    timestamps: false,
   }
-}, {
-  tableName: 'icons',
-  timestamps: false
-});
+);
 
 // ポイントモデル
-const Point = sequelize.define('Point', {
-  userId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
+const Point = sequelize.define(
+  "Point",
+  {
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    point: {
+      type: DataTypes.INTEGER, //整数型
+    },
+    totalpoint: {
+      type: DataTypes.INTEGER, //整数型
+    },
   },
-  point: {
-    type: DataTypes.INTEGER //整数型
-  },
-  totalpoint: {
-    type: DataTypes.INTEGER //整数型
+  {
+    tableName: "points",
+    timestamps: false,
   }
-}, {
-  tableName: 'points',
-  timestamps: false
-});
+);
 
 // 現在のドミノ 開催数、ドミノの数、並べた人数
-const CurrentDomino = sequelize.define('CurrentDomino', {
-  attemptNumber: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 1,
+const CurrentDomino = sequelize.define(
+  "CurrentDomino",
+  {
+    attemptNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+    },
+    totalCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    totalPlayers: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
   },
-  totalCount: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-  },
-  totalPlayers: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
+  {
+    tableName: "currentdominos",
+    timestamps: false,
   }
-}, {
-  tableName: 'currentdominos',
-  timestamps: false
-});
+);
 
 // ドミノの履歴
-const DominoHistory = sequelize.define('DominoHistory', {
-  highestRecord: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
+const DominoHistory = sequelize.define(
+  "DominoHistory",
+  {
+    highestRecord: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    highestRecordHolder: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    zeroCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    players: {
+      type: DataTypes.JSON, // JSON型に変更
+      allowNull: false,
+      defaultValue: [],
+    },
+    totals: {
+      type: DataTypes.JSON, // JSON型に変更
+      allowNull: false,
+      defaultValue: [],
+    },
+    losers: {
+      type: DataTypes.JSON, // JSON型に変更
+      allowNull: false,
+      defaultValue: [],
+    },
   },
-  highestRecordHolder: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  zeroCount: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-  },
-  players: {
-    type: DataTypes.JSON, // JSON型に変更
-    allowNull: false,
-    defaultValue: [],
-  },
-  totals: {
-    type: DataTypes.JSON, // JSON型に変更
-    allowNull: false,
-    defaultValue: [],
-  },
-  losers: {
-    type: DataTypes.JSON, // JSON型に変更
-    allowNull: false,
-    defaultValue: [],
+  {
+    tableName: "dominohistorys",
+    timestamps: false,
   }
-}, {
-  tableName: 'dominohistorys',
-  timestamps: false
-});
+);
 
 //管理メモモデル
-const AdminMemo = sequelize.define('AdminMemo', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
+const AdminMemo = sequelize.define(
+  "AdminMemo",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    guildId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    content: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    authorId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    isVisible: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
   },
-  userId: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  guildId: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  content: {
-    type: DataTypes.TEXT,
-    allowNull: false
-  },
-  authorId: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  isVisible: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true
+  {
+    tableName: "admin_memos", // テーブル名を明示的に指定
+    timestamps: true, // createdAt, updatedAt を自動管理
   }
-}, {
-  tableName: 'admin_memos',  // テーブル名を明示的に指定
-  timestamps: true  // createdAt, updatedAt を自動管理
-});
+);
 
 // データベースの同期処理をまとめて行う
 async function syncModels() {
   await Character.sync({
-    alter: true
+    alter: true,
   });
   await Icon.sync({
-    alter: true
+    alter: true,
   });
   await Point.sync({
-    alter: true
+    alter: true,
   });
   await CurrentDomino.sync({
-    alter: true
+    alter: true,
   });
   await DominoHistory.sync({
-    alter: true
+    alter: true,
   });
   await AdminMemo.sync({
-    alter: true
+    alter: true,
   });
 }
 
@@ -193,5 +217,5 @@ export {
   CurrentDomino,
   DominoHistory,
   AdminMemo,
-  syncModels
+  syncModels,
 };

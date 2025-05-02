@@ -136,6 +136,12 @@ export default async (message) => {
       content:
         "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&",
     });
+  } else if (message.content.match(/^(オールノービス|白一色)$/)) {
+    await message.channel.send({
+      flags: [4096], //@silentになる
+      content:
+        "これはそう、全て終わり\nオールノービス **2.9%**\nオールノービスorカースド **3.64%**(AFまで実装時)",
+    });
   }
 
   //画像いたずら系ここまで
@@ -403,7 +409,8 @@ export default async (message) => {
   //ドミノを並べる処理
   if (
     message.content.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) ||
-    message.channel.id === config.dominoch
+    message.channel.id === config.dominoch ||
+    message.channel.id === "1364908910032719934" //別館ドミノ
   ) {
     let dpname = null;
     if (!message.member) {
