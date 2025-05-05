@@ -137,7 +137,7 @@ client.on("ready", async () => {//Bot の起動時に必要な全ての初期設
 
 
 //Notification.sync({ alter: true });
-syncModels(); // データベースの同期処理を起動時に実行
+syncModels(); // roleplayデータベースの同期処理を起動時に実行
 
 CommandsRegister();
 client.login(process.env.TOKEN);

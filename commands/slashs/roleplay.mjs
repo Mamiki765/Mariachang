@@ -2,10 +2,12 @@ import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
 import { Character, Icon, Point } from "../../models/roleplay.mjs";
 import { dominoeffect } from "../utils/domino.mjs";
+import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
 import config from "../../config.mjs";
+import fetch from 'node-fetch';
 
 //絵文字　ここの数がスロット数になる
-const emojis = ["🍎", "🍌", "🍉", "🍇"];
+const emojis = ["🍎", "🍌", "🍉", "🍇", "🍊"];
 const slotChoices = emojis.map((emoji, index) => ({
   name:
     index === 0
@@ -19,15 +21,24 @@ const illustratorname = "illustratorname";
 
 export const data = new SlashCommandBuilder()
   .setName("roleplay")
+  .setNameLocalizations({
+    ja: "ロールプレイ",
+  })
   .setDescription("ロールプレイに関する内容")
   // 登録
   .addSubcommand((subcommand) =>
     subcommand
       .setName("register")
+      .setNameLocalizations({
+        ja: "キャラ登録",
+      })
       .setDescription("ロールプレイをするキャラを登録します。")
       .addStringOption((option) =>
         option
           .setName("chara")
+          .setNameLocalizations({
+            ja: "キャラ名",
+          })
           .setDescription("キャラクター名")
           .setRequired(true)
       )
@@ -45,6 +56,10 @@ export const data = new SlashCommandBuilder()
               value: "rev1",
             },
             {
+              name: "√EDEN",
+              value: "tw8",
+            },
+            {
               name: "チェインパラドクス",
               value: "tw7",
             },
@@ -53,7 +68,7 @@ export const data = new SlashCommandBuilder()
               value: "tw6",
             },
             {
-              name: "アルパカコネクト（ワールド名は別途記載！）",
+              name: "アルパカコネクト（ワールド名は別途記載）",
               value: "alpaca",
             },
             {
@@ -66,11 +81,19 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption((option) =>
         option
           .setName("slot")
+          .setNameLocalizations({
+            ja: "セーブデータ",
+          })
           .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
           .addChoices(...slotChoices)
       )
       .addAttachmentOption((option) =>
-        option.setName("icon").setDescription("アイコンをアップロードできます")
+        option
+          .setName("icon")
+          .setNameLocalizations({
+            ja: "アイコン",
+          })
+          .setDescription("アイコンをアップロードできます")
       )
       .addStringOption((option) =>
         option
@@ -82,7 +105,10 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName("world")
-          .setDescription("【アルパカコネクト社のみ】所属ワールドをどうぞ")
+          .setNameLocalizations({
+            ja: "ワールド",
+          })
+          .setDescription("【アルパカコネクト社のみ】所属ワールドを入力")
       )
       .addStringOption((option) =>
         option
@@ -96,24 +122,36 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("post")
+      .setNameLocalizations({
+        ja: "発言",
+      })
       .setDescription(
         "登録したキャラデータと最後に使用したアイコンでRPします。"
       )
       .addStringOption((option) =>
         option
           .setName("message")
+          .setNameLocalizations({
+            ja: "内容",
+          })
           .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
           .setRequired(true)
       )
       .addIntegerOption((option) =>
         option
           .setName("slot")
+          .setNameLocalizations({
+            ja: "セーブデータ",
+          })
           .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
           .addChoices(...slotChoices)
       )
       .addAttachmentOption((option) =>
         option
           .setName("icon")
+          .setNameLocalizations({
+            ja: "アイコン変更",
+          })
           .setDescription(
             "アイコンを変更する時はこちら（別ILのアイコンにした時は権利表記オプションもつけること！）"
           )
@@ -128,8 +166,11 @@ export const data = new SlashCommandBuilder()
       .addBooleanOption((option) =>
         option
           .setName("nocredit")
+          .setNameLocalizations({
+            ja: "権利表記省略",
+          })
           .setDescription(
-            "【非推奨】権利表記を非表示にします、RP中などに(デフォルトはfalse)"
+            "【非推奨】権利表記を非表示にします、RP中や自作品などに(デフォルトはfalse)"
           )
       )
   )
@@ -137,6 +178,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("display")
+      .setNameLocalizations({
+        ja: "セーブデータ確認",
+      })
       .setDescription("登録したキャラデータを表示します。")
   );
 
@@ -144,6 +188,7 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === "register") {
+    //登録
     const name = interaction.options.getString("chara");
     const pbw = interaction.options.getString("pbw");
     const slot = interaction.options.getInteger("slot") || 0;
@@ -152,11 +197,9 @@ export async function execute(interaction) {
     const illustrator =
       interaction.options.getString("illustrator") || "絵師様";
     const copyright = interaction.options.getString("権利表記") || "";
-
-    const iconUrl = icon ? icon.attachment : null;
     //ファイル名決定
     const charaslot = dataslot(interaction.user.id, slot);
-
+    //権利表記部
     let pbwflag = null;
     if (pbw === "rev1") {
       pbwflag = `『PandoraPartyProject』(c)<@${interaction.user.id}>/illustratorname/Re:version`;
@@ -166,10 +209,29 @@ export async function execute(interaction) {
       pbwflag = `『第六猟兵』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
     } else if (pbw === "tw7") {
       pbwflag = `『チェインパラドクス』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
+    } else if (pbw === "tw8") {
+      pbwflag = `『√EDEN』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
     } else if (pbw === "alpaca") {
       pbwflag = `illustratorname/${world}/(C)アルパカコネクト by <@${interaction.user.id}>`;
     } else if (pbw === "other") {
       pbwflag = `illustratorname by <@${interaction.user.id}>`;
+    }
+
+    //アイコン
+    let iconUrl = null;
+    let deleteHash = null;
+    const existingIcon = await Icon.findOne({ where: { userId: charaslot } });
+    if (existingIcon?.deleteHash)
+      await deleteFromImgur(existingIcon.deleteHash);
+
+    if (icon) {
+      const fetched = await fetch(icon.url);
+      const buffer = Buffer.from(await fetched.arrayBuffer());
+      const result = await uploadToImgur(buffer);
+      if (result) {
+        iconUrl = result.link;
+        deleteHash = result.deletehash;
+      }
     }
 
     try {
@@ -178,6 +240,14 @@ export async function execute(interaction) {
         name: name,
         pbwflag: pbwflag,
       });
+      await Icon.upsert({
+        userId: charaslot,
+        iconUrl,
+        illustrator: pbw !== "other" ? illustrator : copyright,
+        pbw,
+        deleteHash,
+      });
+      /*
       if (pbw !== "other") {
         await Icon.upsert({
           userId: charaslot,
@@ -193,6 +263,7 @@ export async function execute(interaction) {
           pbw: pbw,
         }); //${copyright}が代わりに入る
       }
+      */
       const checkchara = await Character.findOne({
         where: {
           userId: charaslot,
@@ -269,24 +340,34 @@ export async function execute(interaction) {
     pbwflag = loadchara.pbwflag;
     copyright = loadicon.illustrator;
     if (icon) {
-      face = icon.attachment;
-      // 新しいアイコンがアップロードされた場合は、データベースを更新
-      if (illustrator !== null) {
-        //IL名があれば更新
-        copyright = illustrator;
+      // 古いアイコン削除
+      if (loadicon && loadicon.deleteHash) {
+        await deleteFromImgur(loadicon.deleteHash);
       }
-      try {
+
+      // 新しいアイコンをアップロード
+      const fetched = await fetch(icon.url);
+      const buffer = Buffer.from(await fetched.arrayBuffer());
+      const result = await uploadToImgur(buffer);
+
+      if (result) {
+        face = result.link;
+        const newDeleteHash = result.deletehash;
+        if (illustrator !== null) {
+          copyright = illustrator;
+        }
+
         await Icon.upsert({
           userId: charaslot,
           iconUrl: face,
           illustrator: copyright,
           pbw: loadicon.pbw,
+          deleteHash: newDeleteHash,
         });
-      } catch (error) {
-        console.error("スロット${slot}のアイコンの更新に失敗しました:", error);
+      } else {
         interaction.reply({
           flags: [4096],
-          content: `スロット${slot}のアイコンの更新でエラーが発生しました。`,
+          content: `アイコンのアップロードでエラーが発生しました。`,
           ephemeral: true,
         });
         return;
@@ -294,6 +375,7 @@ export async function execute(interaction) {
     } else {
       face = loadicon ? loadicon.iconUrl : null;
     }
+
     // `illustratorname` が `pbwflag` に含まれているか確認します。
     if (pbwflag.includes(illustratorname)) {
       // `illustratorname` を `copyright` で置き換えます。
@@ -417,7 +499,17 @@ export async function execute(interaction) {
           embeds.push(embed);
         } else {
           const { name, pbwflag } = loadchara;
-          const iconUrl = loadicon ? loadicon.iconUrl : null;
+
+          let iconUrl = loadicon ? loadicon.iconUrl : null;
+          //let icondeleteHash = loadicon ? loadicon.deleteHash : null;//deletehashテスト
+          
+          // URLの検証
+          try {
+            new URL(iconUrl);
+          } catch (error) {
+            iconUrl = null; // 無効なURLの場合はnullにする
+          }
+
           const replace = "__" + loadicon.illustrator + "__";
           const copyright = pbwflag.replace(illustratorname, replace);
           const description = `### ${name}\n-# ${copyright}`;
@@ -425,13 +517,16 @@ export async function execute(interaction) {
           const embed = new EmbedBuilder()
             .setColor("#0099ff")
             .setTitle(`${emojis[i]}スロット${i}`)
-            .setDescription(description || "キャラが設定されていません")
-            .setThumbnail(iconUrl || "https://via.placeholder.com/150");
+            .setThumbnail(iconUrl || "https://via.placeholder.com/150")
+            .setDescription(
+              description + "\n" + iconUrl || "キャラが設定されていません"
+            );
+
           embeds.push(embed);
         }
       }
       await interaction.reply({
-        content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# 登録後24時間が経過したアイコンは非表示になりますが、発言の際は表示されます。\n-# IL名変更の時は下線部が変更されます。`,
+        content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# アイコンが表示されないときは再度してみてください`,
         embeds: embeds,
         ephemeral: true,
       });

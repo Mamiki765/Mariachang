@@ -18,9 +18,27 @@ import { deletebuttonunique } from "../components/buttons.mjs";
 
 //ロスアカのアトリエURL検知用
 const rev2AtelierurlPattern =
-  /https:\/\/rev2\.reversion\.jp\/illust\/detail\/(\d+)/g;
+  /https:\/\/rev2\.reversion\.jp\/illust\/detail\/ils(\d+)/g;
+//その他ロスアカ短縮形検知
+// パターンと対応するURLのテンプレート
+const rev2urlPatterns = {
+  ils: "https://rev2.reversion.jp/illust/detail/ils",
+  snd: "https://rev2.reversion.jp/sound/detail/snd",
+  sce: "https://rev2.reversion.jp/scenario/opening/sce",
+  nvl: "https://rev2.reversion.jp/scenario/ss/detail/nvl",
+  not: "https://rev2.reversion.jp/note/not",
+  com: "https://rev2.reversion.jp/community/detail/com",
+};
 
 export default async (message) => {
+  //定義系
+  //ロスアカ短縮形
+  const rev2urlmatch = message.content.match(
+    /^(ils|snd|sce|nvl|not|com)(\d{8})$/
+  );
+  //ccやchoiceでのテスト
+  const ccmatch = message.content.match(/^!(cc|choice)(x?)(\d*)\s+/);
+  // ここから反応
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
@@ -118,6 +136,12 @@ export default async (message) => {
       content:
         "https://cdn.discordapp.com/attachments/1261485824378142760/1263261822757109770/IMG_2395.gif?ex=669997c0&is=66984640&hm=a12e30f8b9d71ffc61ab35cfa095a8b7f7a08d04988f7b33f06437b13e6ee324&",
     });
+  } else if (message.content.match(/^(オールノービス|白一色)$/)) {
+    await message.channel.send({
+      flags: [4096], //@silentになる
+      content:
+        "これはそう、全て終わり\nオールノービス **2.9%**\nオールノービスorカースド **3.64%**(AFまで実装時)",
+    });
   }
 
   //画像いたずら系ここまで
@@ -151,6 +175,13 @@ export default async (message) => {
       content: "https://tw7.t-walker.jp/character/status/" + message.content,
     });
   }
+  //エデン
+  else if (message.content.match(/^h[0-9][0-9][0-9][0-9][0-9]$/)) {
+    await message.reply({
+      flags: [4096], //@silent
+      content: "https://tw8.t-walker.jp/character/status/" + message.content,
+    });
+  }
   //ケルブレ
   else if (message.content.match(/^e[0-9n][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
@@ -166,7 +197,17 @@ export default async (message) => {
     });
   }
   //ステシ変換ここまで
-
+  //ロスアカ短縮形処理
+  else if (rev2urlmatch) {
+    const [fullMatch, prefix, digits] = rev2urlmatch; // 例: fullMatch="ils12345678", prefix="ils", digits="12345678"
+    if (rev2urlPatterns[prefix]) {
+      const replyUrl = `${rev2urlPatterns[prefix]}${digits}`;
+      message.reply({
+        flags: [4096],
+        content: `${replyUrl}`,
+      });
+    }
+  }
   //　　if (message.content === "\?にゃん" || "\?にゃーん" || "\?にゃ～ん"){
   if (message.content.match(/^(!にゃん|!にゃーん|にゃ～ん|にゃあん)$/)) {
     await message.reply({
@@ -217,11 +258,61 @@ export default async (message) => {
       flags: [4096], //silent
       content: ndnDice(command),
     });
+  } else if (message.content.match(/^(チンチロリン)$/)) {
+    await message.reply({
+      flags: [4096], //silent
+      content: `### うみみゃあ！\n### ${Math.floor(Math.random() * 6) + 1}、${
+        Math.floor(Math.random() * 6) + 1
+      }、${Math.floor(Math.random() * 6) + 1}`,
+    });
+  } else if (message.content.match(/^(チンチ口リン)$/)) {
+    await message.reply({
+      flags: [4096], //silent
+      content: `### うみみゃあ！(シゴロ賽)\n### ${
+        Math.floor(Math.random() * 3) + 4
+      }、${Math.floor(Math.random() * 3) + 4}、${
+        Math.floor(Math.random() * 3) + 4
+      }`,
+    });
+  }  else if (ccmatch) {   // 抽選コマンド処理 cc choice
+    const baseCommand = ccmatch[1]; // cc or choice
+    const allowDuplicates = ccmatch[2] === "x"; // x がついてるか
+    let count = ccmatch[3] ? parseInt(ccmatch[3], 10) : 1; // 数字がある場合は取得、なければ1
+
+    const args = message.content.slice(ccmatch[0].length).trim().split(/\s+/); // 選択肢を取得
+
+    if (args.length === 0) {
+      let command = "1d100";
+      await message.reply({
+        flags: [4096], //silent
+        content: ndnDice(command),
+      });
+    }
+    if (!allowDuplicates && count > args.length) {
+      message.reply("選択肢より多くは選べません！");
+      return;
+    }
+
+    let results = [];
+    if (allowDuplicates) {
+      for (let i = 0; i < count; i++) {
+        results.push(args[Math.floor(Math.random() * args.length)]);
+      }
+    } else {
+      let shuffled = [...args].sort(() => Math.random() - 0.5);
+      results = shuffled.slice(0, count);
+    }
+
+    message.reply({
+      flags: [4096],
+      content: `抽選結果: ${results.join(", ")}`,
+    });
   }
+
   //ロスアカアトリエURLが貼られた時、画像を取得する機能
   if (
     message.content.match(
-      /https:\/\/rev2\.reversion\.jp\/illust\/detail\/(\d+)/
+      /https:\/\/rev2\.reversion\.jp\/illust\/detail\/ils(\d+)/
     )
   ) {
     const matches = [...message.content.matchAll(rev2AtelierurlPattern)]; // 全てのマッチを取得
@@ -318,7 +409,8 @@ export default async (message) => {
   //ドミノを並べる処理
   if (
     message.content.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) ||
-    message.channel.id === config.dominoch
+    message.channel.id === config.dominoch ||
+    message.channel.id === "1364908910032719934" //別館ドミノ
   ) {
     let dpname = null;
     if (!message.member) {
@@ -553,6 +645,22 @@ export default async (message) => {
       }
     }
   }
+ //デバッグ用 データベース手動バックアップ
+ else if (message.content === process.env.backup_command && message.author.id === config.administrator){
+     try {
+    await message.reply({
+      content: "SQLite3データベースのバックアップを取得しました。",
+      files: [".data/roleplaydb.sqlite3"],
+      ephemeral: true, // 管理者のみに表示
+    });
+  } catch (error) {
+    console.error("バックアップの送信に失敗しました:", error);
+    await message.reply({
+      content: "バックアップの送信に失敗しました。",
+      ephemeral: true,
+    });
+  }
+ }
 };
 
 /*
