@@ -85,7 +85,7 @@ export default async function handleModalInteraction(interaction) {
     if (!interaction.message.embeds[0]) {
       await interaction.message.fetch();
     }
-    const replybutton = replyable ? [replyfromDM] : null;
+const replybutton = (replyable === "0") ? null : [replyfromDM];
     try {
       const embed = new EmbedBuilder()
         .setTitle(`管理人室からのメッセージ`)
