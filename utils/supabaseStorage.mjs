@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-const BUCKET_NAME = 'your-bucket-name';
+const BUCKET_NAME = 'amayadori';
 
 function getMimeType(ext) {
   switch (ext.toLowerCase()) {
