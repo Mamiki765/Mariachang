@@ -247,7 +247,7 @@ export {
   Icon,
   Point,
   CurrentDomino,
-  DominoHistory,
+//  DominoHistory,
   AdminMemo,
   syncModels,
   DominoLog, // ← 追加
