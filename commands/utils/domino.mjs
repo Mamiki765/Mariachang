@@ -1,5 +1,5 @@
-import { SlashCommandBuilder, EmbedBuilder} from "discord.js";
-import { DominoLog, CurrentDomino ,sequelize} from "../../models/roleplay.mjs";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { DominoLog, CurrentDomino, sequelize } from "../../models/roleplay.mjs";
 import config from "../../config.mjs";
 
 export const data = new SlashCommandBuilder()
@@ -23,20 +23,20 @@ export async function execute(interaction) {
 
   if (indexOption === null) {
     // 統計データの取得 (DominoLog から集計)
-    const totalDominoCount = await DominoLog.sum('totalCount') || 0;
-    const totalPlayerCount = await DominoLog.sum('playerCount') || 0;
+    const totalDominoCount = (await DominoLog.sum("totalCount")) || 0;
+    const totalPlayerCount = (await DominoLog.sum("playerCount")) || 0;
     const zeroCount = await DominoLog.count({ where: { totalCount: 0 } });
 
     // 最高記録の取得 (DominoLog から取得)
     const highestRecordLog = await DominoLog.findOne({
-      order: [['totalCount', 'DESC']],
+      order: [["totalCount", "DESC"]],
     });
     const highestRecord = highestRecordLog?.totalCount || 0;
     const highestRecordHolderLog = await DominoLog.findOne({
       where: { totalCount: highestRecord },
-      order: [['createdAt', 'DESC']], // 最新の記録保持者を取得
+      order: [["createdAt", "DESC"]], // 最新の記録保持者を取得
     });
-    const highestRecordHolder = highestRecordHolderLog?.loserName || '不明';
+    const highestRecordHolder = highestRecordHolderLog?.loserName || "不明";
 
     const currentDomino = await CurrentDomino.findOne();
     if (!currentDomino) {
@@ -49,55 +49,68 @@ export async function execute(interaction) {
     //ドミノの枚数と並べた回数の合計
     // 直近5回の履歴 (DominoLog から取得)
     const recentHistories = await DominoLog.findAll({
-      order: [['attemptNumber', 'DESC']],
+      order: [["attemptNumber", "DESC"]],
       limit: 5,
     });
 
     // 崩した人ランキング (DominoLog から集計)
     const loserCounts = await DominoLog.findAll({
-      attributes: ['loserName', [sequelize.fn('COUNT', sequelize.col('loserName')), 'count']],
-      group: ['loserName'],
-      order: [[sequelize.literal('count'), 'DESC']],
+      attributes: [
+        "loserName",
+        [sequelize.fn("COUNT", sequelize.col("loserName")), "count"],
+      ],
+      group: ["loserName"],
+      order: [[sequelize.literal("count"), "DESC"]],
       limit: 10,
       raw: true,
     });
 
     let response = `現在のドミノ:第${currentDomino?.attemptNumber || 1}回 ${
       currentDomino?.totalPlayers || 0
-    }人 ${currentDomino?.totalCount || 0}枚\n-# 最高記録：${
-      highestRecord
-    }枚 崩した人:${escapeDiscordText(highestRecordHolder)}\n-# 総ドミノ:${
-      new Intl.NumberFormat("ja-JP").format(totalDominoCount)
-    }枚　総人数:${new Intl.NumberFormat("ja-JP").format(totalPlayerCount)}人　虚無崩し(0枚):${
-      zeroCount
-    }回\n`;
+    }人 ${
+      currentDomino?.totalCount || 0
+    }枚\n-# 最高記録：${highestRecord}枚 崩した人:${escapeDiscordText(
+      highestRecordHolder
+    )}\n-# 総ドミノ:${new Intl.NumberFormat("ja-JP").format(
+      totalDominoCount
+    )}枚　総人数:${new Intl.NumberFormat("ja-JP").format(
+      totalPlayerCount
+    )}人　虚無崩し(0枚):${zeroCount}回\n`;
 
     response += "★直近5回のドミノゲームの履歴★\n";
     recentHistories.forEach((log, index) => {
-      response += `-# 第${log.attemptNumber}回:${log.totalCount}枚 ${log.playerCount}人 崩した人:${escapeDiscordText(log.loserName)}\n`;
+      response += `-# 第${log.attemptNumber}回:${log.totalCount}枚 ${
+        log.playerCount
+      }人 崩した人:${escapeDiscordText(log.loserName)}\n`;
     });
 
     response += "★崩した人上位10位★\n";
     loserCounts.forEach((loser, index) => {
-      response += `-# ${index + 1}位: ${escapeDiscordText(loser.loserName)} (${loser.count}回)\n`;
+      response += `-# ${index + 1}位: ${escapeDiscordText(loser.loserName)} (${
+        loser.count
+      }回)\n`;
     });
 
     await interaction.reply(response);
-
   } else {
     // 指定されたインデックスからの履歴表示 (DominoLog から取得)
     const limit = 10;
-    const offset = indexOption === -1 ? Math.max(0, (await DominoLog.count()) - limit) : Math.max(0, indexOption - 1);
+    const offset =
+      indexOption === -1
+        ? Math.max(0, (await DominoLog.count()) - limit)
+        : Math.max(0, indexOption - 1);
 
     const histories = await DominoLog.findAll({
-      order: [['attemptNumber', 'ASC']],
+      order: [["attemptNumber", "ASC"]],
       offset: offset,
       limit: limit,
     });
 
     let response = `★第${offset + 1}回からのドミノゲームの履歴★\n`;
     histories.forEach((log, index) => {
-      response += `-# 第${log.attemptNumber}回:${log.totalCount}枚 ${log.playerCount}人 崩した人:${escapeDiscordText(log.loserName)}\n`;
+      response += `-# 第${log.attemptNumber}回:${log.totalCount}枚 ${
+        log.playerCount
+      }人 崩した人:${escapeDiscordText(log.loserName)}\n`;
     });
 
     await interaction.reply(response);
@@ -141,36 +154,60 @@ export async function dominoeffect(message, client, id, username, dpname) {
     });
 
     // 新しいドミノの履歴を DominoLog に保存
-try {
-    console.log("Creating DominoLog with:");
-    console.log("  attemptNumber:", currentDomino.attemptNumber, typeof currentDomino.attemptNumber);
-    console.log("  totalCount:", currentDomino.totalCount, typeof currentDomino.totalCount);
-    console.log("  playerCount:", currentDomino.totalPlayers, typeof currentDomino.totalPlayers);
-    console.log("  loserName:", username, typeof username);
+    try {
+      console.log("Creating DominoLog with:");
+      console.log(
+        "  attemptNumber:",
+        currentDomino.attemptNumber,
+        typeof currentDomino.attemptNumber
+      );
+      console.log(
+        "  totalCount:",
+        currentDomino.totalCount,
+        typeof currentDomino.totalCount
+      );
+      console.log(
+        "  playerCount:",
+        currentDomino.totalPlayers,
+        typeof currentDomino.totalPlayers
+      );
+      console.log("  loserName:", username, typeof username);
 
-    await DominoLog.create({
+      await DominoLog.create({
         attemptNumber: currentDomino.attemptNumber,
         totalCount: currentDomino.totalCount,
         playerCount: currentDomino.totalPlayers,
         loserName: username,
-    });
+      });
 
-    console.log("DominoLog created successfully.");
-
-} catch (error) {
-    console.error("Error creating DominoLog!");
-    console.error("Values being used:");
-    console.error("  attemptNumber:", currentDomino.attemptNumber, typeof currentDomino.attemptNumber);
-    console.error("  totalCount:", currentDomino.totalCount, typeof currentDomino.totalCount);
-    console.error("  playerCount:", currentDomino.totalPlayers, typeof currentDomino.totalPlayers);
-    console.error("  loserName:", username, typeof username);
-    console.error("Error details:", error);
-    if (error.errors) { // Sequelize Validation Error の場合
-        error.errors.forEach(err => {
-            console.error("  Validation error:", err.message, err.path, err.type);
+      console.log("DominoLog created successfully.");
+    } catch (error) {
+      console.error("Error creating DominoLog!");
+      console.error("Values being used:");
+      console.error(
+        "  attemptNumber:",
+        currentDomino.attemptNumber,
+        typeof currentDomino.attemptNumber
+      );
+      console.error(
+        "  totalCount:",
+        currentDomino.totalCount,
+        typeof currentDomino.totalCount
+      );
+      console.error(
+        "  playerCount:",
+        currentDomino.totalPlayers,
+        typeof currentDomino.totalPlayers
+      );
+      console.error("  loserName:", username, typeof username);
+      console.error("Error details:", error);
+      if (error.errors) {
+        // Sequelize Validation Error の場合
+        error.errors.forEach((err) => {
+          console.error("  Validation error:", err.message, err.path, err.type);
         });
+      }
     }
-}
 
     if (currentDomino.totalCount === 0) {
       await dominochannel.send({
@@ -182,9 +219,12 @@ try {
     }
     // 最高記録の更新通知 (DominoLog から取得)
     const currentHighestRecordLog = await DominoLog.findOne({
-      order: [['totalCount', 'DESC']],
+      order: [["totalCount", "DESC"]],
     });
-    if (currentHighestRecordLog && currentDomino.totalCount > currentHighestRecordLog.totalCount) {
+    if (
+      currentHighestRecordLog &&
+      currentDomino.totalCount > currentHighestRecordLog.totalCount
+    ) {
       await dominochannel.send({
         flags: [4096],
         content: `# __★★【新記録】${currentDomino.totalCount}枚★★__`,
@@ -222,19 +262,20 @@ try {
     uniqueMessage += ` 現在:${currentDomino.totalCount + randomNum}枚`;
 
     // 10000枚達成した場合に画像を添付
-if (
-  currentDomino.totalCount < 10000 &&
-  currentDomino.totalCount + randomNum >= 10000
-) {
-  const celebrationImageURL = config.domino10000Images[
-    Math.floor(Math.random() * config.domino10000Images.length)
-  ];
+    if (
+      currentDomino.totalCount < 10000 &&
+      currentDomino.totalCount + randomNum >= 10000
+    ) {
+      const celebrationImageURL =
+        config.domino10000Images[
+          Math.floor(Math.random() * config.domino10000Images.length)
+        ];
 
-  const messageContent = `${uniqueMessage}\n${celebrationImageURL}`; // 本文に URL を含める
+      const messageContent = `${uniqueMessage}\n${celebrationImageURL}`; // 本文に URL を含める
 
-  await dominochannel.send({ content: messageContent, flags: [4096] });
+      await dominochannel.send({ content: messageContent, flags: [4096] });
 
-/*
+      /*
     if (
       currentDomino.totalCount < 10000 &&
       currentDomino.totalCount + randomNum >= 10000
@@ -281,9 +322,7 @@ if (
   }
 }
 
-
 // エスケープ処理のサブルーチン（例 hoge_fuga_がhogefuga(fugaが斜体)にならないように
 function escapeDiscordText(text) {
   return text.replace(/([_*`])/g, "\\$1"); // 特殊文字をエスケープ
 }
-

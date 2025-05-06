@@ -7,7 +7,7 @@ const supabaseDatabaseUrl = process.env.DATABASE_URL;
 console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
 // Sequelize インスタンスの生成
 const sequelize = new Sequelize(supabaseDatabaseUrl, {
-  dialect: 'postgres',
+  dialect: "postgres",
   dialectOptions: {
     ssl: {
       require: true, // SSLを要求
@@ -237,12 +237,12 @@ async function syncModels() {
     await Icon.sync({ alter: true });
     await Point.sync({ alter: true });
     await CurrentDomino.sync({ alter: true });
-//    await DominoHistory.sync({ alter: true });
+    //    await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
-    console.log('All models were synchronized successfully.');
+    console.log("All models were synchronized successfully.");
   } catch (error) {
-    console.error('Error synchronizing models:', error);
+    console.error("Error synchronizing models:", error);
   }
 }
 
@@ -252,7 +252,7 @@ export {
   Icon,
   Point,
   CurrentDomino,
-//  DominoHistory,
+  //  DominoHistory,
   AdminMemo,
   syncModels,
   DominoLog, // ← 追加

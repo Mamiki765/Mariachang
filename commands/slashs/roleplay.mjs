@@ -2,9 +2,10 @@ import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
 import { Character, Icon, Point } from "../../models/roleplay.mjs";
 import { dominoeffect } from "../utils/domino.mjs";
-import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
+//import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
+import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import config from "../../config.mjs";
-import fetch from 'node-fetch';
+import fetch from "node-fetch";
 
 //絵文字　ここの数がスロット数になる
 const emojis = ["🍎", "🍌", "🍉", "🍇", "🍊"];
@@ -221,13 +222,40 @@ export async function execute(interaction) {
     let iconUrl = null;
     let deleteHash = null;
     const existingIcon = await Icon.findOne({ where: { userId: charaslot } });
-    if (existingIcon?.deleteHash)
-      await deleteFromImgur(existingIcon.deleteHash);
+    if (existingIcon?.deleteHash) await deleteFile(existingIcon.deleteHash);
 
     if (icon) {
       const fetched = await fetch(icon.url);
       const buffer = Buffer.from(await fetched.arrayBuffer());
-      const result = await uploadToImgur(buffer);
+      //    const result = await uploadToImgur(buffer);
+      // サイズチェックを追加
+      if (buffer.length > 1024 * 1024) {
+        await interaction.reply({
+          flags: [4096],
+          content: "アイコンファイルのサイズが1MBを超えています。",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // 拡張子を取得
+      const fileExt = icon.name.split(".").pop();
+      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt.toLowerCase())) {
+        await interaction.reply({
+          flags: [4096],
+          content:
+            "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const result = await uploadFile(
+        buffer,
+        interaction.user.id,
+        slot,
+        fileExt
+      );
       if (result) {
         iconUrl = result.link;
         deleteHash = result.deletehash;
@@ -342,17 +370,44 @@ export async function execute(interaction) {
     if (icon) {
       // 古いアイコン削除
       if (loadicon && loadicon.deleteHash) {
-        await deleteFromImgur(loadicon.deleteHash);
+        //       await deleteFromImgur(loadicon.deleteHash);
+        await deleteFile(loadicon.deleteHash);
       }
 
       // 新しいアイコンをアップロード
       const fetched = await fetch(icon.url);
       const buffer = Buffer.from(await fetched.arrayBuffer());
-      const result = await uploadToImgur(buffer);
+      // サイズチェックを追加
+      if (buffer.length > 1024 * 1024) {
+        await interaction.reply({
+          flags: [4096],
+          content: "アイコンファイルのサイズが1MBを超えています。",
+          ephemeral: true,
+        });
+        return;
+      }
 
+      // 拡張子を取得
+      const fileExt = icon.name.split(".").pop();
+      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt.toLowerCase())) {
+        await interaction.reply({
+          flags: [4096],
+          content:
+            "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
+          ephemeral: true,
+        });
+        return;
+      }
+      //const result = await uploadToImgur(buffer);
+      const result = await uploadFile(
+        buffer,
+        interaction.user.id,
+        slot,
+        fileExt
+      );
       if (result) {
-        face = result.link;
-        const newDeleteHash = result.deletehash;
+        face = result.url;
+        const newIconPath = result.path;
         if (illustrator !== null) {
           copyright = illustrator;
         }
@@ -362,7 +417,7 @@ export async function execute(interaction) {
           iconUrl: face,
           illustrator: copyright,
           pbw: loadicon.pbw,
-          deleteHash: newDeleteHash,
+          deleteHash: newIconPath,
         });
       } else {
         interaction.reply({
@@ -502,7 +557,7 @@ export async function execute(interaction) {
 
           let iconUrl = loadicon ? loadicon.iconUrl : null;
           //let icondeleteHash = loadicon ? loadicon.deleteHash : null;//deletehashテスト
-          
+
           // URLの検証
           try {
             new URL(iconUrl);
@@ -546,18 +601,6 @@ export async function execute(interaction) {
 function dataslot(id, slot) {
   return slot >= 0 ? `${id}${slot > 0 ? `-${slot}` : ""}` : `${id}`;
 }
-/*
-function dataslot(id,slot){
-  if(slot === 0){
-    return `${id}`;
-  }else if(slot ===1){
-    return `${id}-1`;
-    //…
-  }else{
-    return `${id}`;
-  }
-}
-*/
 
 //発言するたびにポイント+1
 async function updatePoints(userId) {
