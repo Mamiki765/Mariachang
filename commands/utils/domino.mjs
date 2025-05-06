@@ -209,7 +209,7 @@ if (
   const messageContent = `${uniqueMessage}\n${celebrationImageURL}`; // 本文に URL を含める
 
   await dominochannel.send({ content: messageContent, flags: [4096] });
-}
+
 /*
     if (
       currentDomino.totalCount < 10000 &&
