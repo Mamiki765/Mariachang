@@ -1,11 +1,20 @@
-//　未使用ローカルにDBを置く方
 import { Sequelize, DataTypes } from "sequelize";
 
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: ".data/roleplaydb.sqlite3",
+// Supabase 接続情報
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_KEY;
+const supabaseDatabaseUrl = process.env.DATABASE_URL;
+console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
+// Sequelize インスタンスの生成
+const sequelize = new Sequelize(supabaseDatabaseUrl, {
+  dialect: 'postgres',
+  dialectOptions: {
+    ssl: {
+      require: true, // SSLを要求
+      rejectUnauthorized: false, // 必要に応じて設定
+    },
+  },
   logging: (msg) => {
-    // エラーメッセージだけを表示
     if (msg.includes("ERROR")) {
       console.error(msg);
     }
@@ -112,7 +121,8 @@ const CurrentDomino = sequelize.define(
   }
 );
 
-// ドミノの履歴
+// ドミノの履歴使用終了
+/*
 const DominoHistory = sequelize.define(
   "DominoHistory",
   {
@@ -151,7 +161,38 @@ const DominoHistory = sequelize.define(
     timestamps: false,
   }
 );
-
+*/
+// ドミノの履歴v2（正規化版）
+const DominoLog = sequelize.define(
+  "DominoLog",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    attemptNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    totalCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    playerCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    loserName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+  },
+  {
+    tableName: "dominologs",
+    timestamps: true, // createdAt, updatedAt
+  }
+);
 //管理メモモデル
 const AdminMemo = sequelize.define(
   "AdminMemo",
@@ -188,26 +229,21 @@ const AdminMemo = sequelize.define(
   }
 );
 
-// データベースの同期処理をまとめて行う
+// データベースの同期処理
 async function syncModels() {
-  await Character.sync({
-    alter: true,
-  });
-  await Icon.sync({
-    alter: true,
-  });
-  await Point.sync({
-    alter: true,
-  });
-  await CurrentDomino.sync({
-    alter: true,
-  });
-  await DominoHistory.sync({
-    alter: true,
-  });
-  await AdminMemo.sync({
-    alter: true,
-  });
+  try {
+    await sequelize.authenticate(); // 接続確認
+    await Character.sync({ alter: true });
+    await Icon.sync({ alter: true });
+    await Point.sync({ alter: true });
+    await CurrentDomino.sync({ alter: true });
+//    await DominoHistory.sync({ alter: true });
+    await AdminMemo.sync({ alter: true });
+    await DominoLog.sync({ alter: true });
+    console.log('All models were synchronized successfully.');
+  } catch (error) {
+    console.error('Error synchronizing models:', error);
+  }
 }
 
 export {
@@ -216,7 +252,8 @@ export {
   Icon,
   Point,
   CurrentDomino,
-  DominoHistory,
+//  DominoHistory,
   AdminMemo,
   syncModels,
+  DominoLog, // ← 追加
 };
