@@ -233,6 +233,7 @@ async function syncModels() {
     await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
+    await migrateDominoData(); // データ移行処理を実行
     console.log('All models were synchronized successfully.');
   } catch (error) {
     console.error('Error synchronizing models:', error);
@@ -250,3 +251,42 @@ export {
   syncModels,
   DominoLog, // ← 追加
 };
+  //ドミノコンバート
+async function migrateDominoData() {
+  try {
+    const histories = await DominoHistory.findAll();
+
+    for (const history of histories) {
+      const { players, totals, losers } = history;
+
+      // 配列が空の場合はスキップ
+      if (!players || !totals || !losers || players.length === 0) {
+        console.warn(`Skipping history record with empty arrays (ID: ${history.id})`);
+        continue;
+      }
+
+      // 配列の長さが異なる場合はエラー
+      if (players.length !== totals.length || players.length !== losers.length) {
+        console.error(`Inconsistent array lengths in history record (ID: ${history.id})`);
+        continue; // 次のhistoryへ
+      }
+
+      for (let i = 0; i < players.length; i++) {
+        await DominoLog.create({
+          id: history.id,
+          attemptNumber: i + 1, // 配列のインデックス + 1 が試行回数
+          totalCount: totals[i],
+          playerCount: players[i],
+          loserName: losers[i],
+          // collapseTime はデフォルト値でOK
+        });
+      }
+
+      console.log(`Migrated data for history record (ID: ${history.id})`);
+    }
+
+    console.log("Domino data migration completed successfully!");
+  } catch (error) {
+    console.error("Error during Domino data migration:", error);
+  }
+}
