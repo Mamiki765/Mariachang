@@ -322,5 +322,5 @@ async function migrateDominoData() {
       } catch (error) {
         console.error(`Error processing history record (ID: ${history.id}):`, error);
       }
-    
+    }
 }
