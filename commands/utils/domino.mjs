@@ -49,7 +49,7 @@ export async function execute(interaction) {
     //ドミノの枚数と並べた回数の合計
     // 直近5回の履歴 (DominoLog から取得)
     const recentHistories = await DominoLog.findAll({
-      order: [['createdAt', 'DESC']],
+      order: [['attemptNumber', 'DESC']],
       limit: 5,
     });
 
