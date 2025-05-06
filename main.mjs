@@ -4,7 +4,7 @@ import express from "express";
 import { Client, Collection, Events, GatewayIntentBits, ActivityType, EmbedBuilder, Partials } from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
 //import Notification from "./models/notification.mjs";
-import { syncModels } from "./models/roleplayv2.mjs";
+import { syncModels } from "./models/roleplay.mjs";
 import config from './config.mjs';
 
 import Sequelize from "sequelize";
