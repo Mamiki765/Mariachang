@@ -275,7 +275,7 @@ function escapeDiscordText(text) {
 
 // ドミノコンバート
 async function migrateDominoData() {
-  try {
+ 
     const histories = await DominoHistory.findAll();
 
     for (const history of histories) {
