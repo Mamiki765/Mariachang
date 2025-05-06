@@ -21,11 +21,11 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const indexOption = interaction.options.getInteger("index") || null;
   const history = await DominoHistory.findOne();
-  console.log("Type of history.totals:", typeof history.totals);//250506debug
   if (!history) {
     await interaction.reply("履歴が見つかりません。");
     return;
   }
+  console.log("Type of history.totals:", history.totals);//250506debug
   let response = null;
   if (indexOption === null) {
     //index指定がない時、統計データ＋最近５回
