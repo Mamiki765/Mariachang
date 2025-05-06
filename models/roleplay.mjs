@@ -233,7 +233,6 @@ async function syncModels() {
     await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
-    await migrateDominoData(); // データ移行処理を実行
     console.log('All models were synchronized successfully.');
   } catch (error) {
     console.error('Error synchronizing models:', error);
@@ -251,53 +250,3 @@ export {
   syncModels,
   DominoLog, // ← 追加
 };
-// ドミノコンバート
-async function migrateDominoData() {
-  try {
-    const histories = await DominoHistory.findAll();
-
-    for (const history of histories) {
-      const { players, totals: totalsString, losers } = history;
-
-      // totals が存在しない場合はスキップ
-      if (!totalsString) {
-        console.warn(`Skipping history record due to missing totals (ID: ${history.id})`);
-        continue;
-      }
-
-      try {
-        // JSON文字列を数値の配列に変換
-        const totals = JSON.parse(totalsString);
-
-        // 配列が空の場合はスキップ
-        if (!players || !totals || !losers || players.length === 0) {
-          console.warn(`Skipping history record with empty arrays (ID: ${history.id})`);
-          continue;
-        }
-
-        // 配列の長さが異なる場合はエラー
-        if (players.length !== totals.length || players.length !== losers.length) {
-          console.error(`Inconsistent array lengths in history record (ID: ${history.id})`);
-          continue; // 次のhistoryへ
-        }
-
-        for (let i = 0; i < players.length; i++) {
-          await DominoLog.create({
-            attemptNumber: i + 1, // 配列のインデックス + 1 が試行回数
-            totalCount: totals[i], // 数値として保存
-            playerCount: players[i],
-            loserName: losers[i],
-            // createdAt, updatedAt は自動的に設定される
-          });
-        }
-        console.log(`Migrated data for history record (ID: ${history.id})`);
-      } catch (error) {
-        console.error(`Error processing history record (ID: ${history.id}):`, error);
-      }
-    }
-
-    console.log("Domino data migration completed successfully!");
-  } catch (error) {
-    console.error("Error during Domino data migration:", error);
-  }
-}
