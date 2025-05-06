@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, Sequelize } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder} from "discord.js";
 import { DominoLog, CurrentDomino ,sequelize} from "../../models/roleplay.mjs";
 import config from "../../config.mjs";
 
