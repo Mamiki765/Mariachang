@@ -288,8 +288,14 @@ async function migrateDominoData() {
       }
 
       try {
-        // JSON文字列を数値の配列に変換
-        const totals = JSON.parse(totalsString);
+        // JSON文字列をJavaScriptの配列に変換
+        const totalsArrayOfStrings = JSON.parse(totalsString);
+        let totals = [];
+
+        // 配列の各要素（JSON文字列）を数値の配列に変換
+        for (const totalString of totalsArrayOfStrings) {
+          totals.push(JSON.parse(totalString));
+        }
 
         // 配列が空の場合はスキップ
         if (!players || !totals || !losers || players.length === 0) {
@@ -317,9 +323,4 @@ async function migrateDominoData() {
         console.error(`Error processing history record (ID: ${history.id}):`, error);
       }
     }
-
-    console.log("Domino data migration completed successfully!");
-  } catch (error) {
-    console.error("Error during Domino data migration:", error);
-  }
 }
