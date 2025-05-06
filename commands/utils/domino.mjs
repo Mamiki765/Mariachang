@@ -141,12 +141,36 @@ export async function dominoeffect(message, client, id, username, dpname) {
     });
 
     // 新しいドミノの履歴を DominoLog に保存
+try {
+    console.log("Creating DominoLog with:");
+    console.log("  attemptNumber:", currentDomino.attemptNumber, typeof currentDomino.attemptNumber);
+    console.log("  totalCount:", currentDomino.totalCount, typeof currentDomino.totalCount);
+    console.log("  playerCount:", currentDomino.totalPlayers, typeof currentDomino.totalPlayers);
+    console.log("  loserName:", username, typeof username);
+
     await DominoLog.create({
-      attemptNumber: currentDomino.attemptNumber,
-      totalCount: currentDomino.totalCount,
-      playerCount: currentDomino.totalPlayers,
-      loserName: username,
+        attemptNumber: currentDomino.attemptNumber,
+        totalCount: currentDomino.totalCount,
+        playerCount: currentDomino.totalPlayers,
+        loserName: username,
     });
+
+    console.log("DominoLog created successfully.");
+
+} catch (error) {
+    console.error("Error creating DominoLog!");
+    console.error("Values being used:");
+    console.error("  attemptNumber:", currentDomino.attemptNumber, typeof currentDomino.attemptNumber);
+    console.error("  totalCount:", currentDomino.totalCount, typeof currentDomino.totalCount);
+    console.error("  playerCount:", currentDomino.totalPlayers, typeof currentDomino.totalPlayers);
+    console.error("  loserName:", username, typeof username);
+    console.error("Error details:", error);
+    if (error.errors) { // Sequelize Validation Error の場合
+        error.errors.forEach(err => {
+            console.error("  Validation error:", err.message, err.path, err.type);
+        });
+    }
+}
 
     if (currentDomino.totalCount === 0) {
       await dominochannel.send({
