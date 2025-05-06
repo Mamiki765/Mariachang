@@ -21,6 +21,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const indexOption = interaction.options.getInteger("index") || null;
   const history = await DominoHistory.findOne();
+  console.log("Type of history.totals:", typeof history.totals);//250506debug
   if (!history) {
     await interaction.reply("履歴が見つかりません。");
     return;
