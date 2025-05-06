@@ -90,7 +90,7 @@ export async function execute(interaction) {
     const offset = indexOption === -1 ? Math.max(0, (await DominoLog.count()) - limit) : Math.max(0, indexOption - 1);
 
     const histories = await DominoLog.findAll({
-      order: [['createdAt', 'DESC']],
+      order: [['attemptNumber', 'DESC']],
       offset: offset,
       limit: limit,
     });
