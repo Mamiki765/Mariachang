@@ -198,6 +198,19 @@ export async function dominoeffect(message, client, id, username, dpname) {
     uniqueMessage += ` 現在:${currentDomino.totalCount + randomNum}枚`;
 
     // 10000枚達成した場合に画像を添付
+if (
+  currentDomino.totalCount < 10000 &&
+  currentDomino.totalCount + randomNum >= 10000
+) {
+  const celebrationImageURL = config.domino10000Images[
+    Math.floor(Math.random() * config.domino10000Images.length)
+  ];
+
+  const messageContent = `${uniqueMessage}\n${celebrationImageURL}`; // 本文に URL を含める
+
+  await dominochannel.send({ content: messageContent, flags: [4096] });
+}
+/*
     if (
       currentDomino.totalCount < 10000 &&
       currentDomino.totalCount + randomNum >= 10000
@@ -212,7 +225,7 @@ export async function dominoeffect(message, client, id, username, dpname) {
         flags: [4096],
         content: uniqueMessage,
         files: [celebrationImage], // 画像URLを添付ファイルとして送信
-      });
+      });*/
     } else {
       // 10000枚未満の場合は通常メッセージを送信
       await dominochannel.send({
