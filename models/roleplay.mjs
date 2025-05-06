@@ -121,7 +121,8 @@ const CurrentDomino = sequelize.define(
   }
 );
 
-// ドミノの履歴
+// ドミノの履歴使用終了
+/*
 const DominoHistory = sequelize.define(
   "DominoHistory",
   {
@@ -160,6 +161,7 @@ const DominoHistory = sequelize.define(
     timestamps: false,
   }
 );
+*/
 // ドミノの履歴v2（正規化版）
 const DominoLog = sequelize.define(
   "DominoLog",
@@ -230,7 +232,7 @@ async function syncModels() {
     await Icon.sync({ alter: true });
     await Point.sync({ alter: true });
     await CurrentDomino.sync({ alter: true });
-    await DominoHistory.sync({ alter: true });
+//    await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
     console.log('All models were synchronized successfully.');
