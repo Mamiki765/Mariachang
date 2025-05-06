@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import { DominoHistory, CurrentDomino } from "../../models/roleplay.mjs";
+import { DominoHistory, CurrentDomino , DominoLog} from "../../models/roleplay.mjs";
 import config from "../../config.mjs";
 
 export const data = new SlashCommandBuilder()
@@ -26,6 +26,7 @@ export async function execute(interaction) {
     return;
   }
   console.log("Type of history.totals:", history.totals);//250506debug
+  await migrateDominoData(); // データ移行処理を実行
   let response = null;
   if (indexOption === null) {
     //index指定がない時、統計データ＋最近５回
@@ -270,4 +271,55 @@ export async function dominoeffect(message, client, id, username, dpname) {
 // エスケープ処理のサブルーチン（例 hoge_fuga_がhogefuga(fugaが斜体)にならないように
 function escapeDiscordText(text) {
   return text.replace(/([_*`])/g, "\\$1"); // 特殊文字をエスケープ
+}
+
+// ドミノコンバート
+async function migrateDominoData() {
+  try {
+    const histories = await DominoHistory.findAll();
+
+    for (const history of histories) {
+      const { players, totals: totalsString, losers } = history;
+
+      // totals が存在しない場合はスキップ
+      if (!totalsString) {
+        console.warn(`Skipping history record due to missing totals (ID: ${history.id})`);
+        continue;
+      }
+
+      try {
+        // JSON文字列を数値の配列に変換
+        const totals = JSON.parse(totalsString);
+
+        // 配列が空の場合はスキップ
+        if (!players || !totals || !losers || players.length === 0) {
+          console.warn(`Skipping history record with empty arrays (ID: ${history.id})`);
+          continue;
+        }
+
+        // 配列の長さが異なる場合はエラー
+        if (players.length !== totals.length || players.length !== losers.length) {
+          console.error(`Inconsistent array lengths in history record (ID: ${history.id})`);
+          continue; // 次のhistoryへ
+        }
+
+        for (let i = 0; i < players.length; i++) {
+          await DominoLog.create({
+            attemptNumber: i + 1, // 配列のインデックス + 1 が試行回数
+            totalCount: totals[i], // 数値として保存
+            playerCount: players[i],
+            loserName: losers[i],
+            // createdAt, updatedAt は自動的に設定される
+          });
+        }
+        console.log(`Migrated data for history record (ID: ${history.id})`);
+      } catch (error) {
+        console.error(`Error processing history record (ID: ${history.id}):`, error);
+      }
+    }
+
+    console.log("Domino data migration completed successfully!");
+  } catch (error) {
+    console.error("Error during Domino data migration:", error);
+  }
 }
