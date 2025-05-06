@@ -160,7 +160,32 @@ const DominoHistory = sequelize.define(
     timestamps: false,
   }
 );
-
+// ドミノの履歴v2（正規化版）
+const DominoLog = sequelize.define(
+  "DominoLog",
+  {
+    attemptNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    totalCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    playerCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    loserName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+  },
+  {
+    tableName: "dominologs",
+    timestamps: true, // createdAt, updatedAt
+  }
+);
 //管理メモモデル
 const AdminMemo = sequelize.define(
   "AdminMemo",
@@ -207,6 +232,7 @@ async function syncModels() {
     await CurrentDomino.sync({ alter: true });
     await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
+    await DominoLog.sync({ alter: true });
     console.log('All models were synchronized successfully.');
   } catch (error) {
     console.error('Error synchronizing models:', error);
@@ -222,4 +248,5 @@ export {
   DominoHistory,
   AdminMemo,
   syncModels,
+  DominoLog, // ← 追加
 };
