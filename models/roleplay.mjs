@@ -208,6 +208,7 @@ async function syncModels() {
     await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     console.log('All models were synchronized successfully.');
+    console.log("Type of history.totals:", typeof history.totals);
   } catch (error) {
     console.error('Error synchronizing models:', error);
   }
