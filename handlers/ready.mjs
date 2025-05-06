@@ -64,7 +64,7 @@ export default async (client) => {
     embeds: [
       new EmbedBuilder()
         .setTitle("起動完了")
-        .setDescription("> Botが起動しました。")
+        .setDescription("> Botが起動しました。\nサービス名：${process.env.SERVICE_NAME}")
         .setColor("#B78CFE")
         .setTimestamp(),
     ],
