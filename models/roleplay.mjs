@@ -166,6 +166,11 @@ const DominoHistory = sequelize.define(
 const DominoLog = sequelize.define(
   "DominoLog",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
     attemptNumber: {
       type: DataTypes.INTEGER,
       allowNull: false,
