@@ -48,9 +48,9 @@ const Character = sequelize.define(
 const Icon = sequelize.define(
   "Icon",
   {
-    id: { // ★ id カラムは残しますが、主キーではなくします ★
+    id: {
       type: DataTypes.INTEGER,
-      autoIncrement: true,
+      // primaryKey: true, // ← この行を削除
     },
     userId: {
       type: DataTypes.STRING,
