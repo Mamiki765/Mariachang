@@ -48,10 +48,15 @@ const Character = sequelize.define(
 const Icon = sequelize.define(
   "Icon",
   {
+    id: { // ★ id カラムは残しますが、主キーではなくします ★
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+    },
     userId: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
+      primaryKey: true // ★ userId を主キーに設定 ★
     },
     iconUrl: {
       type: DataTypes.STRING,
