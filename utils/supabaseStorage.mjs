@@ -51,6 +51,7 @@ async function uploadFile(fileBuffer, userId, slot, fileExt) {
 }
 
 async function deleteFile(filePath) {
+  console.error('消したいファイル:', filePath);
   if (!filePath) return true;
 
   const { error: deleteError } = await supabase.storage
