@@ -22,7 +22,7 @@ export default async (client) => {
   });
   //闘技　予選終了
   const arenachannel = await client.channels.fetch(config.arenatimech);
-  cron.schedule("0 14 * * 1", async () => {
+  cron.schedule("0 17 * * 1", async () => {//250509 14→17時に
     await arenachannel.send(
       "【自動】 [闘技場の予選終了時間です。](<https://rev2.reversion.jp/arena/official>)\n本戦開始までAIやステータスを更新することができます。\n決勝トーナメント表を確認してください。"
     );
