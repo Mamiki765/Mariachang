@@ -24,8 +24,8 @@ function getMimeType(ext) {
 
 async function uploadFile(fileBuffer, userId, slot, fileExt) {
   const timestamp = Date.now(); // ミリ秒単位のUNIX時間を取得
-  const fileName = `${userId}-${slot}-${timestamp}.${fileExt}`;
-  const filePath = `${fileName}`;
+  const fileName = `slot${slot}_${timestamp}.${fileExt}`;
+  const filePath = `icons/${userId}/${fileName}`;
   const contentType = getMimeType(fileExt);
 
   const { error: uploadError } = await supabase.storage
