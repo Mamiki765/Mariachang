@@ -257,8 +257,8 @@ export async function execute(interaction) {
         fileExt
       );
       if (result) {
-        iconUrl = result.link;
-        deleteHash = result.deletehash;
+        iconUrl = result.url;       
+        deleteHash = result.path;    
       }
     }
 
@@ -268,15 +268,6 @@ export async function execute(interaction) {
         name: name,
         pbwflag: pbwflag,
       });
-      //test
-    console.log("Upserting Icon with:", {
-  userId: charaslot,
-  iconUrl,
-  illustrator: pbw !== "other" ? illustrator : copyright,
-  pbw,
-  deleteHash,
-});
-      //testここまで
       await Icon.upsert({
         userId: charaslot,
         iconUrl,
