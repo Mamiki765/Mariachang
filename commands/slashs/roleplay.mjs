@@ -268,6 +268,15 @@ export async function execute(interaction) {
         name: name,
         pbwflag: pbwflag,
       });
+      //test
+    console.log("Upserting Icon with:", {
+  userId: charaslot,
+  iconUrl,
+  illustrator: pbw !== "other" ? illustrator : copyright,
+  pbw,
+  deleteHash,
+});
+      //testここまで
       await Icon.upsert({
         userId: charaslot,
         iconUrl,
