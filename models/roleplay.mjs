@@ -48,10 +48,6 @@ const Character = sequelize.define(
 const Icon = sequelize.define(
   "Icon",
   {
-    id: {
-      type: DataTypes.INTEGER,
-      // primaryKey: true, // ← この行を削除
-    },
     userId: {
       type: DataTypes.STRING,
       allowNull: false,
