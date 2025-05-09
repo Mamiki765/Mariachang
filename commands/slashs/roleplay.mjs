@@ -369,10 +369,20 @@ export async function execute(interaction) {
     copyright = loadicon.illustrator;
     if (icon) {
       // 古いアイコン削除
+      /*
       if (loadicon && loadicon.deleteHash) {
         //       await deleteFromImgur(loadicon.deleteHash);
         await deleteFile(loadicon.deleteHash);
       }
+      */
+      if (loadicon && loadicon.deleteHash) {
+  console.log("削除を試みるファイルパス:", loadicon.deleteHash);
+  const deletionResult = await deleteFile(loadicon.deleteHash);
+  console.log("削除結果:", deletionResult);
+  if (!deletionResult) {
+    console.error("古いアイコンの削除に失敗しました！");
+  }
+}
 
       // 新しいアイコンをアップロード
       const fetched = await fetch(icon.url);
