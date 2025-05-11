@@ -217,7 +217,7 @@ export async function dominoeffect(message, client, id, username, dpname) {
       await dominochannel.send({
         flags: [4096],
         content: `# __★★【特別賞】0枚で終わった回数：${
-          (await DominoLog.count({ where: { totalCount: 0 } })) + 1 // +1 して今回の分も含む
+          (await DominoLog.count({ where: { totalCount: 0 } }))
         }回目__`,
       });
     }
