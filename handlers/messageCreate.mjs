@@ -260,6 +260,30 @@ export default async (message) => {
       flags: [4096], //silent
       embeds: [resultEmbed],
     });
+  } else if (message.content.match(/^(!settai)$/)) {
+    //接待ダイス
+    const embed = new EmbedBuilder()
+      .setColor(0x0000ff)
+      .setTitle("1d100(接待ダイス)")
+      .setDescription(
+        `-->${Math.floor(Math.random() * 5) + 1}**(クリティカル！)**`
+      );
+    await message.reply({
+      flags: [4096], //silent
+      embeds: [embed],
+    });
+  } else if (message.content.match(/^(!gyakutai)$/)) {
+    //虐待ダイス
+    const embed = new EmbedBuilder()
+      .setColor(0xff0000)
+      .setTitle("1d100(虐待ダイス)")
+      .setDescription(
+        `-->${Math.floor(Math.random() * 5) + 96}**(ファンブル！)**`
+      );
+    await message.reply({
+      flags: [4096], //silent
+      embeds: [embed],
+    });
   } else if (message.content.match(/^(チンチロリン)$/)) {
     await message.reply({
       flags: [4096], //silent
@@ -650,6 +674,7 @@ export default async (message) => {
     }
   }
   //デバッグ用 データベース手動バックアップ
+  /*
   else if (
     message.content === process.env.backup_command &&
     message.author.id === config.administrator
@@ -668,6 +693,7 @@ export default async (message) => {
       });
     }
   }
+  */
 };
 
 /*
