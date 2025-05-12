@@ -8,17 +8,21 @@ export default async (client) => {
   //8時
   cron.schedule("0 8 * * *", async () => {
     await timechannel.send("朝の8時をお知らせしますにゃ。");
+    /*SUPABASEに移行したのでコメントアウト
     sendDatabaseBackup(client).catch((error) => {
       console.error("バックアップの送信に失敗しました:", error);
     });
+    */
   });
   //22時
   cron.schedule("0 22 * * *", async () => {
     await timechannel.send("夜の22時をお知らせしますにゃ。");
     // バックアップは非同期で実行し、処理が遅れないようにする
+    /*SUPABASEに移行したのでコメントアウト
     sendDatabaseBackup(client).catch((error) => {
       console.error("バックアップの送信に失敗しました:", error);
     });
+    */
   });
   //闘技　予選終了
   const arenachannel = await client.channels.fetch(config.arenatimech);
@@ -72,6 +76,7 @@ export default async (client) => {
   // ログイン通知ここまで
 };
 
+/* SUPABASEに移行したのでコメントアウト
 // SQLite3データベースのバックアップを送信する関数
 async function sendDatabaseBackup(client) {
   try {
@@ -86,3 +91,4 @@ async function sendDatabaseBackup(client) {
     });
   }
 }
+  */
