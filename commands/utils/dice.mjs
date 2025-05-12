@@ -32,11 +32,11 @@ export function ndnDice(ndn) {
   //最初に補正値を見る
   const modifierPattern = /([+-]\d+)$/;
   const modifierMatch = ndn.match(modifierPattern);
-  const modifier = modifierMatch ? parseInt(modifierMatch[0], 10) : null;
+  const modifier = modifierMatch ? parseInt(modifierMatch[0], 10) : 0;
   const ndnWithoutModifier = modifierMatch
     ? ndn.replace(modifierMatch[0], "")
     : ndn; //補正値を除去
-  const ModifierDisplay = modifier > 0 ? `+${modifier}` : `${modifier}`;
+  const ModifierDisplay = modifier > 0 ? `+${modifier}` : modifier === 0 ? "" : `${modifier}`;
 
   const ndnArr = ndnWithoutModifier.split("d");
   const number = ndnArr[0];
