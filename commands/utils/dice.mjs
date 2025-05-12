@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 
 export const data = new SlashCommandBuilder()
   .setName("dice")
@@ -11,9 +11,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption((option) =>
     option
       .setName("ndn")
-      .setDescription(
-        "「1d6」「１d100+10」などの形式でダイスロールを指定してね"
-      )
+      .setDescription("「1d6」「1d100+10」などの形式でダイスロールを指定してね")
       .setRequired(true)
   );
 
@@ -26,8 +24,8 @@ export async function execute(interaction) {
     });
     return;
   }
-
-  await interaction.reply(ndnDice(input));
+  const resultEmbed = ndnDice(input);
+  await interaction.reply({ embeds: [resultEmbed] });
 }
 
 export function ndnDice(ndn) {
@@ -55,7 +53,9 @@ export function ndnDice(ndn) {
     modifier > 2147483647 ||
     modifier < -2147483647
   ) {
-    return "そんなダイス振らないにゃ";
+    return new EmbedBuilder()
+      .setColor(0xff0000)
+      .setTitle("そんなダイス振らないにゃ");
   }
 
   for (let i = 0; i < number; i++) {
@@ -63,23 +63,33 @@ export function ndnDice(ndn) {
     sum += dice;
     result.push(dice);
   }
+
+  const embed = new EmbedBuilder().setTitle(
+    `${number}d${sides}${ModifierDisplay}`
+  );
+
   if (number == 1 && sides == 100 && modifier == 0) {
+    let description = `-->${sum}`;
     //1d100であればクリティカル、ファンブルの判定もする
     if (sum < 6) {
-      sum = sum + "**(クリティカル！)**";
+      description += "**(クリティカル！)**";
     }
     if (sum > 95) {
-      sum = sum + "**(ファンブル！)**";
+      description += "**(ファンブル！)**";
     }
-    return `### ${number}d${sides}\n>> ${sum}`;
-  }
-  // 結果の表示
-  if (modifier === 0) {
-    return `### ${number}d${sides}\n>> ${result.join(", ")}\n合計: ${sum}`;
+    embed.setDescription(description);
+  } else if (modifier === 0) {
+    // 結果の表示 ↓かえったらここやる
+    let description = `### ${number}d${sides}\n>> ${result.join(
+      ", "
+    )}\n合計: ${sum}`;
+    embed.setDescription(description);
   } else {
     const total = sum + modifier;
-    return `### ${number}d${sides}${ModifierDisplay}\n>> ${result.join(
+    let description = `### ${number}d${sides}${ModifierDisplay}\n>> ${result.join(
       ", "
     )}\n合計: ${sum} ${ModifierDisplay} >> ${total}`;
+    embed.setDescription(description);
   }
+  return embed;
 }

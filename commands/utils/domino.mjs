@@ -153,9 +153,9 @@ export async function dominoeffect(message, client, id, username, dpname) {
       }回目の開催は終わり、${escapeDiscordText(username)}の名が刻まれました。`,
     });
 
-  // 新しいドミノの履歴を DominoLog に保存
-  try {
-    /* // デバッグログ開始 バグ解消のためコメントアウト
+    // 新しいドミノの履歴を DominoLog に保存
+    try {
+      /* // デバッグログ開始 バグ解消のためコメントアウト
     console.log("Creating DominoLog with:");
     console.log(
       "  attemptNumber:",
@@ -175,18 +175,18 @@ export async function dominoeffect(message, client, id, username, dpname) {
     console.log("  loserName:", username, typeof username);
     // デバッグログ終了 */
 
-    await DominoLog.create({
-      attemptNumber: currentDomino.attemptNumber,
-      totalCount: currentDomino.totalCount,
-      playerCount: currentDomino.totalPlayers,
-      loserName: username,
-    });
+      await DominoLog.create({
+        attemptNumber: currentDomino.attemptNumber,
+        totalCount: currentDomino.totalCount,
+        playerCount: currentDomino.totalPlayers,
+        loserName: username,
+      });
 
-    console.log("DominoLog created successfully.");
-  } catch (error) {
-    console.error("Error creating DominoLog!");
-    //console.error("Values being used:");
-    /* // デバッグログ開始
+      console.log("DominoLog created successfully.");
+    } catch (error) {
+      console.error("Error creating DominoLog!");
+      //console.error("Values being used:");
+      /* // デバッグログ開始
     console.error(
       "  attemptNumber:",
       currentDomino.attemptNumber,
@@ -211,14 +211,14 @@ export async function dominoeffect(message, client, id, username, dpname) {
       });
     }
     // デバッグログ終了 */
-  }
+    }
 
     if (currentDomino.totalCount === 0) {
       await dominochannel.send({
         flags: [4096],
-        content: `# __★★【特別賞】0枚で終わった回数：${
-          (await DominoLog.count({ where: { totalCount: 0 } }))
-        }回目__`,
+        content: `# __★★【特別賞】0枚で終わった回数：${await DominoLog.count({
+          where: { totalCount: 0 },
+        })}回目__`,
       });
     }
     // 最高記録の更新通知 (DominoLog から取得)

@@ -1,24 +1,24 @@
 // supabaseStorage.mjs
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
 
-const BUCKET_NAME = 'amayadori';
+const BUCKET_NAME = "amayadori";
 
 function getMimeType(ext) {
   switch (ext.toLowerCase()) {
-    case 'png':
-      return 'image/png';
-    case 'webp':
-      return 'image/webp';
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg';
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
     default:
-      return 'application/octet-stream';
+      return "application/octet-stream";
   }
 }
 
@@ -36,7 +36,7 @@ async function uploadFile(fileBuffer, userId, slot, fileExt) {
     });
 
   if (uploadError) {
-    console.error('Supabase Storage へのアップロードエラー:', uploadError);
+    console.error("Supabase Storage へのアップロードエラー:", uploadError);
     return null;
   }
 
@@ -51,7 +51,7 @@ async function uploadFile(fileBuffer, userId, slot, fileExt) {
 }
 
 async function deleteFile(filePath) {
-  console.error('消したいファイル:', filePath);
+  console.error("消したいファイル:", filePath);
   if (!filePath) return true;
 
   const { error: deleteError } = await supabase.storage
@@ -59,7 +59,7 @@ async function deleteFile(filePath) {
     .remove([filePath]);
 
   if (deleteError) {
-    console.error('Supabase Storage からの削除エラー:', deleteError);
+    console.error("Supabase Storage からの削除エラー:", deleteError);
     return false;
   }
 

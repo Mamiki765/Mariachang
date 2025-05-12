@@ -52,7 +52,7 @@ const Icon = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
-      primaryKey: true // ★ userId を主キーに設定 ★
+      primaryKey: true, // ★ userId を主キーに設定 ★
     },
     iconUrl: {
       type: DataTypes.STRING,
