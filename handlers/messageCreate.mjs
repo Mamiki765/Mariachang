@@ -246,17 +246,19 @@ export default async (message) => {
   //ダイスロール
   else if (message.content.match(/^!(\d+)d(\d+)([+-]\d+)?$/)) {
     let command = message.content.slice(1); // 先頭の1文字目から最後までを取得
+    const resultEmbed = ndnDice(command);
     await message.reply({
       flags: [4096], //silent
-      content: ndnDice(command),
+      embeds: [resultEmbed],
     });
   }
   //ダイスロール
   else if (message.content.match(/^(ねこど|ひとど)$/)) {
     let command = "1d100";
+    const resultEmbed = ndnDice(command);
     await message.reply({
       flags: [4096], //silent
-      content: ndnDice(command),
+      embeds: [resultEmbed],
     });
   } else if (message.content.match(/^(チンチロリン)$/)) {
     await message.reply({
@@ -274,7 +276,8 @@ export default async (message) => {
         Math.floor(Math.random() * 3) + 4
       }`,
     });
-  }  else if (ccmatch) {   // 抽選コマンド処理 cc choice
+  } else if (ccmatch) {
+    // 抽選コマンド処理 cc choice
     const baseCommand = ccmatch[1]; // cc or choice
     const allowDuplicates = ccmatch[2] === "x"; // x がついてるか
     let count = ccmatch[3] ? parseInt(ccmatch[3], 10) : 1; // 数字がある場合は取得、なければ1
@@ -283,9 +286,10 @@ export default async (message) => {
 
     if (args.length === 0) {
       let command = "1d100";
+      const resultEmbed = ndnDice(command);
       await message.reply({
         flags: [4096], //silent
-        content: ndnDice(command),
+        embeds: [resultEmbed],
       });
     }
     if (!allowDuplicates && count > args.length) {
@@ -645,22 +649,25 @@ export default async (message) => {
       }
     }
   }
- //デバッグ用 データベース手動バックアップ
- else if (message.content === process.env.backup_command && message.author.id === config.administrator){
-     try {
-    await message.reply({
-      content: "SQLite3データベースのバックアップを取得しました。",
-      files: [".data/roleplaydb.sqlite3"],
-      ephemeral: true, // 管理者のみに表示
-    });
-  } catch (error) {
-    console.error("バックアップの送信に失敗しました:", error);
-    await message.reply({
-      content: "バックアップの送信に失敗しました。",
-      ephemeral: true,
-    });
+  //デバッグ用 データベース手動バックアップ
+  else if (
+    message.content === process.env.backup_command &&
+    message.author.id === config.administrator
+  ) {
+    try {
+      await message.reply({
+        content: "SQLite3データベースのバックアップを取得しました。",
+        files: [".data/roleplaydb.sqlite3"],
+        ephemeral: true, // 管理者のみに表示
+      });
+    } catch (error) {
+      console.error("バックアップの送信に失敗しました:", error);
+      await message.reply({
+        content: "バックアップの送信に失敗しました。",
+        ephemeral: true,
+      });
+    }
   }
- }
 };
 
 /*
