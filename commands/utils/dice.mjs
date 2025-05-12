@@ -73,23 +73,27 @@ export function ndnDice(ndn) {
     //1d100であればクリティカル、ファンブルの判定もする
     if (sum < 6) {
       description += "**(クリティカル！)**";
+      embed.setColor(0x0000FF);
     }
-    if (sum > 95) {
+    else if (sum > 95) {
       description += "**(ファンブル！)**";
+      embed.setColor(0xFF0000);
+    } else {
+      embed.setColor(0x00FF00); 
     }
     embed.setDescription(description);
   } else if (modifier === 0) {
-    // 結果の表示 ↓かえったらここやる
-    let description = `### ${number}d${sides}\n>> ${result.join(
-      ", "
-    )}\n合計: ${sum}`;
+    // 結果の表示
+    let description = `--> ${result.join(", ")}\n合計: ${sum}`;
     embed.setDescription(description);
+    embed.setColor(0x00FF00); 
   } else {
     const total = sum + modifier;
-    let description = `### ${number}d${sides}${ModifierDisplay}\n>> ${result.join(
+    let description = `--> ${result.join(
       ", "
     )}\n合計: ${sum} ${ModifierDisplay} >> ${total}`;
     embed.setDescription(description);
+    embed.setColor(0x00FF00); 
   }
   return embed;
 }
