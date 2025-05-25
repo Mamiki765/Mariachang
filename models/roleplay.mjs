@@ -29,6 +29,7 @@ const Character = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
+      primaryKey: true, // ★ ここに primaryKey: true を追加 ★
     },
     name: {
       type: DataTypes.STRING,
