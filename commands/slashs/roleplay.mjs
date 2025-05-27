@@ -517,14 +517,16 @@ export async function execute(interaction) {
 
       await interaction.editReply({
         flags: [4096],
-        content: `送信しました (このメッセージは自動で消えます)`,
+        content: `送信しました`,
         ephemeral: true,
       });
+      /*
       // 4. 送信された（編集された）メッセージの Message オブジェクトを取得
-      const confirmMessage = await interaction.fetchReply();
+      const confirmMessage = await interaction.fetchReply();// こうするべきだがエラーが出るので削除
       setTimeout(() => {
         confirmMessage.delete();
       }, 5000);
+      */
     } catch (error) {
       console.error("メッセージ送信に失敗しました:", error);
       interaction.editReply({
