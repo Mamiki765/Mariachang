@@ -257,8 +257,8 @@ export async function execute(interaction) {
         fileExt
       );
       if (result) {
-        iconUrl = result.url;       
-        deleteHash = result.path;    
+        iconUrl = result.url;
+        deleteHash = result.path;
       }
     }
 
@@ -333,7 +333,7 @@ export async function execute(interaction) {
       flags = null;
     //ファイル名決定
     const charaslot = dataslot(interaction.user.id, slot);
-
+    await interaction.deferReply({ ephemeral: true }); // ★ 250528ここで応答（考え中） ★
     try {
       loadchara = await Character.findOne({
         where: {
@@ -347,7 +347,7 @@ export async function execute(interaction) {
       });
     } catch (error) {
       console.error("キャラデータのロードに失敗しました:", error);
-      interaction.reply({
+      interaction.editReply({
         flags: [4096],
         content: `キャラデータのロードでエラーが発生しました。`,
         ephemeral: true,
@@ -356,7 +356,7 @@ export async function execute(interaction) {
     }
 
     if (!loadchara) {
-      interaction.reply({
+      interaction.editReply({
         flags: [4096],
         content: `スロット${slot}にキャラデータがありません。`,
         ephemeral: true,
@@ -376,20 +376,20 @@ export async function execute(interaction) {
       }
       */
       if (loadicon && loadicon.deleteHash) {
-  console.log("削除を試みるファイルパス:", loadicon.deleteHash);
-  const deletionResult = await deleteFile(loadicon.deleteHash);
-  console.log("削除結果:", deletionResult);
-  if (!deletionResult) {
-    console.error("古いアイコンの削除に失敗しました！");
-  }
-}
+        console.log("削除を試みるファイルパス:", loadicon.deleteHash);
+        const deletionResult = await deleteFile(loadicon.deleteHash);
+        console.log("削除結果:", deletionResult);
+        if (!deletionResult) {
+          console.error("古いアイコンの削除に失敗しました！");
+        }
+      }
 
       // 新しいアイコンをアップロード
       const fetched = await fetch(icon.url);
       const buffer = Buffer.from(await fetched.arrayBuffer());
       // サイズチェックを追加
       if (buffer.length > 1024 * 1024) {
-        await interaction.reply({
+        await interaction.editReply({
           flags: [4096],
           content: "アイコンファイルのサイズが1MBを超えています。",
           ephemeral: true,
@@ -400,7 +400,7 @@ export async function execute(interaction) {
       // 拡張子を取得
       const fileExt = icon.name.split(".").pop();
       if (!["png", "webp", "jpg", "jpeg"].includes(fileExt.toLowerCase())) {
-        await interaction.reply({
+        await interaction.editReply({
           flags: [4096],
           content:
             "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
@@ -430,7 +430,7 @@ export async function execute(interaction) {
           deleteHash: newIconPath,
         });
       } else {
-        interaction.reply({
+        interaction.editReply({
           flags: [4096],
           content: `アイコンのアップロードでエラーが発生しました。`,
           ephemeral: true,
@@ -447,7 +447,7 @@ export async function execute(interaction) {
       pbwflag = pbwflag.replace(illustratorname, copyright);
     } else {
       // `illustratorname` が含まれていない場合はエラーとして返します。(初期のデータとの互換のため)
-      interaction.reply({
+      interaction.editReply({
         flags: [4096],
         content: `大変お手数をおかけしますが、再度キャラを登録し直してください`,
         ephemeral: true,
@@ -515,17 +515,19 @@ export async function execute(interaction) {
       // IDに対してポイントの更新処理を追加
       await updatePoints(interaction.user.id);
 
-      const confirmMessage = await interaction.reply({
+      await interaction.editReply({
         flags: [4096],
         content: `送信しました (このメッセージは自動で消えます)`,
         ephemeral: true,
       });
+      // 4. 送信された（編集された）メッセージの Message オブジェクトを取得
+      const confirmMessage = await interaction.fetchReply();
       setTimeout(() => {
         confirmMessage.delete();
       }, 5000);
     } catch (error) {
       console.error("メッセージ送信に失敗しました:", error);
-      interaction.reply({
+      interaction.editReply({
         flags: [4096],
         content: `エラーが発生しました。`,
         ephemeral: true,
