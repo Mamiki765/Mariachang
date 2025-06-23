@@ -293,7 +293,7 @@ export async function execute(interaction) {
     }
   } else if (subcommand == "edit_maria_message") {
     const messageUrl = interaction.options.getString("messageurl");
-    const newMessage = interaction.options.getString("newmessage");
+    let newMessage = interaction.options.getString("newmessage");
     const newImage = interaction.options.getAttachment("newimage");
     // 改行文字を置き換え
     newMessage = newMessage
