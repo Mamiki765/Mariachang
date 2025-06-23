@@ -108,7 +108,7 @@ export const data = new SlashCommandBuilder()
           .setNameLocalizations({
             ja: "新しい内容",
           })
-          .setDescription("新しいメッセージ内容")
+          .setDescription("新しいメッセージ内容(改行は\n、<br>、@@@などでもできます)")
           .setRequired(true)
       )
       .addAttachmentOption((option) =>
@@ -295,7 +295,11 @@ export async function execute(interaction) {
     const messageUrl = interaction.options.getString("messageurl");
     const newMessage = interaction.options.getString("newmessage");
     const newImage = interaction.options.getAttachment("newimage");
-
+    // 改行文字を置き換え
+    newMessage = newMessage
+      .replace(/@@@/g, "\n")
+      .replace(/<br>/g, "\n")
+      .replace(/\\n/g, "\n");
     // メッセージIDとチャンネルIDをURLから取得
     const urlParts = messageUrl.match(/\/channels\/\d+\/(\d+)\/(\d+)/);
     if (!urlParts) {
