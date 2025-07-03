@@ -470,7 +470,7 @@ export default async (message) => {
     } //dmなら無視
     let updatedMessage = message.content
       .replace(/https:\/\/twitter\.com/g, "https://fxtwitter.com")
-      .replace(/https:\/\/x\.com/g, "https://fixupx.com");
+      .replace(/https:\/\/x\.com/g, "https://fixvx.com");
     //nsfwチャンネルならpixivも
     if (message.channel.nsfw || message.channel.parent?.nsfw) {
       updatedMessage = updatedMessage.replace(
