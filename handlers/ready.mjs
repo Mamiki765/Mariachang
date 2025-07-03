@@ -28,10 +28,11 @@ export default async (client) => {
   const arenachannel = await client.channels.fetch(config.arenatimech);
   cron.schedule("0 17 * * 1", async () => {//250509 14→17時に
     await arenachannel.send(
-      "【自動】 [闘技場の予選終了時間です。](<https://rev2.reversion.jp/arena/official>)\n本戦開始までAIやステータスを更新することができます。\n決勝トーナメント表を確認してください。"
+      "【自動】 [闘技場の予選終了時間です。](<https://rev2.reversion.jp/arena/official>)\n明日10時までAIやステータスを更新することができます。(本戦開始後は大会終了まで更新することができません)\n決勝トーナメント表を確認してください。"
     );
   });
     //闘技　ベスト４
+/* 250703ロスアカ本戦以降AIいじれなくなったので削除
   cron.schedule("0 14 * * 2", async () => {
     await arenachannel.send(
       "【自動】 [火曜日の闘技場終了時間です。](<https://rev2.reversion.jp/arena/official>)\nベスト４に残った人は準決勝開始までAIやステータスを更新することができます。"
@@ -43,6 +44,7 @@ export default async (client) => {
       "【自動】 [準決勝終了時間です。](<https://rev2.reversion.jp/arena/official>)\nベスト４に残った人は3位決定戦・決勝戦の作戦を送信しましょう。"
     );
   });
+*/
   //闘技　本戦終了
   cron.schedule("0 14 * * 5", async () => {
     await arenachannel.send(
