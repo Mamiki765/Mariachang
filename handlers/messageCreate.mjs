@@ -19,7 +19,7 @@ import { deletebuttonunique } from "../components/buttons.mjs";
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
 const rev2AtelierurlPattern =
-  /https:\/\/rev2\.reversion\.jp\/(?:illust\/detail\/ils(\d+)|illust\/sketchbook\/illust\/(\d+))/;
+  /https:\/\/rev2\.reversion\.jp\/(?:illust\/detail\/ils(\d+)|illust\/sketchbook\/illust\/(\d+))/g;
 //その他ロスアカ短縮形検知
 // パターンと対応するURLのテンプレート
 const rev2urlPatterns = {
