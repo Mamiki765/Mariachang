@@ -17,8 +17,9 @@ import {
 import { deletebuttonunique } from "../components/buttons.mjs";
 
 //ロスアカのアトリエURL検知用
+//250706 スケッチブックにも対応
 const rev2AtelierurlPattern =
-  /https:\/\/rev2\.reversion\.jp\/illust\/detail\/ils(\d+)/g;
+  /https:\/\/rev2\.reversion\.jp\/(?:illust\/detail\/ils(\d+)|illust\/sketchbook\/illust\/(\d+))/;
 //その他ロスアカ短縮形検知
 // パターンと対応するURLのテンプレート
 const rev2urlPatterns = {
@@ -337,12 +338,8 @@ export default async (message) => {
     });
   }
 
-  //ロスアカアトリエURLが貼られた時、画像を取得する機能
-  if (
-    message.content.match(
-      /https:\/\/rev2\.reversion\.jp\/illust\/detail\/ils(\d+)/
-    )
-  ) {
+  //ロスアカアトリエURL＋250706スケッチブックURLが貼られた時、画像を取得する機能
+  if (message.content.match(rev2AtelierurlPattern)) {
     const matches = [...message.content.matchAll(rev2AtelierurlPattern)]; // 全てのマッチを取得
 
     if (matches.length > 0) {
@@ -368,8 +365,16 @@ export default async (message) => {
 
             // 一致するEmbedがあれば、サムネイルURLを配列に追加
             if (embed && embed.thumbnail && embed.thumbnail.url) {
-              if (!thumbnails.includes(embed.thumbnail.url)) {
-                thumbnails.push(embed.thumbnail.url);
+              // ここに除外処理を追加　250706ロスアカデフォサムネ
+              if (embed.thumbnail.url !== "https://rev2.reversion.jp/og.webp") {
+                // 除外条件を追加
+                if (!thumbnails.includes(embed.thumbnail.url)) {
+                  thumbnails.push(embed.thumbnail.url);
+                }
+              } else {
+                console.log(
+                  `デフォルトのサムネイルURL ${embed.thumbnail.url} は除外されました。`
+                );
               }
             } else {
               console.log(
@@ -392,8 +397,19 @@ export default async (message) => {
                       retryEmbed.thumbnail &&
                       retryEmbed.thumbnail.url
                     ) {
-                      if (!thumbnails.includes(retryEmbed.thumbnail.url)) {
-                        thumbnails.push(retryEmbed.thumbnail.url);
+                      // リトライ時にも除外処理を追加
+                      if (
+                        retryEmbed.thumbnail.url !==
+                        "https://rev2.reversion.jp/og.webp"
+                      ) {
+                        // 除外条件を追加
+                        if (!thumbnails.includes(retryEmbed.thumbnail.url)) {
+                          thumbnails.push(retryEmbed.thumbnail.url);
+                        }
+                      } else {
+                        console.log(
+                          `リトライでもデフォルトのサムネイルURL ${retryEmbed.thumbnail.url} は除外されました。`
+                        );
                       }
                     } else {
                       console.log(
