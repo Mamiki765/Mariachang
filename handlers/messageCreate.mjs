@@ -216,7 +216,19 @@ export default async (message) => {
       content: "にゃ～ん",
     });
   }
-
+  //私が知ります！
+  else if (message.content.match(/私が知ります！/)) {
+    await message.reply({
+      flags: [4096],
+      content: "それは、わくわく taşıy",
+    });
+  }
+  else if (message.content.match(/^それは、わくわく taşıy$/)) {
+    await message.reply({
+      flags: [4096],
+      content: "ん!!!（しらけました）",
+    });
+  }
   //ほったいも
   else if (
     message.content.match(
