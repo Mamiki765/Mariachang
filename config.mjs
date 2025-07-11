@@ -1,6 +1,7 @@
 //トークンなど機密事項やタイムゾーンはdotenvで管理すること！
 //import config from '../config.mjs'; などで読み込む
 export default {
+  botid:"1252534800095645766",//このbot自身のID
   administrator: "373785633283506176",//Bot管理者のID
   privatecategory: [
     //プライベートカテゴリのIDリスト

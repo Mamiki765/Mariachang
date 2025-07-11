@@ -40,6 +40,15 @@ export default async (message) => {
   //ccやchoiceでのテスト
   const ccmatch = message.content.match(/^!(cc|choice)(x?)(\d*)\s+/);
   // ここから反応
+  //メンション
+    if (message.mentions.has(config.botid)) {
+        const url = message.guild
+    ? `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`
+    : "（DM）";
+    await message.client.channels.cache.get(config.logch.admin)?.send({
+      content: `<@${message.author.id}>:${message.content} > ${url})`
+    });
+  }
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
     await message.react("🥔");
