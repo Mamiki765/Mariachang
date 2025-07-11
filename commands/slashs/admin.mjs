@@ -507,7 +507,7 @@ export async function execute(interaction) {
           new EmbedBuilder()
             .setTitle("タイムアウト")
             .setDescription(
-              `${member.displayName}を${minutes}分間タイムアウトしました`
+              `${member.displayName}を${nerunonya}分間タイムアウトしました`
             )
             .setColor("#FF0000")
             .addFields(
@@ -529,7 +529,7 @@ export async function execute(interaction) {
             .setTitle("タイムアウトログ")
             .setColor("#FFD700")
             .setDescription(
-              `対象\`\`\`\n${user.username} (ID:${user.id})\n\`\`\`\n時間\`\`\`\n${nerunonya}分(${days}日${hours}時間${minutes}分)\n\`\`\``
+              `対象\`\`\`\n${user.username} (ID:${user.id})\n\`\`\`\n時間\`\`\`\n${nerunonya}分(${days}日${hours}時間${minutes}分)\n\`\`\`\n理由\`\`\`\n${reason} \n\`\`\``
             )
             .setThumbnail(
               interaction.user.displayAvatarURL({
