@@ -46,7 +46,8 @@ export default async (message) => {
     ? `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`
     : "（DM）";
     await message.client.channels.cache.get(config.logch.admin)?.send({
-      content: `<@${message.author.id}>:${message.content} > ${url})`
+      flags: [4096],
+      content: `<@${message.author.id}>:${message.content} > ${url}`
     });
   }
   //リアクション
