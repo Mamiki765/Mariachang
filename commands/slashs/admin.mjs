@@ -108,7 +108,9 @@ export const data = new SlashCommandBuilder()
           .setNameLocalizations({
             ja: "新しい内容",
           })
-          .setDescription("新しいメッセージ内容(改行は\n、<br>、@@@などでもできます)")
+          .setDescription(
+            "新しいメッセージ内容(改行は\n、<br>、@@@などでもできます)"
+          )
           .setRequired(true)
       )
       .addAttachmentOption((option) =>
@@ -144,6 +146,7 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
       )
   )
+  //メモ閲覧
   .addSubcommand((subcommand) =>
     subcommand
       .setName("memo_list")
@@ -158,6 +161,7 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
       )
   )
+  //メモ削除（非表示）
   .addSubcommand((subcommand) =>
     subcommand
       .setName("memo_remove")
@@ -170,6 +174,34 @@ export const data = new SlashCommandBuilder()
           .setName("memo_id")
           .setDescription("削除するメモのID")
           .setRequired(true)
+      )
+  )
+  //タイムアウト
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("timeout")
+      .setNameLocalizations({
+        ja: "タイムアウト",
+      })
+      .setDescription("対象をタイムアウトさせます")
+      .addUserOption((option) =>
+        option
+          .setName("user")
+          .setDescription("タイムアウトさせるユーザー")
+          .setRequired(true)
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName("minutes")
+          .setDescription(
+            "タイムアウトする時間を分単位で入力してください、最大28日(40320分)"
+          )
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(40320)
+      )
+      .addStringOption((option) =>
+        option.setName("reason").setDescription("理由").setRequired(false)
       )
   );
 
@@ -448,5 +480,74 @@ export async function execute(interaction) {
       content: `✅ メモ (ID: ${memoId}) を非表示にしました。`,
       ephemeral: true,
     });
+  } else if (subcommand == "timeout") {
+    //タイムアウト
+    const user = interaction.options.getUser("user");
+    const reason = interaction.options.getString("reason") || "理由未記入";
+    const nerunonya = interaction.options.getInteger("minutes");
+    const days = Math.floor(nerunonya / 1440); // 日を計算
+    const hours = Math.floor((nerunonya % 1440) / 60); // 時間を計算
+    const minutes = nerunonya % 60; // 残りの分を計算
+    //タイムアウト開始
+    try {
+      const sleaptime = 60 * 1000 * nerunonya;
+      const timestamp = Math.floor(Date.now() / 1000);
+      const waketimestamp = Math.floor((Date.now() + sleaptime) / 1000);
+      const member = interaction.guild.members.cache.get(user.id);
+      if (!member)
+        return interaction.reply({
+          content: "対象メンバーが見つかりません。",
+          ephemeral: true,
+        });
+
+      await member.timeout(sleaptime, reason);
+      await interaction.reply({
+        ephemeral: true,
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("タイムアウト")
+            .setDescription(
+              `${member.displayName}を${minutes}分間タイムアウトしました`
+            )
+            .setColor("#FF0000")
+            .addFields(
+              {
+                name: "開始時刻",
+                value: `<t:${timestamp}:f>`,
+              },
+              {
+                name: "終了時刻",
+                value: `<t:${waketimestamp}:f>`,
+                inline: true,
+              }
+            ),
+        ],
+      });
+      await interaction.client.channels.cache.get(config.logch.admin).send({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("タイムアウトログ")
+            .setColor("#FFD700")
+            .setDescription(
+              `対象\`\`\`\n${user.username} (ID:${user.id})\n\`\`\`\n時間\`\`\`\n${nerunonya}分(${days}日${hours}時間${minutes}分)\n\`\`\``
+            )
+            .setThumbnail(
+              interaction.user.displayAvatarURL({
+                dynamic: true,
+              })
+            )
+            .setTimestamp()
+            .addFields({
+              name: "送信者",
+              value: `${interaction.member.displayName}(ID:${interaction.user.id})`,
+            }),
+        ],
+      });
+    } catch (error) {
+      interaction.reply({
+        ephemeral: true,
+        content: `このユーザーにはタイムアウトできません（Botのロール順などを確認してください）`,
+      });
+    }
   }
 }
