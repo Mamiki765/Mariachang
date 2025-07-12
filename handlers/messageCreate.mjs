@@ -41,7 +41,7 @@ export default async (message) => {
   const ccmatch = message.content.match(/^!(cc|choice)(x?)(\d*)\s+/);
   // ここから反応
   //メンション
-    if (message.mentions.has(config.botid)) {
+    if (message.mentions.has(config.botid) && !message.mentions.everyone) {
         const url = message.guild
     ? `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`
     : "（DM）";
