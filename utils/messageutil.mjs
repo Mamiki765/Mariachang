@@ -87,7 +87,7 @@ export async function sendMessage(message, newmessage, fileUrls, embeds, flag) {
   } else {
     //元メッセージが返信でない場合
     try {
-      webhook.send({
+      await webhook.send({// ★ awaitがないと送信完了を待たず、エラー捕捉やメッセージ削除に影響
         content: `<@${message.author.id}>:\n${newmessage}`,
         files: fileUrls,
         embeds: embeds,
