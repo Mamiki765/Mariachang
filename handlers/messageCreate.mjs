@@ -41,7 +41,7 @@ export default async (message) => {
   const ccmatch = message.content.match(/^!(cc|choice)(x?)(\d*)\s+/);
   // ここから反応
   //メンション
-    if (message.mentions.has(config.botid) && !message.mentions.everyone) {
+    if (message.mentions.has(config.botid) && !message.mentions.everyone && !(message.channel.nsfw || message.channel.parent?.nsfw)) {//250718 NSFWチャンネルでは反応しないように
         const url = message.guild
     ? `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`
     : "（DM）";
