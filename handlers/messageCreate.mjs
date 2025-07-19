@@ -133,7 +133,7 @@ export default async (message) => {
   } else if (message.content.match(/^(結月 沙耶|結月沙耶|ゆづきさや)$/)) {
     await message.reply({
       flags: [4096], //@silentになる
-      content: "https://rev1.reversion.jp/character/detail/p3p009126",
+      content: "https://rev2.reversion.jp/character/detail/r2p005734",
     });
   } else if (message.content.match(/^(てんこ)$/)) {
     await message.reply({
