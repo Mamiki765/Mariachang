@@ -57,8 +57,11 @@ export default async (message) => {
   if (message.content.match(/にょわ|ニョワ|ﾆｮﾜ|nyowa/)) {
     await message.react("1264010111970574408");
   }
-  if (message.content.match(/にょぼし|ニョボシ|ﾆｮﾎﾞｼ|nyobosi/)) {
+  if (message.content.match(/にょぼし(?!ふゆ)|ニョボシ(?!フユ)|ﾆｮﾎﾞｼ(?!ﾌﾕ)|nyobosi(?!fuyu)/)) {
     await message.react("1293141862634229811");
+  }
+  if (message.content.match(/にょぼしふゆ|ニョボシフユ|ﾆｮﾎﾞｼﾌﾕ|nyobosifuyu/)) {
+    await message.react("1396542940096237658");
   }
   if (message.content.match(/ミョミョミョワァァーン|ﾐｮﾐｮﾐｮﾜｧｧｰﾝ/)) {
     await message.react("1264883879794315407");
