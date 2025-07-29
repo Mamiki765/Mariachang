@@ -1,5 +1,5 @@
 # 1. ベースイメージをpackage.jsonの指定に合わせてNode.js v16にする
-FROM node:16-slim
+FROM node:18-slim
 
 # 2. sqlite3のビルドツールと、Chromium及びその依存関係をインストールする
 RUN apt-get update && apt-get install -y \
