@@ -4,8 +4,7 @@
   "description": "Alter from MiniPotato Bot by EOi",
   "main": "main.mjs",
   "scripts": {
-    "start": "node main.mjs",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "start": "node main.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
@@ -15,7 +14,7 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "pg": "^8.15.6",
-    "puppeteer": "^24.15.0",
+    "puppeteer-core": "^24.15.0",
     "rss-parser": "^3.13.0",
     "sequelize": "^6.37.3",
     "sequelize-cli": "^6.6.2",
