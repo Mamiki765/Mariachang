@@ -1,6 +1,6 @@
 // scenario.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import puppeteer from "puppeteer"; // Playwrightを使う場合は 'playwright' に変更
+import puppeteer from "puppeteer-core"; // 'puppeteer' から 'puppeteer-core' に変更
 
 export const data = new SlashCommandBuilder()
   .setName("scenario")
@@ -14,21 +14,21 @@ export async function execute(interaction) {
 
   let browser;
   try {
-    // --- Puppeteerの起動とメモリ最適化設定 ---
+    // 2. puppeteer.launchにexecutablePathを追加
     browser = await puppeteer.launch({
-      headless: "new", // 最新のヘッドレスモードを使用
+      headless: "new",
+      // KoyebのシステムパッケージでインストールされたChromiumのパスを指定
+      executablePath: '/usr/bin/chromium', 
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-gpu",
-        "--disable-dev-shm-usage", // メモリ不足対策
-        "--single-process", // シングルプロセスモードでメモリ節約
-        "--disable-accelerated-mhtml-generation", // メモリ消費を抑える可能性
-        "--disable-features=IsolateOrigins,site-per-process", // メモリ使用量を削減する可能性
-        "--incognito", // シークレットモードでキャッシュを無効化
+        "--disable-dev-shm-usage",
+        "--single-process",
+        "--disable-accelerated-mhtml-generation",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--incognito",
       ],
-      // puppeteer-coreを使用する場合や、特定のChromiumパスを指定する場合
-      // executablePath: 'パス/to/chromium'
     });
     const page = await browser.newPage();
 
