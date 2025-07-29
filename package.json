@@ -4,7 +4,8 @@
   "description": "Alter from MiniPotato Bot by EOi",
   "main": "main.mjs",
   "scripts": {
-    "start": "node main.mjs"
+    "start": "node main.mjs",
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
