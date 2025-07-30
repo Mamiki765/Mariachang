@@ -16,18 +16,21 @@ export async function execute(interaction) {
   try {
     // 2. puppeteer.launchにexecutablePathを追加
     browser = await puppeteer.launch({
-      headless: "new",
-      // KoyebのシステムパッケージでインストールされたChromiumのパスを指定
-      executablePath: '/usr/bin/chromium', 
+      // "new" から古い（しかし軽量な場合がある）ヘッドレスモードに変更
+      headless: true, 
+      executablePath: '/usr/bin/chromium',
       args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-gpu",
-        "--disable-dev-shm-usage",
-        "--single-process",
-        "--disable-accelerated-mhtml-generation",
-        "--disable-features=IsolateOrigins,site-per-process",
-        "--incognito",
+        '--no-sandbox',
+        // --no-sandbox とセットで使われることが多い、重要なオプション
+        '--disable-setuid-sandbox', 
+        // 共有メモリを使わず、メモリ不足エラーを防ぐ
+        '--disable-dev-shm-usage',
+        // GPUアクセラレーションを無効化
+        '--disable-gpu',
+        // メモリ削減のためにzygoteプロセスを無効化
+        '--no-zygote',
+        // シングルプロセスで動作させ、メモリをさらに節約
+        '--single-process', 
       ],
     });
     const page = await browser.newPage();
