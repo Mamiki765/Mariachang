@@ -71,29 +71,55 @@ export async function execute(interaction) {
       });
       return;
     }
+    // 1. フィルター：参加できないシナリオを除外する
+    const excludedTypes = ['DISCUSSION', 'OUT_OF_ACTION'];
+    const displayableScenarios = scenarios.filter(s => !excludedTypes.includes(s.action_type));
 
-    // Embedに表示するためにデータを整形
-    const fields = scenarios.slice(0, 25).map((s) => {
-      // source_name が存在し、かつ空文字列でなければ表示
-      const sourceNameDisplay =
-        s.source_name && s.source_name.trim() !== ""
-          ? `<${s.source_name}>`
-          : "";
+    // もし表示できるシナリオが一つもなかった場合のメッセージ
+    if (displayableScenarios.length === 0) {
+      await interaction.editReply({ content: "現在参加・予約可能なシナリオはありません。" });
+      return;
+    }
 
-      return {
-        name: "\u200b", // 空行を挿入
-        inline: false,
-        value: `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id}) 📖 ${s.creator.penname} (${s.creator.type}) ${s.type} ${s.difficulty} ${s.current_member_count}/${s.max_member_count}人`,
-      };
-    });
+    // 2. 変換：action_typeを日本語に変換するための「対応表」オブジェクト
+    const actionTypeMap = {
+      'RESERVABLE': '予約期間中',
+      'JOINABLE': '参加受付中',
+      'SUPPORTABLE': 'サポート可',
+      // フィルターで除外されるものも、念のため入れておくと将来的に安全です
+      'DISCUSSION': '相談期間中',
+      'OUT_OF_ACTION': '結果待ち・完了'
+    };
+
+    // descriptionに入れるための文字列を生成
+    const scenarioLines = [];
+
+    // 3. ループと表示文字列の組み立て
+    // フィルター後の `displayableScenarios` 配列を使う
+    for (const s of displayableScenarios.slice(0, 25)) { 
+      
+      // 変換処理：対応表を使って日本語に変換。もし対応表になければ「不明」とする
+      const statusText = actionTypeMap[s.action_type] || '不明';
+
+      const sourceNameDisplay = (s.source_name && s.source_name.trim() !== '') ? `<${s.source_name}> ` : '';
+      
+      // 変換後の `statusText` を表示に含める
+      const line = `**${statusText}** | ${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id}) 📖 ${s.creator.penname}`;
+      scenarioLines.push(line);
+    }
+    
+    const descriptionText = scenarioLines.join('\n');
+
+    if (descriptionText.length > 4096) {
+        descriptionText = descriptionText.substring(0, 4090) + "\n...";
+    }
 
     const embed = new EmbedBuilder()
       .setTitle("Lost Arcadia シナリオ一覧")
-      .setDescription(`現在 ${scenarios.length} 件のシナリオが見つかりました。`)
-      .addFields(fields)
-      .setColor("#5865F2") // Discord Burple
+      .setDescription(descriptionText)
+      .setColor("#5865F2")
       .setTimestamp()
-      .setFooter({ text: "取得成功！" });
+      .setFooter({ text: `現在 ${displayableScenarios.length} 件が募集中です。` });
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
