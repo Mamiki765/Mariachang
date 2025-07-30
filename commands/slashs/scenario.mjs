@@ -1,211 +1,76 @@
-// scenario.mjs
+// scenario.mjs (API直通・最終完成版)
+
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import puppeteer from "puppeteer-core"; // 'puppeteer' から 'puppeteer-core' に変更
+import axios from 'axios';
 
 export const data = new SlashCommandBuilder()
   .setName("scenario")
   .setNameLocalizations({
-    ja: "テスト中",
+    ja: "シナリオ",
   })
-  .setDescription("Lost Arcadiaのシナリオ一覧を取得します。");
+  .setDescription("Lost Arcadiaのシナリオ一覧をAPIから直接取得します。");
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true }); // 処理に時間がかかるのでDeferred Replyを使用
+  await interaction.deferReply({ ephemeral: true });
 
-  let browser;
   try {
-    // 2. puppeteer.launchにexecutablePathを追加
-    browser = await puppeteer.launch({
-      // "new" から古い（しかし軽量な場合がある）ヘッドレスモードに変更
-      headless: true, 
-      executablePath: '/usr/bin/chromium',
-      args: [
-        '--no-sandbox',
-        // --no-sandbox とセットで使われることが多い、重要なオプション
-        '--disable-setuid-sandbox', 
-        // 共有メモリを使わず、メモリ不足エラーを防ぐ
-        '--disable-dev-shm-usage',
-        // GPUアクセラレーションを無効化
-        '--disable-gpu',
-        // メモリ削減のためにzygoteプロセスを無効化
-        '--no-zygote',
-        // シングルプロセスで動作させ、メモリをさらに節約
-        '--single-process', 
-      ],
-    });
-    const page = await browser.newPage();
+    // curlコマンドから特定したAPIのURL
+    const apiUrl = 'https://rev2.reversion.jp/graphql?opname=OpeningList';
 
-    // --- 不要なリソースのブロック ---
-    await page.setRequestInterception(true);
-    page.on("request", (request) => {
-      // 画像、CSS、フォント、メディア、ウェブソケットなど、不要なリソースをブロック
-      if (
-        ["image", "stylesheet", "font", "media", "websocket"].indexOf(
-          request.resourceType()
-        ) !== -1
-      ) {
-        request.abort();
-      } else {
-        request.continue();
-      }
-    });
+    // curlの --data-raw に相当するリクエスト本体（ペイロード）
+    const payload = {
+      "operationName": "OpeningList",
+      "variables": {
+        "input": {
+          "states": ["PUBLISHED", "RESERVING", "DISCUSSION", "DEPARTED"],
+          "type": null, "character_id": null, "creator_id": null,
+          "penname": null, "heading": null, "title": null, "include_gm": null,
+          "include_nm": null, "include_old_rally": null, "supportable": null,
+          "allow_ex_playing": null
+        }
+      },
+      "query": "query OpeningList($input: Rev2ScenarioSearchInput!) {\n  rev2OpeningList(input: $input) {\n    ...ScenarioSummary\n    __typename\n  }\n  rev2ScenarioResources {\n    type\n    value\n    __typename\n  }\n}\n\nfragment ScenarioSummary on Rev2ScenarioSummary {\n  id\n  icon_url\n  source_name\n  title\n  catchphrase\n  creator {\n    id\n    penname\n    image_icon_url\n    type\n    __typename\n  }\n  state\n  type\n  is_light\n  time\n  time_type\n  discussion_days\n  current_chapter\n  difficulty\n  current_member_count\n  max_member_count\n  action_type\n  can_use_ex_playing\n  can_use_ticket\n  can_support\n  max_reserver_count_by_player\n  join_conditions\n  reserve_category {\n    ...ScenarioReserveCategory\n    __typename\n  }\n  joining_type\n  join_cost\n  join_cost_type\n  my_priority\n  __typename\n}\n\nfragment ScenarioReserveCategory on Rev2ScenarioReserveCategory {\n  id\n  name\n  description\n  max_joinable\n  rp_penalty\n  penalty_start\n  __typename\n}"
+    };
 
-    await page.goto("https://rev2.reversion.jp/scenario", {
-      waitUntil: "domcontentloaded", // DOMContentLoadedで待機し、余計なリソース読み込みを削減
-      timeout: 30000, // タイムアウト設定（30秒）
-    });
+    // curlの -H に相当するヘッダー
+    const headers = {
+      'Content-Type': 'application/json',
+      // 念のため、ブラウザからのリクエストに見せかける
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+    };
 
-    // --- シナリオ情報の抽出 ---
-    const scenarioData = await page.evaluate(() => {
-      const results = [];
-      // 各シナリオのアイテムは '.scenario-panel' クラスを持つ `<a>` タグで囲まれています
-      const scenarioElements = document.querySelectorAll(
-        'a[href*="/scenario/opening/sce"]'
-      ); // `a` タグかつhrefがscenario/opening/sceで始まるもの
+    // axiosでPOSTリクエストを送信
+    const response = await axios.post(apiUrl, payload, { headers, timeout: 15000 });
 
-      scenarioElements.forEach((element) => {
-        // 各情報のセレクタをHTMLに合わせて調整
-        const href = element.getAttribute("href");
-        const scenarioId = href ? href.split("/").pop() : null; // "sce00003593" のようなIDを取得
+    // 取得したデータからシナリオのリスト部分を取り出す
+    const scenarios = response.data.data.rev2OpeningList;
 
-        // シナリオグループ名 (例: 町田行軍)
-        const scenarioGroupElement = element.querySelector(
-          ".scenario-item-subtitle"
-        );
-        const scenarioGroup = scenarioGroupElement
-          ? scenarioGroupElement.textContent.trim()
-          : "N/A";
-
-        // タイトル (例: ひまわり畑でつかまえないで)
-        const titleElement = element.querySelector(".scenario-item-title");
-        const title = titleElement ? titleElement.textContent.trim() : "N/A";
-
-        // 執筆者 (例: 黒筆墨汁) - 本の絵文字はtextContentに含まれないので問題なし
-        const authorElement = element.querySelector(".creator-content");
-        const author = authorElement ? authorElement.textContent.trim() : "N/A";
-
-        // 日時 (例: 7月30日 22時15分 予約抽選)
-        const dateElement = element.querySelector(
-          ".scenario-item-date > div:first-child"
-        );
-        const date = dateElement ? dateElement.textContent.trim() : "N/A";
-
-        // 抽選カテゴリー (例: デフォルト)
-        // SVGアイコンを含むため、テキストコンテンツから取得
-        const categoryElement = element.querySelector(
-          ".scenario-item-date a > span"
-        );
-        const category = categoryElement
-          ? categoryElement.textContent.trim()
-          : "N/A";
-
-        // 最大参加人数 (例: 10)
-        // SVGアイコンの次にあるテキストとして取得
-        const maxParticipantsElement = element.querySelector(
-          ".scenario-item-member-max"
-        );
-        const maxParticipants = maxParticipantsElement
-          ? maxParticipantsElement.textContent.replace(/[^0-9]/g, "").trim()
-          : "N/A"; // 数字のみ抽出
-
-        // 状態 (例: 予約期間中)
-        const statusElement = element.querySelector(
-          ".scenario-item-member-state"
-        );
-        const status = statusElement ? statusElement.textContent.trim() : "N/A";
-
-        // 種別 (例: スタンダードEX)
-        // '.scenario-item-tail-item' の2番目の `div` が値を持つ
-        const typeElement = element.querySelector(
-          ".scenario-item-tail-item:nth-child(1) > div:last-child"
-        );
-        const type = typeElement ? typeElement.textContent.trim() : "N/A";
-
-        // 難易度 (例: HARD)
-        const difficultyElement = element.querySelector(
-          ".scenario-item-tail-item:nth-child(2) > div:last-child"
-        );
-        const difficulty = difficultyElement
-          ? difficultyElement.textContent.trim()
-          : "N/A";
-
-        // 相談日数 (例: 7日)
-        const consultationDaysElement = element.querySelector(
-          ".scenario-item-tail-item:nth-child(3) > div:last-child"
-        );
-        const consultationDays = consultationDaysElement
-          ? consultationDaysElement.textContent.trim()
-          : "N/A";
-
-        // 参加予約費 (例: 200 RC)
-        const rcElement = element.querySelector(
-          ".scenario-item-tail-item:nth-child(4) > div:last-child"
-        );
-        const rc = rcElement ? rcElement.textContent.trim() : "N/A";
-
-        results.push({
-          id: scenarioId,
-          scenarioGroup: scenarioGroup,
-          title: title,
-          author: author,
-          date: date,
-          category: category,
-          maxParticipants: maxParticipants,
-          status: status,
-          type: type,
-          difficulty: difficulty,
-          consultationDays: consultationDays,
-          rc: rc,
-        });
-      });
-      return results;
-    });
-
-    // --- 取得した情報からDiscord Embedを生成 ---
-    if (scenarioData.length === 0) {
-      await interaction.editReply({
-        content: "シナリオ情報が見つかりませんでした。",
-        ephemeral: true,
-      });
+    if (!scenarios || scenarios.length === 0) {
+      await interaction.editReply({ content: "シナリオ情報が見つかりませんでした。" });
       return;
     }
 
-    // タイトルと執筆者の一覧を作成
-    let displayList = "";
-    scenarioData.slice(0, 10).forEach((s, index) => {
-      // とりあえず最初の10件を表示
-      displayList += `${index + 1}. **${s.title}** (執筆者: ${s.author})\n`;
-    });
+    // Embedに表示するためにデータを整形
+    const fields = scenarios.slice(0, 25).map(s => ({
+      name: `📖 ${s.creator.penname}`,
+      value: `[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})`
+    }));
 
     const embed = new EmbedBuilder()
-      .setTitle("Lost Arcadia シナリオ一覧 (一部)")
-      .setDescription(displayList || "取得したシナリオがありませんでした。")
-      .setColor("#0099ff")
+      .setTitle("Lost Arcadia シナリオ一覧")
+      .setDescription(`現在 ${scenarios.length} 件のシナリオが募集中です。（API直通）`)
+      .addFields(fields)
+      .setColor("#5865F2") // Discord Burple
       .setTimestamp()
-      .setFooter({ text: "最新の情報です。" });
+      .setFooter({ text: "取得成功！" });
 
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (error) {
+    console.error("シナリオ取得中にエラーが発生しました:", error.response ? error.response.data : error.message);
     await interaction.editReply({
-      embeds: [embed],
+      content: "シナリオの取得中にエラーが発生しました。詳細はログを確認してください。",
       ephemeral: true,
     });
-  } catch (error) {
-    console.error("シナリオ取得中にエラーが発生しました:", error);
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({
-        content:
-          "シナリオの取得中にエラーが発生しました。時間を置いて再度お試しください。",
-        ephemeral: true,
-      });
-    } else {
-      await interaction.reply({
-        content:
-          "シナリオの取得中にエラーが発生しました。時間を置いて再度お試しください。",
-        ephemeral: true,
-      });
-    }
-  } finally {
-    if (browser) {
-      await browser.close(); // ブラウザインスタンスを必ず閉じる
-    }
   }
 }

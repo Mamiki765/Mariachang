@@ -14,7 +14,6 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "pg": "^8.15.6",
-    "puppeteer-core": "^24.15.0",
     "rss-parser": "^3.13.0",
     "sequelize": "^6.37.3",
     "sequelize-cli": "^6.6.2",
