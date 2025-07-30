@@ -74,7 +74,7 @@ export async function execute(interaction) {
       const sourceNameDisplay = (s.source_name && s.source_name.trim() !== '') ? `<${s.source_name}>` : '';
 
       return {
-        value: `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id}) 📖 ${s.creator.penname} (${s.creator.type}) ${s.type} ${s.difficulty} ${currentMemberCount}/${s.max_member_count}人`,
+        value: `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id}) 📖 ${s.creator.penname} (${s.creator.type}) ${s.type} ${s.difficulty} ${s.current_member_count}/${s.max_member_count}人`,
       };
     });
 
