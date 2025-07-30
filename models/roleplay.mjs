@@ -231,6 +231,34 @@ const AdminMemo = sequelize.define(
   }
 );
 
+//依頼一覧モデル（ロスアカ）
+const Scenario = sequelize.define(
+  "Scenario",
+  {
+    // "sce00001234"のようなIDを主キーとして保存
+    id: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      primaryKey: true,
+    },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    creator_penname: {
+      type: DataTypes.STRING,
+    },
+    // 将来の拡張のために、状態も保存しておくと便利
+    status: {
+        type: DataTypes.STRING,
+    }
+  },
+  {
+    tableName: "scenarios", // DB内のテーブル名
+    timestamps: true, // いつ追加されたか自動で記録してくれる
+  }
+);
+
 // データベースの同期処理
 async function syncModels() {
   try {
@@ -242,6 +270,7 @@ async function syncModels() {
     //    await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
+    await Scenario.sync({ alter: true });
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
@@ -258,4 +287,5 @@ export {
   AdminMemo,
   syncModels,
   DominoLog, // ← 追加
+  Scenario, // シナリオモデルをエクスポート
 };
