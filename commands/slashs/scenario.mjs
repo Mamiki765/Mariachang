@@ -102,9 +102,12 @@ export async function execute(interaction) {
       const statusText = actionTypeMap[s.action_type] || '不明';
 
       const sourceNameDisplay = (s.source_name && s.source_name.trim() !== '') ? `<${s.source_name}> ` : '';
+
+      // max_member_countがnullなら「∞」、そうでなければその数値を採用
+      const maxMemberText = s.max_member_count === null ? '∞' : s.max_member_count;
       
       // 文字列の組み立て
-      const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${s.max_member_count}人|**${statusText}**`;
+      const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**`;
       scenarioLines.push(line);
     }
     
