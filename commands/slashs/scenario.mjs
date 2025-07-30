@@ -103,8 +103,8 @@ export async function execute(interaction) {
 
       const sourceNameDisplay = (s.source_name && s.source_name.trim() !== '') ? `<${s.source_name}> ` : '';
       
-      // 変換後の `statusText` を表示に含める
-      const line = `**${statusText}** | ${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id}) 📖 ${s.creator.penname}`;
+      // 文字列の組み立て
+      const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${s.max_member_count}人|**${statusText}**`;
       scenarioLines.push(line);
     }
     
