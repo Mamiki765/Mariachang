@@ -1,6 +1,6 @@
 // scenario.mjs (API直通・最終完成版)
 
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder , PermissionsBitField } from "discord.js";
 import axios from "axios";
 
 export const data = new SlashCommandBuilder()
