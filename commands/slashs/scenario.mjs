@@ -1,6 +1,10 @@
 // scenario.mjs (API直通・最終完成版)
 
-import { SlashCommandBuilder, EmbedBuilder , PermissionsBitField } from "discord.js";
+import {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  PermissionsBitField,
+} from "discord.js";
 import axios from "axios";
 
 export const data = new SlashCommandBuilder()
@@ -71,10 +75,15 @@ export async function execute(interaction) {
     // Embedに表示するためにデータを整形
     const fields = scenarios.slice(0, 25).map((s) => {
       // source_name が存在し、かつ空文字列でなければ表示
-      const sourceNameDisplay = (s.source_name && s.source_name.trim() !== '') ? `<${s.source_name}>` : '';
+      const sourceNameDisplay =
+        s.source_name && s.source_name.trim() !== ""
+          ? `<${s.source_name}>`
+          : "";
 
       return {
-        name: `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id}) 📖 ${s.creator.penname} (${s.creator.type}) ${s.type} ${s.difficulty} ${s.current_member_count}/${s.max_member_count}人`,
+        name: "\u200b", // 空行を挿入
+        inline: false,
+        value: `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id}) 📖 ${s.creator.penname} (${s.creator.type}) ${s.type} ${s.difficulty} ${s.current_member_count}/${s.max_member_count}人`,
       };
     });
 
