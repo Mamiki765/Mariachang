@@ -245,6 +245,10 @@ const Scenario = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    source_name: {
+      type: DataTypes.STRING,
+      allowNull: true, // ソース名は必須ではない
+    },
     creator_penname: {
       type: DataTypes.STRING,
     },

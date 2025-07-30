@@ -64,22 +64,15 @@ export async function checkNewScenarios(client) {
       return;
     }
 
-    // 2. フィルターをかけ、最新の有効なIDリストを作成
-    const excludedTypes = ["DISCUSSION", "OUT_OF_ACTION"];
-    const activeScenarios = fetchedScenarios.filter(
-      (s) => !excludedTypes.includes(s.action_type)
-    );
-    const fetchedIds = new Set(activeScenarios.map((s) => s.id));
+    // 2. DBから「すべて」のシナリオを取得
+    const dbScenarios = await Scenario.findAll(); // ここも変更なし
+    const dbIds = new Set(dbScenarios.map(s => s.id));
 
-    // 3. 現在DBに保存されているIDをすべて取得
-    const dbScenarios = await Scenario.findAll({ attributes: ["id"] });
-    const dbIds = new Set(dbScenarios.map((s) => s.id));
+    // 3. 差分を比較して「新規」と「終了」を特定
+    const newScenarios = fetchedScenarios.filter(s => !dbIds.has(s.id));
+    const closedScenarioIds = [...dbIds].filter(id => !fetchedIds.has(id));
 
-    // 4. 差分を比較して「新規」と「終了」を特定
-    const newScenarios = activeScenarios.filter((s) => !dbIds.has(s.id));
-    const closedScenarioIds = [...dbIds].filter((id) => !fetchedIds.has(id));
-
-    // 5. 通知とデータベース操作
+    // 4. 通知とデータベース操作
     const channel = await client.channels.fetch(ANNOUNCE_CHANNEL_ID);
 
     // ■ 新規シナリオの処理
@@ -88,12 +81,18 @@ export async function checkNewScenarios(client) {
 
       const scenariosToCreate = newScenarios.map((s) => ({
         id: s.id,
+        source_name: s.source_name || null, // ソース名がない場合はnull
         title: s.title,
-        creator_penname: s.creator.penname,
+        creator_penname: `${s.creator.penname}${s.creator.type}`,
         status: s.action_type,
       }));
       await Scenario.bulkCreate(scenariosToCreate);
-
+     // ▼▼▼【重要】ここから、Discord通知用にフィルターをかける ▼▼▼
+      const excludedTypes = ['DISCUSSION', 'OUT_OF_ACTION'];
+      const scenariosToAnnounce = newScenarios.filter(s => 
+        !excludedTypes.includes(s.action_type)
+      );
+       if (scenariosToAnnounce.length > 0) {
       // --- ここからがメッセージ分割機能付きの通知ロジック ---
 
       let descriptionText = ""; // 現在のメッセージのdescriptionを組み立てる変数
@@ -106,7 +105,7 @@ export async function checkNewScenarios(client) {
         SUPPORTABLE: "サポート可",
       };
 
-      for (const s of newScenarios) {
+      for (const s of scenariosToAnnounce) {
         // 1行の表示を組み立てる
         const statusText = actionTypeMap[s.action_type] || "不明";
         const sourceNameDisplay =
@@ -130,7 +129,7 @@ export async function checkNewScenarios(client) {
           descriptionText = line;
         } else {
           // 文字数に余裕があれば、今のdescriptionに改行を加えて次の行を追加
-          descriptionText += (descriptionText ? "\n" : "") + line;
+          descriptionText += (descriptionText ? "\n-# \u200b\n" : "") + line;
         }
       }
 
@@ -157,29 +156,44 @@ export async function checkNewScenarios(client) {
 
         // 最後のメッセージにだけタイムスタンプと総括フッターをつける
         if (i === embedsToSend.length - 1) {
-          embed
-            .setTimestamp()
-            .setFooter({
-              text: `合計 ${newScenarios.length} 件の新しいシナリオが追加されました。`,
-            });
+          embed.setTimestamp().setFooter({
+            text: `合計 ${scenariosToAnnounce.length} 件の新しいシナリオが追加されました。`,
+          });
         }
 
         // 組み立てたEmbedを送信
         await channel.send({ embeds: [embed] });
       }
     }
+  }
 
     // ■ 終了シナリオの処理
     if (closedScenarioIds.length > 0) {
-      console.log(`${closedScenarioIds.length}件の募集終了シナリオを発見！`);
-
+      console.log(`${closedScenarioIds.length}件の終了シナリオを発見！`);
+      // 終了したシナリオの詳細をDBから取得
+      const closedScenariosData = dbScenarios.filter((s) =>
+        closedScenarioIds.includes(s.id)
+      );
       // DBから一括で削除
       await Scenario.destroy({ where: { id: { [Op.in]: closedScenarioIds } } });
 
-      // (任意) 募集終了を通知する場合
-      // const closedTitles = dbScenarios.filter(s => closedScenarioIds.includes(s.id)).map(s => s.title);
-      // const embed = new EmbedBuilder().setTitle("募集終了のお知らせ").setDescription(closedTitles.join('\n')).setColor("Red");
-      // await channel.send({ embeds: [embed] });
+      const descriptionText = closedScenariosData
+        .map(
+          (s) =>
+            `・${(s.source_name ? `<${s.source_name}> ` : '')}[${s.title}](https://rev2.reversion.jp/scenario/replay/${s.id}) (作:${s.creator_penname})`
+        )
+        .join("\n-# \u200b\n");
+
+      const embed = new EmbedBuilder()
+        .setTitle("🔚終了したシナリオ")
+        .setDescription(descriptionText)
+        .setColor("Grey") //目立たない灰色に変更'#2f3136'などもおすすめ
+        .setTimestamp()
+        .setFooter({
+          text: `${closedScenariosData.length}件のシナリオが返却されたようです。`,
+        });
+
+      await channel.send({ embeds: [embed] });
     }
 
     // 新規も終了もなかった場合
