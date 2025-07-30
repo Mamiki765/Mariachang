@@ -130,7 +130,7 @@ export async function checkNewScenarios(client) {
           descriptionText = line;
         } else {
           // 文字数に余裕があれば、今のdescriptionに改行を加えて次の行を追加
-          descriptionText += (descriptionText ? "\n\n" : "") + line;
+          descriptionText += (descriptionText ? "\n" : "") + line;
         }
       }
 
