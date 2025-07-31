@@ -1,8 +1,8 @@
 //トークンなど機密事項やタイムゾーンはdotenvで管理すること！
 //import config from '../config.mjs'; などで読み込む
 export default {
-  botid:"1252534800095645766",//このbot自身のID
-  administrator: "373785633283506176",//Bot管理者のID
+  botid: "1252534800095645766", //このbot自身のID
+  administrator: "373785633283506176", //Bot管理者のID
   privatecategory: [
     //プライベートカテゴリのIDリスト
     "1128492964939833375", //クリエイターロール
@@ -79,11 +79,14 @@ export default {
     default: (dpname, randomNum) =>
       `${dpname}が${randomNum}枚ドミノを並べました。`,
   },
-  domino10000Images: [
-    "https://i.imgur.com/Y8Vf4SW.png",
-  ],
+  domino10000Images: ["https://i.imgur.com/Y8Vf4SW.png"],
   // ▼▼▼ シナリオチェッカー用の設定を追記 ▼▼▼
   scenarioChecker: {
-    defaultReserveTime: '22:15',// デフォルトの予約時間
-  }
+    defaultReserveTime: "22:15", // デフォルトの予約時間
+  },
+  //スタンプ機能の設定
+  sticker: {
+    // ユーザー一人あたりの、スタンプ登録上限数
+    limitPerUser: 5,
+  },
 };

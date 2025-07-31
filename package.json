@@ -11,6 +11,7 @@
     "axios": "^1.9.0",
     "discord.js": "^14.14.1",
     "express": "^4.19.2",
+    "image-size": "^2.0.2",
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "pg": "^8.15.6",

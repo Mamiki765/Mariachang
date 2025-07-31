@@ -263,6 +263,45 @@ const Scenario = sequelize.define(
   }
 );
 
+//スタンプモデルの定義
+const Sticker = sequelize.define('Sticker', {
+  // 自動で増えるID (主キー)
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
+  // スタンプの名前 (オートコンプリートで検索する対象)
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 画像のURL (Supabase Storageから取得)
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 画像のパス (削除時に必要)
+  filePath: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 誰が登録したか
+  ownerId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 公開設定 (あなたの素晴らしいアイデア！)
+  isPublic: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false, // デフォルトは非公開
+  },
+}, {
+  tableName: 'stickers',
+  timestamps: true,
+});
+
 // データベースの同期処理
 async function syncModels() {
   try {
@@ -275,6 +314,7 @@ async function syncModels() {
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
     await Scenario.sync({ alter: true });
+    await Sticker.sync({ alter: true }); // スタンプモデルの同期
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
@@ -292,4 +332,5 @@ export {
   syncModels,
   DominoLog, // ← 追加
   Scenario, // シナリオモデルをエクスポート
+  Sticker, // スタンプモデルをエクスポート
 };
