@@ -297,7 +297,8 @@ export async function execute(interaction) {
         buffer,
         interaction.user.id,
         slot,
-        fileExt
+        fileExt,
+        "icons"
       );
       if (result) {
         iconUrl = result.url;
@@ -456,7 +457,8 @@ export async function execute(interaction) {
         buffer,
         interaction.user.id,
         slot,
-        fileExt
+        fileExt,
+        "icons"
       );
       if (result) {
         face = result.url;
