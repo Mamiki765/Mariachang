@@ -1,7 +1,11 @@
 // commands/slashs/sticker.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { Sticker } from "../../models/roleplay.mjs"; // あなたのデータベース設定からStickerモデルをインポート
-import { uploadFile, deleteFile, getDirectorySize } from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
+import {
+  uploadFile,
+  deleteFile,
+  getDirectorySize,
+} from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
 import fetch from "node-fetch";
 import sizeOf from "image-size";
@@ -10,12 +14,18 @@ import config from "../../config.mjs";
 // --- 1. コマンドの「設計図」を定義します ---
 export const data = new SlashCommandBuilder()
   .setName("sticker")
+  .setNameLocalizations({
+    ja: "スタンプ",
+  })
   .setDescription("カスタムスタンプ機能")
 
   // 登録サブコマンド
   .addSubcommand((subcommand) =>
     subcommand
       .setName("register")
+      .setNameLocalizations({
+        ja: "登録",
+      })
       .setDescription("新しいスタンプを登録します。")
       .addAttachmentOption((option) =>
         option
@@ -42,6 +52,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("post")
+      .setNameLocalizations({
+        ja: "投稿",
+      })
       .setDescription("スタンプを投稿します。")
       .addStringOption((option) =>
         option
@@ -56,6 +69,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("delete")
+      .setNameLocalizations({
+        ja: "削除",
+      })
       .setDescription("あなたが登録したスタンプを削除します。")
       .addStringOption((option) =>
         option
@@ -107,8 +123,6 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   const userId = interaction.user.id;
 
-  
-
   if (subcommand === "register") {
     await interaction.deferReply({ ephemeral: true });
     const image = interaction.options.getAttachment("image");
@@ -116,7 +130,7 @@ export async function execute(interaction) {
     const isPublic = interaction.options.getBoolean("public") || false;
 
     // 登録数制限のチェック
-    const STICKER_LIMIT = config.sticker.limitPerUser; 
+    const STICKER_LIMIT = config.sticker.limitPerUser;
     const currentStickerCount = await Sticker.count({
       where: { ownerId: userId },
     });
@@ -170,18 +184,20 @@ export async function execute(interaction) {
     }
 
     // ディレクトリサイズ制限のチェック
-        const currentStickersSize = await getDirectorySize('stickers');
+    const currentStickersSize = await getDirectorySize("stickers");
     const newFileSize = image.size;
     const sizeLimit = config.sticker.directorySizeLimit;
 
     if (currentStickersSize === -1) {
-      return interaction.editReply({ content: 'ストレージの容量を確認中にエラーが発生しました。' });
+      return interaction.editReply({
+        content: "ストレージの容量を確認中にエラーが発生しました。",
+      });
     }
 
     if (currentStickersSize + newFileSize > sizeLimit) {
       const currentSizeMB = (currentStickersSize / 1024 / 1024).toFixed(2);
-      return interaction.editReply({ 
-        content: `ストレージの上限に達するため、アップロードできません。\n(現在の使用量: ${currentSizeMB}MB / 300MB)`
+      return interaction.editReply({
+        content: `ストレージの上限に達するため、アップロードできません。\n(現在の使用量: ${currentSizeMB}MB / 300MB)`,
       });
     }
 
@@ -212,7 +228,11 @@ export async function execute(interaction) {
         .setThumbnail(result.url)
         .setColor("Green")
         .setFooter({
-          text: `使用容量${((currentStickersSize + newFileSize) / 1024 / 1024).toFixed(2)}MB / 300MB`,
+          text: `使用容量${(
+            (currentStickersSize + newFileSize) /
+            1024 /
+            1024
+          ).toFixed(2)}MB / 300MB`,
         })
         .addFields({
           name: "公開設定",
@@ -241,12 +261,15 @@ export async function execute(interaction) {
     });
 
     if (!sticker) {
-        await interaction.editReply({ content: `スタンプ「${name}」が見つからないか、使用する権限がありません。`, ephemeral: true });
+      await interaction.editReply({
+        content: `スタンプ「${name}」が見つからないか、使用する権限がありません。`,
+        ephemeral: true,
+      });
       return;
     }
 
     await interaction.editReply({
-        files: [sticker.imageUrl],
+      files: [sticker.imageUrl],
     });
   } else if (subcommand === "delete") {
     await interaction.deferReply({ ephemeral: true });
