@@ -6,7 +6,7 @@ import { syncModels } from "../models/roleplay.mjs";
 
 export default async (client) => {
   console.log("Bot is ready. Starting final setup...");
-
+  //node-cron '秒（省略可） 分 時 日 月 曜日'
   // 8時と22時に時報、送信先読み込み
   const timechannel = await client.channels.fetch(config.timesignalch);
   //8時

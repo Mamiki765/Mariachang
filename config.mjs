@@ -82,4 +82,8 @@ export default {
   domino10000Images: [
     "https://i.imgur.com/Y8Vf4SW.png",
   ],
+  // ▼▼▼ シナリオチェッカー用の設定を追記 ▼▼▼
+  scenarioChecker: {
+    defaultReserveTime: '22:15',// デフォルトの予約時間
+  }
 };

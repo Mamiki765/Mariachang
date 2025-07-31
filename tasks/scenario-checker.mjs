@@ -117,8 +117,8 @@ export async function checkNewScenarios(client) {
        // s.time ("2025-07-30 22:15:00") から "22:15" の部分だけを抜き出す
         const timePart = s.time ? s.time.split(' ')[1].slice(0, 5) : '';
 
-        // もし「予約抽選」で、かつ時間が「22:15」で"ない"場合だけ、特別な時間を表示する
-        const specialTimeText = (s.time_type === '予約抽選' && timePart !== '22:15') 
+        // もし「予約抽選」で、かつ時間が「22:15(comfigで設定)」で"ない"場合だけ、特別な時間を表示する
+        const specialTimeText = (s.time_type === '予約抽選' && timePart !== config.scenarioChecker.defaultReserveTime) 
                                 ? `|**予約抽選: ${timePart}**` 
                                 : '';
         const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
