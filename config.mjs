@@ -88,5 +88,6 @@ export default {
   sticker: {
     // ユーザー一人あたりの、スタンプ登録上限数
     limitPerUser: 5,
+    directorySizeLimit: 314572800 // 300MB
   },
 };

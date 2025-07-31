@@ -1,7 +1,7 @@
 // commands/slashs/sticker.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { Sticker } from "../../models/roleplay.mjs"; // あなたのデータベース設定からStickerモデルをインポート
-import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
+import { uploadFile, deleteFile, getDirectorySize } from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
 import fetch from "node-fetch";
 import sizeOf from "image-size";
@@ -168,6 +168,22 @@ export async function execute(interaction) {
       });
     }
 
+    // ディレクトリサイズ制限のチェック
+        const currentStickersSize = await getDirectorySize('stickers');
+    const newFileSize = image.size;
+    const sizeLimit = config.sticker.directorySizeLimit;
+
+    if (currentStickersSize === -1) {
+      return interaction.editReply({ content: 'ストレージの容量を確認中にエラーが発生しました。' });
+    }
+
+    if (currentStickersSize + newFileSize > sizeLimit) {
+      const currentSizeMB = (currentStickersSize / 1024 / 1024).toFixed(2);
+      return interaction.editReply({ 
+        content: `ストレージの上限に達するため、アップロードできません。\n(現在の使用量: ${currentSizeMB}MB / 300MB)`
+      });
+    }
+
     try {
       //const fetched = await fetch(image.url);
       //const buffer = Buffer.from(await fetched.arrayBuffer());
@@ -194,6 +210,9 @@ export async function execute(interaction) {
         .setDescription(`**「${name}」**を新しいスタンプとして登録しました。`)
         .setThumbnail(result.url)
         .setColor("Green")
+        .setFooter({
+          text: `使用容量${((currentStickersSize + newFileSize) / 1024 / 1024).toFixed(2)}MB / 300MB`,
+        })
         .addFields({
           name: "公開設定",
           value: isPublic
