@@ -63,7 +63,7 @@ export async function checkNewScenarios(client) {
       console.log("APIからシナリオデータを取得できませんでした。");
       return;
     }
-
+    const fetchedIds = new Set(fetchedScenarios.map((s) => s.id));
     // 2. DBから「すべて」のシナリオを取得
     const dbScenarios = await Scenario.findAll(); // ここも変更なし
     const dbIds = new Set(dbScenarios.map(s => s.id));
