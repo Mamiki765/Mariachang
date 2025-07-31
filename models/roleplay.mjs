@@ -4,7 +4,7 @@ import { Sequelize, DataTypes } from "sequelize";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_KEY;
 const supabaseDatabaseUrl = process.env.DATABASE_URL;
-console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
+//console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
 // Sequelize インスタンスの生成
 const sequelize = new Sequelize(supabaseDatabaseUrl, {
   dialect: "postgres",
