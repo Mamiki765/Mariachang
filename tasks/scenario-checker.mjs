@@ -103,6 +103,7 @@ export async function checkNewScenarios(client) {
         RESERVABLE: "予約期間中",
         JOINABLE: "参加受付中",
         SUPPORTABLE: "サポート可",
+        OUT_OF_ACTION: "事前公開中"
       };
 
       for (const s of scenariosToAnnounce) {
