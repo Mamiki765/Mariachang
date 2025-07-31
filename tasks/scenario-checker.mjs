@@ -90,7 +90,7 @@ export async function checkNewScenarios(client) {
      // ▼▼▼【重要】ここから、Discord通知用にフィルターをかける ▼▼▼
       const excludedTypes = ['DISCUSSION', 'OUT_OF_ACTION'];
       const scenariosToAnnounce = newScenarios.filter(s => 
-        !excludedTypes.includes(s.action_type)
+        !excludedTypes.includes(s.action_type) || s.state === '事前公開中'//OUT_OF_ACTIONは事前公開中のものだけ通知
       );
        if (scenariosToAnnounce.length > 0) {
       // --- ここからがメッセージ分割機能付きの通知ロジック ---
@@ -118,7 +118,7 @@ export async function checkNewScenarios(client) {
         const timePart = s.time ? s.time.split(' ')[1].slice(0, 5) : '';
 
         // もし「予約抽選」で、かつ時間が「22:15(comfigで設定)」で"ない"場合だけ、特別な時間を表示する
-        const specialTimeText = (s.time_type === '予約抽選' && timePart !== config.scenarioChecker.defaultReserveTime) 
+        const specialTimeText = ((s.time_type === '予約抽選' || s.time_type === '予約開始') && timePart !== config.scenarioChecker.defaultReserveTime) 
                                 ? `|**予約抽選: ${timePart}**` 
                                 : '';
         const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
