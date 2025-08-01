@@ -1,5 +1,5 @@
 # Dockerfile (軽量版)
-FROM node:18-slim
+FROM node:20-slim
 
 # sqlite3のビルドツールだけ残す
 RUN apt-get update && apt-get install -y \
