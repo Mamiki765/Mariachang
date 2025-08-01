@@ -6,7 +6,7 @@ import {
 
 import config from "../../config.mjs";
 import { replyfromDM } from "../../components/buttons.mjs";
-import { AdminMemo } from "../../models/roleplay.mjs";
+import { AdminMemo } from "../../models/database.mjs";
 import { checkNewScenarios } from "../../tasks/scenario-checker.mjs";
 
 export const data = new SlashCommandBuilder()

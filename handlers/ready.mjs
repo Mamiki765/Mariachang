@@ -2,7 +2,7 @@ import { EmbedBuilder, ActivityType } from "discord.js";
 import cron from "node-cron";
 import config from "../config.mjs";
 import { checkNewScenarios } from "../tasks/scenario-checker.mjs"; 
-import { syncModels } from "../models/roleplay.mjs";
+import { syncModels } from "../models/database.mjs";
 
 export default async (client) => {
   console.log("Bot is ready. Starting final setup...");

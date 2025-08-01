@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import { DominoLog, CurrentDomino, sequelize } from "../../models/roleplay.mjs";
+import { DominoLog, CurrentDomino, sequelize } from "../../models/database.mjs"; // あなたのデータベース設定からDominoLogとCurrentDominoモデルをインポート
 import config from "../../config.mjs";
 
 export const data = new SlashCommandBuilder()

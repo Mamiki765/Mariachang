@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
-import { Character, Icon, Point } from "../../models/roleplay.mjs";
+import { Character, Icon, Point } from "../../models/database.mjs";
 import { dominoeffect } from "../utils/domino.mjs";
 //import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";

@@ -2,7 +2,7 @@
 import axios from "axios";
 import { EmbedBuilder } from "discord.js";
 import { Op } from "sequelize";
-import { Scenario } from "../models/roleplay.mjs";
+import { Scenario } from "../models/database.mjs";
 import config from "../config.mjs";
 
 // 通知を送るチャンネルIDを環境変数から取得

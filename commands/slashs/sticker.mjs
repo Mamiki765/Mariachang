@@ -1,6 +1,6 @@
 // commands/slashs/sticker.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import { Sticker } from "../../models/roleplay.mjs"; // あなたのデータベース設定からStickerモデルをインポート
+import { Sticker } from "../../models/database.mjs"; // あなたのデータベース設定からStickerモデルをインポート
 import {
   uploadFile,
   deleteFile,
