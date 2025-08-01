@@ -6,7 +6,8 @@ import {
 
 import config from "../../config.mjs";
 import { replyfromDM } from "../../components/buttons.mjs";
-import { AdminMemo } from "../../models/roleplay.mjs";
+import { AdminMemo } from "../../models/database.mjs";
+import { checkNewScenarios } from "../../tasks/scenario-checker.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("admin")
@@ -203,6 +204,15 @@ export const data = new SlashCommandBuilder()
       .addStringOption((option) =>
         option.setName("reason").setDescription("理由").setRequired(false)
       )
+  )
+  // シナリオの手動チェック
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("scenario_check")
+      .setNameLocalizations({
+        ja: "シナリオ手動チェック",
+      })
+      .setDescription("シナリオの新規・終了チェックを強制的に実行します。")
   );
 
 export async function execute(interaction) {
@@ -547,6 +557,33 @@ export async function execute(interaction) {
       interaction.reply({
         ephemeral: true,
         content: `このユーザーにはタイムアウトできません（Botのロール順などを確認してください）`,
+      });
+    }
+  } else if (subcommand === "scenario_check") {
+    // シナリオの手動チェックを実行する処理
+    // 処理に時間がかかることをユーザーに伝える
+    await interaction.reply({
+      content:
+        "シナリオの手動チェックを開始します。新規・終了があればロスアカチャンネルに投稿されます...",
+      ephemeral: true,
+    });
+
+    // 別のファイルからインポートしたチェック関数を呼び出す
+    // clientオブジェクトを渡すのを忘れずに！
+    try {
+      await checkNewScenarios(interaction.client);
+      // 成功したことを伝える
+      await interaction.followUp({
+        content: "✅ 手動チェックが完了しました。",
+        ephemeral: true,
+      });
+    } catch (error) {
+      console.error("手動シナリオチェック中にエラー:", error);
+      // 失敗したことを伝える
+      await interaction.followUp({
+        content:
+          "❌ 手動チェック中にエラーが発生しました。詳細はコンソールログを確認してください。",
+        ephemeral: true,
       });
     }
   }

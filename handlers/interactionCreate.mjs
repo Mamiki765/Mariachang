@@ -38,6 +38,21 @@ export default async (interaction) => {
     await handleModalInteraction(interaction);
     return;
   }
+  // オートコンプリート
+  else if (interaction.isAutocomplete()) {
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (!command || !command.autocomplete) {
+      console.error(`「${interaction.commandName}」コマンドに、オートコンプリート処理が見つかりません。`);
+      return;
+    }
+    try {
+      await command.autocomplete(interaction);
+    } catch (error) {
+      console.error(`オートコンプリート処理中にエラーが発生しました:`, error);
+    }
+    return; // オートコンプリートの処理はここで終わり
+  }
+  // オートコンプリートここまで
 
   //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
   else if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;

@@ -1,14 +1,15 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
-import { Character, Icon, Point } from "../../models/roleplay.mjs";
+import { Character, Icon, Point } from "../../models/database.mjs";
 import { dominoeffect } from "../utils/domino.mjs";
 //import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import config from "../../config.mjs";
 import fetch from "node-fetch";
 
-//絵文字　ここの数がスロット数になる
+//絵文字　スロットの数に合わせる
 const emojis = ["🍎", "🍌", "🍉", "🍇", "🍊"];
+/*オートコンプリート式にしたので削除250731
 const slotChoices = emojis.map((emoji, index) => ({
   name:
     index === 0
@@ -16,6 +17,7 @@ const slotChoices = emojis.map((emoji, index) => ({
       : `${emoji}スロット${index}`,
   value: index,
 }));
+*/
 
 //権利表記の特定部分をIL名で置き換えて権利表記を生成するためのパーツ
 const illustratorname = "illustratorname";
@@ -79,14 +81,15 @@ export const data = new SlashCommandBuilder()
           )
           .setRequired(true)
       )
-      .addIntegerOption((option) =>
-        option
-          .setName("slot")
-          .setNameLocalizations({
-            ja: "セーブデータ",
-          })
-          .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
-          .addChoices(...slotChoices)
+      .addIntegerOption(
+        (option) =>
+          option
+            .setName("slot")
+            .setNameLocalizations({
+              ja: "セーブデータ",
+            })
+            .setDescription("保存するキャラクタースロットを選択（未入力は0)")
+            .setAutocomplete(true) // ★★★ これが魔法の呪文 ★★★
       )
       .addAttachmentOption((option) =>
         option
@@ -138,14 +141,16 @@ export const data = new SlashCommandBuilder()
           .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
           .setRequired(true)
       )
-      .addIntegerOption((option) =>
-        option
-          .setName("slot")
-          .setNameLocalizations({
-            ja: "セーブデータ",
-          })
-          .setDescription("保存するキャラクタースロットを選択（デフォルトは0)")
-          .addChoices(...slotChoices)
+      .addIntegerOption(
+        (option) =>
+          option
+            .setName("slot")
+            .setNameLocalizations({
+              ja: "セーブデータ",
+            })
+            .setDescription("発言するキャラクタースロットを選択（未入力は0)")
+            .setRequired(false) // 必須ではなくす（postの場合）
+            .setAutocomplete(true) // 250731オートコンプリート形式に変更
       )
       .addAttachmentOption((option) =>
         option
@@ -184,7 +189,45 @@ export const data = new SlashCommandBuilder()
       })
       .setDescription("登録したキャラデータを表示します。")
   );
+//オートコンプリートここから
+export async function autocomplete(interaction) {
+  // まず、誰からのリクエストかを取得する
+  const userId = interaction.user.id;
+  // 現在入力中の値を取得する
+  const focusedValue = interaction.options.getFocused();
 
+  const choices = [];
+  // 0から4までのスロットをループ
+  for (let i = 0; i < 5; i++) {
+    const charaslotId = `${userId}${i > 0 ? `-${i}` : ""}`;
+
+    // DBから、そのスロットのキャラクター情報を探す
+    const character = await Character.findOne({
+      where: { userId: charaslotId },
+    });
+
+    let name;
+    if (character) {
+      // キャラがいれば、「絵文字 スロット番号: キャラ名」という形式に
+      name = `${emojis[i]}スロット${i}: ${character.name}`;
+    } else {
+      // キャラがいなければ、「(空のスロット)」と表示
+      name = `${emojis[i]}スロット${i}: (空のスロット)`;
+    }
+
+    // valueには、今まで通り「0」「1」のようなスロット番号を入れる
+    choices.push({ name: name, value: i });
+  }
+
+  // 入力された文字で絞り込む（もしユーザーが何か入力していた場合）
+  const filtered = choices.filter((choice) =>
+    choice.name.includes(focusedValue)
+  );
+
+  // 絞り込んだ結果を、Discordに返す
+  await interaction.respond(filtered);
+}
+//オートコンプリートここまで
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
@@ -254,7 +297,8 @@ export async function execute(interaction) {
         buffer,
         interaction.user.id,
         slot,
-        fileExt
+        fileExt,
+        "icons"
       );
       if (result) {
         iconUrl = result.url;
@@ -413,7 +457,8 @@ export async function execute(interaction) {
         buffer,
         interaction.user.id,
         slot,
-        fileExt
+        fileExt,
+        "icons"
       );
       if (result) {
         face = result.url;

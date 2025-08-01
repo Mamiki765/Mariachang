@@ -1,8 +1,12 @@
 import { EmbedBuilder, ActivityType } from "discord.js";
 import cron from "node-cron";
 import config from "../config.mjs";
+import { checkNewScenarios } from "../tasks/scenario-checker.mjs"; 
+import { syncModels } from "../models/database.mjs";
 
 export default async (client) => {
+  console.log("Bot is ready. Starting final setup...");
+  //node-cron '秒（省略可） 分 時 日 月 曜日'
   // 8時と22時に時報、送信先読み込み
   const timechannel = await client.channels.fetch(config.timesignalch);
   //8時
@@ -58,6 +62,29 @@ export default async (client) => {
     );
   });
   // 時報ここまで
+
+  // シナリオ同期前にデータベースの同期が完了するのを待つ！
+  try {
+    await syncModels();
+    console.log("Database synchronized successfully. Proceeding with tasks.");
+  } catch (error) {
+    console.error("CRITICAL: Database sync failed on startup. Halting scheduled tasks.", error);
+    // 同期に失敗したら、何もせずに関数を終了する
+    return;
+  }
+
+  //シナリオの定期チェック
+    // 最初に一度だけ即時実行
+  checkNewScenarios(client);
+
+  // 「22:30を起点とした3時間ごと」に実行するスケジュール
+  cron.schedule('30 1,4,7,10,13,16,19,22 * * *', () => {
+    console.log("スケジュールされたシナリオチェックを実行します...");
+    checkNewScenarios(client);
+  }, {
+    scheduled: true,
+    timezone: "Asia/Tokyo" // 日本時間を指定
+  });
 
   await client.user.setActivity("🍙", {
     type: ActivityType.Custom,

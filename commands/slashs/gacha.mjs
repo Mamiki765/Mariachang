@@ -88,11 +88,11 @@ export async function execute(interaction) {
     const arr = ["__C  ", "N  ", "R  ", "### HQ ", "## AF "];
     const arrlate = ["__", "", "", "", ""];
     //240727追加　各レアリティごとのファイルを読み込む
-    const map0 = fs.readFileSync("./database/cursed.txt", "utf8");
-    const map1 = fs.readFileSync("./database/novice.txt", "utf8");
-    const map2 = fs.readFileSync("./database/regular.txt", "utf8");
-    const map3 = fs.readFileSync("./database/HighQuality.txt", "utf8");
-    const map4 = fs.readFileSync("./database/Artifact.txt", "utf8");
+    const map0 = fs.readFileSync("./gacha/cursed.txt", "utf8");
+    const map1 = fs.readFileSync("./gacha/novice.txt", "utf8");
+    const map2 = fs.readFileSync("./gacha/regular.txt", "utf8");
+    const map3 = fs.readFileSync("./gacha/HighQuality.txt", "utf8");
+    const map4 = fs.readFileSync("./gacha/Artifact.txt", "utf8");
     const maps = [];
     maps[0] = map0.split(/\n/);
     maps[1] = map1.split(/\n/);

@@ -1,10 +1,12 @@
+// models/database.mjs
+//同じファイル名があったためmodels/roleplay.mjsからの移行(2025/08/01)
 import { Sequelize, DataTypes } from "sequelize";
 
 // Supabase 接続情報
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_KEY;
 const supabaseDatabaseUrl = process.env.DATABASE_URL;
-console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
+//console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
 // Sequelize インスタンスの生成
 const sequelize = new Sequelize(supabaseDatabaseUrl, {
   dialect: "postgres",
@@ -231,6 +233,77 @@ const AdminMemo = sequelize.define(
   }
 );
 
+//依頼一覧モデル（ロスアカ）
+const Scenario = sequelize.define(
+  "Scenario",
+  {
+    // "sce00001234"のようなIDを主キーとして保存
+    id: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      primaryKey: true,
+    },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    source_name: {
+      type: DataTypes.STRING,
+      allowNull: true, // ソース名は必須ではない
+    },
+    creator_penname: {
+      type: DataTypes.STRING,
+    },
+    // 将来の拡張のために、状態も保存しておくと便利
+    status: {
+        type: DataTypes.STRING,
+    }
+  },
+  {
+    tableName: "scenarios", // DB内のテーブル名
+    timestamps: true, // いつ追加されたか自動で記録してくれる
+  }
+);
+
+//スタンプモデルの定義
+const Sticker = sequelize.define('Sticker', {
+  // 自動で増えるID (主キー)
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
+  // スタンプの名前 (オートコンプリートで検索する対象)
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 画像のURL (Supabase Storageから取得)
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 画像のパス (削除時に必要)
+  filePath: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 誰が登録したか
+  ownerId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  // 公開設定 (あなたの素晴らしいアイデア！)
+  isPublic: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false, // デフォルトは非公開
+  },
+}, {
+  tableName: 'stickers',
+  timestamps: true,
+});
+
 // データベースの同期処理
 async function syncModels() {
   try {
@@ -242,6 +315,8 @@ async function syncModels() {
     //    await DominoHistory.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
+    await Scenario.sync({ alter: true });
+    await Sticker.sync({ alter: true }); // スタンプモデルの同期
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
@@ -258,4 +333,6 @@ export {
   AdminMemo,
   syncModels,
   DominoLog, // ← 追加
+  Scenario, // シナリオモデルをエクスポート
+  Sticker, // スタンプモデルをエクスポート
 };
