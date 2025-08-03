@@ -90,14 +90,14 @@ export async function getCharacterSummary(characterId) {
       // --- PCの場合の処理 ---
       let reply = `「${character.name}」${character.roots.name}×${character.generation.name
 }\n`;
-      reply += `> Lv:${character.level} Exp.${character.exp}/${character.exp_to_next}\n`;
+      reply += `Lv:${character.level} Exp.${character.exp}/${character.exp_to_next}\n`;
       
       // 副能力の情報を整形して追加
            // ★★★ 追加: 表示したいステータスのIDリストを定義 ★★★
       const targetStatusIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
       
       if (character.sub_status && character.sub_status.length > 0) {
-        reply += `\n**▼能力値ゲージ**`;
+        reply += `・副能力`;
         
         // sub_statusをループする前に、表示したいID順に並べ替える
         const sortedSubStatus = character.sub_status
@@ -109,12 +109,12 @@ export async function getCharacterSummary(characterId) {
           const range = status_range.find(r => r.id === subStatus.id);
           if (!range) continue;
 
-          // ★★★ 変更点: ゲージの長さを20に設定 ★★★
-          const bar = createStatusBar(subStatus.value, range.min, range.max, 20);
+          // ★★★ 変更点: ゲージの長さを10に設定 ★★★
+          const bar = createStatusBar(subStatus.value, range.min, range.max, 10);
 
-          const statName = subStatus.name.padEnd(6, '　');
+          const statName = subStatus.abbr.padEnd(4, '　');
           
-          reply += `\n${statName}${bar} \`${subStatus.value}\``;
+          reply += `\n${statName}${bar} ${subStatus.value}`;
         }
       }
       return reply;
