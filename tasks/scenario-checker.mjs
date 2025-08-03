@@ -1,3 +1,4 @@
+// tasks/scenario-checker.mjs
 // ES Modules形式のインポート
 import axios from "axios";
 import { EmbedBuilder } from "discord.js";

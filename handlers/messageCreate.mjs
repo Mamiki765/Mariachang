@@ -15,6 +15,7 @@ import {
   sendMessage,
 } from "../utils/messageutil.mjs";
 import { deletebuttonunique } from "../components/buttons.mjs";
+import { getCharacterSummary } from "../utils/characterApi.mjs";
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
@@ -30,6 +31,8 @@ const rev2urlPatterns = {
   not: "https://rev2.reversion.jp/note/not",
   com: "https://rev2.reversion.jp/community/detail/com",
 };
+//ロスアカステシ詳細表示用正規表現
+const rev2detailMatch = message.content.match(/^(r2[p][0-9]{6})!$/);
 
 export default async (message) => {
   //定義系
@@ -161,6 +164,16 @@ export default async (message) => {
   //画像いたずら系ここまで
 
   //ここからステシ変換
+  //ロスアカ詳細
+  else if (rev2detailMatch) {
+    const characterId = rev2detailMatch[1];
+    await message.channel.sendTyping();
+    const replyMessage = await getCharacterSummary(characterId);
+    await message.reply({
+      content: replyMessage,
+      allowedMentions: { repliedUser: false }
+    });
+  }
   //ロスアカ
   else if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
     await message.reply({
