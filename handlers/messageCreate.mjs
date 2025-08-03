@@ -31,11 +31,12 @@ const rev2urlPatterns = {
   not: "https://rev2.reversion.jp/note/not",
   com: "https://rev2.reversion.jp/community/detail/com",
 };
-//ロスアカステシ詳細表示用正規表現
-const rev2detailMatch = message.content.match(/^(r2[p][0-9]{6})!$/);
+
 
 export default async (message) => {
   //定義系
+//ロスアカステシ詳細表示用正規表現
+const rev2detailMatch = message.content.match(/^(r2[p][0-9]{6})!$/);
   //ロスアカ短縮形
   const rev2urlmatch = message.content.match(
     /^(ils|snd|sce|nvl|not|com)(\d{8})$/
