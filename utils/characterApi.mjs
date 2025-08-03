@@ -108,7 +108,7 @@ export async function getCharacterSummary(characterId) {
       const targetStatusIds = new Set(displayOrder);
 
       if (character.sub_status && character.sub_status.length > 0) {
-        reply += `\`\`\`▼副能力 | 主能力▶ P:{character.p} M:${character.m} T:${character.t} C:${character.c}`;
+        reply += `\`\`\`▼副能力 | 主能力▶ P:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
         // sub_statusをループする前に、表示したいID順に並べ替える
         const sortedSubStatus = character.sub_status
