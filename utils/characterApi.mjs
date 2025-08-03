@@ -41,11 +41,11 @@ async function getCharacterDetail(characterId) {
 function createStatusBar(currentValue, minValue, maxValue, barLength = 10) {
   // 最大値以上なら、満タンのゲージと★を返す
   if (currentValue >= maxValue) {
-    return `[${'■'.repeat(barLength)}]★`;
+    return `[${'|'.repeat(barLength)}]★`;
   }
   // 最小値以下なら、空のゲージを返す
   if (currentValue <= minValue) {
-    return `[${'□'.repeat(barLength)}]`;
+    return `[${'.'.repeat(barLength)}]`;
   }
   
   const totalRange = maxValue - minValue;
@@ -58,8 +58,8 @@ function createStatusBar(currentValue, minValue, maxValue, barLength = 10) {
   // ゲージが0やマイナスにならないように念のため制約
   const safeFilledCount = Math.max(0, Math.min(barLength, filledCount));
 
-  const filledPart = '■'.repeat(safeFilledCount);
-  const emptyPart = '□'.repeat(barLength - safeFilledCount);
+  const filledPart = '|'.repeat(safeFilledCount);
+  const emptyPart = '.'.repeat(barLength - safeFilledCount);
 
   return `[${filledPart}${emptyPart}]`;
 }
@@ -90,14 +90,14 @@ export async function getCharacterSummary(characterId) {
       // --- PCの場合の処理 ---
       let reply = `「${character.name}」${character.roots.name}×${character.generation.name
 }\n`;
-      reply += `Lv:${character.level} Exp.${character.exp}/${character.exp_to_next}\n`;
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
       
       // 副能力の情報を整形して追加
            // ★★★ 追加: 表示したいステータスのIDリストを定義 ★★★
       const targetStatusIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
       
       if (character.sub_status && character.sub_status.length > 0) {
-        reply += `・副能力`;
+        reply += `\`\`\`・副能力`;
         
         // sub_statusをループする前に、表示したいID順に並べ替える
         const sortedSubStatus = character.sub_status
@@ -109,13 +109,25 @@ export async function getCharacterSummary(characterId) {
           const range = status_range.find(r => r.id === subStatus.id);
           if (!range) continue;
 
-          // ★★★ 変更点: ゲージの長さを10に設定 ★★★
-          const bar = createStatusBar(subStatus.value, range.min, range.max, 10);
+          // ★★★ 変更点: ゲージの長さを20に設定 ★★★
+          const bar = createStatusBar(subStatus.value, range.min, range.max, 20);
 
           const statName = subStatus.abbr.padEnd(4, '　');
           
           reply += `\n${statName}${bar} ${subStatus.value}`;
         }
+        // --- 2. 特殊能力のセクション ---
+        const specialAbilities = character.sub_status.filter(s => s.id >= 200);
+
+        // 特殊能力が1つ以上ある場合のみ、セクションを表示
+        if (specialAbilities.length > 0) {
+          reply += `\n・その他能力`; // ゲージとの間にスペースを空ける
+          for (const ability of specialAbilities) {
+            // "名前: 値" の形式でリストアップ
+            reply += `\n> ${ability.name}: \`${ability.value}\``;
+          }
+        }
+        reply += `\`\`\``;
       }
       return reply;
     }
