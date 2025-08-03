@@ -83,8 +83,16 @@ export async function getCharacterSummary(characterId) {
     // characterプロパティを分割代入で取り出しておく
     const { character, status_range } = apiData;
 
-    // ownerプロパティの有無でPCとEXPCを判別
-    if (character.owner) {
+    // ownerプロパティの有無でPCとEXPCを判別,先頭3文字でNPCを判別
+        if (character.character_id.startsWith('r2n')) {
+      // --- NPCの場合の処理 ---
+      let reply = `キャラクター「${character.name}」は **NPC** です。\n`;
+      if (character.handler_creator) {
+        reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
+      }
+      return reply;
+        }
+      else if (character.owner) {
       // --- EXPCの場合の処理 ---
       let reply = `キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
       return reply;
@@ -100,7 +108,7 @@ export async function getCharacterSummary(characterId) {
       const targetStatusIds = new Set(displayOrder);
 
       if (character.sub_status && character.sub_status.length > 0) {
-        reply += `\`\`\`・副能力`;
+        reply += `\`\`\`▼副能力 | 主能力▶ P:{character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
         // sub_statusをループする前に、表示したいID順に並べ替える
         const sortedSubStatus = character.sub_status
@@ -131,10 +139,10 @@ export async function getCharacterSummary(characterId) {
 
         // 特殊能力が1つ以上ある場合のみ、セクションを表示
         if (specialAbilities.length > 0) {
-          reply += `\n・その他能力`; // ゲージとの間にスペースを空ける
+          reply += `\n・その他能力\n`; // ゲージとの間にスペースを空ける
           for (const ability of specialAbilities) {
             // "名前: 値" の形式でリストアップ
-            reply += `\n${ability.name}: ${ability.value}  `;
+            reply += `${ability.name}: ${ability.value}  `;
           }
         }
         reply += `\`\`\``;
