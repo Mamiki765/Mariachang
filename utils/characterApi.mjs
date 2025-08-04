@@ -66,6 +66,23 @@ function createStatusBar(currentValue, minValue, maxValue, barLength = 10) {
   return `[${filledPart}${emptyPart}]`;
 }
 
+//文字の「表示幅」を計算するヘルパー関数
+// 全角文字を2、半角文字を1としてカウントします。
+function getVisualWidth(str) {
+  let width = 0;
+  for (let i = 0; i < str.length; i++) {
+    // 文字コードが255より大きい（マルチバイト文字）なら2、そうでなければ1を加算
+    width += str.charCodeAt(i) > 255 ? 2 : 1;
+  }
+  return width;
+}
+
+/**
+ * 【高レベル関数】（PC/EXPC判別ロジックを追加）
+ * キャラクター情報を取得し、PCかEXPCかによって整形されたサマリ文字列を返します。
+ * @param {string} characterId
+ * @returns {Promise<string>}
+ */
 /**
  * 【高レベル関数】（PC/EXPC判別ロジックを追加）
  * キャラクター情報を取得し、PCかEXPCかによって整形されたサマリ文字列を返します。
@@ -76,51 +93,41 @@ export async function getCharacterSummary(characterId) {
   try {
     const apiData = await getCharacterDetail(characterId);
 
-    // apiData自体、またはその中のcharacterがnullならエラー
     if (!apiData || !apiData.character) {
       return `キャラクター「${characterId}」の情報取得に失敗しました。IDが正しいか確認してください。`;
     }
-    // characterプロパティを分割代入で取り出しておく
     const { character, status_range } = apiData;
 
-    // ownerプロパティの有無でPCとEXPCを判別,先頭3文字でNPCを判別
-        if (character.character_id.startsWith('r2n')) {
-      // --- NPCの場合の処理 ---
+    if (character.character_id.startsWith('r2n')) {
       let reply = `キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
       }
       return reply;
-        }
-      else if (character.owner) {
-      // --- EXPCの場合の処理 ---
+    }
+    else if (character.owner) {
       let reply = `キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
       return reply;
     } else {
-      // --- PCの場合の処理 ---
       let reply = `「${character.name}」${character.roots.name}×${character.generation.name}\n`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
-      // 副能力の情報を整形して追加
-      // ステータスのIDリストを定義 ★★★
-      //★★★ 追加: 表示したい順番を定義
       const displayOrder = [1, 2, 3, 4, 13, 9, 10, 5, 6, 7, 8, 11, 12, 14];
       const targetStatusIds = new Set(displayOrder);
 
       if (character.sub_status && character.sub_status.length > 0) {
         reply += `\`\`\`▼副能力 | 主能力 P:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
-        // sub_statusをループする前に、表示したいID順に並べ替える
         const sortedSubStatus = character.sub_status
           .filter(s => targetStatusIds.has(s.id))
           .sort((a, b) => displayOrder.indexOf(a.id) - displayOrder.indexOf(b.id));
+        
+        const TARGET_VISUAL_WIDTH = 6;
 
         for (const subStatus of sortedSubStatus) {
-          // ★★★ 変更点: filter済なのでIDチェックは不要 ★★★
           const range = status_range.find((r) => r.id === subStatus.id);
           if (!range) continue;
 
-          // ★★★ 変更点: ゲージの長さを20に設定 ★★★
           const bar = createStatusBar(
             subStatus.value,
             range.min,
@@ -128,32 +135,36 @@ export async function getCharacterSummary(characterId) {
             20
           );
 
-          const statName = subStatus.abbr.padEnd(3, "　");
-
-          reply += `\n${statName}${bar} ${subStatus.value}`;
+          const currentWidth = getVisualWidth(subStatus.abbr);
+          const paddingNeeded = Math.max(0, TARGET_VISUAL_WIDTH - currentWidth);
+          const padding = ' '.repeat(paddingNeeded);
+          
+          const statName = subStatus.abbr + padding;
+          
+          const formattedValue = String(subStatus.value).padStart(5, ' ');
+          
+          reply += `\n${statName} ${bar} ${formattedValue}`;
         }
+        
         // --- 2. 特殊能力のセクション ---
         const specialAbilities = character.sub_status.filter(
           (s) => s.id >= 200
         );
 
-        // 特殊能力が1つ以上ある場合のみ、セクションを表示
         if (specialAbilities.length > 0) {
-          reply += `\n・その他能力\n`; // ゲージとの間にスペースを空ける
+          reply += `\n・その他能力\n`;
           for (const ability of specialAbilities) {
-            // "名前: 値" の形式でリストアップ
             reply += `${ability.name}: ${ability.value}  `;
           }
         }
+        
         reply += `\`\`\``;
-      }
+      } // ★★★ ここが正しい閉じ括弧の位置です ★★★
+      
       return reply;
     }
   } catch (error) {
-    console.error(
-      `[エラー] ${characterId} のサマリ作成処理でエラーが発生しました:`,
-      error
-    );
+    console.error(`[エラー] ${characterId} のサマリ作成処理でエラーが発生しました:`, error);
     return `情報取得中にエラーが発生しました。しばらくしてからもう一度お試しください。`;
   }
 }
