@@ -122,23 +122,35 @@ client.on("voiceStateUpdate", async (oldState, newState) => {//ボイスチャ�
   });
   client.on("warn", (info) => console.warn("Discord.js warning:", info));
   client.on("error", async (error) => {
-    console.error("An error occurred in the client:", error);
+    // Koyeb側のログに、エラーのスタックトレースを詳細に出力する
+    console.error("An error occurred in the client:", error.stack || error);
+
     try {
       const channel = await client.channels.fetch(config.logch.error);
       if (channel.isTextBased()) {
         const embed = new EmbedBuilder()
-          .setTitle("エラーログ")
-          .setDescription(`エラーが発生しました`)
-          .setColor("#ff0000")
+          .setTitle("🚨 エラーが発生しました")
+          .setDescription("クライアントで予期せぬエラーが検出されました。")
+          .setColor("#ff0000") // 赤色
           .setTimestamp()
-          .addFields({
-            name: "エラーメッセージ",
-            value: "```\n" + error.message + "\n```",
-          });
+          .setFields(
+            // .addFieldsを複数書く代わりに、.setFieldsで配列として渡すこともできます
+            {
+              name: "エラーメッセージ",
+              value: "```\n" + error.message + "\n```",
+            },
+            {
+              name: "スタックトレース",
+              // 長すぎる場合に備え、1020文字で切り詰める
+              value: "```\n" + String(error.stack).substring(0, 1020) + "\n```",
+            }
+          );
+
         await channel.send({ embeds: [embed] });
       }
     } catch (err) {
-      console.error("エラーメッセージの送信に失敗しました:", err);
+      // Discordへの通知自体が失敗した場合のログ
+      console.error("エラーメッセージのDiscordへの送信に失敗しました:", err);
     }
   });
   client.on("ready", () => handlers.get("ready").default(client));
