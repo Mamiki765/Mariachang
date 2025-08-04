@@ -141,9 +141,7 @@ export async function getCharacterSummary(characterId) {
           
           const statName = subStatus.abbr + padding;
           
-          const formattedValue = String(subStatus.value).padStart(5, ' ');
-          
-          reply += `\n${statName} ${bar} ${formattedValue}`;
+　　　　　　　reply += `\n${statName} ${bar} ${subStatus.value}`;
         }
         
         // --- 2. 特殊能力のセクション ---
