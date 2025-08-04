@@ -74,7 +74,9 @@ function getVisualWidth(str) {
     // 文字コードが255より大きい（マルチバイト文字）なら2、そうでなければ1を加算
     width += str.charCodeAt(i) > 255 ? 2 : 1;
   }
-  if(width == 2){width += 1;}
+  if (width == 2) {
+    width += 1;
+  }
   return width;
 }
 
@@ -99,14 +101,13 @@ export async function getCharacterSummary(characterId) {
     }
     const { character, status_range } = apiData;
 
-    if (character.character_id.startsWith('r2n')) {
+    if (character.character_id.startsWith("r2n")) {
       let reply = `キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
       }
       return reply;
-    }
-    else if (character.owner) {
+    } else if (character.owner) {
       let reply = `キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
       return reply;
     } else {
@@ -120,9 +121,11 @@ export async function getCharacterSummary(characterId) {
         reply += `\`\`\`▼副能力 | 主能力 P:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
         const sortedSubStatus = character.sub_status
-          .filter(s => targetStatusIds.has(s.id))
-          .sort((a, b) => displayOrder.indexOf(a.id) - displayOrder.indexOf(b.id));
-        
+          .filter((s) => targetStatusIds.has(s.id))
+          .sort(
+            (a, b) => displayOrder.indexOf(a.id) - displayOrder.indexOf(b.id)
+          );
+
         const TARGET_VISUAL_WIDTH = 6;
 
         for (const subStatus of sortedSubStatus) {
@@ -138,15 +141,15 @@ export async function getCharacterSummary(characterId) {
 
           const currentWidth = getVisualWidth(subStatus.abbr);
           const paddingNeeded = Math.max(0, TARGET_VISUAL_WIDTH - currentWidth);
-          const padding = ' '.repeat(paddingNeeded);
-          
+          const padding = " ".repeat(paddingNeeded);
+
           const statName = subStatus.abbr + padding;
-          
-　　　　　　　const formattedValue = String(subStatus.value).padStart(5, ' ');
-          
-          reply += `\n${statName} ${bar}${formattedValue}`;
+
+          const formattedValue = String(subStatus.value).padStart(5, " ");
+
+          reply += `\n${statName}${bar}${formattedValue}`;
         }
-        
+
         // --- 2. 特殊能力のセクション ---
         const specialAbilities = character.sub_status.filter(
           (s) => s.id >= 200
@@ -158,14 +161,17 @@ export async function getCharacterSummary(characterId) {
             reply += `${ability.name}: ${ability.value}  `;
           }
         }
-        
+
         reply += `\`\`\``;
       } // ★★★ ここが正しい閉じ括弧の位置です ★★★
-      
+
       return reply;
     }
   } catch (error) {
-    console.error(`[エラー] ${characterId} のサマリ作成処理でエラーが発生しました:`, error);
+    console.error(
+      `[エラー] ${characterId} のサマリ作成処理でエラーが発生しました:`,
+      error
+    );
     return `情報取得中にエラーが発生しました。しばらくしてからもう一度お試しください。`;
   }
 }
