@@ -74,6 +74,7 @@ function getVisualWidth(str) {
     // 文字コードが255より大きい（マルチバイト文字）なら2、そうでなければ1を加算
     width += str.charCodeAt(i) > 255 ? 2 : 1;
   }
+  if(width == 2){width += 1;}
   return width;
 }
 
@@ -143,7 +144,7 @@ export async function getCharacterSummary(characterId) {
           
 　　　　　　　const formattedValue = String(subStatus.value).padStart(5, ' ');
           
-          reply += `\n${statName}${bar}${formattedValue}`;
+          reply += `\n${statName} ${bar}${formattedValue}`;
         }
         
         // --- 2. 特殊能力のセクション ---
