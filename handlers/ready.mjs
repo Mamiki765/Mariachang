@@ -77,8 +77,8 @@ export default async (client) => {
     // 最初に一度だけ即時実行
   checkNewScenarios(client);
 
-  // 「22:30を起点とした3時間ごと」に実行するスケジュール
-  cron.schedule('30 1,4,7,10,13,16,19,22 * * *', () => {
+  // 「22:45を起点とした3時間ごと」に実行するスケジュール
+  cron.schedule('45 1,4,7,10,13,16,19,22 * * *', () => {
     console.log("スケジュールされたシナリオチェックを実行します...");
     checkNewScenarios(client);
   }, {
