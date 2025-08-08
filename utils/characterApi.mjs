@@ -187,7 +187,8 @@ const compactStatusGroups = [
   [5, 6], // 防技, 抵抗
   [7, 8], // 速度, 機動
   [11, 12, 14], // CT, FB, ドラマ
-  [101, 102, 103, 104, 105, 106, 199], // 属性値
+  [101, 102, 103, 104], // 属性値　4属性
+  [105, 106, 199]// 属性値　光闇無
 ];
 
 /**
@@ -267,6 +268,7 @@ export async function getCharacterSummaryCompact(characterId) {
             reply += `${ability.name}: ${ability.value}  `;
           }
         }
+        /*長くなるので一旦省略
         // スキル情報のセクションを追加
         // character.skills.a が存在し、配列の長さが0より大きいことを確認
         if (
@@ -303,6 +305,7 @@ export async function getCharacterSummaryCompact(characterId) {
           }
         }
         // ★★★ スキル情報の追加はここまで ★★★
+        */
 
         reply += `\`\`\``;
       }
