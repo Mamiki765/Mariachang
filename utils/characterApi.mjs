@@ -102,16 +102,16 @@ export async function getCharacterSummary(characterId) {
     const { character, status_range } = apiData;
 
     if (character.character_id.startsWith("r2n")) {
-      let reply = `キャラクター「${character.name}」は **NPC** です。\n`;
+      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
       }
       return reply;
     } else if (character.owner) {
-      let reply = `キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
+      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
       return reply;
     } else {
-      let reply = `「${character.name}」${character.roots.name}×${character.generation.name}\n`;
+      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}\n`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
       const displayOrder = [1, 2, 3, 4, 13, 9, 10, 5, 6, 7, 8, 11, 12, 14];
@@ -248,16 +248,16 @@ export async function getCharacterSummaryCompact(characterId) {
     const { character } = apiData; // status_rangeは今回不要
 
     if (character.character_id.startsWith("r2n")) {
-      let reply = `キャラクター「${character.name}」は **NPC** です。\n`;
+      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
       }
       return reply;
     } else if (character.owner) {
-      let reply = `キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
+      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
       return reply;
     } else {
-      let reply = `「${character.name}」${character.roots.name}×${character.generation.name}\n`;
+      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}\n`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
       if (character.sub_status && character.sub_status.length > 0) {
