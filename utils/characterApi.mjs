@@ -334,10 +334,48 @@ export async function getCharacterSummaryCompact(characterId) {
         // ★★★ アクティブスキル情報の追加はここまで ★★★
         */
         //代わりにスキル名だけを表示するセクションを追加
+        //クラス・エスプリ表記
+        // 'classes' または 'esprits' が存在する場合のみ、セクションを表示
+        if ((character.classes && character.classes.length > 0) || (character.esprits && character.esprits.length > 0)) {
+          
+          let classLine = "\n・クラス："; // 位置を揃えるための全角スペース
+
+          // --- 各パーツを安全に取得（存在しない場合は「なし」） ---
+          const class1Name = formatSkillNames(character.classes?.[0] ? [character.classes[0]] : []) || "なし";
+          const class2Name = formatSkillNames(character.classes?.[1] ? [character.classes[1]] : []) || "なし";
+          const espritName = formatSkillNames(character.esprits?.[0] ? [character.esprits[0]] : []) || "なし";
+
+          // --- パーツを賢く結合する（エスプリはclass1に追従） ---
+
+          let finalClass1Part = class1Name;
+          
+          // class1が存在し、かつ、エスプリも存在する場合のみ、結合する
+          if (class1Name !== "なし" && espritName !== "なし") {
+            finalClass1Part = `${class1Name}(${espritName})`;
+          }
+
+          // --- 最終的な表示文字列を組み立てる ---
+
+          // まず、class1(+esprit)部分を表示
+          classLine += finalClass1Part;
+
+          // class2が存在する場合のみ、" / "を付けて追加
+          if (class2Name !== "なし") {
+            classLine += ` / ${class2Name}`;
+          }
+          // もし、class1は「なし」だが、class2は存在するという稀なケース
+          // （例: 2枠目にだけ装備）も考慮
+          else if (finalClass1Part === "なし" && class2Name !== "なし") {
+            classLine += ` / ${class2Name}`;
+          }
+          
+          reply += classLine;
+        }
+
         // 'skills' オブジェクトが存在するか確認
         if (character.skills) {
           // ★★★ ここからが、この関数の心臓部です ★★★
-          reply += `\n・活性化スキル\n`;
+          reply += `\n・活性化スキル`;
           const activeSkills = formatSkillNames(character.skills.a);
           const passiveSkills = formatSkillNames(character.skills.p);
           const nonCombatSkills = formatSkillNames(character.skills.n);
