@@ -31,7 +31,7 @@ export async function execute(interaction) {
   ) {
     return interaction.reply({
       content: "このコマンドはフォーラムスレッド内でのみ使用できます。",
-      flags: 64,//ephemeral
+      flags: 64, //ephemeral
     });
   }
 
@@ -53,7 +53,7 @@ export async function execute(interaction) {
     if (interaction.user.id !== threadCreatorId) {
       return interaction.reply({
         content: "この操作を実行できるのはスレッドの作成者のみです。",
-flags: 64,//ephemeral
+        flags: 64, //ephemeral
       });
     }
 
@@ -69,12 +69,13 @@ flags: 64,//ephemeral
         .setStyle(ButtonStyle.Secondary)
     );
 
-    const confirmMessage = await interaction.reply({
-      content: "本当にこのメッセージを削除しますか？",
-      components: [confirmButtons],
-flags: 64,//ephemeral
-      fetchReply: true, // message オブジェクトを取得するため
-    });
+    const confirmMessage = await interaction
+      .reply({
+        content: "本当にこのメッセージを削除しますか？",
+        components: [confirmButtons],
+        flags: 64, //ephemeral
+      })
+      .withResponse(); //fetchReply:true は廃止のため、.withResponse()を使用
 
     // ボタンのインタラクションを待つ
     const buttonCollector = confirmMessage.createMessageComponentCollector({

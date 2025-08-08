@@ -5,7 +5,7 @@
   "main": "main.mjs",
   "type": "module",
   "scripts": {
-    "start": "node main.mjs"
+    "start": "node --trace-warnings main.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
@@ -31,5 +31,8 @@
   "keywords": [
     "node",
     "glitch"
-  ]
+  ],
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
 }

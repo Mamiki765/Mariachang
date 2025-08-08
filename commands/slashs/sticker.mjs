@@ -263,7 +263,7 @@ export async function execute(interaction) {
     if (!sticker) {
       await interaction.editReply({
         content: `スタンプ「${name}」が見つからないか、使用する権限がありません。`,
-        flags: 64,//ephemeral
+        flags: 64, //ephemeral
       });
       return;
     }

@@ -7,9 +7,9 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("janken")
-      .setNameLocalizations({
-        ja: "じゃんけん",
-      })
+  .setNameLocalizations({
+    ja: "じゃんけん",
+  })
   .setDescription("じゃんけんで対決！");
 
 export async function execute(interaction) {
@@ -63,7 +63,6 @@ export async function execute(interaction) {
     }
 
     await confirmation.followUp(result[solve]);
-
   } catch (e) {
     await interaction.editReply({
       flags: [4096], //silent
@@ -77,7 +76,7 @@ async function janken(confirmation) {
   const hands = {
     rock: "0",
     scissors: "1",
-    paper: "2"
+    paper: "2",
   };
   const handsEmoji = [":fist:", ":v:", ":hand_splayed:"];
 
@@ -98,7 +97,10 @@ async function janken(confirmation) {
 
   const confirmedRow = new ActionRowBuilder().addComponents(playersHandButton);
 
-  const text = (confirmation.message.content == "じゃんけん...") ? "じゃんけん...\nぽん！" : "あいこで...\nしょ！";
+  const text =
+    confirmation.message.content == "じゃんけん..."
+      ? "じゃんけん...\nぽん！"
+      : "あいこで...\nしょ！";
 
   await confirmation.update({
     content: `${text}${handsEmoji[botHand]}`,

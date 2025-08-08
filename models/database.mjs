@@ -256,8 +256,8 @@ const Scenario = sequelize.define(
     },
     // 将来の拡張のために、状態も保存しておくと便利
     status: {
-        type: DataTypes.STRING,
-    }
+      type: DataTypes.STRING,
+    },
   },
   {
     tableName: "scenarios", // DB内のテーブル名
@@ -266,43 +266,47 @@ const Scenario = sequelize.define(
 );
 
 //スタンプモデルの定義
-const Sticker = sequelize.define('Sticker', {
-  // 自動で増えるID (主キー)
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true,
+const Sticker = sequelize.define(
+  "Sticker",
+  {
+    // 自動で増えるID (主キー)
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    // スタンプの名前 (オートコンプリートで検索する対象)
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    // 画像のURL (Supabase Storageから取得)
+    imageUrl: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    // 画像のパス (削除時に必要)
+    filePath: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    // 誰が登録したか
+    ownerId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    // 公開設定 (あなたの素晴らしいアイデア！)
+    isPublic: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false, // デフォルトは非公開
+    },
   },
-  // スタンプの名前 (オートコンプリートで検索する対象)
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  // 画像のURL (Supabase Storageから取得)
-  imageUrl: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  // 画像のパス (削除時に必要)
-  filePath: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  // 誰が登録したか
-  ownerId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  // 公開設定 (あなたの素晴らしいアイデア！)
-  isPublic: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false, // デフォルトは非公開
-  },
-}, {
-  tableName: 'stickers',
-  timestamps: true,
-});
+  {
+    tableName: "stickers",
+    timestamps: true,
+  }
+);
 
 // データベースの同期処理
 async function syncModels() {

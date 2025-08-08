@@ -8,9 +8,7 @@ export const data = new SlashCommandBuilder()
   })
   .setDescription("擬似的なガチャを引けます。")
   .addSubcommand((subcommand) =>
-    subcommand
-      .setName("ppp")
-      .setDescription("闇市を11回引きます")
+    subcommand.setName("ppp").setDescription("闇市を11回引きます")
   )
   .addSubcommand((subcommand) =>
     subcommand

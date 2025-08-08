@@ -79,26 +79,30 @@ export default async (reaction, user) => {
       //キャッシュされてなければ取得
       await reaction.fetch();
     }
-    if(reaction.message.author.bot){return;}
+    if (reaction.message.author.bot) {
+      return;
+    }
     const nyowamiya = reaction.count;
     if (reaction.message.reactions.cache.get("1303004918961016872")?.count) {
       return;
     }
     if (nyowamiya === 7) {
       await reaction.message.channel.send({
-    embeds: [
-      new EmbedBuilder()
-      .setURL(reaction.message.url)
-      .setTitle("ニョワミヤ、またの名をニョワミヤ<:nyowamiyarika:1264010111970574408>")
-      .setDescription(reaction.message.content)
-      .setColor("#B78CFE")
+        embeds: [
+          new EmbedBuilder()
+            .setURL(reaction.message.url)
+            .setTitle(
+              "ニョワミヤ、またの名をニョワミヤ<:nyowamiyarika:1264010111970574408>"
+            )
+            .setDescription(reaction.message.content)
+            .setColor("#B78CFE")
             .setAuthor({
-              name:  reaction.message.author.displayName,
-              iconURL: reaction.message.author.displayAvatarURL()
+              name: reaction.message.author.displayName,
+              iconURL: reaction.message.author.displayAvatarURL(),
             })
-      .setTimestamp(reaction.message.createdAt)
-    ]
-  });
+            .setTimestamp(reaction.message.createdAt),
+        ],
+      });
       await reaction.message.react("1303004918961016872");
     }
   }

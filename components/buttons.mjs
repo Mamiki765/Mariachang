@@ -77,6 +77,9 @@ export function selftimeout_check(minutes) {
     .setCustomId(`cancel_selftimeout`)
     .setLabel("キャンセル")
     .setStyle(ButtonStyle.Secondary);
-  const timeout =new ActionRowBuilder().addComponents(timeout_ok, timeout_cancel);
+  const timeout = new ActionRowBuilder().addComponents(
+    timeout_ok,
+    timeout_cancel
+  );
   return [timeout];
 }

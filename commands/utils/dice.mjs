@@ -19,7 +19,7 @@ export async function execute(interaction) {
   const input = interaction.options.getString("ndn");
   if (!input.match(/^(\d+)d(\d+)([+-]\d+)?$/)) {
     await interaction.reply({
-      flags: 64,//ephemeral
+      flags: 64, //ephemeral
       content: "入力が正しくありません。",
     });
     return;
@@ -36,7 +36,8 @@ export function ndnDice(ndn) {
   const ndnWithoutModifier = modifierMatch
     ? ndn.replace(modifierMatch[0], "")
     : ndn; //補正値を除去
-  const ModifierDisplay = modifier > 0 ? `+${modifier}` : modifier === 0 ? "" : `${modifier}`;
+  const ModifierDisplay =
+    modifier > 0 ? `+${modifier}` : modifier === 0 ? "" : `${modifier}`;
 
   const ndnArr = ndnWithoutModifier.split("d");
   const number = ndnArr[0];
@@ -73,27 +74,26 @@ export function ndnDice(ndn) {
     //1d100であればクリティカル、ファンブルの判定もする
     if (sum < 6) {
       description += "**(クリティカル！)**";
-      embed.setColor(0x0000FF);
-    }
-    else if (sum > 95) {
+      embed.setColor(0x0000ff);
+    } else if (sum > 95) {
       description += "**(ファンブル！)**";
-      embed.setColor(0xFF0000);
+      embed.setColor(0xff0000);
     } else {
-      embed.setColor(0x00FF00); 
+      embed.setColor(0x00ff00);
     }
     embed.setDescription(description);
   } else if (modifier === 0) {
     // 結果の表示
     let description = `--> ${result.join(", ")}\n合計: ${sum}`;
     embed.setDescription(description);
-    embed.setColor(0x00FF00); 
+    embed.setColor(0x00ff00);
   } else {
     const total = sum + modifier;
     let description = `--> ${result.join(
       ", "
     )}\n合計: ${sum} ${ModifierDisplay} >> ${total}`;
     embed.setDescription(description);
-    embed.setColor(0x00FF00); 
+    embed.setColor(0x00ff00);
   }
   return embed;
 }

@@ -1,32 +1,38 @@
-import {
-  EmbedBuilder
-} from 'discord.js';
-import handleButtonInteraction from '../interactions/buttonHandlers.mjs';
-import handleModalInteraction from '../interactions/modalHandlers.mjs';
-import config from '../config.mjs';
+import { EmbedBuilder } from "discord.js";
+import handleButtonInteraction from "../interactions/buttonHandlers.mjs";
+import handleModalInteraction from "../interactions/modalHandlers.mjs";
+import config from "../config.mjs";
 
 export default async (interaction) => {
   //ログとり
-  const comname = interaction.commandName ? interaction.commandName : interaction.customId;
+  const comname = interaction.commandName
+    ? interaction.commandName
+    : interaction.customId;
   const user = interaction.member ? interaction.member : interaction.user; //DMならuser
   const log = new EmbedBuilder()
     .setTitle("コマンド実行ログ")
     .setDescription(`${user.displayName} がコマンドを実行しました。`)
     .setTimestamp()
-    .setThumbnail(interaction.user.displayAvatarURL({
-      dynamic: true
-    }))
-    .addFields({
-      name: "コマンド",
-      value: "```\n" + interaction.toString() + " (" + comname + ")\n```"
-    }, {
-      name: "実行ユーザー",
-      value: "```\n" + `${interaction.user.tag}(${interaction.user.id})` + "\n```",
-      inline: true
-    })
+    .setThumbnail(
+      interaction.user.displayAvatarURL({
+        dynamic: true,
+      })
+    )
+    .addFields(
+      {
+        name: "コマンド",
+        value: "```\n" + interaction.toString() + " (" + comname + ")\n```",
+      },
+      {
+        name: "実行ユーザー",
+        value:
+          "```\n" + `${interaction.user.tag}(${interaction.user.id})` + "\n```",
+        inline: true,
+      }
+    );
   interaction.client.channels.cache.get(config.logch.command).send({
-    embeds: [log]
-  })
+    embeds: [log],
+  });
   //ログ取りここまで
   //ボタン
   if (interaction.isButton()) {
@@ -42,7 +48,9 @@ export default async (interaction) => {
   else if (interaction.isAutocomplete()) {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command || !command.autocomplete) {
-      console.error(`「${interaction.commandName}」コマンドに、オートコンプリート処理が見つかりません。`);
+      console.error(
+        `「${interaction.commandName}」コマンドに、オートコンプリート処理が見つかりません。`
+      );
       return;
     }
     try {
@@ -55,12 +63,18 @@ export default async (interaction) => {
   // オートコンプリートここまで
 
   //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
-  else if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
+  else if (
+    !interaction.isChatInputCommand() &&
+    !interaction.isMessageContextMenuCommand()
+  )
+    return;
   const command = interaction.client.commands.get(interaction.commandName);
 
   //console.log(interaction);//debug
   if (!command) {
-    console.error(`「${interaction.commandName}」コマンドは見つかりませんでした。`);
+    console.error(
+      `「${interaction.commandName}」コマンドは見つかりませんでした。`
+    );
     return;
   }
 
@@ -70,13 +84,13 @@ export default async (interaction) => {
     console.error(error);
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        content: 'コマンド実行中にエラーが発生しました。',
-        flags: 64,//ephemeral
+        content: "コマンド実行中にエラーが発生しました。",
+        flags: 64, //ephemeral
       });
     } else {
       await interaction.reply({
-        content: 'コマンド実行中にエラーが発生しました。',
-        flags: 64,//ephemeral
+        content: "コマンド実行中にエラーが発生しました。",
+        flags: 64, //ephemeral
       });
     }
   }

@@ -5,7 +5,10 @@ import {
   TextInputStyle,
   ActionRowBuilder,
 } from "discord.js";
-import { timeout_confirm, timeout_cancel } from "../commands/slashs/suyasuya.mjs";
+import {
+  timeout_confirm,
+  timeout_cancel,
+} from "../commands/slashs/suyasuya.mjs";
 
 export default async function handleButtonInteraction(interaction) {
   //以下変数定義
@@ -36,14 +39,14 @@ export default async function handleButtonInteraction(interaction) {
       await interaction.reply({
         content: "このメッセージを削除しますか？",
         components: [deleteconfirm],
-        flags: 64,//ephemeral
+        flags: 64, //ephemeral
       });
       return;
     } else {
       //削除権限無し
       await interaction.reply({
         content: "このメッセージを削除できるのは投稿者のみです。",
-        flags: 64,//ephemeral
+        flags: 64, //ephemeral
       });
       return;
     }
@@ -57,14 +60,14 @@ export default async function handleButtonInteraction(interaction) {
       await interaction.reply({
         content: "このメッセージを削除しますか？",
         components: [deleteconfirm],
-        flags: 64,//ephemeral
+        flags: 64, //ephemeral
       });
       return;
     } else {
       //削除権限無し
       await interaction.reply({
         content: "このメッセージを削除できるのは投稿者のみです。",
-        flags: 64,//ephemeral
+        flags: 64, //ephemeral
       });
       return;
     }

@@ -1,7 +1,7 @@
 import { EmbedBuilder, ActivityType } from "discord.js";
 import cron from "node-cron";
 import config from "../config.mjs";
-import { checkNewScenarios } from "../tasks/scenario-checker.mjs"; 
+import { checkNewScenarios } from "../tasks/scenario-checker.mjs";
 import { syncModels } from "../models/database.mjs";
 
 export default async (client) => {
@@ -30,13 +30,14 @@ export default async (client) => {
   });
   //闘技　予選終了
   const arenachannel = await client.channels.fetch(config.arenatimech);
-  cron.schedule("0 17 * * 1", async () => {//250509 14→17時に
+  cron.schedule("0 17 * * 1", async () => {
+    //250509 14→17時に
     await arenachannel.send(
       "【自動】 [闘技場の予選終了時間です。](<https://rev2.reversion.jp/arena/official>)\n明日10時までAIやステータスを更新することができます。(本戦開始後は大会終了まで更新することができません)\n決勝トーナメント表を確認してください。"
     );
   });
-    //闘技　ベスト４
-/* 250703ロスアカ本戦以降AIいじれなくなったので削除
+  //闘技　ベスト４
+  /* 250703ロスアカ本戦以降AIいじれなくなったので削除
   cron.schedule("0 14 * * 2", async () => {
     await arenachannel.send(
       "【自動】 [火曜日の闘技場終了時間です。](<https://rev2.reversion.jp/arena/official>)\nベスト４に残った人は準決勝開始までAIやステータスを更新することができます。"
@@ -68,23 +69,30 @@ export default async (client) => {
     await syncModels();
     console.log("Database synchronized successfully. Proceeding with tasks.");
   } catch (error) {
-    console.error("CRITICAL: Database sync failed on startup. Halting scheduled tasks.", error);
+    console.error(
+      "CRITICAL: Database sync failed on startup. Halting scheduled tasks.",
+      error
+    );
     // 同期に失敗したら、何もせずに関数を終了する
     return;
   }
 
   //シナリオの定期チェック
-    // 最初に一度だけ即時実行
+  // 最初に一度だけ即時実行
   checkNewScenarios(client);
 
   // 「22:45を起点とした3時間ごと」に実行するスケジュール
-  cron.schedule('45 1,4,7,10,13,16,19,22 * * *', () => {
-    console.log("スケジュールされたシナリオチェックを実行します...");
-    checkNewScenarios(client);
-  }, {
-    scheduled: true,
-    timezone: "Asia/Tokyo" // 日本時間を指定
-  });
+  cron.schedule(
+    "45 1,4,7,10,13,16,19,22 * * *",
+    () => {
+      console.log("スケジュールされたシナリオチェックを実行します...");
+      checkNewScenarios(client);
+    },
+    {
+      scheduled: true,
+      timezone: "Asia/Tokyo", // 日本時間を指定
+    }
+  );
 
   await client.user.setActivity("🍙", {
     type: ActivityType.Custom,
@@ -97,7 +105,9 @@ export default async (client) => {
     embeds: [
       new EmbedBuilder()
         .setTitle("起動完了")
-        .setDescription(`> Botが起動しました。\nサービス名：${process.env.SERVICE_NAME}`)
+        .setDescription(
+          `> Botが起動しました。\nサービス名：${process.env.SERVICE_NAME}`
+        )
         .setColor("#B78CFE")
         .setTimestamp(),
     ],

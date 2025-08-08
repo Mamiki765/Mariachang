@@ -9,9 +9,9 @@ import { selftimeout_check } from "../../components/buttons.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("suyasuya")
-.setNameLocalizations({
-            ja: "セルフタイムアウト",
-          })
+  .setNameLocalizations({
+    ja: "セルフタイムアウト",
+  })
   .setDescription(
     "【⚠️注意】発言・VC参加をできない状態にします。依存対策にどうぞ。"
   )
@@ -28,11 +28,11 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const nerunonya = interaction.options.getInteger("minutes");
-const hours = Math.floor(nerunonya / 60); // 時間を計算
-const minutes = nerunonya % 60; // 残りの分を計算
+  const hours = Math.floor(nerunonya / 60); // 時間を計算
+  const minutes = nerunonya % 60; // 残りの分を計算
   await interaction.reply({
     flags: [4096, 64], //silent,ephemeral
-    
+
     content: `**本当に${nerunonya}分(${hours}時間${minutes}分)タイムアウトしますか？**\n__**発言、リアクション、ボイスチャットへの参加などができなくなります！**__解除は基本的に受け付けていません！`,
     components: selftimeout_check(nerunonya),
   });

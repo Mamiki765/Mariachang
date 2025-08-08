@@ -26,8 +26,7 @@ export async function execute(interaction) {
         {
           name: "/ロールプレイ 発言",
           description: "登録したキャラで発言ができます。",
-          usage:
-            "アイコンを再登録して切り替える事もできます。",
+          usage: "アイコンを再登録して切り替える事もできます。",
         },
         {
           name: "/ロールプレイ セーブデータ確認",
@@ -79,7 +78,8 @@ export async function execute(interaction) {
         {
           name: "/exchange(為替)",
           description: "為替レートを見れます",
-          usage: "米ドル、ユーロ、英ポンド、豪ドル、NZドル、カナダドル、スイスフラン、トルコリラ、南アフリカランド、メキシコペソなど",
+          usage:
+            "米ドル、ユーロ、英ポンド、豪ドル、NZドル、カナダドル、スイスフラン、トルコリラ、南アフリカランド、メキシコペソなど",
         },
         {
           name: "/ヘルプ",
@@ -113,13 +113,15 @@ export async function execute(interaction) {
           name: "「自由雑談」新スレ通知",
           description:
             "「自由雑談」に建てられたスレを「雑談」チャンネルでお知らせします",
-          usage: "地下自由雑談も地下雑談で通知が出ます。\n通知してほしくない時は「非通知」とスレ立ての本文のどこかに入れてください。",
+          usage:
+            "地下自由雑談も地下雑談で通知が出ます。\n通知してほしくない時は「非通知」とスレ立ての本文のどこかに入れてください。",
         },
         {
           name: "ロスアカ新依頼チェッカー",
           description:
             "ロスアカの新しい依頼があると「LostArcadia」チャンネルでお知らせします",
-          usage: "毎日1時半から3時間毎にチェックします。リプレイ返却もお知らせします。",
+          usage:
+            "毎日1時半から3時間毎にチェックします。リプレイ返却もお知らせします。",
         },
         {
           name: "見せびらかし機能（仮）",
@@ -132,7 +134,7 @@ export async function execute(interaction) {
           description:
             "ils00026932　など3文字＋IDで表記できる物を貼ると変換して貼り付けます",
           usage: "ils,snd,sce,nvl,not,comに対応",
-        },        
+        },
         {
           name: "ダイスロール",
           description:
@@ -153,14 +155,14 @@ export async function execute(interaction) {
             "DiscordのメッセージやX(旧Twitter)などのリンクを見やすい形式に自動で変換します。",
           usage:
             "右クリや発言長押しなどから取れるDiscordの発言リンクを貼ればリンク先の発言を（返信先含め）引用として表示できます。\nツイッターはfxtwitterというサムネ表示を改善するリンクに変換します。\n地下(NSFWチャンネル)ならPixivも変換します",
-        },        
+        },
         {
           name: "時間教えて",
           description:
             "今何時？　ほったいも　今日何日？ など書き込めばマリアが教えてくれます。28年後の年も教えます",
           usage:
             "/^((今|いま)(何時|なんじ)？*|(今日|きょう)(何日|なんにち)？*|ほったいも？*)$/",
-        },          
+        },
       ],
     },
     chat2: {
@@ -169,20 +171,24 @@ export async function execute(interaction) {
       commands: [
         {
           name: "ドミノ機能",
-          description: "ドミノ、どみどみ、などを入力すると1d100枚のドミノを並べます。ただし100を出してしまうと…",
-          usage: "出目はリアクションで出ます。ドミノ雑談チャンネルの場合はどのメッセージでもドミノを並べます",
+          description:
+            "ドミノ、どみどみ、などを入力すると1d100枚のドミノを並べます。ただし100を出してしまうと…",
+          usage:
+            "出目はリアクションで出ます。ドミノ雑談チャンネルの場合はどのメッセージでもドミノを並べます",
         },
         {
           name: "色々変なリアクションや発言",
-          description: "ニョワ、ニョボシ、ぽてと、ココロ…、ミョミョミョワァァーンなどでリアクションが付きます",
-          usage: "「ニョワミヤ」「トール＝チャン」（何故か）「ゆづさや」でも画像が出ます。だからどうした",
+          description:
+            "ニョワ、ニョボシ、ぽてと、ココロ…、ミョミョミョワァァーンなどでリアクションが付きます",
+          usage:
+            "「ニョワミヤ」「トール＝チャン」（何故か）「ゆづさや」でも画像が出ます。だからどうした",
         },
         {
           name: "チンチロリン",
           description: "チンチロリンといれると3d6のダイスを振ります。",
-          usage: "イカサマもできるコマンドがあるらしいです。ヒント：一見チンチロリンに見えますが…",
+          usage:
+            "イカサマもできるコマンドがあるらしいです。ヒント：一見チンチロリンに見えますが…",
         },
-
       ],
     },
     contexts: {
@@ -242,7 +248,7 @@ export async function execute(interaction) {
   const reply = await interaction.reply({
     embeds: [initialEmbed],
     components: [row],
-    flags: 64,//ephemeral
+    flags: 64, //ephemeral
   });
 
   const collector = reply.createMessageComponentCollector({
