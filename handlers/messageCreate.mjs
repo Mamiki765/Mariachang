@@ -16,7 +16,10 @@ import {
   sendMessage,
 } from "../utils/messageutil.mjs";
 import { deletebuttonunique } from "../components/buttons.mjs";
-import { getCharacterSummary } from "../utils/characterApi.mjs";
+import {
+  getCharacterSummary,
+  getCharacterSummaryCompact,
+} from "../utils/characterApi.mjs";
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
@@ -33,11 +36,12 @@ const rev2urlPatterns = {
   com: "https://rev2.reversion.jp/community/detail/com",
 };
 
-
 export default async (message) => {
   //定義系
-//ロスアカステシ詳細表示用正規表現
-const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
+  //ロスアカステシ詳細表示用正規表現
+  const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
+  // コンパクト表示のトリガー
+  const rev2detailCompactMatch = message.content.match(/^(r2[pn][0-9]{6})\?$/);
   //ロスアカ短縮形
   const rev2urlmatch = message.content.match(
     /^(ils|snd|sce|nvl|not|com)(\d{8})$/
@@ -46,13 +50,18 @@ const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
   const ccmatch = message.content.match(/^!(cc|choice)(x?)(\d*)\s+/);
   // ここから反応
   //メンション
-    if (message.mentions.has(config.botid) && !message.mentions.everyone && !(message.channel.nsfw || message.channel.parent?.nsfw)) {//250718 NSFWチャンネルでは反応しないように
-        const url = message.guild
-    ? `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`
-    : "（DM）";
+  if (
+    message.mentions.has(config.botid) &&
+    !message.mentions.everyone &&
+    !(message.channel.nsfw || message.channel.parent?.nsfw)
+  ) {
+    //250718 NSFWチャンネルでは反応しないように
+    const url = message.guild
+      ? `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`
+      : "（DM）";
     await message.client.channels.cache.get(config.logch.admin)?.send({
       flags: [4096],
-      content: `<@${message.author.id}>:${message.content} > ${url}`
+      content: `<@${message.author.id}>:${message.content} > ${url}`,
     });
   }
   //リアクション
@@ -62,7 +71,11 @@ const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
   if (message.content.match(/にょわ|ニョワ|ﾆｮﾜ|nyowa/)) {
     await message.react("1264010111970574408");
   }
-  if (message.content.match(/にょぼし(?!ふゆ)|ニョボシ(?!フユ)|ﾆｮﾎﾞｼ(?!ﾌﾕ)|nyobosi(?!fuyu)/)) {
+  if (
+    message.content.match(
+      /にょぼし(?!ふゆ)|ニョボシ(?!フユ)|ﾆｮﾎﾞｼ(?!ﾌﾕ)|nyobosi(?!fuyu)/
+    )
+  ) {
     await message.react("1293141862634229811");
   }
   if (message.content.match(/にょぼしふゆ|ニョボシフユ|ﾆｮﾎﾞｼﾌﾕ|nyobosifuyu/)) {
@@ -173,7 +186,18 @@ const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
     const replyMessage = await getCharacterSummary(characterId);
     await message.reply({
       content: replyMessage,
-      allowedMentions: { repliedUser: false }
+      allowedMentions: { repliedUser: false },
+    });
+  }
+  // コンパクト表示
+  else if (rev2detailCompactMatch) {
+    // else if の順序に注意
+    const characterId = rev2detailCompactMatch[1];
+    await message.channel.sendTyping();
+    const replyMessage = await getCharacterSummaryCompact(characterId);
+    await message.reply({
+      content: replyMessage,
+      allowedMentions: { repliedUser: false },
     });
   }
   //ロスアカ
@@ -250,8 +274,7 @@ const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
       flags: [4096],
       content: "それは、わくわく taşıy",
     });
-  }
-  else if (message.content.match(/^それは、わくわく taşıy$/)) {
+  } else if (message.content.match(/^それは、わくわく taşıy$/)) {
     await message.reply({
       flags: [4096],
       content: "ん!!!（しらけました）",

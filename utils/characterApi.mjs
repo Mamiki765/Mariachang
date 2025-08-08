@@ -175,3 +175,129 @@ export async function getCharacterSummary(characterId) {
     return `情報取得中にエラーが発生しました。しばらくしてからもう一度お試しください。`;
   }
 }
+
+/**
+ * 【NEW】コンパクトサマリ用のステータス表示グループを定義します。
+ * 内側の配列が、一行に表示されるステータスのIDグループです。
+ */
+const compactStatusGroups = [
+  [1, 2], // HP, AP
+  [3, 4, 13], // 主攻, 副攻, 回復
+  [9, 10], // 命中, 回避
+  [5, 6], // 防技, 抵抗
+  [7, 8], // 速度, 機動
+  [11, 12, 14], // CT, FB, ドラマ
+  [15, 16, 17, 18, 19, 20, 21], // 属性値
+];
+
+/**
+ * 【NEW】コンパクトサマリを生成する高レベル関数
+ * ゲージをなくし、ステータスをグループ化して表示します。
+ * @param {string} characterId
+ * @returns {Promise<string>}
+ */
+export async function getCharacterSummaryCompact(characterId) {
+  try {
+    const apiData = await getCharacterDetail(characterId);
+
+    if (!apiData || !apiData.character) {
+      return `キャラクター「${characterId}」の情報取得に失敗しました。IDが正しいか確認してください。`;
+    }
+    const { character } = apiData; // status_rangeは今回不要
+
+    if (character.character_id.startsWith("r2n")) {
+      let reply = `キャラクター「${character.name}」は **NPC** です。\n`;
+      if (character.handler_creator) {
+        reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
+      }
+      return reply;
+    } else if (character.owner) {
+      let reply = `キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
+      return reply;
+    } else {
+      let reply = `「${character.name}」${character.roots.name}×${character.generation.name}\n`;
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
+
+      if (character.sub_status && character.sub_status.length > 0) {
+        reply += `\`\`\`P:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
+
+        // 効率的にステータスを検索できるよう、IDをキーにしたMapを作成
+        const statusMap = new Map(character.sub_status.map((s) => [s.id, s]));
+
+        // 定義したグループに基づいて行を生成
+        for (const group of compactStatusGroups) {
+          const lineParts = []; // 一行分のパーツを格納する配列
+
+          for (const statusId of group) {
+            if (statusMap.has(statusId)) {
+              const subStatus = statusMap.get(statusId);
+              // 「名前: 値」の形式でパーツを作成
+              lineParts.push(`${subStatus.abbr}: ${subStatus.value}`);
+            }
+          }
+
+          // その行に表示すべきステータスが1つでもあれば、文字列として結合して追加
+          if (lineParts.length > 0) {
+            // 半角スペース2つで区切る
+            reply += `\n${lineParts.join("  ")}`;
+          }
+        }
+
+        const specialAbilities = character.sub_status.filter(
+          (s) => s.id >= 200
+        );
+
+        if (specialAbilities.length > 0) {
+          reply += `\n・その他能力\n`;
+          for (const ability of specialAbilities) {
+            reply += `${ability.name}: ${ability.value}  `;
+          }
+        }
+        // スキル情報のセクションを追加
+        // character.skills.a が存在し、配列の長さが0より大きいことを確認
+        if (
+          character.skills &&
+          Array.isArray(character.skills.a) &&
+          character.skills.a.length > 0
+        ) {
+          // 前のセクションと区別するために、改行を2つ入れる
+          reply += `\n・アクティブスキル\n`;
+
+          // 各スキルをループ処理
+          for (const skill of character.skills.a) {
+            // 'active'プロパティが存在しない場合に備え、空のオブジェクトをデフォルト値とする
+            const activeProps = skill.active || {};
+
+            // 各パラメータを取得（存在しない場合は 'N/A' とする）
+            const ticks = activeProps.ticks ?? "N/A";
+            const ap = activeProps.ap_cost ?? "N/A";
+            const power = activeProps.power ?? "N/A";
+            const hit = activeProps.hit ?? "N/A";
+            const critical = activeProps.critical ?? "N/A";
+            const fumble = activeProps.fumble ?? "N/A";
+
+            // スキルの基本情報を一行にまとめる
+            let skillLine = `・${skill.name} (行動値:${ticks} AP:${ap} 威力:${power} 命中:${hit} CT:${critical} FB:${fumble})`;
+
+            // 'display_effects' があれば、インデントして追加
+            if (skill.display_effects) {
+              skillLine += `\n  └ 効果: ${skill.display_effects}`;
+            }
+            skillLine += `\n`;
+            reply += skillLine;
+          }
+        }
+        // ★★★ スキル情報の追加はここまで ★★★
+
+        reply += `\`\`\``;
+      }
+      return reply;
+    }
+  } catch (error) {
+    console.error(
+      `[エラー] ${characterId} のコンパクトサマリ作成処理でエラーが発生しました:`,
+      error
+    );
+    return `情報取得中にエラーが発生しました。しばらくしてからもう一度お試しください。`;
+  }
+}
