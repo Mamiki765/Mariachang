@@ -187,8 +187,22 @@ const compactStatusGroups = [
   [5, 6], // 防技, 抵抗
   [7, 8], // 速度, 機動
   [11, 12, 14], // CT, FB, ドラマ
-  [15, 16, 17, 18, 19, 20, 21], // 属性値
+  [101, 102, 103, 104, 105, 106, 199], // 属性値
 ];
+
+/**
+ * 【NEW】文字列からXML/HTMLタグを取り除くヘルパー関数
+ * @param {string} text タグを含む可能性のある文字列
+ * @returns {string} タグが取り除かれた文字列
+ */
+function stripXmlTags(text) {
+  // textが存在しない、または空の文字列の場合は、そのまま空文字を返す
+  if (!text) {
+    return "";
+  }
+  // <...> のパターンに一致するものを、すべて空文字に置き換える（削除する）
+  return text.replace(/<[^>]+>/g, "");
+}
 
 /**
  * 【NEW】コンパクトサマリを生成する高レベル関数
@@ -281,7 +295,8 @@ export async function getCharacterSummaryCompact(characterId) {
 
             // 'display_effects' があれば、インデントして追加
             if (skill.display_effects) {
-              skillLine += `\n  └ 効果: ${skill.display_effects}`;
+              const cleanedEffects = stripXmlTags(skill.display_effects);
+              skillLine += `\n  └ 効果: ${cleanedEffects}`;
             }
             skillLine += `\n`;
             reply += skillLine;
