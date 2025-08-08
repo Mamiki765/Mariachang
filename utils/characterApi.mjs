@@ -337,7 +337,7 @@ export async function getCharacterSummaryCompact(characterId) {
         // 'skills' オブジェクトが存在するか確認
         if (character.skills) {
           // ★★★ ここからが、この関数の心臓部です ★★★
-          reply += `\n・活性化スキル\n`;
+          reply += `\n・活性化スキル`;
           const activeSkills = formatSkillNames(character.skills.a);
           const passiveSkills = formatSkillNames(character.skills.p);
           const nonCombatSkills = formatSkillNames(character.skills.n);
