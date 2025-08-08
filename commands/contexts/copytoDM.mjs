@@ -79,9 +79,8 @@ export async function execute(interaction) {
 
   //完了報告
   await interaction.reply({
-    flags: [4096], //silent
+    flags: [4096,64], //silent,ephemeral
     content: 'DMにメッセージをコピーしたにゃ！',
-    ephemeral: true
   });
 
 };

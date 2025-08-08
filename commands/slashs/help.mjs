@@ -242,7 +242,7 @@ export async function execute(interaction) {
   const reply = await interaction.reply({
     embeds: [initialEmbed],
     components: [row],
-    ephemeral: true,
+    flags: 64,//ephemeral
   });
 
   const collector = reply.createMessageComponentCollector({
@@ -293,7 +293,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const helptext = fs.readFileSync("./gacha/help.txt", "utf8");
   await interaction.reply({
-    flags: [4096],
+    flags: [4096,64], //silent,ephemeral
     embeds: [
       new EmbedBuilder()
         .setTitle("神谷マリアbotについて")
@@ -303,7 +303,7 @@ export async function execute(interaction) {
           text: "無駄に時間かかったから褒めてくれると嬉しいな…",
         }),
     ],
-    ephemeral: true,
+   
   });
 }
 */

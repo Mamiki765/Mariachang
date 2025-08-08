@@ -15,8 +15,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   await interaction.reply({
-    flags: [4096],
-    ephemeral: true,
+    flags: [4096, 64], //silent,ephemeral
     embeds: [
       new EmbedBuilder()
         .setTitle("お願い")

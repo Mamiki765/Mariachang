@@ -747,7 +747,7 @@ export default async (message) => {
         console.error("Error fetching message:", error);
         message.reply({
           content: "メッセージを取得できませんでした。",
-          ephemeral: true,
+          flags: 64,//ephemeral
         });
       }
     }

@@ -71,12 +71,12 @@ export default async (interaction) => {
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
         content: 'コマンド実行中にエラーが発生しました。',
-        ephemeral: true
+        flags: 64,//ephemeral
       });
     } else {
       await interaction.reply({
         content: 'コマンド実行中にエラーが発生しました。',
-        ephemeral: true
+        flags: 64,//ephemeral
       });
     }
   }

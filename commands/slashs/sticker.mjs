@@ -124,7 +124,7 @@ export async function execute(interaction) {
   const userId = interaction.user.id;
 
   if (subcommand === "register") {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 }); // ephemeral reply
     const image = interaction.options.getAttachment("image");
     const name = interaction.options.getString("name");
     const isPublic = interaction.options.getBoolean("public") || false;
@@ -263,7 +263,7 @@ export async function execute(interaction) {
     if (!sticker) {
       await interaction.editReply({
         content: `スタンプ「${name}」が見つからないか、使用する権限がありません。`,
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
       return;
     }
@@ -272,7 +272,7 @@ export async function execute(interaction) {
       files: [sticker.imageUrl],
     });
   } else if (subcommand === "delete") {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 }); // ephemeral reply
     const name = interaction.options.getString("name");
 
     // 削除対象のスタンプが、本当に自分のものか確認

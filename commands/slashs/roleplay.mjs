@@ -274,9 +274,8 @@ export async function execute(interaction) {
       // サイズチェックを追加
       if (buffer.length > 1024 * 1024) {
         await interaction.reply({
-          flags: [4096],
+          flags: [4096,64], //silent,ephemeral
           content: "アイコンファイルのサイズが1MBを超えています。",
-          ephemeral: true,
         });
         return;
       }
@@ -285,10 +284,9 @@ export async function execute(interaction) {
       const fileExt = icon.name.split(".").pop();
       if (!["png", "webp", "jpg", "jpeg"].includes(fileExt.toLowerCase())) {
         await interaction.reply({
-          flags: [4096],
+          flags: [4096,64], //silent,ephemeral
           content:
             "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
-          ephemeral: true,
         });
         return;
       }
@@ -350,16 +348,14 @@ export async function execute(interaction) {
       console.log("Character Data:", checkchara);
       console.log("Icon Data:", checkicon);
       interaction.reply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `スロット${slot}にキャラデータを登録しました`,
-        ephemeral: true,
       });
     } catch (error) {
       console.error("キャラ登録に失敗しました。:", error);
       interaction.reply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `スロット${slot}へのキャラ登録でエラーが発生しました。`,
-        ephemeral: true,
       });
     }
   } else if (subcommand === "post") {
@@ -377,7 +373,7 @@ export async function execute(interaction) {
       flags = null;
     //ファイル名決定
     const charaslot = dataslot(interaction.user.id, slot);
-    await interaction.deferReply({ ephemeral: true }); // ★ 250528ここで応答（考え中） ★
+    await interaction.deferReply({ flags: 64 }); // ★ 250528ここで応答（考え中） ★
     try {
       loadchara = await Character.findOne({
         where: {
@@ -392,18 +388,16 @@ export async function execute(interaction) {
     } catch (error) {
       console.error("キャラデータのロードに失敗しました:", error);
       interaction.editReply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `キャラデータのロードでエラーが発生しました。`,
-        ephemeral: true,
       });
       return;
     }
 
     if (!loadchara) {
       interaction.editReply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `スロット${slot}にキャラデータがありません。`,
-        ephemeral: true,
       });
       return;
     }
@@ -434,9 +428,8 @@ export async function execute(interaction) {
       // サイズチェックを追加
       if (buffer.length > 1024 * 1024) {
         await interaction.editReply({
-          flags: [4096],
+          flags: [4096,64], //silent,ephemeral
           content: "アイコンファイルのサイズが1MBを超えています。",
-          ephemeral: true,
         });
         return;
       }
@@ -445,10 +438,9 @@ export async function execute(interaction) {
       const fileExt = icon.name.split(".").pop();
       if (!["png", "webp", "jpg", "jpeg"].includes(fileExt.toLowerCase())) {
         await interaction.editReply({
-          flags: [4096],
+          flags: [4096,64], //silent,ephemeral
           content:
             "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
-          ephemeral: true,
         });
         return;
       }
@@ -476,9 +468,8 @@ export async function execute(interaction) {
         });
       } else {
         interaction.editReply({
-          flags: [4096],
+          flags: [4096,64], //silent,ephemeral
           content: `アイコンのアップロードでエラーが発生しました。`,
-          ephemeral: true,
         });
         return;
       }
@@ -493,9 +484,8 @@ export async function execute(interaction) {
     } else {
       // `illustratorname` が含まれていない場合はエラーとして返します。(初期のデータとの互換のため)
       interaction.editReply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `大変お手数をおかけしますが、再度キャラを登録し直してください`,
-        ephemeral: true,
       });
       return;
     }
@@ -561,9 +551,8 @@ export async function execute(interaction) {
       await updatePoints(interaction.user.id);
 
       await interaction.editReply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `送信しました`,
-        ephemeral: true,
       });
       /*
       // 4. 送信された（編集された）メッセージの Message オブジェクトを取得
@@ -575,9 +564,8 @@ export async function execute(interaction) {
     } catch (error) {
       console.error("メッセージ送信に失敗しました:", error);
       interaction.editReply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `エラーが発生しました。`,
-        ephemeral: true,
       });
     }
   } else if (subcommand === "display") {
@@ -642,14 +630,14 @@ export async function execute(interaction) {
       await interaction.reply({
         content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# アイコンが表示されないときは再度してみてください`,
         embeds: embeds,
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     } catch (error) {
       console.error("キャラデータの表示に失敗しました:", error);
       await interaction.reply({
-        flags: [4096],
+        flags: [4096,64], //silent,ephemeral
         content: `キャラデータの表示でエラーが発生しました。`,
-        ephemeral: true,
+        
       });
     }
   }

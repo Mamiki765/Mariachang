@@ -36,14 +36,14 @@ export default async function handleButtonInteraction(interaction) {
       await interaction.reply({
         content: "このメッセージを削除しますか？",
         components: [deleteconfirm],
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
       return;
     } else {
       //削除権限無し
       await interaction.reply({
         content: "このメッセージを削除できるのは投稿者のみです。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
       return;
     }
@@ -57,14 +57,14 @@ export default async function handleButtonInteraction(interaction) {
       await interaction.reply({
         content: "このメッセージを削除しますか？",
         components: [deleteconfirm],
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
       return;
     } else {
       //削除権限無し
       await interaction.reply({
         content: "このメッセージを削除できるのは投稿者のみです。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
       return;
     }

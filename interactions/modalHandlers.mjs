@@ -67,13 +67,13 @@ export default async function handleModalInteraction(interaction) {
       });
       //完了報告
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `返信を送信しました。`
       });
     } catch (e) {
       console.error('メッセージ送信に失敗しました:', e);
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `メッセージの送信に失敗しました: ${e.message}`
       });
     }
@@ -126,13 +126,13 @@ const replybutton = (replyable === "0") ? null : [replyfromDM];
         ]
       });
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `${user.username}にメッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``
       });
     } catch (e) {
       console.error('メッセージ送信に失敗しました:', e);
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `メッセージの送信に失敗しました: ${e.message}`
       });
     }

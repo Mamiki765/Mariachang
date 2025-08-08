@@ -15,7 +15,7 @@ export async function execute(interaction) {
   if (!interaction.inGuild()) {
     return interaction.reply({
       content: "このコマンドはサーバー内でのみ使用できます。",
-      ephemeral: true,
+      flags: 64,
     });
   }
 
@@ -31,7 +31,7 @@ export async function execute(interaction) {
   ) {
     return interaction.reply({
       content: "このコマンドはフォーラムスレッド内でのみ使用できます。",
-      ephemeral: true,
+      flags: 64,//ephemeral
     });
   }
 
@@ -39,7 +39,7 @@ export async function execute(interaction) {
   if (thread.type === ChannelType.PrivateThread) {
     return interaction.reply({
       content: "プライベートスレッド内のメッセージは削除できません。",
-      ephemeral: true,
+      flags: 64,
     });
   }
 
@@ -53,7 +53,7 @@ export async function execute(interaction) {
     if (interaction.user.id !== threadCreatorId) {
       return interaction.reply({
         content: "この操作を実行できるのはスレッドの作成者のみです。",
-        ephemeral: true,
+flags: 64,//ephemeral
       });
     }
 
@@ -72,7 +72,7 @@ export async function execute(interaction) {
     const confirmMessage = await interaction.reply({
       content: "本当にこのメッセージを削除しますか？",
       components: [confirmButtons],
-      ephemeral: true,
+flags: 64,//ephemeral
       fetchReply: true, // message オブジェクトを取得するため
     });
 
@@ -118,7 +118,7 @@ export async function execute(interaction) {
     console.error("メッセージ削除処理中にエラーが発生しました:", error);
     await interaction.reply({
       content: "メッセージの削除処理中にエラーが発生しました。",
-      ephemeral: true,
+      flags: 64,
     });
   }
 }

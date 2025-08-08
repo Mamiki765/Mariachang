@@ -17,7 +17,7 @@ export async function execute(interaction) {
 	const message = interaction.options.getMessage("message")
 	if (message.system) return interaction.reply({
 		content: "システムメッセージはピン留めができません。",
-		ephemeral: true
+		flags: 64,
 	});
 	if (message.pinned) {
 		await message.unpin();
@@ -35,7 +35,7 @@ export async function execute(interaction) {
 		} catch (error) {
 			interaction.reply({
 				content: `ピン留めができませんでした。上限に到達してる可能性があります。`,
-				ephemeral: true
+				flags: 64,
 			});
 		}
 	};

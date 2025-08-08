@@ -258,13 +258,13 @@ export async function execute(interaction) {
         ],
       });
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `メッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``,
       });
     } catch (e) {
       console.error("メッセージ送信に失敗しました:", e);
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `メッセージの送信に失敗しました: ${e.message}`,
       });
     }
@@ -323,13 +323,13 @@ export async function execute(interaction) {
         ],
       });
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `${targetUser.username}にメッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``,
       });
     } catch (e) {
       console.error("メッセージ送信に失敗しました:", e);
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `メッセージの送信に失敗しました: ${e.message}`,
       });
     }
@@ -347,7 +347,7 @@ export async function execute(interaction) {
     if (!urlParts) {
       return interaction.reply({
         content: "無効なメッセージURLです。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     }
 
@@ -362,7 +362,7 @@ export async function execute(interaction) {
       if (message.author.id !== interaction.client.user.id) {
         return interaction.reply({
           content: "これはBotのメッセージではありません。",
-          ephemeral: true,
+          flags: 64,//ephemeral
         });
       }
 
@@ -375,13 +375,13 @@ export async function execute(interaction) {
       await message.edit(editOptions);
       await interaction.reply({
         content: "メッセージが正常に編集されました。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     } catch (error) {
       console.error("メッセージの編集に失敗しました:", error);
       await interaction.reply({
         content: "メッセージの編集に失敗しました。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     }
     //メモ機能、まずは登録
@@ -397,7 +397,7 @@ export async function execute(interaction) {
     });
     await interaction.reply({
       content: `✅ メモを追加しました: ${content}`,
-      ephemeral: true,
+      flags: 64,//ephemeral
     });
     //メモを保存したログを出力
 
@@ -436,7 +436,7 @@ export async function execute(interaction) {
     if (memos.length === 0) {
       return interaction.reply({
         content: "❌ メモが見つかりません。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     }
 
@@ -468,7 +468,7 @@ export async function execute(interaction) {
         ).join("\n") // Promise.allの結果をjoinで結合
       );
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
     //メモ機能、削除（非表示）
   } else if (subcommand === "memo_remove") {
     const memoId = interaction.options.getInteger("memo_id");
@@ -479,7 +479,7 @@ export async function execute(interaction) {
     if (!memo) {
       return interaction.reply({
         content: "❌ 指定されたメモが見つかりません。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     }
     // メモのisVisibleをfalseにして非表示にする
@@ -488,7 +488,7 @@ export async function execute(interaction) {
 
     await interaction.reply({
       content: `✅ メモ (ID: ${memoId}) を非表示にしました。`,
-      ephemeral: true,
+      flags: 64,//ephemeral
     });
   } else if (subcommand == "timeout") {
     //タイムアウト
@@ -507,12 +507,12 @@ export async function execute(interaction) {
       if (!member)
         return interaction.reply({
           content: "対象メンバーが見つかりません。",
-          ephemeral: true,
+          flags: 64,//ephemeral
         });
 
       await member.timeout(sleaptime, reason);
       await interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         embeds: [
           new EmbedBuilder()
             .setTitle("タイムアウト")
@@ -555,7 +555,7 @@ export async function execute(interaction) {
       });
     } catch (error) {
       interaction.reply({
-        ephemeral: true,
+        flags: 64,//ephemeral
         content: `このユーザーにはタイムアウトできません（Botのロール順などを確認してください）`,
       });
     }
@@ -565,7 +565,7 @@ export async function execute(interaction) {
     await interaction.reply({
       content:
         "シナリオの手動チェックを開始します。新規・終了があればロスアカチャンネルに投稿されます...",
-      ephemeral: true,
+      flags: 64,//ephemeral
     });
 
     // 別のファイルからインポートしたチェック関数を呼び出す
@@ -575,7 +575,7 @@ export async function execute(interaction) {
       // 成功したことを伝える
       await interaction.followUp({
         content: "✅ 手動チェックが完了しました。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     } catch (error) {
       console.error("手動シナリオチェック中にエラー:", error);
@@ -583,7 +583,7 @@ export async function execute(interaction) {
       await interaction.followUp({
         content:
           "❌ 手動チェック中にエラーが発生しました。詳細はコンソールログを確認してください。",
-        ephemeral: true,
+        flags: 64,//ephemeral
       });
     }
   }
