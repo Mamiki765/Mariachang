@@ -206,6 +206,33 @@ function stripXmlTags(text) {
 }
 
 /**
+ * 【NEW】スキル配列を整形して、名前のリスト文字列を生成するヘルパー関数
+ * 特殊化を考慮し、「特殊化後名（特殊化前名）」の形式に対応します。
+ * @param {Array<object>} skillArray - スキルの配列 (例: character.skills.a)
+ * @returns {string} - "スキルA、スキルB（元スキルB）" のような整形済み文字列
+ */
+function formatSkillNames(skillArray) {
+  // スキル配列が存在しない、または空の場合は、何も返さない
+  if (!skillArray || skillArray.length === 0) {
+    return "";
+  }
+
+  // 配列の各スキルを、整形後の名前に変換する
+  const formattedNames = skillArray.map((skill) => {
+    // 'specialization_base' が存在し、その中に 'name' があれば特殊化済み
+    if (skill.specialization_base && skill.specialization_base.name) {
+      return `${skill.name}（${skill.specialization_base.name}）`;
+    } else {
+      // 特殊化されていなければ、そのままの名前を返す
+      return skill.name;
+    }
+  });
+
+  // 変換した名前の配列を、「、」で連結して返す
+  return formattedNames.join("、");
+}
+
+/**
  * 【NEW】コンパクトサマリを生成する高レベル関数
  * ゲージをなくし、ステータスをグループ化して表示します。
  * @param {string} characterId
@@ -269,7 +296,7 @@ export async function getCharacterSummaryCompact(characterId) {
           }
         }
         /*長くなるので一旦省略
-        // スキル情報のセクションを追加
+        // アクティブスキル情報のセクションを追加
         // character.skills.a が存在し、配列の長さが0より大きいことを確認
         if (
           character.skills &&
@@ -304,8 +331,30 @@ export async function getCharacterSummaryCompact(characterId) {
             reply += skillLine;
           }
         }
-        // ★★★ スキル情報の追加はここまで ★★★
+        // ★★★ アクティブスキル情報の追加はここまで ★★★
         */
+        //代わりにスキル名だけを表示するセクションを追加
+        // 'skills' オブジェクトが存在するか確認
+        if (character.skills) {
+          // ★★★ ここからが、この関数の心臓部です ★★★
+          reply += `\n・活性化スキル\n`;
+          const activeSkills = formatSkillNames(character.skills.a);
+          const passiveSkills = formatSkillNames(character.skills.p);
+          const nonCombatSkills = formatSkillNames(character.skills.n);
+
+          // 各カテゴリのスキルリストが存在する場合のみ、行を追加
+          if (activeSkills) {
+            reply += `\nアクティブ：${activeSkills}`;
+          }
+          if (passiveSkills) {
+            reply += `\nパッシブ　：${passiveSkills}`; //「：」の位置を揃えるため全角スペース
+          }
+          if (nonCombatSkills) {
+            reply += `\n非戦　　　：${nonCombatSkills}`; //「：」の位置を揃えるため全角スペース
+          }
+
+          // ★★★ ここまで ★★★
+        }
 
         reply += `\`\`\``;
       }
