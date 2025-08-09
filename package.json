@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "0.3.2beta",
+  "version": "0.4.0beta",
   "description": "Alter from MiniPotato Bot by EOi",
   "main": "main.mjs",
   "type": "module",
