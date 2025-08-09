@@ -6,9 +6,26 @@ import { createClient } from '@supabase/supabase-js';
 // 一元管理するためのものです。
 // SequelizeがDBと「直接」対話するのとは、全く別の窓口です。
 
-// ★★★ あなたの既存の環境変数を、そのまま使います ★★★
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_KEY; // 中身がサービスキーなので、変数名を分かりやすく変更
+// クライアントを保持するための変数を定義
+let supabaseClient = null;
 
-// Supabaseクライアントを初期化し、エクスポートします
-export const supabase = createClient(supabaseUrl, supabaseServiceKey);
+/**
+ * Supabaseクライアントを初期化または取得する関数
+ */
+export function getSupabaseClient() {
+  // すでに初期化されていれば、それを返す
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+
+  // ★★★ 環境変数を使って、クライアントを初期化 ★★★
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase URL or Key is not set in environment variables.");
+  }
+
+  supabaseClient = createClient(supabaseUrl, supabaseKey);
+  return supabaseClient;
+}

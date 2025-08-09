@@ -4,7 +4,7 @@ import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルを�
 import { CronExpressionParser } from "cron-parser";
 import config from "../../config.mjs";
 import { Op } from "sequelize"; // SequelizeのOp（演算子）をインポート
-import { supabase } from "../../utils/supabaseClient.mjs";
+import { getSupabaseClient } from '../utils/supabaseClient.mjs';
 // --- このファイル内だけで使う、小さなヘルパー関数 ---
 
 /**
@@ -74,6 +74,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   try {
+    const supabase = getSupabaseClient();
     // 1. 【絞り込み】DBから「今、参加できるシナリオ」だけを取得
     const activeScenarios = await Scenario.findAll({
       where: {

@@ -4,13 +4,15 @@ import axios from "axios";
 import { EmbedBuilder } from "discord.js";
 import config from "../config.mjs";
 // 250809【変更点】Sequelizeの代わりに、新しいSupabaseクライアントをインポート
-import { supabase } from "../utils/supabaseClient.mjs";
+import { getSupabaseClient } from '../utils/supabaseClient.mjs';
 
 // 通知を送るチャンネルIDを環境変数から取得
 const ANNOUNCE_CHANNEL_ID = config.rev2ch; // ここはconfig.mjsから取得するように変更
 
 // export をつけて関数を定義
 export async function checkNewScenarios(client) {
+   // ★★★ 関数内で、クライアントを取得する ★★★
+  const supabase = getSupabaseClient();
   // ★★★【Gemini pro2.5より未来のあなたへ：重要な補足コメント】★★★
   // この関数では、プロジェクトの他の部分で使われているSequelize（ORM）ではなく、
   // Supabaseの公式SDKを直接使用しています。
