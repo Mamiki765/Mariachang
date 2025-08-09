@@ -306,6 +306,12 @@ export async function checkNewScenarios(client) {
     if (scenariosToUpsert.length === 0 && closedScenarioIds.length === 0) {
       console.log("シナリオの更新はありませんでした。");
     }
+    await supabase.from("task_logs").upsert({
+      task_name: "scenario-checker",
+      last_successful_run: new Date().toISOString(),
+    });
+
+    console.log("シナリオチェックを正常に完了しました。");
   } catch (error) {
     console.error("シナリオチェック中にエラーが発生しました:", error);
   }

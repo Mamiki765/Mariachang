@@ -4,7 +4,7 @@ import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルを�
 import { parseExpression } from "cron-parser";
 import config from "../../config.mjs";
 import { Op } from "sequelize"; // SequelizeのOp（演算子）をインポート
-
+import { supabase } from "../../utils/supabaseClient.mjs";
 // --- このファイル内だけで使う、小さなヘルパー関数 ---
 
 /**
@@ -97,10 +97,15 @@ export async function execute(interaction) {
     }
 
     // 2. 【情報の付加】最終更新日時と次回更新日時を取得
-    const lastUpdateTime = activeScenarios.reduce((latest, scenario) => {
-      return scenario.updatedAt > latest ? scenario.updatedAt : latest;
-    }, activeScenarios[0].updatedAt);
+    const { data: taskLog } = await supabase
+      .from('task_logs')
+      .select('last_successful_run')
+      .eq('task_name', 'scenario-checker')
+      .single(); // .single()は、結果が1行であることを保証する
 
+    // taskLogが存在すればその時刻を、なければ現在の時刻をデフォルト値として使用
+    const lastUpdateTime = taskLog ? new Date(taskLog.last_successful_run) : new Date();
+    
     const nextCheckTime = getNextScenarioCheckTime();
 
     // 3. 【表示の再現】あなたの素晴らしい通知ロジックを、ここに再利用！
