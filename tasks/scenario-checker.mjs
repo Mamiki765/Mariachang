@@ -267,7 +267,8 @@ export async function checkNewScenarios(client) {
       const embedsToSend = [];
       const charLimit = 4000;
       for (const s of closedScenariosData) {
-        const line = `・${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/replay/${s.id}) (${s.difficulty} 作:${s.creator_penname})`;
+        const difficultyEmoji = config.scenarioChecker.difficultyEmojis[s.difficulty] || config.scenarioChecker.difficultyEmojis.DEFAULT;
+        const line = `${difficultyEmoji}${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/replay/${s.id}) (作:${s.creator_penname})`;
 
         if (
           descriptionText.length + line.length + 2 > charLimit &&
