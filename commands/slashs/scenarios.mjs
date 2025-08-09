@@ -68,7 +68,7 @@ function getNextScenarioCheckTime() {
 
 export const data = new SlashCommandBuilder()
   .setName("scenarios")
-  .setNameLocalizations({ ja: "LAシナリオ一覧" })
+  .setNameLocalizations({ ja: "ロスアカシナリオ一覧" })
   .setDescription(
     "現在参加可能な、ロストアーカディアのシナリオ一覧を表示します。"
   );
