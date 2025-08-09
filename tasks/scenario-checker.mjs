@@ -102,8 +102,12 @@ export async function checkNewScenarios(client) {
         source_name: fetched.source_name || null,
         creator_penname: `${fetched.creator.penname}${fetched.creator.type}`,
         status: fetched.action_type,
+        // ★★★ ここから3行を追加 ★★★
+        difficulty: fetched.difficulty,
         current_members: fetched.current_member_count,
-        // ここに他の保存したいデータを追加
+        // max_member_countはnullのことがあるので、適宜参照時に処理をする
+        max_members: fetched.max_member_count, 
+        // ここに他の保存したいデータを追加　database.mjsのモデルに合わせてください
       };
 
       if (!existing) {
@@ -118,7 +122,9 @@ export async function checkNewScenarios(client) {
         existing.title !== newData.title ||
         existing.creator_penname !== newData.creator_penname ||
         existing.status !== newData.status ||
-        existing.current_members !== newData.current_members
+        existing.current_members !== newData.current_members ||
+        existing.difficulty !== newData.difficulty ||
+        existing.max_members !== newData.max_members
       ) {
         scenariosToUpsert.push(newData);
       }
@@ -236,11 +242,9 @@ export async function checkNewScenarios(client) {
             `✨新規シナリオのお知らせ(${i + 1}/${embedsToSend.length})`
           );
           if (i === embedsToSend.length - 1) {
-            embed
-              .setTimestamp()
-              .setFooter({
-                text: `合計 ${scenariosToAnnounce.length} 件の新しいシナリオが追加されました。`,
-              });
+            embed.setTimestamp().setFooter({
+              text: `合計 ${scenariosToAnnounce.length} 件の新しいシナリオが追加されました。`,
+            });
           }
           await channel.send({ embeds: [embed] });
         }
@@ -250,12 +254,11 @@ export async function checkNewScenarios(client) {
 
     // ② 終了シナリオの通知
     if (closedScenarioIds.length > 0) {
-
       let descriptionText = "";
       const embedsToSend = [];
       const charLimit = 4000;
       for (const s of closedScenariosData) {
-        const line = `・${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/replay/${s.id}) (作:${s.creator_penname})`;
+        const line = `・${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/replay/${s.id}) (${s.difficulty} 作:${s.creator_penname})`;
 
         if (
           descriptionText.length + line.length + 2 > charLimit &&
@@ -282,11 +285,9 @@ export async function checkNewScenarios(client) {
           .setTitle(`🔚終了したシナリオ(${i + 1}/${embedsToSend.length})`)
           .setColor("Grey");
         if (i === embedsToSend.length - 1) {
-          embed
-            .setTimestamp()
-            .setFooter({
-              text: `${closedScenariosData.length}件のシナリオが返却されたようです。`,
-            });
+          embed.setTimestamp().setFooter({
+            text: `${closedScenariosData.length}件のシナリオが返却されたようです。`,
+          });
         }
         await channel.send({ embeds: [embed] });
       }

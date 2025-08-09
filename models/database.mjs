@@ -258,6 +258,18 @@ const Scenario = sequelize.define(
     status: {
       type: DataTypes.STRING,
     },
+    difficulty: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    current_members: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    max_members: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     tableName: "scenarios", // DB内のテーブル名
