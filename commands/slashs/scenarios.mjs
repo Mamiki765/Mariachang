@@ -32,7 +32,7 @@ function getNextScenarioCheckTime() {
 export const data = new SlashCommandBuilder()
   .setName("scenarios")
   .setNameLocalizations({
-    ja: "シナリオ一覧（仮）",
+    ja: "シナリオ一覧仮",
   })
   .setDescription("現在DBに記録されている、ロストアーカディアのシナリオ一覧を表示します。");
 
