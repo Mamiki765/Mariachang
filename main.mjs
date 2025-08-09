@@ -1,4 +1,4 @@
-// main.mjs の最終版コード（この内容でファイルを上書き）
+// main.mjs
 import fs from "fs";
 import path from "path";
 import express from "express";
@@ -104,11 +104,9 @@ async function startBot() {
   client.on("interactionCreate", (interaction) =>
     handlers.get("interactionCreate").default(interaction)
   );
-  /*
-client.on("voiceStateUpdate", async (oldState, newState) => {//ボイスチャンネルの状態変化
-  await handlers.get("voiceStateUpdate").default(oldState, newState);
-});
-*/
+  client.on("voiceStateUpdate", async (oldState, newState) => {
+    await handlers.get("voiceStateUpdate").default(oldState, newState);
+  });
   client.on("threadCreate", (thread) =>
     handlers.get("threadCreate").default(thread)
   );
