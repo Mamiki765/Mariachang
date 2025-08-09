@@ -274,10 +274,22 @@ const Scenario = sequelize.define(
     type: { type: DataTypes.STRING, allowNull: true },
     time: { type: DataTypes.STRING, allowNull: true }, // or DATE
     time_type: { type: DataTypes.STRING, allowNull: true },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      // ★★★ これが、SQLの`DEFAULT now()`と同じ意味を持つ魔法です ★★★
+      defaultValue: Sequelize.fn("now"),
+    },
+    // updatedAtカラムも同様に
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.fn("now"),
+    },
   },
   {
     tableName: "scenarios", // DB内のテーブル名
-    timestamps: true, // いつ追加されたか自動で記録してくれる
+    timestamps: false, // いつ追加されたか自動で記録してくれる
   }
 );
 
