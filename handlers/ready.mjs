@@ -94,6 +94,18 @@ export default async (client) => {
       timezone: "Asia/Tokyo", // 日本時間を指定
     }
   );
+  // 8:10にシナリオチェックを実行
+  cron.schedule(
+    config.scenarioChecker.cronSchedule2, // configからスケジュールを取得
+    () => {
+      console.log("8:10のシナリオチェックを実行します...");
+      checkNewScenarios(client);
+    },
+    {
+      scheduled: true,
+      timezone: "Asia/Tokyo", // 日本時間を指定
+    }
+  );
 
   await client.user.setActivity("🍙", {
     type: ActivityType.Custom,

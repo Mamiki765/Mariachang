@@ -270,6 +270,10 @@ const Scenario = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+    state: { type: DataTypes.STRING, allowNull: true },
+    type: { type: DataTypes.STRING, allowNull: true },
+    time: { type: DataTypes.STRING, allowNull: true }, // or DATE
+    time_type: { type: DataTypes.STRING, allowNull: true },
   },
   {
     tableName: "scenarios", // DB内のテーブル名

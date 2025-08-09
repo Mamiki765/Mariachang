@@ -106,8 +106,12 @@ export async function checkNewScenarios(client) {
         difficulty: fetched.difficulty,
         current_members: fetched.current_member_count,
         // max_member_countはnullのことがあるので、適宜参照時に処理をする
-        max_members: fetched.max_member_count, 
+        max_members: fetched.max_member_count,
         // ここに他の保存したいデータを追加　database.mjsのモデルに合わせてください
+        state: fetched.state,
+        type: fetched.type,
+        time: fetched.time,
+        time_type: fetched.time_type,
       };
 
       if (!existing) {
@@ -124,7 +128,11 @@ export async function checkNewScenarios(client) {
         existing.status !== newData.status ||
         existing.current_members !== newData.current_members ||
         existing.difficulty !== newData.difficulty ||
-        existing.max_members !== newData.max_members
+        existing.max_members !== newData.max_members ||
+        existing.state !== newData.state ||
+        existing.type !== newData.type ||
+        existing.time !== newData.time ||
+        existing.time_type !== newData.time_type
       ) {
         scenariosToUpsert.push(newData);
       }
