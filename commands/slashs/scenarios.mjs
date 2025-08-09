@@ -1,7 +1,7 @@
 // commands/slashs/scenarios.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルをインポート
-import * as cronParser from "cron-parser";
+import { CronExpressionParser } from "cron-parser";
 import config from "../../config.mjs";
 import { Op } from "sequelize"; // SequelizeのOp（演算子）をインポート
 import { supabase } from "../../utils/supabaseClient.mjs";
@@ -30,7 +30,7 @@ function getNextScenarioCheckTime() {
       .filter(schedule => schedule) 
       .map(schedule => {
         try {
-          const interval = cronParser.parseExpression(schedule, options); 
+          const interval = CronExpressionParser.parse(schedule, options);
           return interval.next().toDate();
         } catch (err) {
           // もし片方のパースに失敗しても、全体が止まらないようにする
