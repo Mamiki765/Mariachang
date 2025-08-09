@@ -2,17 +2,21 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
   ActionRowBuilder,
+  PermissionsBitField,
   ChannelSelectMenuBuilder,
 } from "discord.js";
 
 import Sequelize from "sequelize";
 
-import Notification from "../../models/notification.mjs";
+import { Notification } from "../../models/database.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("notify")
   .setDescription(
     "ボイスチャンネルに人が入ったときに、通知するよう設定できるよ～"
+  )
+  .setDefaultMemberPermissions(
+    PermissionsBitField.Flags.Administrator.toString()
   )
   .addSubcommand((subcommand) =>
     subcommand.setName("status").setDescription("コマンドを実行したチャンネルのボイスチャンネル入室通知の設定を確認するよ～")

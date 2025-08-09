@@ -23,6 +23,26 @@ const sequelize = new Sequelize(supabaseDatabaseUrl, {
   },
 });
 
+//ボイチャ通知モデル
+const Notification = sequelize.define("Notification", {
+  guildId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  voiceChannelId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  textChannelId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+}, {
+  // ▼▼▼ ここにオプションを追加します ▼▼▼
+  tableName: 'notifications', // テーブル名を小文字の複数形に指定
+  timestamps: false,          // createdAt, updatedAt を作成しない
+});
+
 // キャラクターモデル
 const Character = sequelize.define(
   "Character",
@@ -345,6 +365,7 @@ async function syncModels() {
     await Point.sync({ alter: true });
     await CurrentDomino.sync({ alter: true });
     //    await DominoHistory.sync({ alter: true });
+    await Notification.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
     await Scenario.sync({ alter: true });
@@ -361,6 +382,7 @@ export {
   Icon,
   Point,
   CurrentDomino,
+  Notification,
   //  DominoHistory,
   AdminMemo,
   syncModels,

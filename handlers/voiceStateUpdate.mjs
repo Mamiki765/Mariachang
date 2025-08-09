@@ -1,6 +1,7 @@
+// handlers/voiceStateUpdate.mjs
 import { EmbedBuilder } from "discord.js";
 
-import Notification from "../models/notification.mjs";
+import { Notification } from "../models/database.mjs";
 
 export default async (oldState, newState) => {
   if (oldState.channelId === null && newState.channel?.members.size == 1) {
