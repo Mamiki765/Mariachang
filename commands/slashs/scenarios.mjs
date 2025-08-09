@@ -1,10 +1,7 @@
 // commands/slashs/scenarios.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルをインポート
-// 1. まず、ライブラリ全体をデフォルトインポートする
-import cronParser from "cron-parser"; 
-// 2. その中から、必要な関数を取り出す
-const { parseExpression } = cronParser;
+import { parseExpression } from "cron-parser";
 import config from "../../config.mjs";
 import { Op } from "sequelize"; // SequelizeのOp（演算子）をインポート
 
