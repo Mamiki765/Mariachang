@@ -2,15 +2,29 @@
 // ES Modules形式のインポート
 import axios from "axios";
 import { EmbedBuilder } from "discord.js";
-import { Op } from "sequelize";
-import { Scenario } from "../models/database.mjs";
 import config from "../config.mjs";
+// 250809【変更点】Sequelizeの代わりに、新しいSupabaseクライアントをインポート
+import { supabase } from "../utils/supabaseClient.mjs";
 
 // 通知を送るチャンネルIDを環境変数から取得
 const ANNOUNCE_CHANNEL_ID = config.rev2ch; // ここはconfig.mjsから取得するように変更
 
 // export をつけて関数を定義
 export async function checkNewScenarios(client) {
+  // ★★★【Gemini pro2.5より未来のあなたへ：重要な補足コメント】★★★
+  // この関数では、プロジェクトの他の部分で使われているSequelize（ORM）ではなく、
+  // Supabaseの公式SDKを直接使用しています。
+  //
+  // 【理由】
+  // この処理の目的は、100件近いシナリオの「新規・更新・削除」を、
+  // Supabaseの無料枠の制限（レートリミット等）に抵触せず、効率的に行うことです。
+  //
+  // Supabase SDKが提供する `upsert()` メソッドは、
+  // 「新規作成」と「更新」を、たった1回のAPIコールで、しかも複数件まとめて
+  // 実行できる、このタスクに最適な機能です。
+  //
+  // この「一括処理」のために、ここでは特別にSDKを呼び出しています。
+  //
   if (!client || !ANNOUNCE_CHANNEL_ID) {
     console.error(
       "Discordクライアントまたは通知用チャンネルIDが設定されていません。"
@@ -65,41 +79,112 @@ export async function checkNewScenarios(client) {
       return;
     }
     const fetchedIds = new Set(fetchedScenarios.map((s) => s.id));
-    // 2. DBから「すべて」のシナリオを取得
-    const dbScenarios = await Scenario.findAll(); // ここも変更なし
+
+    // 2. ★★★【変更点】DBからSupabase SDKを使って全シナリオを取得
+    const { data: dbScenarios, error: fetchError } = await supabase
+      .from("scenarios")
+      .select("*");
+    if (fetchError) throw fetchError;
+
+    const dbScenarioMap = new Map(dbScenarios.map((s) => [s.id, s]));
     const dbIds = new Set(dbScenarios.map((s) => s.id));
 
-    // 3. 差分を比較して「新規」と「終了」を特定
-    const newScenarios = fetchedScenarios.filter((s) => !dbIds.has(s.id));
+    // 3. 差分を比較し、「新規」「更新」「終了」を特定
+    const scenariosToUpsert = [];
+    const newScenariosForNotification = []; // 通知用の新規シナリオリスト
+
+    for (const fetched of fetchedScenarios) {
+      const existing = dbScenarioMap.get(fetched.id);
+
+      const newData = {
+        id: fetched.id,
+        title: fetched.title,
+        source_name: fetched.source_name || null,
+        creator_penname: `${fetched.creator.penname}${fetched.creator.type}`,
+        status: fetched.action_type,
+        current_members: fetched.current_member_count,
+        // ここに他の保存したいデータを追加
+      };
+
+      if (!existing) {
+        // 新規の場合
+        scenariosToUpsert.push(newData);
+        newScenariosForNotification.push(fetched); // 通知用リストにも追加
+        continue;
+      }
+
+      if (
+        // 更新の場合
+        existing.title !== newData.title ||
+        existing.creator_penname !== newData.creator_penname ||
+        existing.status !== newData.status ||
+        existing.current_members !== newData.current_members
+      ) {
+        scenariosToUpsert.push(newData);
+      }
+    }
+
     const closedScenarioIds = [...dbIds].filter((id) => !fetchedIds.has(id));
 
-    // 4. 通知とデータベース操作
-    const channel = await client.channels.fetch(ANNOUNCE_CHANNEL_ID);
+    // 4. 通知とDB操作
+    const channel = await client.channels.fetch(config.rev2ch);
 
-    // ■ 新規シナリオの処理
-    if (newScenarios.length > 0) {
-      console.log(`${newScenarios.length}件の新規シナリオを発見！`);
+    // ■■■ DB操作セクション ■■■
+    // データベースへの書き込みは、通知の前にすべて済ませてしまうのが安全です。
+    // 通知に必要なデータ（終了シナリオの詳細など）は、この段階で確保しておきます。
 
-      const scenariosToCreate = newScenarios.map((s) => ({
-        id: s.id,
-        source_name: s.source_name || null, // ソース名がない場合はnull
-        title: s.title,
-        creator_penname: `${s.creator.penname}${s.creator.type}`,
-        status: s.action_type,
-      }));
-      await Scenario.bulkCreate(scenariosToCreate);
-      // ▼▼▼【重要】ここから、Discord通知用にフィルターをかける ▼▼▼
-      const excludedTypes = ["DISCUSSION", "OUT_OF_ACTION"];
-      const scenariosToAnnounce = newScenarios.filter(
-        (s) =>
-          !excludedTypes.includes(s.action_type) || s.state === "事前公開中" //OUT_OF_ACTIONは事前公開中のものだけ通知
+    // ① 新規・更新シナリオをDBに一括反映
+    if (scenariosToUpsert.length > 0) {
+      console.log(
+        `${scenariosToUpsert.length}件の新規・更新シナリオをDBに反映します。`
       );
-      if (scenariosToAnnounce.length > 0) {
-        // --- ここからがメッセージ分割機能付きの通知ロジック ---
+      const { error: upsertError } = await supabase
+        .from("scenarios")
+        .upsert(scenariosToUpsert);
+      if (upsertError) throw upsertError;
+    }
 
-        let descriptionText = ""; // 現在のメッセージのdescriptionを組み立てる変数
-        const embedsToSend = []; // 送信するためのEmbedを格納する配列
-        const charLimit = 4000; // 安全マージンを取った文字数制限
+    // ② 終了シナリオのデータを確保し、DBから一括削除
+    let closedScenariosData = []; // 通知で使うための変数を、ifの外で定義
+    if (closedScenarioIds.length > 0) {
+      console.log(
+        `${closedScenarioIds.length}件の終了シナリオをDBから削除します。`
+      );
+
+      // 【重要】通知で使うために、削除する前にデータを取得しておく
+      closedScenariosData = dbScenarios.filter((s) =>
+        closedScenarioIds.includes(s.id)
+      );
+
+      // DBから一括で削除
+      const { error: deleteError } = await supabase
+        .from("scenarios")
+        .delete()
+        .in("id", closedScenarioIds);
+      if (deleteError) throw deleteError;
+    }
+
+    // ■■■ 通知処理セクション ■■■
+    // ユーザー体験を考慮し、「新規」→「終了」の順番で通知します。
+
+    // ① 新規シナリオの通知
+    if (newScenariosForNotification.length > 0) {
+      console.log(
+        `${newScenariosForNotification.length}件の新規シナリオを発見！`
+      );
+
+      //  250809(newScenarios の代わりに newScenariosForNotification を使うようにだけ注意してください)
+
+      const excludedTypes = ["DISCUSSION", "OUT_OF_ACTION"];
+      const scenariosToAnnounce = newScenariosForNotification.filter(
+        (s) =>
+          !excludedTypes.includes(s.action_type) || s.state === "事前公開中"
+      );
+
+      if (scenariosToAnnounce.length > 0) {
+        let descriptionText = "";
+        const embedsToSend = [];
+        const charLimit = 4000;
 
         const actionTypeMap = {
           RESERVABLE: "予約期間中",
@@ -109,7 +194,6 @@ export async function checkNewScenarios(client) {
         };
 
         for (const s of scenariosToAnnounce) {
-          // 1行の表示を組み立てる
           const statusText = actionTypeMap[s.action_type] || "不明";
           const sourceNameDisplay =
             s.source_name && s.source_name.trim() !== ""
@@ -117,10 +201,7 @@ export async function checkNewScenarios(client) {
               : "";
           const maxMemberText =
             s.max_member_count === null ? "∞" : s.max_member_count;
-          // s.time ("2025-07-30 22:15:00") から "22:15" の部分だけを抜き出す
           const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
-
-          // もし「予約抽選」で、かつ時間が「22:15(comfigで設定)」で"ない"場合だけ、特別な時間を表示する
           const specialTimeText =
             (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
             timePart !== config.scenarioChecker.defaultReserveTime
@@ -128,117 +209,92 @@ export async function checkNewScenarios(client) {
               : "";
           const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
 
-          // もし、今のdescriptionに次の行を追加すると文字数制限を超える場合
           if (
             descriptionText.length + line.length + 2 > charLimit &&
             descriptionText !== ""
           ) {
-            // 今のdescriptionでEmbedを作成し、配列に追加
             embedsToSend.push(
               new EmbedBuilder()
                 .setColor("Green")
                 .setDescription(descriptionText)
             );
-            // descriptionをリセットして、今の行から新しいメッセージを始める
             descriptionText = line;
           } else {
-            // 文字数に余裕があれば、今のdescriptionに改行を加えて次の行を追加
             descriptionText += (descriptionText ? "\n-# \u200b\n" : "") + line;
           }
         }
 
-        // ループが終わった後に残っている最後のdescriptionで、最後のEmbedを作成
         if (descriptionText !== "") {
           embedsToSend.push(
             new EmbedBuilder().setColor("Green").setDescription(descriptionText)
           );
         }
 
-        // 全Embedをループして、タイトルとフッターを調整しながら送信
         for (let i = 0; i < embedsToSend.length; i++) {
           const embed = embedsToSend[i];
-
-          // タイトルを設定
           embed.setTitle(
             `✨新規シナリオのお知らせ(${i + 1}/${embedsToSend.length})`
           );
-
-          // 最後のメッセージにだけタイムスタンプと総括フッターをつける
           if (i === embedsToSend.length - 1) {
-            embed.setTimestamp().setFooter({
-              text: `合計 ${scenariosToAnnounce.length} 件の新しいシナリオが追加されました。`,
-            });
+            embed
+              .setTimestamp()
+              .setFooter({
+                text: `合計 ${scenariosToAnnounce.length} 件の新しいシナリオが追加されました。`,
+              });
           }
-
-          // 組み立てたEmbedを送信
           await channel.send({ embeds: [embed] });
         }
       }
+      // ▲▲▲ 新規シナリオ通知ロジックここまで ▲▲▲
     }
 
-    // ■ 終了シナリオの処理
+    // ② 終了シナリオの通知
     if (closedScenarioIds.length > 0) {
-      console.log(`${closedScenarioIds.length}件の終了シナリオを発見！`);
-      // 終了したシナリオの詳細をDBから取得
-      const closedScenariosData = dbScenarios.filter((s) =>
-        closedScenarioIds.includes(s.id)
-      );
-      // DBから一括で削除
-      await Scenario.destroy({ where: { id: { [Op.in]: closedScenarioIds } } });
 
-      let descriptionText = ""; // 現在のメッセージのdescriptionを組み立てる変数
-      const embedsToSend = []; // 送信するためのEmbedを格納する配列
-      const charLimit = 4000; // 安全マージンを取った文字数制限
+      let descriptionText = "";
+      const embedsToSend = [];
+      const charLimit = 4000;
       for (const s of closedScenariosData) {
-        // 1行の表示を組み立てる
-        const line = `・${s.source_name ? `<${s.source_name}> ` : ""}[${
-          s.title
-        }](https://rev2.reversion.jp/scenario/replay/${s.id}) (作:${
-          s.creator_penname
-        })`;
+        const line = `・${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/replay/${s.id}) (作:${s.creator_penname})`;
 
-        // もし「終了シナリオ」のdescriptionに次の行を追加すると文字数制限を超える場合
         if (
           descriptionText.length + line.length + 2 > charLimit &&
           descriptionText !== ""
         ) {
-          // 今のdescriptionでEmbedを作成し、配列に追加
           embedsToSend.push(
             new EmbedBuilder().setColor("Grey").setDescription(descriptionText)
           );
-          // descriptionをリセット
           descriptionText = line;
         } else {
-          // 文字数に余裕があれば、今のdescriptionに改行を加えて次の行を追加
           descriptionText += (descriptionText ? "\n-# \u200b\n" : "") + line;
         }
       }
-      // ループが終わった後に残っている最後のdescriptionで、最後のEmbedを作成
+
       if (descriptionText !== "") {
         embedsToSend.push(
           new EmbedBuilder().setColor("Grey").setDescription(descriptionText)
         );
       }
-      // 全Embedをループして、タイトルとフッターを調整しながら送信
+
       for (let i = 0; i < embedsToSend.length; i++) {
         const embed = embedsToSend[i];
-
         embed
           .setTitle(`🔚終了したシナリオ(${i + 1}/${embedsToSend.length})`)
           .setColor("Grey");
-
         if (i === embedsToSend.length - 1) {
-          embed.setTimestamp().setFooter({
-            text: `${closedScenariosData.length}件のシナリオが返却されたようです。`,
-          });
+          embed
+            .setTimestamp()
+            .setFooter({
+              text: `${closedScenariosData.length}件のシナリオが返却されたようです。`,
+            });
         }
-
         await channel.send({ embeds: [embed] });
       }
+      // ▲▲▲ 終了シナリオ通知ロジックここまで ▲▲▲
     }
 
-    // 新規も終了もなかった場合
-    if (newScenarios.length === 0 && closedScenarioIds.length === 0) {
+    // ■ 変更がなかった場合のログ ■
+    if (scenariosToUpsert.length === 0 && closedScenarioIds.length === 0) {
       console.log("シナリオの更新はありませんでした。");
     }
   } catch (error) {
