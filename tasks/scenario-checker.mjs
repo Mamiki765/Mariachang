@@ -208,6 +208,7 @@ export async function checkNewScenarios(client) {
         };
 
         for (const s of scenariosToAnnounce) {
+          const difficultyEmoji = config.scenarioChecker.difficultyEmojis[s.difficulty] || config.scenarioChecker.difficultyEmojis.DEFAULT;
           const statusText = actionTypeMap[s.action_type] || "不明";
           const sourceNameDisplay =
             s.source_name && s.source_name.trim() !== ""
@@ -221,7 +222,7 @@ export async function checkNewScenarios(client) {
             timePart !== config.scenarioChecker.defaultReserveTime
               ? `|**予約抽選: ${timePart}**`
               : "";
-          const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+          const line = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
 
           if (
             descriptionText.length + line.length + 2 > charLimit &&

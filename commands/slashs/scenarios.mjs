@@ -122,6 +122,8 @@ export async function execute(interaction) {
 
     // ループの対象は `activeScenarios`
     for (const s of activeScenarios) {
+      //絵文字
+      const difficultyEmoji = config.scenarioChecker.difficultyEmojis[s.difficulty] || config.scenarioChecker.difficultyEmojis.DEFAULT;
       // statusが'OUT_OF_ACTION'（DBに保存されていないstate由来）の場合は特別扱い
       const statusText =
         s.state === "事前公開中"
@@ -135,12 +137,11 @@ export async function execute(interaction) {
         s.max_members === null || s.max_members === -1 ? "∞" : s.max_members;
       const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
       const specialTimeText =
-        (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
-        timePart !== config.scenarioChecker.defaultReserveTime
+        (s.time_type === "予約抽選" || s.time_type === "予約開始") //22:15でも表示する
           ? `|**予約抽選: ${timePart}**`
           : "";
 
-      const line = `${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${s.current_members}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+      const line = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${s.current_members}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
 
       if (
         descriptionText.length + line.length + 2 > charLimit &&

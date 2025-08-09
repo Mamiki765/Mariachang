@@ -87,7 +87,16 @@ export default {
     // シナリオチェックを実行するcronスケジュール
     // 日本時間の 0:45, 1:45, 4:45, 13:45, 19:45, 22:45, 23:45
     cronSchedule: "45 0,1,4,13,19,22,23 * * *",
-    cronSchedule2: "10 8 * * *",//8:10
+    cronSchedule2: "10 8 * * *", //8:10
+    //難易度対応の絵文字
+    difficultyEmojis: {
+      CASUAL: "<:Casual:1403580899290775664>",
+      NORMAL: "<:Normal:1403581195706433676>",
+      HARD: "<:Hard:1403581355534717019>",
+      VERYHARD: "<:VeryHard:1403581830661406862>",
+      NIGHTMARE: "<:Nightmare:1403581930426859522>",
+      DEFAULT: "📖", // デフォルトの絵文字
+    },
   },
   //スタンプ機能の設定
   sticker: {
