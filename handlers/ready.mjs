@@ -82,9 +82,9 @@ export default async (client) => {
   checkNewScenarios(client);
 
 // シナリオ更新が活発な夜間（22時～翌1時）を含め、更新頻度を最適化したスケジュール
-// 日本時間の 0:45, 1:45, 4:45, 7:45, 13:45, 19:45, 22:45, 23:45 に実行
+// 設定時間はconfig参照
   cron.schedule(
-    "45 0,1,4,7,13,19,22,23 * * *",
+    config.scenarioChecker.cronSchedule, // configからスケジュールを取得
     () => {
       console.log("スケジュールされたシナリオチェックを実行します...");
       checkNewScenarios(client);
