@@ -4,7 +4,7 @@ import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルを�
 import { CronExpressionParser } from "cron-parser";
 import config from "../../config.mjs";
 import { Op } from "sequelize"; // SequelizeのOp（演算子）をインポート
-import { getSupabaseClient } from '../utils/supabaseClient.mjs';
+import { getSupabaseClient } from '../../utils/supabaseClient.mjs';
 // --- このファイル内だけで使う、小さなヘルパー関数 ---
 
 /**
