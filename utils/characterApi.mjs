@@ -158,7 +158,8 @@ export async function getCharacterSummary(characterId) {
         if (specialAbilities.length > 0) {
           reply += `\n・その他能力\n`;
           for (const ability of specialAbilities) {
-            reply += `${ability.name}: ${ability.value}  `;
+             const displayValue = ability.value ?? "-";
+            reply += `${ability.name}: ${displayValue}  `;
           }
         }
 
@@ -292,7 +293,9 @@ export async function getCharacterSummaryCompact(characterId) {
         if (specialAbilities.length > 0) {
           reply += `\n・その他能力\n`;
           for (const ability of specialAbilities) {
-            reply += `${ability.name}: ${ability.value}  `;
+            // ability.valueがnullかundefinedの場合のみ、右側の「-」が採用される
+            const displayValue = ability.value ?? "-";
+            reply += `${ability.name}: ${displayValue}  `;
           }
         }
         /*長くなるので一旦省略
