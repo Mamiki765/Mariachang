@@ -69,13 +69,15 @@ export async function execute(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-    const confirmMessage = await interaction
-      .reply({
-        content: "本当にこのメッセージを削除しますか？",
-        components: [confirmButtons],
-        flags: 64, //ephemeral
-      })
-      .withResponse(); //fetchReply:true は廃止のため、.withResponse()を使用
+    // 1. まずは普通に返信する
+    await interaction.reply({
+      content: "本当にこのメッセージを削除しますか？",
+      components: [confirmButtons],
+      flags: 64, //ephemeral
+    });
+
+    // 2. その後、送信した返信内容をあらためて取得する
+    const confirmMessage = await interaction.fetchReply();
 
     // ボタンのインタラクションを待つ
     const buttonCollector = confirmMessage.createMessageComponentCollector({
