@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "0.4.3beta",
+  "version": "0.4.4beta",
   "description": "Alter from MiniPotato Bot by EOi",
   "main": "main.mjs",
   "type": "module",
@@ -18,9 +18,7 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "pg": "^8.15.6",
-    "rss-parser": "^3.13.0",
     "sequelize": "^6.37.3",
-    "sequelize-cli": "^6.6.2",
     "sqlite3": "^5.1.7"
   },
   "engines": {
