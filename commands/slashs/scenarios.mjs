@@ -4,7 +4,7 @@ import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルを�
 import { CronExpressionParser } from "cron-parser";
 import config from "../../config.mjs";
 import { Op } from "sequelize"; // SequelizeのOp（演算子）をインポート
-import { getSupabaseClient } from '../../utils/supabaseClient.mjs';
+import { getSupabaseClient } from "../../utils/supabaseClient.mjs";
 // --- このファイル内だけで使う、小さなヘルパー関数 ---
 
 /**
@@ -17,7 +17,7 @@ function getNextScenarioCheckTime() {
     const options = {
       tz: "Asia/Tokyo",
     };
-    
+
     // 1. スケジュールが定義されている配列を作成
     const schedules = [
       config.scenarioChecker.cronSchedule,
@@ -27,8 +27,8 @@ function getNextScenarioCheckTime() {
     // 2. 各スケジュールの「次の実行時刻」を計算し、Dateオブジェクトの配列にする
     const nextDates = schedules
       // スケジュール文字列が空やnullでないことを確認
-      .filter(schedule => schedule) 
-      .map(schedule => {
+      .filter((schedule) => schedule)
+      .map((schedule) => {
         try {
           const interval = CronExpressionParser.parse(schedule, options);
           return interval.next().toDate();
@@ -39,7 +39,7 @@ function getNextScenarioCheckTime() {
         }
       })
       // パースに失敗したnullを除外
-      .filter(date => date !== null);
+      .filter((date) => date !== null);
 
     // 3. 計算された時刻が一つもなければ、nullを返す
     if (nextDates.length === 0) {
@@ -53,7 +53,6 @@ function getNextScenarioCheckTime() {
     });
 
     return nearestDate;
-
   } catch (err) {
     // 全体的な予期せぬエラー
     console.error("getNextScenarioCheckTimeで予期せぬエラー:", err.message);
@@ -69,18 +68,23 @@ export const data = new SlashCommandBuilder()
   .setDescription(
     "現在参加可能な、ロストアーカディアのシナリオ一覧を表示します。"
   )
-  .addBooleanOption(option =>
-    option.setName('private')
-      .setNameLocalizations({ ja: '自分だけに表示' })
-      .setDescription('If false, the result will be visible to everyone. (Default: true)')
-      .setDescriptionLocalizations({ ja: '「false」にすると、実行結果が全員に表示されます。（デフォルト: はい）' })
+  .addBooleanOption((option) =>
+    option
+      .setName("private")
+      .setNameLocalizations({ ja: "自分だけに表示" })
+      .setDescription(
+        "If false, the result will be visible to everyone. (Default: true)"
+      )
+      .setDescriptionLocalizations({
+        ja: "「false」にすると、実行結果が全員に表示されます。（デフォルト: はい）",
+      })
       .setRequired(false)
-  ;
+  );
 
 // --- コマンドの実行ロジック ---
 
 export async function execute(interaction) {
-  const isPrivate = interaction.options.getBoolean('private') ?? true;
+  const isPrivate = interaction.options.getBoolean("private") ?? true;
   try {
     const supabase = getSupabaseClient();
     // 1. 【絞り込み】DBから「今、参加できるシナリオ」だけを取得
@@ -107,14 +111,16 @@ export async function execute(interaction) {
 
     // 2. 【情報の付加】最終更新日時と次回更新日時を取得
     const { data: taskLog } = await supabase
-      .from('task_logs')
-      .select('last_successful_run')
-      .eq('task_name', 'scenario-checker')
+      .from("task_logs")
+      .select("last_successful_run")
+      .eq("task_name", "scenario-checker")
       .single(); // .single()は、結果が1行であることを保証する
 
     // taskLogが存在すればその時刻を、なければ現在の時刻をデフォルト値として使用
-    const lastUpdateTime = taskLog ? new Date(taskLog.last_successful_run) : new Date();
-    
+    const lastUpdateTime = taskLog
+      ? new Date(taskLog.last_successful_run)
+      : new Date();
+
     const nextCheckTime = getNextScenarioCheckTime();
 
     // 3. 【表示の再現】あなたの素晴らしい通知ロジックを、ここに再利用！
@@ -132,7 +138,9 @@ export async function execute(interaction) {
     // ループの対象は `activeScenarios`
     for (const s of activeScenarios) {
       //絵文字
-      const difficultyEmoji = config.scenarioChecker.difficultyEmojis[s.difficulty] || config.scenarioChecker.difficultyEmojis.DEFAULT;
+      const difficultyEmoji =
+        config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+        config.scenarioChecker.difficultyEmojis.DEFAULT;
       // statusが'OUT_OF_ACTION'（DBに保存されていないstate由来）の場合は特別扱い
       const statusText =
         s.state === "事前公開中"
@@ -146,7 +154,7 @@ export async function execute(interaction) {
         s.max_members === null || s.max_members === -1 ? "∞" : s.max_members;
       const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
       const specialTimeText =
-        (s.time_type === "予約抽選" || s.time_type === "予約開始") //22:15でも表示する
+        s.time_type === "予約抽選" || s.time_type === "予約開始" //22:15でも表示する
           ? `|**予約抽選: ${timePart}**`
           : "";
 
@@ -197,7 +205,7 @@ export async function execute(interaction) {
       const embed = embedsToSend[i];
       // 最初のメッセージはreply、2通目以降はfollowUp
       if (i === 0) {
-        await interaction.reply({ embeds: [embed] , ephemeral: isPrivate});
+        await interaction.reply({ embeds: [embed], ephemeral: isPrivate });
       } else {
         await interaction.followUp({ embeds: [embed] });
       }
