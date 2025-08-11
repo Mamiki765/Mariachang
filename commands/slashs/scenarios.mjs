@@ -68,11 +68,19 @@ export const data = new SlashCommandBuilder()
   .setNameLocalizations({ ja: "ロスアカシナリオ一覧" })
   .setDescription(
     "現在参加可能な、ロストアーカディアのシナリオ一覧を表示します。"
-  );
+  )
+  .addBooleanOption(option =>
+    option.setName('private')
+      .setNameLocalizations({ ja: '自分だけに表示' })
+      .setDescription('If false, the result will be visible to everyone. (Default: true)')
+      .setDescriptionLocalizations({ ja: '「false」にすると、実行結果が全員に表示されます。（デフォルト: はい）' })
+      .setRequired(false)
+  ;
 
 // --- コマンドの実行ロジック ---
 
 export async function execute(interaction) {
+  const isPrivate = interaction.options.getBoolean('private') ?? true;
   try {
     const supabase = getSupabaseClient();
     // 1. 【絞り込み】DBから「今、参加できるシナリオ」だけを取得
@@ -189,7 +197,7 @@ export async function execute(interaction) {
       const embed = embedsToSend[i];
       // 最初のメッセージはreply、2通目以降はfollowUp
       if (i === 0) {
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] , ephemeral: isPrivate});
       } else {
         await interaction.followUp({ embeds: [embed] });
       }
