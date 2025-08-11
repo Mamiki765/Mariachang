@@ -1,3 +1,4 @@
+// handlers/ready.mjs
 import { EmbedBuilder, ActivityType } from "discord.js";
 import cron from "node-cron";
 import config from "../config.mjs";

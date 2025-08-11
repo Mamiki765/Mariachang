@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "0.4.2beta",
+  "version": "0.4.3beta",
   "description": "Alter from MiniPotato Bot by EOi",
   "main": "main.mjs",
   "type": "module",
@@ -24,7 +24,7 @@
     "sqlite3": "^5.1.7"
   },
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "repository": {
     "url": "https://glitch.com/edit/#!/minipotato-bot-by-eoi"
