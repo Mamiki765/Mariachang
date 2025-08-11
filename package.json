@@ -25,7 +25,8 @@
     "node": "22.x"
   },
   "repository": {
-    "url": "https://glitch.com/edit/#!/minipotato-bot-by-eoi"
+    "type": "git", 
+    "url": "git+https://github.com/Mamiki765/Mariachang.git"
   },
   "license": "MIT",
   "keywords": [
