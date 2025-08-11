@@ -60,7 +60,30 @@ async function startBot() {
   console.log("[Loader] Loading commands and handlers...");
   client.commands = new Collection();
   const handlers = new Map();
+// === 将来の改善案 (Node.js v22以降) ===
+  // 現在のコマンド読み込み処理は、`fs.readdirSync`を使ってフォルダを2段階で読み込んでいます。
+  // これは確実な方法ですが、将来的にコマンドの階層が増えた場合に対応できません。
+  //
+  // Node.js v22からは、ファイル検索が得意な `fs.globSync` が標準機能として追加されました。
+  // これを使うと、ネスト(入れ子)がなくなり、どんなに深い階層のファイルでも一発で取得できる、
+  // よりシンプルで柔軟なコードに書き換えることができます。
+  //
+  // --- 書き換え例 (一行ずつコメントアウトしているので安全です) ---
+  // const commandFiles = fs.globSync("commands/**/*.mjs"); 
+  // const commandPromises = [];
+  //
+  // for (const filePath of commandFiles) {
+  //   commandPromises.push(
+  //     // import()に渡すパスは、絶対パスに変換するとより安全
+  //     import(path.resolve(filePath)).then((module) => {
+  //       client.commands.set(module.data.name, module);
+  //     })
+  //   );
+  // }
+  // =======================================
 
+
+  // === 現在のコマンド読み込み処理 (動作確認済み) ===
   const categoryFoldersPath = path.join(process.cwd(), "commands");
   const commandFolders = fs.readdirSync(categoryFoldersPath);
   const commandPromises = [];
@@ -78,7 +101,7 @@ async function startBot() {
       );
     }
   }
-
+ // ↑ ここまでが、コマンド読み込みの一連の処理です 
   const handlersPath = path.join(process.cwd(), "handlers");
   const handlerFiles = fs
     .readdirSync(handlersPath)
