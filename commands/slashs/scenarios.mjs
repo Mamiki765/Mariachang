@@ -1,5 +1,5 @@
 // commands/slashs/scenarios.mjs
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder,MessageFlags } from "discord.js";
 import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルをインポート
 import { CronExpressionParser } from "cron-parser";
 import config from "../../config.mjs";
@@ -104,7 +104,7 @@ export async function execute(interaction) {
     if (activeScenarios.length === 0) {
       await interaction.reply({
         content: "現在、DBに記録されているシナリオはありません。",
-        flags: 64, // ephemeral
+         flags: isPrivate ? MessageFlags.Ephemeral : undefined,
       });
       return;
     }
@@ -205,7 +205,7 @@ export async function execute(interaction) {
       const embed = embedsToSend[i];
       // 最初のメッセージはreply、2通目以降はfollowUp
       if (i === 0) {
-        await interaction.reply({ embeds: [embed], ephemeral: isPrivate });
+        await interaction.reply({ embeds: [embed],  flags: isPrivate ? MessageFlags.Ephemeral : undefined, });
       } else {
         await interaction.followUp({ embeds: [embed] });
       }
