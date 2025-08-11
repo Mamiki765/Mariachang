@@ -29,9 +29,15 @@
     "url": "git+https://github.com/Mamiki765/Mariachang.git"
   },
   "license": "MIT",
-  "keywords": [
-    "node",
-    "glitch"
+ "keywords": [
+    "discord",
+    "discord.js",
+    "bot",
+    "lost-arcadia",
+    "ロストアーカディア",
+    "pbw",
+    "koyeb",
+    "node"
   ],
   "devDependencies": {
     "prettier": "^3.6.2"
