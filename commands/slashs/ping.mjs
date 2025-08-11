@@ -26,9 +26,8 @@ export async function execute(interaction) {
   // ★ 「通知を抑制」して返信する
   const sent = await interaction.reply({
     content: "🏓 Pinging...",
-    fetchReply: true,
     flags: MessageFlags.SuppressNotifications, // 4096と同じ。通知をしない。
-  });
+  }).withResponse();
 
   const latency = sent.createdTimestamp - interaction.createdTimestamp;
 
