@@ -256,7 +256,7 @@ export async function checkNewScenarios(client) {
           );
           if (i === embedsToSend.length - 1) {
             embed.setTimestamp().setFooter({
-              text: `合計 ${scenariosToAnnounce.length} 件の新しいシナリオが追加されました。`,
+              text: `${scenariosToAnnounce.length}件の新しいシナリオが追加されました。帯書きは/scenarios(ロスアカシナリオ一覧)で確認できます。`,
             });
           }
           await channel.send({ embeds: [embed] });
