@@ -1,9 +1,27 @@
+// handlers/interactionCreate.mjs
 import { EmbedBuilder } from "discord.js";
 import handleButtonInteraction from "../interactions/buttonHandlers.mjs";
 import handleModalInteraction from "../interactions/modalHandlers.mjs";
 import config from "../config.mjs";
 
 export default async (interaction) => {
+   // オートコンプリートはログを取る前に済ませる
+  if (interaction.isAutocomplete()) {
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (!command || !command.autocomplete) {
+      console.error(
+        `「${interaction.commandName}」コマンドに、オートコンプリート処理が見つかりません。`
+      );
+      return;
+    }
+    try {
+      await command.autocomplete(interaction);
+    } catch (error) {
+      console.error(`オートコンプリート処理中にエラーが発生しました:`, error);
+    }
+    return; // オートコンプリートの処理はここで終わり
+  }
+  // オートコンプリートここまで
   //ログとり
   const comname = interaction.commandName
     ? interaction.commandName
@@ -44,23 +62,6 @@ export default async (interaction) => {
     await handleModalInteraction(interaction);
     return;
   }
-  // オートコンプリート
-  else if (interaction.isAutocomplete()) {
-    const command = interaction.client.commands.get(interaction.commandName);
-    if (!command || !command.autocomplete) {
-      console.error(
-        `「${interaction.commandName}」コマンドに、オートコンプリート処理が見つかりません。`
-      );
-      return;
-    }
-    try {
-      await command.autocomplete(interaction);
-    } catch (error) {
-      console.error(`オートコンプリート処理中にエラーが発生しました:`, error);
-    }
-    return; // オートコンプリートの処理はここで終わり
-  }
-  // オートコンプリートここまで
 
   //  スラッシュメニュー、コンテキストメニュー（右クリック）であるか確認。
   else if (
