@@ -92,9 +92,12 @@ async function getDirectorySize(directoryName) {
     if (!files || files.length === 0) {
       return 0; // ファイルがなければ0バイト
     }
-
+    // ファイルのメタデータから、サイズが設定されているファイルのみをフィルタリング
+    // metadataがnullのファイルは除外する
+    // これにより、フォルダや空のファイルなどサイズが不明なファイルを除外します。
+    const onlyFiles = files.filter(item => item.metadata !== null);
     // fileリストの中から、"size"だけを取り出して、合計する
-    const totalSize = files.reduce((sum, file) => sum + file.metadata.size, 0);
+    const totalSize = onlyFiles.reduce((sum, file) => sum + file.metadata.size, 0);
     return totalSize; // 合計サイズをバイト単位で返す
   } catch (e) {
     console.error("ディレクトリサイズ計算中に例外発生:", e);
