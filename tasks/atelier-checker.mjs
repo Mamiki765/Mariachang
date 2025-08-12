@@ -21,12 +21,12 @@ export async function checkAtelierCards(client) {
     const headers = {
       'Content-Type': 'application/json',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-      'Referer': 'https://rev2.reversion.jp/shop/illust'
+      'Referer': 'https://rev2.reversion.jp/shop/illust/excard/search'
     };
     const payload = {
       "operationName": "GetOnSellingIllustExtraCardList",
       "variables": { "page": 1 }, // 1ページ目だけを取得
-      "query": "query GetOnSellingIllustExtraCardList($page: Int, ...) { ... }" // (クエリは非常に長いため、ここでは省略しています)
+      "query": "query GetOnSellingIllustExtraCardList($page: Int, $penname: String, $product_size_ids: [ID!], $list_sort: String, $sort_key: Int, $include_unused: Boolean, $my_unused: Boolean) { rev2IllustExtraCardsOnSale(page: $page, penname: $penname, product_size_ids: $product_size_ids, list_sort: $list_sort, sort_key: $sort_key, include_unused: $include_unused, my_unused: $my_unused, first: 50) { paginatorInfo { total perPage __typename } data { ...ShopIllustExcardListItem __typename } __typename } } fragment ShopIllustExcardListItem on ReversionIllustExtraCard { id reserve_start sell_start sell_end_at total_price status_name is_reserved maximum_size { normal_image_url __typename } creator { id penname image_icon_url __typename } __typename }"
     };
 
     const response = await axios.post(url, payload, { headers, timeout: 15000 });
