@@ -1,6 +1,23 @@
-.glitchdotcom.json
-.node-gyp
-node_modules
-.data/
+# 依存関係
+node_modules/
+.node-gyp/
+
+# ログ
+npm-debug.log*
+yarn-error.log
+yarn-debug.log
+
+# 環境変数ファイル（消すな）
 .env
+
+# 自動生成されるファイル
 project-structure.txt
+
+# OSが生成するシステムファイル
+.DS_Store
+Thumbs.db
+
+# Glitch時代の遺物（念のため）
+.data/
+.glitch-assets
+.glitchdotcom.json
