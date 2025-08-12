@@ -168,12 +168,25 @@ export async function execute(interaction) {
           ? `|**予約抽選: ${timePart}**`
           : "";
 
+      // 帯書き（キャッチフレーズ）表示用の文字列を生成（オプションが有効な場合のみ）
       let catchphraseText = "";
       if (showDetails && s.catchphrase) {
-        // Discordの引用マークダウン `>` を使うと、さらにそれっぽく見えます
         catchphraseText = `-# > *${s.catchphrase.replace(/\n/g, " ")}*\n`;
       }
-      const line = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n${catchphraseText}-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${s.current_members}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+
+      // 参加条件が存在する場合のみ、表示用の文字列を生成します
+      let joinConditionsText = "";
+      // Sequelizeのモデルから取得したデータは s.join_conditions に入っています
+      if (s.join_conditions && s.join_conditions.length > 0) {
+        joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
+      }
+
+      // 各パーツを定義します
+      const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
+      const infoLine = `-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${s.current_members}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+
+      // すべてのパーツを結合して、最終的な表示を組み立てます
+      const line = titleLine + catchphraseText + joinConditionsText + infoLine;
 
       if (
         descriptionText.length + line.length + 2 > charLimit &&

@@ -4,14 +4,14 @@ import axios from "axios";
 import { EmbedBuilder } from "discord.js";
 import config from "../config.mjs";
 // 250809【変更点】Sequelizeの代わりに、新しいSupabaseクライアントをインポート
-import { getSupabaseClient } from '../utils/supabaseClient.mjs';
+import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 
 // 通知を送るチャンネルIDを環境変数から取得
 const ANNOUNCE_CHANNEL_ID = config.rev2ch; // ここはconfig.mjsから取得するように変更
 
 // export をつけて関数を定義
 export async function checkNewScenarios(client) {
-   // ★★★ 関数内で、クライアントを取得する ★★★
+  // ★★★ 関数内で、クライアントを取得する ★★★
   const supabase = getSupabaseClient();
   // ★★★【Gemini pro2.5より未来のあなたへ：重要な補足コメント】★★★
   // この関数では、プロジェクトの他の部分で使われているSequelize（ORM）ではなく、
@@ -115,6 +115,7 @@ export async function checkNewScenarios(client) {
         time: fetched.time,
         time_type: fetched.time_type,
         catchphrase: fetched.catchphrase || null,
+        join_conditions: fetched.join_conditions || null,
       };
 
       if (!existing) {
@@ -136,7 +137,9 @@ export async function checkNewScenarios(client) {
         existing.type !== newData.type ||
         existing.time !== newData.time ||
         existing.time_type !== newData.time_type ||
-        existing.catchphrase !== newData.catchphrase
+        existing.catchphrase !== newData.catchphrase ||
+        JSON.stringify(existing.join_conditions) !==
+          JSON.stringify(newData.join_conditions)
       ) {
         scenariosToUpsert.push(newData);
       }
@@ -212,7 +215,9 @@ export async function checkNewScenarios(client) {
         };
 
         for (const s of scenariosToAnnounce) {
-          const difficultyEmoji = config.scenarioChecker.difficultyEmojis[s.difficulty] || config.scenarioChecker.difficultyEmojis.DEFAULT;
+          const difficultyEmoji =
+            config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+            config.scenarioChecker.difficultyEmojis.DEFAULT;
           const statusText = actionTypeMap[s.action_type] || "不明";
           const sourceNameDisplay =
             s.source_name && s.source_name.trim() !== ""
@@ -226,7 +231,24 @@ export async function checkNewScenarios(client) {
             timePart !== config.scenarioChecker.defaultReserveTime
               ? `|**予約抽選: ${timePart}**`
               : "";
-          const line = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+          // ▼▼▼ ここから依頼1つを組み立てるコード ▼▼▼
+
+          // 参加条件が存在する場合のみ、表示用の文字列を生成します
+          let joinConditionsText = "";
+          if (s.join_conditions && s.join_conditions.length > 0) {
+            // > と ** で囲んで、重要情報を強調します
+            // 複数の条件は " / " で区切ると見やすいでしょう
+            joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
+          }
+
+          // 元の line を、タイトル部分と情報部分に分割します
+          const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
+          const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+
+          // 3つのパーツ（タイトル、参加条件（あれば空文字）、情報）を結合して、最終的な1行を生成します
+          const line = titleLine + joinConditionsText + infoLine;
+
+          // ▲▲▲ ここまで依頼1つを組み立てるコード ▲▲▲
 
           if (
             descriptionText.length + line.length + 2 > charLimit &&
@@ -271,7 +293,9 @@ export async function checkNewScenarios(client) {
       const embedsToSend = [];
       const charLimit = 4000;
       for (const s of closedScenariosData) {
-        const difficultyEmoji = config.scenarioChecker.difficultyEmojis[s.difficulty] || config.scenarioChecker.difficultyEmojis.DEFAULT;
+        const difficultyEmoji =
+          config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+          config.scenarioChecker.difficultyEmojis.DEFAULT;
         const line = `${difficultyEmoji}${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/replay/${s.id}) (作:${s.creator_penname})`;
 
         if (

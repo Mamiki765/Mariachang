@@ -24,24 +24,28 @@ const sequelize = new Sequelize(supabaseDatabaseUrl, {
 });
 
 //ボイチャ通知モデル
-const Notification = sequelize.define("Notification", {
-  guildId: {
-    type: DataTypes.STRING,
-    allowNull: false,
+const Notification = sequelize.define(
+  "Notification",
+  {
+    guildId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    voiceChannelId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    textChannelId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
-  voiceChannelId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  textChannelId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-}, {
-  // ▼▼▼ ここにオプションを追加します ▼▼▼
-  tableName: 'notifications', // テーブル名を小文字の複数形に指定
-  timestamps: false,          // createdAt, updatedAt を作成しない
-});
+  {
+    // ▼▼▼ ここにオプションを追加します ▼▼▼
+    tableName: "notifications", // テーブル名を小文字の複数形に指定
+    timestamps: false, // createdAt, updatedAt を作成しない
+  }
+);
 
 // キャラクターモデル
 const Character = sequelize.define(
@@ -296,6 +300,11 @@ const Scenario = sequelize.define(
     time_type: { type: DataTypes.STRING, allowNull: true },
     // キャッチフレーズを追加
     catchphrase: { type: DataTypes.STRING, allowNull: true },
+    join_conditions: {
+      //参加条件の配列
+      type: DataTypes.ARRAY(DataTypes.STRING), // 文字列の配列型として定義
+      allowNull: true, // データがない場合もあるのでnullを許可
+    },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,
