@@ -2,7 +2,10 @@
 import { EmbedBuilder, ActivityType } from "discord.js";
 import cron from "node-cron";
 import config from "../config.mjs";
-import { checkNewScenarios } from "../tasks/scenario-checker.mjs";
+// ロスアカ定期チェック関連
+import { checkNewScenarios } from "../tasks/scenario-checker.mjs"; // シナリオの定期チェック
+import { checkAtelierCards } from "../tasks/atelier-checker.mjs"; // エクストラカードのチェック
+// データベースの同期
 import { syncModels } from "../models/database.mjs";
 
 export default async (client) => {
@@ -95,12 +98,13 @@ export default async (client) => {
       timezone: "Asia/Tokyo", // 日本時間を指定
     }
   );
-  // 8:10にシナリオチェックを実行
+  // 8:10にシナリオチェックを実行(あまり好きくないけど上とは45分と10分で違うからcronの都合で仕方ない…)
   cron.schedule(
     config.scenarioChecker.cronSchedule2, // configからスケジュールを取得
     () => {
       console.log("8:10のシナリオチェックを実行します...");
       checkNewScenarios(client);
+      checkAtelierCards(client); // 8:10はエクストラカードのチェックも同時に実行
     },
     {
       scheduled: true,

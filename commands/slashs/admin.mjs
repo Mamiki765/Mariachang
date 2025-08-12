@@ -8,6 +8,7 @@ import config from "../../config.mjs";
 import { replyfromDM } from "../../components/buttons.mjs";
 import { AdminMemo } from "../../models/database.mjs";
 import { checkNewScenarios } from "../../tasks/scenario-checker.mjs";
+import { checkAtelierCards } from "../../tasks/atelier-checker.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("admin")
@@ -564,7 +565,7 @@ export async function execute(interaction) {
     // 処理に時間がかかることをユーザーに伝える
     await interaction.reply({
       content:
-        "シナリオの手動チェックを開始します。新規・終了があればロスアカチャンネルに投稿されます...",
+        "シナリオ・エクカの手動チェックを開始します。新規・終了があればロスアカチャンネルに投稿されます...",
       flags: 64, //ephemeral
     });
 
@@ -572,13 +573,14 @@ export async function execute(interaction) {
     // clientオブジェクトを渡すのを忘れずに！
     try {
       await checkNewScenarios(interaction.client);
+      await checkAtelierCards(interaction.client); // エクストラカードのチェックも同時に実行
       // 成功したことを伝える
       await interaction.followUp({
         content: "✅ 手動チェックが完了しました。",
         flags: 64, //ephemeral
       });
     } catch (error) {
-      console.error("手動シナリオチェック中にエラー:", error);
+      console.error("手動エクカ・シナリオチェック中にエラー:", error);
       // 失敗したことを伝える
       await interaction.followUp({
         content:

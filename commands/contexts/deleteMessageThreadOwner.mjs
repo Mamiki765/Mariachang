@@ -1,3 +1,4 @@
+//commands/contexts/deleteMessageThreadOwner.mjs
 import {
   ContextMenuCommandBuilder,
   ApplicationCommandType,
