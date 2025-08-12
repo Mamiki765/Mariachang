@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "start": "node --trace-warnings main.mjs",
-    "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json\" -l 3 > project-structure.txt"
+    "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json,project-structure.txt\" -l 3 -o project-structure.txt"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
@@ -27,11 +27,11 @@
     "node": "22.x"
   },
   "repository": {
-    "type": "git", 
+    "type": "git",
     "url": "git+https://github.com/Mamiki765/Mariachang.git"
   },
   "license": "MIT",
- "keywords": [
+  "keywords": [
     "discord",
     "discord.js",
     "bot",
@@ -42,6 +42,7 @@
     "node"
   ],
   "devDependencies": {
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "tree-cli": "^0.6.7"
   }
 }
