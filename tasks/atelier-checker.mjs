@@ -60,16 +60,16 @@ export async function checkAtelierCards(client) {
   console.log(`[rev2エクストラカード] 状況: 予約期間中(${reservedCount}件), 販売中(${onSaleCount}件)`)
 
   // 予約中のカードが1枚もなければ、通知する必要はないので、ここで終了します。
-  if (reservedCardsCount === 0) {
+  if (reservedCount === 0) {
     console.log('[rev2エクストラカード]現在、予約期間中のアトリエカードはありませんでした。');
     return;
   }
 
   // --- 3. 通知メッセージを作成 ---
-  let message = `**${reservedCardsCount}枚**のエクストラカードが登録されたようですにゃ！`;
+  let message = `**${reservedCount}枚**のエクストラカードが登録されたようですにゃ！`;
 
   // 【あなたの名案】もし取得した50件すべてが予約中なら、もっと多い可能性があることを示唆する。
-  if (cards.length === 50 && reservedCardsCount === 50) {
+  if (cards.length === 50 && reservedCount === 50) {
     message = `**50枚以上**のエクストラカードが登録されたようですにゃ！！！`;
   }
 
