@@ -76,7 +76,7 @@ export async function checkAtelierCards(client) {
   // --- 4. Discordに通知を送信 ---
   // このtry...catchブロックは、Discordへの通知が失敗してもBot全体が落ちないようにします。
   try {
-    const channel = await client.channels.fetch(config.atelierChannelId); // config.mjsに通知先チャンネルIDを追加してください
+    const channel = await client.channels.fetch(config.rev2ch); // config.mjsに通知先チャンネルIDを追加してください
 
     const embed = new EmbedBuilder()
       .setColor('Fuchsia') // 予約期間中なので、華やかな色に
