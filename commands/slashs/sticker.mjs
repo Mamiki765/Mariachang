@@ -130,13 +130,17 @@ export async function execute(interaction) {
     const isPublic = interaction.options.getBoolean("public") || false;
 
     // 登録数制限のチェック
-    const STICKER_LIMIT = config.sticker.limitPerUser;
+    // VIPロールを持っているかどうかを確認
+    const isVip = config.sticker.vipRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+    // ユーザーごとのスタンプ登録上限数を取得
+    // VIPなら上限を引き上げる 5 -> 50
+    const STICKER_LIMIT = isVip ? config.sticker.vipLimit : config.sticker.limitPerUser;
     const currentStickerCount = await Sticker.count({
       where: { ownerId: userId },
     });
     if (currentStickerCount >= STICKER_LIMIT) {
       return interaction.editReply({
-        content: `登録できるスタンプの上限（${STICKER_LIMIT}個）に達しています。`,
+        content: `登録できるスタンプの上限（${STICKER_LIMIT}個）に達しています。\n通常ユーザー：${config.sticker.limitPerUser}個、IL/モデレーター：${config.sticker.vipLimit}個`,
       });
     }
 

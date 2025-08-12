@@ -102,6 +102,13 @@ export default {
   sticker: {
     // ユーザー一人あたりの、スタンプ登録上限数
     limitPerUser: 5,
-    directorySizeLimit: 314572800, // 300MB
+    // スタンプのディレクトリサイズ上限
+    directorySizeLimit: 300 * 1024 * 1024, // 300MB
+    // スタンプ登録上限数を引き上げるVIPロール
+    vipRoles: [
+      '1038083096618209301', // モデレーターロールのID
+      '1025453404362903622'  // イラストレーターロールのID
+    ],
+    vipLimit: 50 // VIPの最大登録数
   },
 };
