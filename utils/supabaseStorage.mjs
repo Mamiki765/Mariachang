@@ -72,10 +72,15 @@ async function deleteFile(filePath) {
   return true;
 }
 // ディレクトリのサイズを取得する関数
-// これは、指定されたディレクトリ内の全ファイルのサイズを合計して返す
-// SupabaseのストレージAPIを使用して、ファイルのメタデータを取得します。
-// ディレクトリ名は、バケット内のパスを指定します。
-async function getDirectorySize(directoryName) {
+/**
+ * 【究極進化版】ディレクトリのサイズを、サブディレクトリも含めて再帰的に取得します。
+ * ディレクトリ名は、バケット内のパスを指定します。
+ * これは、指定されたディレクトリ内の全ファイルのサイズを合計して返す
+ * SupabaseのストレージAPIを使用して、ファイルのメタデータを取得します。
+ * @param {string} directoryName - 探索を開始するパス (例: 'stickers')
+ * @returns {Promise<number>} ディレクトリの合計サイズ (バイト単位)
+ */
+async function getDirectorySize(directoryName = '') {
   try {
     // Supabaseに、指定されたディレクトリのファイル一覧を要求
     const { data: files, error } = await supabase.storage
@@ -85,22 +90,37 @@ async function getDirectorySize(directoryName) {
       });
 
     if (error) {
-      console.error("ディレクトリサイズの取得エラー:", error);
-      return -1; // エラーが起きたことを示す
+      console.error(`ストレージのリスト取得エラー (${directoryName}):`, error);
+      return -1;
     }
 
     if (!files || files.length === 0) {
-      return 0; // ファイルがなければ0バイト
+      return 0;
     }
-    // ファイルのメタデータから、サイズが設定されているファイルのみをフィルタリング
-    // metadataがnullのファイルは除外する
-    // これにより、フォルダや空のファイルなどサイズが不明なファイルを除外します。
-    const onlyFiles = files.filter(item => item.metadata !== null);
-    // fileリストの中から、"size"だけを取り出して、合計する
-    const totalSize = onlyFiles.reduce((sum, file) => sum + file.metadata.size, 0);
-    return totalSize; // 合計サイズをバイト単位で返す
+
+    let totalSize = 0;
+
+    // 取得したアイテムを一つずつ処理
+    for (const file of files) {
+      if (file.metadata) {
+        // ★ これは「ファイル」なので、サイズを直接加算
+        totalSize += file.metadata.size;
+      } else {
+        // ★ これは「フォルダ」なので、再帰的に自分自身を呼び出し、
+        //    その中の合計サイズを取得して、加算する！
+        const subfolderPath = directoryName ? `${directoryName}/${file.name}` : file.name; // フォルダのパスを作成
+        const subfolderSize = await getDirectorySize(subfolderPath);
+
+        if (subfolderSize !== -1) {
+          totalSize += subfolderSize;
+        }
+      }
+    }
+    
+    return totalSize;
+
   } catch (e) {
-    console.error("ディレクトリサイズ計算中に例外発生:", e);
+    console.error(`ディレクトリサイズ計算中に例外発生 (${directoryName}):`, e);
     return -1;
   }
 }
