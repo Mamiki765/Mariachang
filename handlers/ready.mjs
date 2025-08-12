@@ -84,6 +84,8 @@ export default async (client) => {
   //シナリオの定期チェック
   // 最初に一度だけ即時実行
   checkNewScenarios(client);
+  // エクストラカードのチェックも即時実行
+  checkAtelierCards(client);
 
 // シナリオ更新が活発な夜間（22時～翌1時）を含め、更新頻度を最適化したスケジュール
 // 設定時間はconfig参照
