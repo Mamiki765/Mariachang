@@ -294,6 +294,8 @@ const Scenario = sequelize.define(
     type: { type: DataTypes.STRING, allowNull: true },
     time: { type: DataTypes.STRING, allowNull: true }, // or DATE
     time_type: { type: DataTypes.STRING, allowNull: true },
+    // キャッチフレーズを追加
+    catchphrase: { type: DataTypes.STRING, allowNull: true },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,

@@ -114,6 +114,7 @@ export async function checkNewScenarios(client) {
         type: fetched.type,
         time: fetched.time,
         time_type: fetched.time_type,
+        catchphrase: fetched.catchphrase || null,
       };
 
       if (!existing) {
@@ -134,7 +135,8 @@ export async function checkNewScenarios(client) {
         existing.state !== newData.state ||
         existing.type !== newData.type ||
         existing.time !== newData.time ||
-        existing.time_type !== newData.time_type
+        existing.time_type !== newData.time_type ||
+        existing.catchphrase !== newData.catchphrase
       ) {
         scenariosToUpsert.push(newData);
       }

@@ -1,5 +1,5 @@
 // commands/slashs/scenarios.mjs
-import { SlashCommandBuilder, EmbedBuilder,MessageFlags } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import { Scenario } from "../../models/database.mjs"; // Sequelizeモデルをインポート
 import { CronExpressionParser } from "cron-parser";
 import config from "../../config.mjs";
@@ -76,8 +76,17 @@ export const data = new SlashCommandBuilder()
         "If false, the result will be visible to everyone. (Default: true)"
       )
       .setDescriptionLocalizations({
-        ja: "「false」にすると、実行結果が全員に表示されます。（デフォルト: はい）",
+        ja: "falseにすると、実行結果が全員に表示されます。（デフォルト: はい）",
       })
+      .setRequired(false)
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("catchphrase")
+      .setNameLocalizations({ ja: "帯書き表示" })
+      .setDescription(
+        "trueにすると帯書き（キャッチフレーズ）も一緒に表示します (デフォルト: いいえ)"
+      )
       .setRequired(false)
   );
 
@@ -85,6 +94,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const isPrivate = interaction.options.getBoolean("private") ?? true;
+  const showDetails = interaction.options.getBoolean("catchphrase") ?? false; // ★ 帯書きオプションの値を取得
   try {
     const supabase = getSupabaseClient();
     // 1. 【絞り込み】DBから「今、参加できるシナリオ」だけを取得
@@ -104,7 +114,7 @@ export async function execute(interaction) {
     if (activeScenarios.length === 0) {
       await interaction.reply({
         content: "現在、DBに記録されているシナリオはありません。",
-         flags: isPrivate ? MessageFlags.Ephemeral : undefined,
+        flags: isPrivate ? MessageFlags.Ephemeral : undefined,
       });
       return;
     }
@@ -158,7 +168,12 @@ export async function execute(interaction) {
           ? `|**予約抽選: ${timePart}**`
           : "";
 
-      const line = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${s.current_members}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+      let catchphraseText = "";
+      if (showDetails && s.catchphrase) {
+        // Discordの引用マークダウン `>` を使うと、さらにそれっぽく見えます
+        catchphraseText = `-# > *${s.catchphrase.replace(/\n/g, " ")}*\n`;
+      }
+      const line = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n${catchphraseText}-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${s.current_members}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
 
       if (
         descriptionText.length + line.length + 2 > charLimit &&
@@ -205,7 +220,10 @@ export async function execute(interaction) {
       const embed = embedsToSend[i];
       // 最初のメッセージはreply、2通目以降はfollowUp
       if (i === 0) {
-        await interaction.reply({ embeds: [embed],  flags: isPrivate ? MessageFlags.Ephemeral : undefined, });
+        await interaction.reply({
+          embeds: [embed],
+          flags: isPrivate ? MessageFlags.Ephemeral : undefined,
+        });
       } else {
         await interaction.followUp({ embeds: [embed] });
       }
