@@ -30,21 +30,30 @@ export async function checkAtelierCards(client) {
 
     const lastRun = taskLog
       ? new Date(taskLog.last_successful_run)
-      : new Date(0); // 過去の実行がなければ、大昔の日付に
-    const now = new Date();
-    const today810 = new Date(
+      : new Date(0); // 前回実行時刻
+    const now = new Date(); // 今回の実行時刻
+
+    // 1. 「今日のロスアカの始まり」である「朝8時」を定義します。
+    let lossAcadiaTodayStart = new Date(
       now.getFullYear(),
       now.getMonth(),
       now.getDate(),
       8,
-      10,
+      5,  //ロスアカ側のサーバーの処理時間を考慮し、8:05に設定
       0
-    ); // 今日の朝8時10分
+    );
 
-    // 【重要】最後の実行が、今日の朝8時10分より後なら、実行しない
-    if (lastRun > today810) {
+    // 2. もし、今の時刻が朝8時5分より前（例: 7:59）なら、
+    //    「今日のロスアカ」はまだ始まっていないので、判定基準となる「壁」は「昨日の朝8時」になります。
+    if (now < lossAcadiaTodayStart) {
+      lossAcadiaTodayStart.setDate(lossAcadiaTodayStart.getDate() - 1);
+    }
+
+    // 3. 【判定】前回の実行時刻が、この「今日のロスアカの始まり」よりも後であれば、
+    //    それは「今日のチェックは、もう誰かが済ませた」ということなので、処理を終了します。
+    if (lastRun > lossAcadiaTodayStart) {
       console.log(
-        "[rev2エクストラカード] 本日の8:10以降にチェック済みのため、処理をスキップします。"
+        `[rev2エクストラカード] 本日（ロスアカ時間 ${lossAcadiaTodayStart.toLocaleDateString("ja-JP")} 8:05以降）のチェックは既に完了済みのため、スキップします。`
       );
       return;
     }
@@ -152,6 +161,9 @@ export async function checkAtelierCards(client) {
     });
     console.log("[rev2エクストラカード] チェックを正常に完了しました。");
   } catch (error) {
-    console.error("[rev2エクストラカード] チェック処理全体でエラーが発生しました:", error);
+    console.error(
+      "[rev2エクストラカード] チェック処理全体でエラーが発生しました:",
+      error
+    );
   }
 }
