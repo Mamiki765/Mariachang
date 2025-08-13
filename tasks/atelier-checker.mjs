@@ -39,7 +39,7 @@ export async function checkAtelierCards(client) {
       now.getMonth(),
       now.getDate(),
       8,
-      5,  //ロスアカ側のサーバーの処理時間を考慮し、8:05に設定
+      5, //ロスアカ側のサーバーの処理時間を考慮し、8:05に設定
       0
     );
 
@@ -53,7 +53,7 @@ export async function checkAtelierCards(client) {
     //    それは「今日のチェックは、もう誰かが済ませた」ということなので、処理を終了します。
     if (lastRun > lossAcadiaTodayStart) {
       console.log(
-        `[rev2エクストラカード] 本日（ロスアカ時間 ${lossAcadiaTodayStart.toLocaleDateString("ja-JP")} 8:05以降）のチェックは既に完了済みのため、スキップします。`
+        `[rev2エクストラカード] 本日（エクストラカード更新 ${lossAcadiaTodayStart.toLocaleDateString("ja-JP")} 8:05以降）のチェックは既に完了済みのため、スキップします。`
       );
       return;
     }
@@ -118,6 +118,11 @@ export async function checkAtelierCards(client) {
 
     // 予約中のカードが1枚もなければ、通知する必要はないので、ここで終了します。
     if (reservedCount === 0) {
+      // 0枚でもログを残してから終了する
+      await supabase.from("task_logs").upsert({
+        task_name: "atelier-checker",
+        last_successful_run: new Date().toISOString(), 
+      });
       console.log(
         "[rev2エクストラカード]現在、予約期間中のアトリエカードはありませんでした。"
       );

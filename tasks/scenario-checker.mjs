@@ -138,8 +138,8 @@ export async function checkNewScenarios(client) {
         existing.time !== newData.time ||
         existing.time_type !== newData.time_type ||
         existing.catchphrase !== newData.catchphrase ||
-        JSON.stringify(existing.join_conditions) !==
-          JSON.stringify(newData.join_conditions)
+        JSON.stringify(existing.join_conditions || []) !==
+          JSON.stringify(newData.join_conditions || [])
       ) {
         scenariosToUpsert.push(newData);
       }
