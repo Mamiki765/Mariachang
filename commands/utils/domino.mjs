@@ -1,6 +1,8 @@
+// commands\utils\domino.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { DominoLog, CurrentDomino, sequelize } from "../../models/database.mjs"; // あなたのデータベース設定からDominoLogとCurrentDominoモデルをインポート
 import config from "../../config.mjs";
+import { safeDelete } from "../../utils/messageutil.mjs";
 
 export const data = new SlashCommandBuilder()
   .setName("domino")
@@ -250,7 +252,7 @@ export async function dominoeffect(message, client, id, username, dpname) {
       content: `# ガッシャーン！`,
     });
     setTimeout(() => {
-      replyMessage.delete();
+      safeDelete(replyMessage); 
     }, 5000);
   } else {
     //セーフ
@@ -320,7 +322,7 @@ export async function dominoeffect(message, client, id, username, dpname) {
         }枚`,
       });
       setTimeout(() => {
-        replyMessage.delete();
+        safeDelete(replyMessage);
       }, 5000);
     }
   }

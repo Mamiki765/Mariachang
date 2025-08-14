@@ -115,3 +115,34 @@ export async function sendMessage(message, newmessage, fileUrls, embeds, flag) {
     }
   }
 }
+
+/**
+ * メッセージを安全に削除します。
+ * Deploy直後の多重起動や0.1秒で消せる超能力者が出た時など（笑）に
+ * ターゲットが既に存在しない場合は、エラーを無視して正常に終了します。
+ * 
+ * 対応エラーコード:
+ * - 10008: Unknown Message (主に message.delete() で発生)
+ * - 10062: Unknown Interaction (主に interaction.reply() の返信をdelete()する時などに発生)
+ * @param {import('discord.js').Message | import('discord.js').Interaction} target 削除したいメッセージ、またはインタラクションの返信
+ * @returns {Promise<void>}
+ */
+export async function safeDelete(target) {
+  // targetがnull、またはdeleteメソッドを持たない不正なオブジェクトの場合は、何もしない
+  if (!target || typeof target.delete !== "function") {
+    return;
+  }
+
+  try {
+    await target.delete();
+  } catch (error) {
+    // Discord APIが「Unknown Message」または「Unknown Interaction」を返した場合、
+    // それは「既に削除済み」ということなので、成功と見なす。
+    if (error.code === 10008 || error.code === 10062) {
+      console.log("[safeDelete]Unknown MessageかUnknown Interactionが出たようですが無視しました。");
+    } else {
+      // それ以外の、本当に予期せぬエラー（権限不足など）は、ちゃんとログに残す
+      console.error("[safeDelete]予期せぬエラーが発生しました:", error);
+    }
+  }
+}

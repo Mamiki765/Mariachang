@@ -1,4 +1,6 @@
+// handlers\messageReactionAdd.mjs
 import { EmbedBuilder } from "discord.js";
+import { safeDelete } from "../utils/messageutil.mjs";
 
 export default async (reaction, user) => {
   //削除リアクション（旧式)
@@ -13,7 +15,7 @@ export default async (reaction, user) => {
       message = await reaction.message.fetch(); //なければ取得
     }
     if (message.mentions.users.has(user.id)) {
-      await message.delete();
+      await safeDelete(message);
     }
   }
   //そうだね

@@ -7,6 +7,7 @@ import {
   ButtonStyle,
   ChannelType,
 } from "discord.js";
+import { safeDelete } from "../../utils/messageutil.mjs";
 
 export const data = new ContextMenuCommandBuilder()
   .setName("メッセージを削除 (スレ主限定)")
@@ -88,20 +89,11 @@ export async function execute(interaction) {
 
     buttonCollector.on("collect", async (i) => {
       if (i.customId === "delete_confirm") {
-        try {
-          // メッセージを削除
-          await targetMessage.delete();
-          await i.update({
-            content: `メッセージ ID: ${interaction.targetId} を削除しました。`,
-            components: [],
-          });
-        } catch (error) {
-          console.error("メッセージ削除中にエラーが発生しました:", error);
-          await i.update({
-            content: "メッセージの削除に失敗しました。",
-            components: [],
-          });
-        }
+        await safeDelete(targetMessage);
+        await i.update({
+          content: `メッセージ ID: ${interaction.targetId} を削除しました。`,
+          components: [],
+        });
       } else if (i.customId === "delete_cancel") {
         await i.update({
           content: "メッセージの削除をキャンセルしました。",

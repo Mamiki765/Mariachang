@@ -1,3 +1,4 @@
+//interactions\buttonHandlers.mjs
 import { deleteconfirm } from "../components/buttons.mjs";
 import {
   ModalBuilder,
@@ -9,6 +10,7 @@ import {
   timeout_confirm,
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
+import { safeDelete } from "../utils/messageutil.mjs";
 
 export default async function handleButtonInteraction(interaction) {
   //以下変数定義
@@ -72,21 +74,37 @@ export default async function handleButtonInteraction(interaction) {
       return;
     }
   } else if (interaction.customId === "confirm_delete") {
-    // メッセージを削除する処理
-    const messageToDelete = await interaction.channel.messages.fetch(
-      interaction.message.reference.messageId
-    ); // 削除するメッセージを取得
-    if (messageToDelete) {
-      await messageToDelete.delete();
-      await interaction.update({
-        content: "メッセージが削除されました。",
-        components: [],
-      });
-    } else {
-      await interaction.update({
-        content: "メッセージが見つかりませんでした。",
-        components: [],
-      });
+    try {
+        // 1. まず、削除対象のメッセージを取得しようと試みる
+        const messageToDelete = await interaction.channel.messages.fetch(
+            interaction.message.reference.messageId
+        );
+
+        // 2. 取得できたら、「安全に」削除する
+        await safeDelete(messageToDelete);
+
+        // 3. ユーザーに成功を報告する
+        await interaction.update({
+            content: "メッセージが削除されました。",
+            components: [],
+        });
+
+    } catch (error) {
+        // もし、そもそもメッセージの「取得(fetch)」に失敗した場合
+        // (つまり、既に削除されていた場合)
+        if (error.code === 10008) { // Unknown Message
+            await interaction.update({
+                content: "メッセージは既に削除されていたようです。",
+                components: [],
+            });
+        } else {
+            // それ以外の、本当に予期せぬエラーの場合
+            console.error("メッセージ削除(確認)処理中に予期せぬエラー:", error);
+            await interaction.update({
+                content: "メッセージの削除に失敗しました。",
+                components: [],
+            });
+        }
     }
     return;
   } else if (interaction.customId === "cancel_delete") {
