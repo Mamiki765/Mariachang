@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import { getWebhookInChannel, getWebhook } from "../../utils/webhook.mjs";
+import { getWebhookPair } from "../../utils/webhook.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
 import { dominoeffect } from "../utils/domino.mjs";
 //import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
@@ -497,39 +497,36 @@ export async function execute(interaction) {
       message = message + "\n" + `-# ` + pbwflag;
     }
 
-    try {
-      let webhook = null;
-      let Threadid = null;
-      if (!interaction.channel.isThread()) {
-        webhook = await getWebhookInChannel(interaction.channel);
-      } else {
-        webhook = await getWebhookInChannel(interaction.channel.parent);
-        Threadid = interaction.channel.id;
-      }
-
-      //連投確認
-      const messages = await interaction.channel.messages.fetch({
-        limit: 2,
-      });
-      const lastMessage = messages.first();
-      if (lastMessage) {
-        const now = Date.now();
-        const lastMessageTime = lastMessage.createdTimestamp;
-        const isRecent = now - lastMessageTime <= 10 * 60 * 1000; // 10分以内
-        const isWebhook = lastMessage.webhookId != null;
-        const isSilent = lastMessage.flags.has(4096); // 4096はサイレントメッセージのフラグ
-
-        if (isRecent && isWebhook && !isSilent) {
-          flags = [4096];
+try {
+      // スレッドの場合、Webhookは親チャンネルから取得する
+      const webhookTargetChannel = interaction.channel.isThread()
+        ? interaction.channel.parent
+        : interaction.channel;
+      const threadId = interaction.channel.isThread() ? interaction.channel.id : null;
+    
+      // 1. Webhookのペアを取得
+      const { hookA, hookB } = await getWebhookPair(webhookTargetChannel);
+    
+      // 2. このチャンネル（スレッド含む）の最後のメッセージを1件だけ取得
+      const lastMessages = await interaction.channel.messages.fetch({ limit: 1 });
+      const lastMessage = lastMessages.first();
+    
+      let webhookToUse = hookA; // デフォルトはAを使う
+    
+      // 3. 最後の投稿があり、それがWebhookによるものだったら
+      if (lastMessage && lastMessage.webhookId) {
+        // 4. そのIDがhookAのものだったら、次はBを使う
+        if (lastMessage.webhookId === hookA.id) {
+          webhookToUse = hookB;
         }
       }
-
-      const postmessage = await webhook.send({
+    
+      // 5. 選んだWebhookで送信 (flagsはもう不要！)
+      const postmessage = await webhookToUse.send({
         content: message,
         username: name,
-        threadId: Threadid,
+        threadId: threadId,
         avatarURL: face,
-        flags: flags,
       });
 
       //ドミノを振る機能
