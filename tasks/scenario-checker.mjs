@@ -203,10 +203,6 @@ export async function checkNewScenarios(client) {
       );
 
       if (scenariosToAnnounce.length > 0) {
-        let descriptionText = "";
-        const embedsToSend = [];
-        const charLimit = 4000;
-
         const actionTypeMap = {
           RESERVABLE: "予約期間中",
           JOINABLE: "参加受付中",
@@ -214,74 +210,168 @@ export async function checkNewScenarios(client) {
           OUT_OF_ACTION: "事前公開中",
         };
 
-        for (const s of scenariosToAnnounce) {
-          const difficultyEmoji =
-            config.scenarioChecker.difficultyEmojis[s.difficulty] ||
-            config.scenarioChecker.difficultyEmojis.DEFAULT;
-          const statusText = actionTypeMap[s.action_type] || "不明";
-          const sourceNameDisplay =
-            s.source_name && s.source_name.trim() !== ""
-              ? `<${s.source_name}> `
-              : "";
-          const maxMemberText =
-            s.max_member_count === null ? "∞" : s.max_member_count;
-          const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
-          const specialTimeText =
-            (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
-            timePart !== config.scenarioChecker.defaultReserveTime
-              ? `|**予約抽選: ${timePart}**`
-              : "";
-          // ▼▼▼ ここから依頼1つを組み立てるコード ▼▼▼
+        // 【新戦略】レイドと一般シナリオを分離する
+        const raidScenarios = scenariosToAnnounce.filter(
+          (s) => s.type === "レイド"
+        );
+        const normalScenarios = scenariosToAnnounce.filter(
+          (s) => s.type !== "レイド"
+        );
 
-          // 参加条件が存在する場合のみ、表示用の文字列を生成します
-          let joinConditionsText = "";
-          if (s.join_conditions && s.join_conditions.length > 0) {
-            // > と ** で囲んで、重要情報を強調します
-            // 複数の条件は " / " で区切ると見やすいでしょう
-            joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
+        // ■■■ レイド専用通知 ■■■
+        if (raidScenarios.length > 0) {
+          console.log(
+            `${raidScenarios.length}件のレイドシナリオを発見！個別に通知します。`
+          );
+
+          // レイドシナリオの通知（見た目は通常とほぼ同じ、でも箱は別）
+          let descriptionText = "";
+          const embedsToSend = [];
+          const charLimit = 4000;
+
+          for (const s of raidScenarios) {
+            const difficultyEmoji =
+              config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+              config.scenarioChecker.difficultyEmojis.DEFAULT;
+            const statusText = actionTypeMap[s.action_type] || "不明";
+            const sourceNameDisplay =
+              s.source_name && s.source_name.trim() !== ""
+                ? `<${s.source_name}> `
+                : "";
+            const maxMemberText =
+              s.max_member_count === null ? "∞" : s.max_member_count;
+            const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
+            const specialTimeText =
+              (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
+              timePart !== config.scenarioChecker.defaultReserveTime
+                ? `|**予約抽選: ${timePart}**`
+                : "";
+            //レイドは特別に帯書きを入れる
+            let catchphraseText = "";
+            if (s.catchphrase) {
+              catchphraseText = `-# > *${s.catchphrase.replace(/\n/g, " ")}*\n`;
+            }
+            let joinConditionsText = "";
+            if (s.join_conditions && s.join_conditions.length > 0) {
+              joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
+            }
+            const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
+            const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+            const line =
+              titleLine + catchphraseText + joinConditionsText + infoLine;
+
+            if (
+              descriptionText.length + line.length + 2 > charLimit &&
+              descriptionText !== ""
+            ) {
+              embedsToSend.push(
+                new EmbedBuilder().setDescription(descriptionText)
+              ); // 色は後で設定
+              descriptionText = line;
+            } else {
+              descriptionText +=
+                (descriptionText ? "\n-# \u200b\n" : "") + line;
+            }
           }
 
-          // 元の line を、タイトル部分と情報部分に分割します
-          const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
-          const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+          if (descriptionText !== "") {
+            embedsToSend.push(
+              new EmbedBuilder().setDescription(descriptionText)
+            );
+          }
 
-          // 3つのパーツ（タイトル、参加条件（あれば空文字）、情報）を結合して、最終的な1行を生成します
-          const line = titleLine + joinConditionsText + infoLine;
+          for (let i = 0; i < embedsToSend.length; i++) {
+            const embed = embedsToSend[i];
+            embed
+              .setColor("Red") // 決戦の色
+              .setTitle(
+                `🚨レイドシナリオのお知らせ(${i + 1}/${embedsToSend.length})`
+              );
+            if (i === embedsToSend.length - 1) {
+              embed.setTimestamp().setFooter({
+                text: `${raidScenarios.length}件のレイドシナリオが公示されました。`,
+              });
+            }
+            const raidRoleId = "1137548892779597874";
+            await channel.send({
+              content: `<@&${raidRoleId}>`, // contentにメンション
+              embeds: [embed],
+              allowedMentions: {
+                roles: [raidRoleId], // 特別にrev2ロールIDへのメンションを許可する
+              },
+            }); //250814 QRK（急にレイドが来たので）生IDでrev2ロール指定
+            // たとえ10人が出したとてレイドだけで4000文字超えることはないでしょう。
+            // あとでconfig.mjsにロスアカロール追加してね！
+          }
+        }
 
-          // ▲▲▲ ここまで依頼1つを組み立てるコード ▲▲▲
+        // ■■■ 一般シナリオの通知（従来通り） ■■■
+        if (normalScenarios.length > 0) {
+          let descriptionText = "";
+          const embedsToSend = [];
+          const charLimit = 4000;
 
-          if (
-            descriptionText.length + line.length + 2 > charLimit &&
-            descriptionText !== ""
-          ) {
+          for (const s of normalScenarios) {
+            const difficultyEmoji =
+              config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+              config.scenarioChecker.difficultyEmojis.DEFAULT;
+            const statusText = actionTypeMap[s.action_type] || "不明";
+            const sourceNameDisplay =
+              s.source_name && s.source_name.trim() !== ""
+                ? `<${s.source_name}> `
+                : "";
+            const maxMemberText =
+              s.max_member_count === null ? "∞" : s.max_member_count;
+            const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
+            const specialTimeText =
+              (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
+              timePart !== config.scenarioChecker.defaultReserveTime
+                ? `|**予約抽選: ${timePart}**`
+                : "";
+            let joinConditionsText = "";
+            if (s.join_conditions && s.join_conditions.length > 0) {
+              joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
+            }
+            const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
+            const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+            const line = titleLine + joinConditionsText + infoLine;
+
+            if (
+              descriptionText.length + line.length + 2 > charLimit &&
+              descriptionText !== ""
+            ) {
+              embedsToSend.push(
+                new EmbedBuilder()
+                  .setColor("Green")
+                  .setDescription(descriptionText)
+              );
+              descriptionText = line;
+            } else {
+              descriptionText +=
+                (descriptionText ? "\n-# \u200b\n" : "") + line;
+            }
+          }
+
+          if (descriptionText !== "") {
             embedsToSend.push(
               new EmbedBuilder()
                 .setColor("Green")
                 .setDescription(descriptionText)
             );
-            descriptionText = line;
-          } else {
-            descriptionText += (descriptionText ? "\n-# \u200b\n" : "") + line;
           }
-        }
 
-        if (descriptionText !== "") {
-          embedsToSend.push(
-            new EmbedBuilder().setColor("Green").setDescription(descriptionText)
-          );
-        }
-
-        for (let i = 0; i < embedsToSend.length; i++) {
-          const embed = embedsToSend[i];
-          embed.setTitle(
-            `✨新規シナリオのお知らせ(${i + 1}/${embedsToSend.length})`
-          );
-          if (i === embedsToSend.length - 1) {
-            embed.setTimestamp().setFooter({
-              text: `${scenariosToAnnounce.length}件の新しいシナリオが追加されました。帯書きは /ロスアカシナリオ一覧 で確認できます。`,
-            });
+          for (let i = 0; i < embedsToSend.length; i++) {
+            const embed = embedsToSend[i];
+            embed.setTitle(
+              `✨新規シナリオのお知らせ(${i + 1}/${embedsToSend.length})`
+            );
+            if (i === embedsToSend.length - 1) {
+              embed.setTimestamp().setFooter({
+                text: `${normalScenarios.length}件の新しいシナリオが追加されました。帯書きは /ロスアカシナリオ一覧 で確認できます。`,
+              });
+            }
+            await channel.send({ embeds: [embed] });
           }
-          await channel.send({ embeds: [embed] });
         }
       }
       // ▲▲▲ 新規シナリオ通知ロジックここまで ▲▲▲
