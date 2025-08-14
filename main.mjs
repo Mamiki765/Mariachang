@@ -28,6 +28,8 @@ process.on("unhandledRejection", (reason, promise) => {
 
 const app = express();
 let postCount = 0;
+//get(ブラウザ閲覧)された時に見せるHTMLファイル
+const statusPageHtml = fs.readFileSync('./index.html', 'utf8');
 
 app.post("/", function (req, res) {
   console.log(`Received POST request.`);
@@ -45,8 +47,7 @@ app.get("/", function (req, res) {
       hour12: false,
     })}] Received ${req.method} request.`
   );
-  const htmlContent = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>Bot Status Page</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.6;text-align:center;padding:40px;background-color:#f7f7f7;color:#333}.container{max-width:600px;margin:0 auto;background-color:#fff;padding:30px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}h1{color:#1a1a1a}p{margin-bottom:20px}a{color:#007bff;text-decoration:none}a:hover{text-decoration:underline}.footer{margin-top:30px;font-size:0.9em;color:#777}</style></head><body><div class="container"><h1>Discord Bot "Mariachang"</h1><p class="footer">このページは、ボットをホストしているサーバーの稼働確認用に表示されます。</p><hr><p><strong>このボットのソースコード:</strong><br><a href="https://github.com/Mamiki765/Mariachang" target="_blank" rel="noopener noreferrer">https://github.com/Mamiki765/Mariachang</a></p><p><strong>元になったBotの解説記事:</strong><br><a href="https://note.com/exteoi/n/n0ea64e258797" target="_blank" rel="noopener noreferrer">note.com/exteoi/n/n0ea64e258797</a></p></div></body></html>`;
-  res.send(htmlContent);
+  res.send(statusPageHtml);
 });
 
 const client = new Client({
