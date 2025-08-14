@@ -12,6 +12,20 @@ import {
 import CommandsRegister from "./regist-commands.mjs";
 import config from "./config.mjs";
 
+// クラッシュ時にログを残す
+process.on("uncaughtException", (error, origin) => {
+  console.error("[FATAL ERROR/UNCAUGHT EXCEPTION]");
+  console.error("Origin:", origin);
+  console.error(error);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[FATAL ERROR/UNHANDLED REJECTION]");
+  console.error("Reason:", reason);
+  console.error("Promise:", promise);
+});
+//クラッシュ時ログここまで
+
 const app = express();
 let postCount = 0;
 
@@ -60,7 +74,7 @@ async function startBot() {
   console.log("[Loader] Loading commands and handlers...");
   client.commands = new Collection();
   const handlers = new Map();
-// === 将来の改善案 (Node.js v22以降) ===
+  // === 将来の改善案 (Node.js v22以降) ===
   // 現在のコマンド読み込み処理は、`fs.readdirSync`を使ってフォルダを2段階で読み込んでいます。
   // これは確実な方法ですが、将来的にコマンドの階層が増えた場合に対応できません。
   //
@@ -69,7 +83,7 @@ async function startBot() {
   // よりシンプルで柔軟なコードに書き換えることができます。
   //
   // --- 書き換え例 (一行ずつコメントアウトしているので安全です) ---
-  // const commandFiles = fs.globSync("commands/**/*.mjs"); 
+  // const commandFiles = fs.globSync("commands/**/*.mjs");
   // const commandPromises = [];
   //
   // for (const filePath of commandFiles) {
@@ -81,7 +95,6 @@ async function startBot() {
   //   );
   // }
   // =======================================
-
 
   // === 現在のコマンド読み込み処理 (動作確認済み) ===
   const categoryFoldersPath = path.join(process.cwd(), "commands");
@@ -101,7 +114,7 @@ async function startBot() {
       );
     }
   }
- // ↑ ここまでが、コマンド読み込みの一連の処理です 
+  // ↑ ここまでが、コマンド読み込みの一連の処理です
   const handlersPath = path.join(process.cwd(), "handlers");
   const handlerFiles = fs
     .readdirSync(handlersPath)
