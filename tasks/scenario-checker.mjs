@@ -241,11 +241,7 @@ export async function checkNewScenarios(client) {
             const maxMemberText =
               s.max_member_count === null ? "∞" : s.max_member_count;
             const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
-            const specialTimeText =
-              (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
-              timePart !== config.scenarioChecker.defaultReserveTime
-                ? `|**予約抽選: ${timePart}**`
-                : "";
+            const specialTimeText = `|**${s.time_type}: ${timePart}**`; //レイドは時間を必ず表示
             //レイドは特別に帯書きを入れる
             let catchphraseText = "";
             if (s.catchphrase) {
