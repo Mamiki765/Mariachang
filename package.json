@@ -18,7 +18,6 @@
     "express": "^4.19.2",
     "image-size": "^2.0.2",
     "node-cron": "^3.0.3",
-    "node-fetch": "^2.7.0",
     "pg": "^8.15.6",
     "sequelize": "^6.37.3"
   },

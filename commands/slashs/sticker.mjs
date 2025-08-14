@@ -7,7 +7,6 @@ import {
   getDirectorySize,
 } from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
-import fetch from "node-fetch";
 import sizeOf from "image-size";
 import config from "../../config.mjs";
 // スタンプの登録、投稿、削除を行うスラッシュコマンド

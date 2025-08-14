@@ -5,7 +5,6 @@ import { dominoeffect } from "../utils/domino.mjs";
 //import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import config from "../../config.mjs";
-import fetch from "node-fetch";
 
 //絵文字　スロットの数に合わせる
 const emojis = ["🍎", "🍌", "🍉", "🍇", "🍊"];
