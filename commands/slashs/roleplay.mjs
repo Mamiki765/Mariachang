@@ -6,6 +6,7 @@ import {
   ActionRowBuilder,
   ButtonStyle,
 } from "discord.js";
+import { Op } from "sequelize";
 import { getWebhookPair } from "../../utils/webhook.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
 import { dominoeffect } from "../utils/domino.mjs";
@@ -230,60 +231,84 @@ export const data = new SlashCommandBuilder()
   );
 //オートコンプリートここから
 export async function autocomplete(interaction) {
-  // 1. 誰からのリクエストか、何を入力中かを取得 (ここは同じ)
+  // まずは、お決まりの準備運動。
   const userId = interaction.user.id;
   const focusedValue = interaction.options.getFocused();
-
-  // 2. ★★★ 新しいロジック: 'register'か'post'か、文脈を判断 ★★★
-  // discord.js v14.7.0以降、サブコマンド名が取得できるようになった
   const subcommand = interaction.options.getSubcommand(false);
 
   const choices = [];
 
-  // 3. 0から最大スロット数までループ (5 → MAX_SLOTSに変更)
+  // ---ここからが、Supabaseくんを笑顔にする、エレガントなデータ取得方法です---
+
+  // 1. Supabaseに何度も電話する代わりに、まず「買い物リスト」を作ります。
+  // これからチェックしたい、全スロットのIDを、一度にまとめてしまいます。
+  const potentialSlotIds = [];
   for (let i = 0; i < MAX_SLOTS; i++) {
-    const charaslotId = `${userId}${i > 0 ? `-${i}` : ""}`;
+    potentialSlotIds.push(`${userId}${i > 0 ? `-${i}` : ""}`);
+  }
 
-    const character = await Character.findOne({
-      where: { userId: charaslotId },
-    });
+  // 2. 作った「買い物リスト」をSupabaseに一度だけ渡して、
+  // 「このリストに載っているキャラクターの情報、全部ください！」と、一括でお願いしてしまいます。
+  // これで、25回の通信が、たった1回で済みます。
+  const existingCharacters = await Character.findAll({
+    where: {
+      userId: {
+        [Op.in]: potentialSlotIds, // [Op.in]が「このリストの中にあるもの」という意味です。
+      },
+    },
+  });
 
-    // 4. ★★★ 新しいロジック: 文脈に応じて選択肢を生成 ★★★
-    if (subcommand === "register") {
-      let name;
+  // 3. Supabaseから受け取ったキャラクターリストを、
+  // スロットIDをキーにして、すぐに見つけられる「地図（Map）」に変換しておきます。
+  // これで、この後のループ処理で、もう一度DBに問い合わせる必要がなくなります。
+  const characterMap = new Map(
+    existingCharacters.map((char) => [char.userId, char])
+  );
+
+  // ---これ以降、DBとの通信は一切発生しません。全て手元の「地図」を見て判断します---
+
+  if (subcommand === "register") {
+    let firstEmptySlotFound = false;
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const charaslotId = potentialSlotIds[i]; // 作成済みのリストからIDを取得。
+      const character = characterMap.get(charaslotId); // DBではなく、手元の地図から探します！
+
       if (character) {
-        // キャラがいれば、「上書き」であることを明記
-        name = `${emojis[i]}スロット${i}: ${character.name} に上書き`;
-      } else {
-        // キャラがいなければ、「空のスロット」と表示
-        name = `${emojis[i]}スロット${i}: (空のスロット)`;
+        choices.push({
+          name: `${emojis[i]}スロット${i}: ${character.name} に上書き`,
+          value: i,
+        });
+      } else if (!firstEmptySlotFound) {
+        choices.push({
+          name: `${emojis[i]}スロット${i}: (ここに新しく保存)`,
+          value: i,
+        });
+        firstEmptySlotFound = true;
       }
-      choices.push({ name: name, value: i });
-    } else if (subcommand === "post") {
-      // postの場合は、キャラが存在するスロットだけを表示する
+    }
+  } else if (subcommand === "post") {
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const charaslotId = potentialSlotIds[i];
+      const character = characterMap.get(charaslotId); // こちらも、手元の地図から。
       if (character) {
-        const name = `${emojis[i]}スロット${i}: ${character.name}`;
-        choices.push({ name: name, value: i });
+        choices.push({
+          name: `${emojis[i]}スロット${i}: ${character.name}`,
+          value: i,
+        });
       }
-      // キャラがいないスロットは、何もしない (choicesに追加しない)
+    }
+    if (choices.length === 0) {
+      choices.push({ name: `${emojis[0]}スロット0: (空のスロット)`, value: 0 });
     }
   }
 
-  // 5. ★★★ 特別ルール: post時、登録キャラが0でもスロット0だけは表示する ★★★
-  if (subcommand === "post" && choices.length === 0) {
-    choices.push({ name: `${emojis[0]}スロット0: (空のスロット)`, value: 0 });
-  }
-
-  // 6. 入力された文字で絞り込み (ここは同じ)
+  // 共通の仕上げ作業は、何も変わりません。
   const filtered = choices.filter((choice) =>
     choice.name.includes(focusedValue)
   );
-
-  // 7. ★★★ 安全装置: 最終的な候補が25件を超えないようにする ★★★
   const responseChoices =
     filtered.length > 25 ? filtered.slice(0, 25) : filtered;
 
-  // 8. 絞り込んだ結果をDiscordに返す (安全な配列を渡す)
   await interaction.respond(responseChoices);
 }
 //オートコンプリートここまで
