@@ -1,22 +1,48 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+// commands\slashs\roleplay.mjs
+import {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ButtonBuilder,
+  ActionRowBuilder,
+  ButtonStyle,
+} from "discord.js";
 import { getWebhookPair } from "../../utils/webhook.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
 import { dominoeffect } from "../utils/domino.mjs";
-//import { uploadToImgur, deleteFromImgur } from "../../utils/imgur.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import config from "../../config.mjs";
 
-//絵文字　スロットの数に合わせる
-const emojis = ["🍎", "🍌", "🍉", "🍇", "🍊"];
-/*オートコンプリート式にしたので削除250731
-const slotChoices = emojis.map((emoji, index) => ({
-  name:
-    index === 0
-      ? `${emoji}スロット${index}(デフォルト)`
-      : `${emoji}スロット${index}`,
-  value: index,
-}));
-*/
+// キャラ上限数を定数として定義
+const MAX_SLOTS = 25;
+
+//  emojisを上限数まで拡張
+const emojis = [
+  "🍎",
+  "🍌",
+  "🍉",
+  "🍇",
+  "🍊",
+  "🍓",
+  "🥝",
+  "🍍",
+  "🍑",
+  "🍒",
+  "🍈",
+  "🥥",
+  "🥑",
+  "🍆",
+  "🍅",
+  "🌶️",
+  "🌽",
+  "🥕",
+  "🫒",
+  "🥦",
+  "🥬",
+  "🥒",
+  "🧄",
+  "🧅",
+  "🍄",
+];
 
 //権利表記の特定部分をIL名で置き換えて権利表記を生成するためのパーツ
 const illustratorname = "illustratorname";
@@ -187,44 +213,78 @@ export const data = new SlashCommandBuilder()
         ja: "セーブデータ確認",
       })
       .setDescription("登録したキャラデータを表示します。")
+      .addIntegerOption(
+        (
+          option // 250816 5->25キャラに伴い、5キャラ5ページ形式に
+        ) =>
+          option
+            .setName("page")
+            .setNameLocalizations({
+              ja: "ページ",
+            })
+            .setDescription("表示を開始するページを選択します。")
+            .setRequired(false)
+            .setMinValue(1)
+            .setMaxValue(5) // (25 slots / 5 per page)
+      )
   );
 //オートコンプリートここから
 export async function autocomplete(interaction) {
-  // まず、誰からのリクエストかを取得する
+  // 1. 誰からのリクエストか、何を入力中かを取得 (ここは同じ)
   const userId = interaction.user.id;
-  // 現在入力中の値を取得する
   const focusedValue = interaction.options.getFocused();
 
+  // 2. ★★★ 新しいロジック: 'register'か'post'か、文脈を判断 ★★★
+  // discord.js v14.7.0以降、サブコマンド名が取得できるようになった
+  const subcommand = interaction.options.getSubcommand(false);
+
   const choices = [];
-  // 0から4までのスロットをループ
-  for (let i = 0; i < 5; i++) {
+
+  // 3. 0から最大スロット数までループ (5 → MAX_SLOTSに変更)
+  for (let i = 0; i < MAX_SLOTS; i++) {
     const charaslotId = `${userId}${i > 0 ? `-${i}` : ""}`;
 
-    // DBから、そのスロットのキャラクター情報を探す
     const character = await Character.findOne({
       where: { userId: charaslotId },
     });
 
-    let name;
-    if (character) {
-      // キャラがいれば、「絵文字 スロット番号: キャラ名」という形式に
-      name = `${emojis[i]}スロット${i}: ${character.name}`;
-    } else {
-      // キャラがいなければ、「(空のスロット)」と表示
-      name = `${emojis[i]}スロット${i}: (空のスロット)`;
+    // 4. ★★★ 新しいロジック: 文脈に応じて選択肢を生成 ★★★
+    if (subcommand === "register") {
+      let name;
+      if (character) {
+        // キャラがいれば、「上書き」であることを明記
+        name = `${emojis[i]}スロット${i}: ${character.name} に上書き`;
+      } else {
+        // キャラがいなければ、「空のスロット」と表示
+        name = `${emojis[i]}スロット${i}: (空のスロット)`;
+      }
+      choices.push({ name: name, value: i });
+    } else if (subcommand === "post") {
+      // postの場合は、キャラが存在するスロットだけを表示する
+      if (character) {
+        const name = `${emojis[i]}スロット${i}: ${character.name}`;
+        choices.push({ name: name, value: i });
+      }
+      // キャラがいないスロットは、何もしない (choicesに追加しない)
     }
-
-    // valueには、今まで通り「0」「1」のようなスロット番号を入れる
-    choices.push({ name: name, value: i });
   }
 
-  // 入力された文字で絞り込む（もしユーザーが何か入力していた場合）
+  // 5. ★★★ 特別ルール: post時、登録キャラが0でもスロット0だけは表示する ★★★
+  if (subcommand === "post" && choices.length === 0) {
+    choices.push({ name: `${emojis[0]}スロット0: (空のスロット)`, value: 0 });
+  }
+
+  // 6. 入力された文字で絞り込み (ここは同じ)
   const filtered = choices.filter((choice) =>
     choice.name.includes(focusedValue)
   );
 
-  // 絞り込んだ結果を、Discordに返す
-  await interaction.respond(filtered);
+  // 7. ★★★ 安全装置: 最終的な候補が25件を超えないようにする ★★★
+  const responseChoices =
+    filtered.length > 25 ? filtered.slice(0, 25) : filtered;
+
+  // 8. 絞り込んだ結果をDiscordに返す (安全な配列を渡す)
+  await interaction.respond(responseChoices);
 }
 //オートコンプリートここまで
 export async function execute(interaction) {
@@ -497,22 +557,26 @@ export async function execute(interaction) {
       message = message + "\n" + `-# ` + pbwflag;
     }
 
-try {
+    try {
       // スレッドの場合、Webhookは親チャンネルから取得する
       const webhookTargetChannel = interaction.channel.isThread()
         ? interaction.channel.parent
         : interaction.channel;
-      const threadId = interaction.channel.isThread() ? interaction.channel.id : null;
-    
+      const threadId = interaction.channel.isThread()
+        ? interaction.channel.id
+        : null;
+
       // 1. Webhookのペアを取得
       const { hookA, hookB } = await getWebhookPair(webhookTargetChannel);
-    
+
       // 2. このチャンネル（スレッド含む）の最後のメッセージを1件だけ取得
-      const lastMessages = await interaction.channel.messages.fetch({ limit: 1 });
+      const lastMessages = await interaction.channel.messages.fetch({
+        limit: 1,
+      });
       const lastMessage = lastMessages.first();
-    
+
       let webhookToUse = hookA; // デフォルトはAを使う
-    
+
       // 3. 最後の投稿があり、それがWebhookによるものだったら
       if (lastMessage && lastMessage.webhookId) {
         // 4. そのIDがhookAのものだったら、次はBを使う
@@ -520,7 +584,7 @@ try {
           webhookToUse = hookB;
         }
       }
-    
+
       // 5. 選んだWebhookで送信 (flagsはもう不要！)
       const postmessage = await webhookToUse.send({
         content: message,
@@ -564,77 +628,113 @@ try {
         content: `エラーが発生しました。`,
       });
     }
+    //ここからセーブデータ表示の処理
   } else if (subcommand === "display") {
-    try {
+    // ephemeralを維持するため、まず応答を遅延させる
+    await interaction.deferReply({ ephemeral: true });
+
+    const userId = interaction.user.id;
+    const itemsPerPage = 5;
+    const totalPages = Math.ceil(MAX_SLOTS / itemsPerPage);
+
+    // ★ オプションから開始ページを取得、なければ1ページ目
+    let currentPage = interaction.options.getInteger("page") || 1;
+
+    // ★ 表示コンテンツを生成する関数を定義
+    const generateDisplay = async (page) => {
       const embeds = [];
-      const loadpoint = await Point.findOne({
-        where: {
-          userId: interaction.user.id,
-        },
-      });
+      const startSlot = (page - 1) * itemsPerPage;
+      const endSlot = startSlot + itemsPerPage;
+
+      // ポイント情報を取得 (一度だけで良いので外に出してもOK)
+      const loadpoint = await Point.findOne({ where: { userId } });
       const point = loadpoint ? loadpoint.point : 0;
       const totalpoint = loadpoint ? loadpoint.totalpoint : 0;
+      const content = `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# アイコンが表示されないときは再度してみてください`;
 
-      for (let i = 0; i < emojis.length; i++) {
-        //ファイル名決定
-        const charaslot = dataslot(interaction.user.id, i);
-
+      for (let i = startSlot; i < endSlot && i < MAX_SLOTS; i++) {
+        const charaslot = dataslot(userId, i);
         const loadchara = await Character.findOne({
-          where: {
-            userId: charaslot,
-          },
+          where: { userId: charaslot },
         });
-        const loadicon = await Icon.findOne({
-          where: {
-            userId: charaslot,
-          },
-        });
+        const loadicon = await Icon.findOne({ where: { userId: charaslot } });
 
         if (!loadchara) {
-          const embed = new EmbedBuilder()
-            .setTitle(`スロット${i}`)
-            .setDescription("キャラは登録されていません。");
-          embeds.push(embed);
+          embeds.push(
+            new EmbedBuilder()
+              .setTitle(`${emojis[i]}スロット${i}`)
+              .setDescription("キャラは登録されていません。")
+          );
         } else {
           const { name, pbwflag } = loadchara;
-
           let iconUrl = loadicon ? loadicon.iconUrl : null;
-          //let icondeleteHash = loadicon ? loadicon.deleteHash : null;//deletehashテスト
-
-          // URLの検証
           try {
             new URL(iconUrl);
-          } catch (error) {
-            iconUrl = null; // 無効なURLの場合はnullにする
+          } catch {
+            iconUrl = null;
           }
 
           const replace = "__" + loadicon.illustrator + "__";
           const copyright = pbwflag.replace(illustratorname, replace);
           const description = `### ${name}\n-# ${copyright}`;
 
-          const embed = new EmbedBuilder()
-            .setColor("#0099ff")
-            .setTitle(`${emojis[i]}スロット${i}`)
-            .setThumbnail(iconUrl || "https://via.placeholder.com/150")
-            .setDescription(
-              description + "\n" + iconUrl || "キャラが設定されていません"
-            );
-
-          embeds.push(embed);
+          embeds.push(
+            new EmbedBuilder()
+              .setColor("#0099ff")
+              .setTitle(`${emojis[i]}スロット${i}`)
+              .setThumbnail(iconUrl || "https://via.placeholder.com/150")
+              .setDescription(
+                description + "\n" + (iconUrl || "アイコンが設定されていません")
+              )
+          );
         }
       }
-      await interaction.reply({
-        content: `${interaction.user.username}のキャラクター一覧 RP:${point}(累計:${totalpoint})\n-# アイコンが表示されないときは再度してみてください`,
-        embeds: embeds,
-        flags: 64, //ephemeral
-      });
-    } catch (error) {
-      console.error("キャラデータの表示に失敗しました:", error);
-      await interaction.reply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `キャラデータの表示でエラーが発生しました。`,
-      });
-    }
+
+      // ★ ボタンを作成
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("previous_page")
+          .setLabel("◀️ 前へ")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(page === 1), // 1ページ目なら無効
+        new ButtonBuilder()
+          .setCustomId("next_page")
+          .setLabel("次へ ▶️")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(page === totalPages) // 最終ページなら無効
+      );
+
+      return { content, embeds, components: [buttons] };
+    };
+
+    // ★ 初回のメッセージを送信
+    const initialDisplay = await generateDisplay(currentPage);
+    const response = await interaction.editReply(initialDisplay);
+
+    // ★ ボタン操作を待つコレクターを作成
+    const collector = response.createMessageComponentCollector({
+      filter: (i) => i.user.id === userId, // コマンド実行者のみ反応
+      time: 60000, // 60秒でタイムアウト
+    });
+
+    collector.on("collect", async (i) => {
+      if (i.customId === "previous_page") {
+        currentPage--;
+      } else if (i.customId === "next_page") {
+        currentPage++;
+      }
+      const newDisplay = await generateDisplay(currentPage);
+      await i.update(newDisplay); // ★ ephemeralを維持したままメッセージを更新
+    });
+
+    collector.on("end", async () => {
+      // タイムアウトしたらボタンを無効化
+      const finalDisplay = await generateDisplay(currentPage);
+      finalDisplay.components[0].components.forEach((button) =>
+        button.setDisabled(true)
+      );
+      await interaction.editReply(finalDisplay);
+    });
   }
 }
 
