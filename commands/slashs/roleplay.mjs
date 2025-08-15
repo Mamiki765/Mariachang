@@ -228,6 +228,26 @@ export const data = new SlashCommandBuilder()
             .setMinValue(1)
             .setMaxValue(5) // (25 slots / 5 per page)
       )
+  )
+  // 削除
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("delete")
+      .setNameLocalizations({
+        ja: "キャラ削除",
+      })
+      .setDescription("登録したキャラデータとアイコンを完全に削除します。")
+      .addIntegerOption(
+        (option) =>
+          option
+            .setName("slot")
+            .setNameLocalizations({
+              ja: "セーブデータ",
+            })
+            .setDescription("削除するキャラクタースロットを選択")
+            .setRequired(true) // 削除には、対象の指定が必須
+            .setAutocomplete(true) // もちろん、彼に手伝ってもらう
+      )
   );
 //オートコンプリートここから
 export async function autocomplete(interaction) {
@@ -286,7 +306,8 @@ export async function autocomplete(interaction) {
         firstEmptySlotFound = true;
       }
     }
-  } else if (subcommand === "post") {
+  } else if (subcommand === "post" || subcommand === "delete") {
+    // === post と delete 兼用のロジック ===
     for (let i = 0; i < MAX_SLOTS; i++) {
       const charaslotId = potentialSlotIds[i];
       const character = characterMap.get(charaslotId); // こちらも、手元の地図から。
@@ -297,7 +318,7 @@ export async function autocomplete(interaction) {
         });
       }
     }
-    if (choices.length === 0) {
+    if (subcommand === "post" && choices.length === 0) {
       choices.push({ name: `${emojis[0]}スロット0: (空のスロット)`, value: 0 });
     }
   }
@@ -759,6 +780,105 @@ export async function execute(interaction) {
         button.setDisabled(true)
       );
       await interaction.editReply(finalDisplay);
+    });
+    //ここからセーブデータ削除の処理
+  } else if (subcommand === "delete") {
+    // まずはいつも通り、応答を約束してDiscordを安心させます。
+    await interaction.deferReply({ ephemeral: true });
+
+    // 削除対象のスロット番号と、それに対応するIDを取得します。
+    const slot = interaction.options.getInteger("slot");
+    const charaslotId = dataslot(interaction.user.id, slot);
+
+    // DBから、本当にそこにキャラクターの情報があるかを確認します。
+    const character = await Character.findOne({
+      where: { userId: charaslotId },
+    });
+
+    // もしキャラクターがいなければ、ここで処理を終了します。
+    if (!character) {
+      return interaction.editReply({
+        content: `スロット${slot}には、削除するキャラクターが存在しません。`,
+      });
+    }
+
+    // 1. ユーザーの最終意思を問うための、2つのボタンを作成します。
+    const confirmButton = new ButtonBuilder()
+      .setCustomId("confirm_delete_character") // 汎用ハンドラと衝突しない、専用のID
+      .setLabel("はい、完全に削除します")
+      .setStyle(ButtonStyle.Danger); // 破壊的行為には「赤」がふさわしい
+
+    const cancelButton = new ButtonBuilder()
+      .setCustomId("cancel_delete_character")
+      .setLabel("いいえ、やめておきます")
+      .setStyle(ButtonStyle.Secondary); // 安全な選択肢は「グレー」で
+
+    // 2. 作成したボタンを、メッセージの部品として配置します。
+    const row = new ActionRowBuilder().addComponents(
+      confirmButton,
+      cancelButton
+    );
+
+    // 3. ユーザーに、最終確認のメッセージを送信します。
+    const response = await interaction.editReply({
+      content: `**本当に、スロット${slot}の「${character.name}」を削除しますか？**\nこの操作は取り消せません。アイコンファイルも完全に消去されます。`,
+      components: [row],
+    });
+
+    // 4. この確認メッセージ専用の「個人秘書（Collector）」を雇います。
+    const collector = response.createMessageComponentCollector({
+      filter: (i) => i.user.id === interaction.user.id, // コマンド実行者以外の操作は無視
+      time: 30000, // 30秒以内に決断を
+    });
+
+    // 5. 秘書は、ボタンが押されるのをじっと待ちます。
+    collector.on("collect", async (i) => {
+      // 決断が下されたので、まずは応答します。
+      await i.deferUpdate();
+
+      if (i.customId === "confirm_delete_character") {
+        // 「はい」が押された場合、消去の儀式を執り行います。
+        try {
+          const icon = await Icon.findOne({ where: { userId: charaslotId } });
+          if (icon && icon.deleteHash) {
+            await deleteFile(icon.deleteHash);
+          }
+          if (icon) {
+            await Icon.destroy({ where: { userId: charaslotId } });
+          }
+          await Character.destroy({ where: { userId: charaslotId } });
+
+          // 成功を報告し、ボタンを消します。
+          await i.editReply({
+            content: `スロット${slot}の「${character.name}」に関する全てのデータを、完全に削除しました。`,
+            components: [],
+          });
+        } catch (error) {
+          console.error(`キャラクター削除処理中にエラーが発生:`, error);
+          await i.editReply({
+            content: "データの削除中に、予期せぬエラーが発生しました。",
+            components: [],
+          });
+        }
+      } else if (i.customId === "cancel_delete_character") {
+        // 「いいえ」が押された場合、何もせず、ユーザーを安心させます。
+        await i.editReply({
+          content: "削除はキャンセルされました。",
+          components: [],
+        });
+      }
+      collector.stop(); // 仕事が終わったので、秘書は帰ります。
+    });
+
+    // 6. タイムアウトした場合の後始末も、秘書の大事な仕事です。
+    collector.on("end", async (collected) => {
+      // ボタンが一度も押かれずにタイムアウトした場合
+      if (collected.size === 0) {
+        await interaction.editReply({
+          content: "応答がなかったため、削除はキャンセルされました。",
+          components: [], // ボタンを消して、操作を確定させます。
+        });
+      }
     });
   }
 }
