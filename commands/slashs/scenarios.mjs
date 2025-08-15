@@ -238,7 +238,9 @@ export async function execute(interaction) {
           flags: isPrivate ? MessageFlags.Ephemeral : undefined,
         });
       } else {
-        await interaction.followUp({ embeds: [embed] });
+        await interaction.followUp({ embeds: [embed],
+           flags: isPrivate ? MessageFlags.Ephemeral : undefined,
+        });
       }
     }
   } catch (error) {
