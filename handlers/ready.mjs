@@ -114,6 +114,12 @@ export default async (client) => {
     }
   );
 
+  //node-clonv4test
+  cron.schedule("*/1 * * * *", async () => {
+    console.log("1分に1回動いてます");
+  });
+
+
   await client.user.setActivity("🍙", {
     type: ActivityType.Custom,
     state: "今日も雨宿り中",
