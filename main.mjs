@@ -190,9 +190,13 @@ async function startBot() {
   });
   client.on("ready", () => handlers.get("ready").default(client));
 
-  app.listen(3000, () => {
-    console.log("Express server is listening on port 3000 for health checks.");
-  });
+app.listen(3000, (error) => {
+  if (error) { //express5からエラーハンドリングに対応したので念の為
+    console.error("Express server failed to start:", error);
+    throw error;
+  }
+  console.log("Express server is listening on port 3000 for health checks.");
+});
 
   await CommandsRegister();
   await client.login(process.env.TOKEN);
