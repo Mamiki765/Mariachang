@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "start": "node --trace-warnings main.mjs",
+    "_comment_tree": "npm run treeでプロジェクトの構造を project-structure.txt に出力する",
     "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json,project-structure.txt\" -l 3 -o project-structure.txt"
   },
   "dependencies": {
