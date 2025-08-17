@@ -10,6 +10,9 @@ import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うた�
 import sizeOf from "image-size";
 import config from "../../config.mjs";
 // スタンプの登録、投稿、削除を行うスラッシュコマンド
+
+export const scope = "guild"; // 指定ギルドでのみ使用可
+
 // --- 1. コマンドの「設計図」を定義します ---
 export const data = new SlashCommandBuilder()
   .setName("sticker")

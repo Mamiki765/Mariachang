@@ -13,6 +13,8 @@ export const data = new SlashCommandBuilder()
   })
   .setDescription("15円からできるカンパです。");
 
+export const scope = "guild"; // 指定ギルドでのみ使用可
+
 export async function execute(interaction) {
   await interaction.reply({
     flags: [4096, 64], //silent,ephemeral

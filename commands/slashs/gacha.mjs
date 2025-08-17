@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import fs from "fs";
 
+export const scope = "guild"; // 指定ギルドでのみ使用可
+
 export const data = new SlashCommandBuilder()
   .setName("gacha")
   .setNameLocalizations({

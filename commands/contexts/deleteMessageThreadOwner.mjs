@@ -9,6 +9,8 @@ import {
 } from "discord.js";
 import { safeDelete } from "../../utils/messageutil.mjs";
 
+export const scope = "guild"; // 指定ギルドでのみ使用可
+
 export const data = new ContextMenuCommandBuilder()
   .setName("メッセージを削除 (スレ主限定)")
   .setType(ApplicationCommandType.Message);

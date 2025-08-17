@@ -13,7 +13,7 @@ import { Notification } from "../../models/database.mjs";
 export const data = new SlashCommandBuilder()
   .setName("notify")
   .setDescription(
-    "ボイスチャンネルに人が入ったときに、通知するよう設定できるよ～"
+    "ボイスチャンネルに人が入ったときに、通知するよう設定できます"
   )
   .setDefaultMemberPermissions(
     PermissionsBitField.Flags.Administrator.toString()

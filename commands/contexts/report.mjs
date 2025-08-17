@@ -8,6 +8,8 @@ import {
 } from "discord.js";
 import config from "../../config.mjs";
 
+export const scope = "guild"; // 指定ギルドでのみ使用可
+
 export const data = new ContextMenuCommandBuilder()
   .setName("【このメッセージを報告】")
   .setType(ApplicationCommandType.Message);

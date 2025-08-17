@@ -10,6 +10,8 @@ import { AdminMemo } from "../../models/database.mjs";
 import { checkNewScenarios } from "../../tasks/scenario-checker.mjs";
 import { checkAtelierCards } from "../../tasks/atelier-checker.mjs";
 
+export const scope = "guild"; // 指定ギルドでのみ使用可
+
 export const data = new SlashCommandBuilder()
   .setName("admin")
   .setDescription("管理用")
