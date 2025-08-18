@@ -112,9 +112,11 @@ const Point = sequelize.define(
     },
     point: {
       type: DataTypes.INTEGER, //整数型
+      defaultValue: 0, // 新規ユーザーのために初期値を設定
     },
     totalpoint: {
       type: DataTypes.INTEGER, //整数型
+      defaultValue: 0, // 新規ユーザーのために初期値を設定
     },
   },
   {
