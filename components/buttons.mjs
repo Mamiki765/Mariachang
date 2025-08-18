@@ -83,3 +83,12 @@ export function selftimeout_check(minutes) {
   );
   return [timeout];
 }
+
+// ログインボーナス用のボタンを追加 
+export const acornLoginButton = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setEmoji("🐿️")
+    .setCustomId("claim_acorn_login_bonus") // このボタンだけの、特別なID
+    .setLabel("あまやどんぐりを拾う")
+    .setStyle(ButtonStyle.Success) // 成功をイメージさせる緑色
+);

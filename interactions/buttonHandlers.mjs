@@ -11,6 +11,7 @@ import {
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
 import { safeDelete } from "../utils/messageutil.mjs";
+import { Point } from "../models/database.mjs";
 
 export default async function handleButtonInteraction(interaction) {
   //以下変数定義
@@ -186,6 +187,54 @@ export default async function handleButtonInteraction(interaction) {
 
     // 4. ボタンが押されたインタラクションへの応答として、Modalを表示します。
     return interaction.showModal(modal);
+    //あまやどんぐり
+  } else if (interaction.customId === "claim_acorn_login_bonus") {
+    try {
+      const [pointEntry, created] = await Point.findOrCreate({
+        where: { userId: interaction.user.id },
+      });
+
+      // ▼▼▼ ここからが「朝8時またぎ」の資格チェックロジック ▼▼▼
+      const now = new Date();
+      if (pointEntry.lastAcornDate) {
+        const lastClaim = new Date(pointEntry.lastAcornDate);
+
+        // 最後に「朝8時」が来た日時を計算します。
+        // 今が8時より前なら「昨日の朝8時」、8時以降なら「今日の朝8時」が基準になります。
+        const last8AM = new Date();
+        last8AM.setHours(8, 0, 0, 0); // 今日の朝8時に設定
+        if (now < last8AM) {
+          // もし今が朝8時より前なら、基準は「昨日の朝8時」になる
+          last8AM.setDate(last8AM.getDate() - 1);
+        }
+
+        // 最後に押した日時が、最後に朝8時が来た日時よりも後か？
+        if (lastClaim > last8AM) {
+          return interaction.reply({
+            content:
+              "今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）",
+            ephemeral: true,
+          });
+        }
+      }
+      // ▲▲▲ ここまでが資格チェック ▲▲▲
+
+      // 資格をクリアしたので、どんぐりを1つ増やし、最後に拾った時間を記録
+      await pointEntry.increment({ acorn: 1, totalacorn: 1 });
+      await pointEntry.update({ lastAcornDate: now });
+
+      // ユーザーに成功を報告
+      return interaction.reply({
+        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${pointEntry.acorn + 1}個 今まで集めたどんぐり:${totalacorn + 1}個 `,
+        ephemeral: true,
+      });
+    } catch (error) {
+      console.error("ログインボーナスの処理中にエラーが発生しました:", error);
+      return interaction.reply({
+        content: "エラーが発生しました。どんぐりを拾えなかったようです…。",
+        ephemeral: true,
+      });
+    }
   } else {
     //ボタンが不明のとき
     return;

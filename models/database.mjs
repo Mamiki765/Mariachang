@@ -118,6 +118,20 @@ const Point = sequelize.define(
       type: DataTypes.INTEGER, //整数型
       defaultValue: 0, // 新規ユーザーのために初期値を設定
     },
+    //↑RP使用回数
+    //↓あまやどんぐり
+     acorn: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,   // 新規ユーザーは0個からスタート
+    },
+    totalacorn: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    lastAcornDate: {
+      type: DataTypes.DATE,
+      allowNull: true, // まだ一度も拾ったことがないユーザーはnullになる
+    },
   },
   {
     tableName: "points",

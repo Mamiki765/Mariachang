@@ -7,6 +7,8 @@ import { checkNewScenarios } from "../tasks/scenario-checker.mjs"; // シナリ�
 import { checkAtelierCards } from "../tasks/atelier-checker.mjs"; // エクストラカードのチェック
 // データベースの同期
 import { syncModels } from "../models/database.mjs";
+//ログボボタン
+import { acornLoginButton } from "../components/buttons.mjs";
 
 //250817 noOverlap: true…node-cron3->4から実装、多重実行を防ぐ。ちなみにscheduledは不要になりました。
 export default async (client) => {
@@ -18,7 +20,10 @@ export default async (client) => {
   cron.schedule(
     "0 8 * * *",
     async () => {
-      await timechannel.send("朝の8時をお知らせしますにゃ。");
+      await timechannel.send({
+        content: "朝の8時をお知らせしますにゃ。",
+        components: [acornLoginButton],
+      });
       /*SUPABASEに移行したのでコメントアウト　
     sendDatabaseBackup(client).catch((error) => {
       console.error("バックアップの送信に失敗しました:", error);
@@ -34,7 +39,10 @@ export default async (client) => {
   cron.schedule(
     "0 22 * * *",
     async () => {
-      await timechannel.send("夜の22時をお知らせしますにゃ。");
+      await timechannel.send({
+        content: "夜の22時をお知らせしますにゃ。",
+        components: [acornLoginButton],
+      });
     },
     {
       noOverlap: true, //多重実行禁止
@@ -93,7 +101,9 @@ export default async (client) => {
   // シナリオ同期前にデータベースの同期が完了するのを待つ！
   try {
     await syncModels();
-    console.log("[DB]Database synchronized successfully. Proceeding with tasks.");
+    console.log(
+      "[DB]Database synchronized successfully. Proceeding with tasks."
+    );
   } catch (error) {
     console.error(
       "[FATAL ERROR][DB]CRITICAL: Database sync failed on startup. Halting scheduled tasks.",
