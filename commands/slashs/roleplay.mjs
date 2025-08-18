@@ -638,7 +638,7 @@ export async function execute(interaction) {
       // ユーザーは「短い文章を素早く投稿したい」または「従来通りの使い方をしたい」と考えています。
     } else {
       // Webhookの送信など、少し時間がかかる可能性があるので応答を遅延させます。
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 });
 
       try {
         // 元のコードにあった、Webhookでメッセージを送信する処理をここに記述します。
@@ -793,7 +793,7 @@ export async function execute(interaction) {
     //ここからセーブデータ表示の処理
   } else if (subcommand === "display") {
     // ephemeralを維持するため、まず応答を遅延させる
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     const userId = interaction.user.id;
     const itemsPerPage = 5;
@@ -900,7 +900,7 @@ export async function execute(interaction) {
     //ここからセーブデータ削除の処理
   } else if (subcommand === "delete") {
     // まずはいつも通り、応答を約束してDiscordを安心させます。
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     // 削除対象のスロット番号と、それに対応するIDを取得します。
     const slot = interaction.options.getInteger("slot");
