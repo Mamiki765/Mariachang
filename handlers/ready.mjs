@@ -10,7 +10,7 @@ import { syncModels } from "../models/database.mjs";
 
 //250817 noOverlap: true…node-cron3->4から実装、多重実行を防ぐ。ちなみにscheduledは不要になりました。
 export default async (client) => {
-  console.log("Bot is ready. Starting final setup...");
+  console.log("[INIT] Bot is ready. Starting final setup...");
   //node-cron '秒（省略可） 分 時 日 月 曜日'
   // 8時と22時に時報、送信先読み込み
   const timechannel = await client.channels.fetch(config.timesignalch);
@@ -93,10 +93,10 @@ export default async (client) => {
   // シナリオ同期前にデータベースの同期が完了するのを待つ！
   try {
     await syncModels();
-    console.log("Database synchronized successfully. Proceeding with tasks.");
+    console.log("[DB]Database synchronized successfully. Proceeding with tasks.");
   } catch (error) {
     console.error(
-      "CRITICAL: Database sync failed on startup. Halting scheduled tasks.",
+      "[FATAL ERROR][DB]CRITICAL: Database sync failed on startup. Halting scheduled tasks.",
       error
     );
     // 同期に失敗したら、何もせずに関数を終了する
@@ -114,7 +114,7 @@ export default async (client) => {
   cron.schedule(
     config.scenarioChecker.cronSchedule, // configからスケジュールを取得
     () => {
-      console.log("スケジュールされたシナリオチェックを実行します...");
+      console.log("[TASK] スケジュールされたシナリオチェックを実行します...");
       checkNewScenarios(client);
     },
     {
@@ -126,7 +126,7 @@ export default async (client) => {
   cron.schedule(
     config.scenarioChecker.cronSchedule2, // configからスケジュールを取得
     () => {
-      console.log("8:10のシナリオチェックを実行します...");
+      console.log("[TASK] 8:10のシナリオチェックを実行します...");
       checkNewScenarios(client);
       checkAtelierCards(client); // 8:10はエクストラカードのチェックも同時に実行
     },
@@ -140,7 +140,7 @@ export default async (client) => {
     type: ActivityType.Custom,
     state: "今日も雨宿り中",
   });
-  console.log(`${client.user.tag} がログインしました！`);
+  console.log(`[INFO]${client.user.tag} がログインしました！`);
 
   // 240718管理室にログイン通知
   client.channels.cache.get(config.logch.login).send({

@@ -192,10 +192,10 @@ async function startBot() {
 
 app.listen(3000, (error) => {
   if (error) { //express5からエラーハンドリングに対応したので念の為
-    console.error("Express server failed to start:", error);
+    console.error("[EXPRESS]Express server failed to start:", error);
     throw error;
   }
-  console.log("Express server is listening on port 3000 for health checks.");
+  console.log("[EXPRESS]Express server is listening on port 3000 for health checks.");
 });
 
   await CommandsRegister();
@@ -203,6 +203,6 @@ app.listen(3000, (error) => {
 }
 
 startBot().catch((error) => {
-  console.error("Botの起動中に致命的なエラーが発生しました:", error);
+  console.error("[FATAL ERROR]Botの起動中に致命的なエラーが発生しました:", error);
   process.exit(1);
 });
