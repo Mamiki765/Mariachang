@@ -5,9 +5,9 @@ import {
   ButtonBuilder,
   ActionRowBuilder,
   ButtonStyle,
-  ModalBuilder,     
-  TextInputBuilder, 
-  TextInputStyle,    
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 import { Op } from "sequelize";
 import { getWebhookPair } from "../../utils/webhook.mjs";
@@ -651,7 +651,71 @@ export async function execute(interaction) {
         let face = loadicon ? loadicon.iconUrl : null;
         let copyright = loadicon ? loadicon.illustrator : null;
 
-        // (もしこのフローでもアイコン変更を許可する場合、ここにアイコン処理を記述)
+        // ▼▼▼ ここからアイコン処理を追加 ▼▼▼
+        // `icon`か`illustrator`が指定されている場合のみ、更新処理を行う
+        if (icon || illustrator) {
+          if (icon) {
+            // 1. ファイルをフェッチしてBufferに変換
+            const fetched = await fetch(icon.url);
+            const buffer = Buffer.from(await fetched.arrayBuffer());
+
+            // 2. サイズと拡張子をチェック
+            if (buffer.length > 1024 * 1024) {
+              return interaction.editReply({
+                content: "アイコンファイルのサイズが1MBを超えています。",
+              });
+            }
+            const fileExt = icon.name.split(".").pop()?.toLowerCase();
+            if (!fileExt || !["png", "webp", "jpg", "jpeg"].includes(fileExt)) {
+              return interaction.editReply({
+                content:
+                  "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
+              });
+            }
+
+            // 3. 古いアイコンを削除
+            if (loadicon && loadicon.deleteHash) {
+              await deleteFile(loadicon.deleteHash);
+            }
+
+            // 4. 新しいアイコンをアップロード
+            const result = await uploadFile(
+              buffer,
+              interaction.user.id,
+              slot,
+              fileExt,
+              "icons"
+            );
+            if (!result) {
+              return interaction.editReply({
+                content: "アイコンのアップロードに失敗しました。",
+              });
+            }
+
+            // 5. データベースを更新
+            const newIllustrator = illustrator || loadicon.illustrator;
+            await Icon.upsert({
+              userId: charaslot,
+              iconUrl: result.url,
+              illustrator: newIllustrator,
+              pbw: loadicon.pbw,
+              deleteHash: result.path,
+            });
+
+            // 6. ★重要★ 今回の投稿で使う変数を、新しい情報で上書きする
+            face = result.url;
+            copyright = newIllustrator;
+          } else if (illustrator) {
+            // イラストレーター名だけを更新
+            await Icon.upsert({
+              userId: charaslot,
+              illustrator: illustrator,
+            });
+            // ★重要★ 今回の投稿で使う変数を、新しい情報で上書きする
+            copyright = illustrator;
+          }
+        }
+        // ▲▲▲ ここまでアイコン処理 ▲▲▲
 
         // 権利表記の`illustratorname`を実際のイラストレーター名で置き換えます。
         if (pbwflag.includes("illustratorname")) {
