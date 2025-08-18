@@ -75,36 +75,36 @@ export default async function handleButtonInteraction(interaction) {
     }
   } else if (interaction.customId === "confirm_delete") {
     try {
-        // 1. まず、削除対象のメッセージを取得しようと試みる
-        const messageToDelete = await interaction.channel.messages.fetch(
-            interaction.message.reference.messageId
-        );
+      // 1. まず、削除対象のメッセージを取得しようと試みる
+      const messageToDelete = await interaction.channel.messages.fetch(
+        interaction.message.reference.messageId
+      );
 
-        // 2. 取得できたら、「安全に」削除する
-        await safeDelete(messageToDelete);
+      // 2. 取得できたら、「安全に」削除する
+      await safeDelete(messageToDelete);
 
-        // 3. ユーザーに成功を報告する
-        await interaction.update({
-            content: "メッセージが削除されました。",
-            components: [],
-        });
-
+      // 3. ユーザーに成功を報告する
+      await interaction.update({
+        content: "メッセージが削除されました。",
+        components: [],
+      });
     } catch (error) {
-        // もし、そもそもメッセージの「取得(fetch)」に失敗した場合
-        // (つまり、既に削除されていた場合)
-        if (error.code === 10008) { // Unknown Message
-            await interaction.update({
-                content: "メッセージは既に削除されていたようです。",
-                components: [],
-            });
-        } else {
-            // それ以外の、本当に予期せぬエラーの場合
-            console.error("メッセージ削除(確認)処理中に予期せぬエラー:", error);
-            await interaction.update({
-                content: "メッセージの削除に失敗しました。",
-                components: [],
-            });
-        }
+      // もし、そもそもメッセージの「取得(fetch)」に失敗した場合
+      // (つまり、既に削除されていた場合)
+      if (error.code === 10008) {
+        // Unknown Message
+        await interaction.update({
+          content: "メッセージは既に削除されていたようです。",
+          components: [],
+        });
+      } else {
+        // それ以外の、本当に予期せぬエラーの場合
+        console.error("メッセージ削除(確認)処理中に予期せぬエラー:", error);
+        await interaction.update({
+          content: "メッセージの削除に失敗しました。",
+          components: [],
+        });
+      }
     }
     return;
   } else if (interaction.customId === "cancel_delete") {
@@ -156,6 +156,36 @@ export default async function handleButtonInteraction(interaction) {
     return timeout_confirm(interaction, Selftimeoutmatch[1]);
   } else if (interaction.customId === "cancel_selftimeout") {
     return timeout_cancel(interaction);
+    // ロールプレイコマンドからのModal呼び出しボタン
+  } else if (interaction.customId.startsWith("show-rp-modal_")) {
+    // 1. customIdからスロット番号とnocreditフラグを解析します。
+    const parts = interaction.customId.split("_");
+    const slot = parseInt(parts[1], 10);
+    const nocredit = parts[2] === "true";
+
+    // 2. この後のModal送信を処理するための、新しいcustomIdを生成します。
+    const modalCustomId = `roleplay-post-modal_${slot}_${nocredit}`;
+
+    // 3. ユーザーに表示するModalを構築します。
+    const modal = new ModalBuilder()
+      .setCustomId(modalCustomId)
+      .setTitle(`スロット${slot}で発言`);
+
+    const messageInput = new TextInputBuilder()
+      .setCustomId("messageInput")
+      .setLabel("発言内容")
+      .setStyle(TextInputStyle.Paragraph)
+      .setMaxLength(1750) // ← これを追加！
+      .setPlaceholder(
+        "ここにセリフを入力してください。（最大1750文字)\n改行もそのまま反映されます。"
+      )
+      .setRequired(true);
+
+    const actionRow = new ActionRowBuilder().addComponents(messageInput);
+    modal.addComponents(actionRow);
+
+    // 4. ボタンが押されたインタラクションへの応答として、Modalを表示します。
+    return interaction.showModal(modal);
   } else {
     //ボタンが不明のとき
     return;

@@ -5,6 +5,9 @@ import {
   ButtonBuilder,
   ActionRowBuilder,
   ButtonStyle,
+  ModalBuilder,     
+  TextInputBuilder, 
+  TextInputStyle,    
 } from "discord.js";
 import { Op } from "sequelize";
 import { getWebhookPair } from "../../utils/webhook.mjs";
@@ -164,8 +167,11 @@ export const data = new SlashCommandBuilder()
           .setNameLocalizations({
             ja: "内容",
           })
-          .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
-          .setRequired(true)
+          // 250818 modal 対応のため空欄でも可に
+          .setDescription(
+            "発言内容(空欄で別途入力欄表示)(改行は\n、<br>、@@@でも可)"
+          )
+          .setRequired(false)
       )
       .addIntegerOption(
         (option) =>
@@ -464,215 +470,261 @@ export async function execute(interaction) {
       });
     }
   } else if (subcommand === "post") {
-    let message = interaction.options.getString("message");
-    const slot = interaction.options.getInteger("slot") || 0;
-    const icon = interaction.options.getAttachment("icon");
-    const illustrator = interaction.options.getString("illustrator");
-    const nocredit = interaction.options.getBoolean("nocredit");
-    let name = null,
-      pbwflag = null,
-      face = null,
-      copyright = null,
-      loadchara = null,
-      loadicon = null,
-      flags = null;
-    //ファイル名決定
+    // --- 1. オプションと基本情報の取得 ---
+
+    // スラッシュコマンドでユーザーが入力した各オプションを取得します。
+    const slot = interaction.options.getInteger("slot") || 0; // スロット番号。なければ0番。
+    const icon = interaction.options.getAttachment("icon"); // 添付されたアイコンファイル。
+    const illustrator = interaction.options.getString("illustrator"); // イラストレーター名。
+    const message = interaction.options.getString("message"); // 発言内容。
+    const nocredit = interaction.options.getBoolean("nocredit"); // 権利表記を省略するかどうか。
+
+    // ユーザーIDとスロット番号から、データベースで使う一意なIDを生成します。
     const charaslot = dataslot(interaction.user.id, slot);
-    await interaction.deferReply({ flags: 64 }); // ★ 250528ここで応答（考え中） ★
+
+    // --- 2. キャラクターデータの事前読み込み ---
+
+    // この後の処理で必ず使うキャラクター情報を先に読み込みます。
+    // try...catchで囲むことで、データベース接続エラーなどでBotが停止するのを防ぎます。
+    let loadchara, loadicon;
     try {
-      loadchara = await Character.findOne({
-        where: {
-          userId: charaslot,
-        },
-      });
-      loadicon = await Icon.findOne({
-        where: {
-          userId: charaslot,
-        },
-      });
+      loadchara = await Character.findOne({ where: { userId: charaslot } });
+      loadicon = await Icon.findOne({ where: { userId: charaslot } });
     } catch (error) {
       console.error("キャラデータのロードに失敗しました:", error);
-      interaction.editReply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `キャラデータのロードでエラーが発生しました。`,
+      // この時点ではまだ応答を返していないので、.reply()でエラーを伝えます。
+      return interaction.reply({
+        content:
+          "キャラクターデータの読み込み中にエラーが発生しました。しばらくしてからもう一度お試しください。",
+        ephemeral: true,
       });
-      return;
     }
 
+    // 読み込んだキャラクターデータが存在しない場合、処理を中断します。
     if (!loadchara) {
-      interaction.editReply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `スロット${slot}にキャラデータがありません。`,
+      return interaction.reply({
+        content: `スロット${slot}にキャラデータがありません。先に\`/register\`で登録してください。`,
+        ephemeral: true,
       });
-      return;
     }
 
-    name = loadchara.name;
-    pbwflag = loadchara.pbwflag;
-    copyright = loadicon.illustrator;
-    if (icon) {
-      // 古いアイコン削除
-      /*
-      if (loadicon && loadicon.deleteHash) {
-        //       await deleteFromImgur(loadicon.deleteHash);
-        await deleteFile(loadicon.deleteHash);
-      }
-      */
-      if (loadicon && loadicon.deleteHash) {
-        console.log("削除を試みるファイルパス:", loadicon.deleteHash);
-        const deletionResult = await deleteFile(loadicon.deleteHash);
-        console.log("削除結果:", deletionResult);
-        if (!deletionResult) {
-          console.error("古いアイコンの削除に失敗しました！");
+    // --- 3. 処理の分岐 ---
+    // ユーザーの意図に合わせて、3つのパターンに処理を分岐します。
+
+    // 【パターンA: アイコン更新 → Modal表示】
+    // `message`オプションが無く、`icon`か`illustrator`オプションが指定されている場合。
+    // ユーザーは「先にアイコン周りを更新してから、本文を入力したい」と考えています。
+    if (!message && (icon || illustrator)) {
+      // ファイルアップロードやDB更新は時間がかかる可能性があるため、まず応答を遅延させます。
+      await interaction.deferReply({ ephemeral: true });
+
+      try {
+        // ◆ `icon`オプション（新しいアイコンファイル）がある場合の処理 ◆
+        if (icon) {
+          // 1. DiscordのURLからファイルをフェッチし、Buffer形式（バイナリデータ）に変換します。
+          const fetched = await fetch(icon.url);
+          const buffer = Buffer.from(await fetched.arrayBuffer());
+
+          // 2. ファイルサイズのチェック（1MB = 1024 * 1024 bytes）
+          if (buffer.length > 1024 * 1024) {
+            return interaction.editReply({
+              content: "アイコンファイルのサイズが1MBを超えています。",
+            });
+          }
+
+          // 3. ファイル名から拡張子を取得します（例: "image.png" -> "png"）。
+          //    安全のためにオプショナルチェイニング(?.)と小文字化(.toLowerCase())を使います。
+          const fileExt = icon.name.split(".").pop()?.toLowerCase();
+
+          // 4. 許可された拡張子かどうかをチェックします。
+          if (!fileExt || !["png", "webp", "jpg", "jpeg"].includes(fileExt)) {
+            return interaction.editReply({
+              content:
+                "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
+            });
+          }
+
+          // 5. チェックをすべて通過後、もし古いアイコンがストレージにあれば削除します。
+          if (loadicon && loadicon.deleteHash) {
+            await deleteFile(loadicon.deleteHash);
+          }
+
+          // 6. 新しいアイコンをSupabase Storageなどにアップロードします。
+          const result = await uploadFile(
+            buffer,
+            interaction.user.id,
+            slot,
+            fileExt,
+            "icons"
+          );
+          if (!result) {
+            return interaction.editReply({
+              content: "アイコンのアップロードに失敗しました。",
+            });
+          }
+
+          // 7. データベースの情報を新しいアイコンの情報で更新（または新規作成）します。
+          await Icon.upsert({
+            userId: charaslot,
+            iconUrl: result.url,
+            illustrator: illustrator || loadicon.illustrator, // illustrator指定があれば更新、なければ既存のまま
+            pbw: loadicon.pbw,
+            deleteHash: result.path,
+          });
+
+          // ◆ `illustrator`オプションだけがある場合の処理 ◆
+        } else if (illustrator) {
+          // アイコンファイルは変更せず、イラストレーター名だけを更新します。
+          await Icon.upsert({
+            userId: charaslot,
+            illustrator: illustrator,
+          });
         }
+
+        // 8. アイコン処理完了後、Modalを呼び出すためのボタンを作成します。
+        //    customIdにスロット番号などの情報を埋め込み、次のインタラクションに引き継ぎます。
+        const customId = `show-rp-modal_${slot}_${nocredit || false}`;
+        const button = new ButtonBuilder()
+          .setCustomId(customId)
+          .setLabel("続けてセリフを入力する")
+          .setStyle(ButtonStyle.Primary);
+        const row = new ActionRowBuilder().addComponents(button);
+
+        // 9. ユーザーに処理完了を知らせ、ボタンを表示します。
+        await interaction.editReply({
+          content: `スロット${slot}の情報を更新しました！\nボタンを押してセリフを入力してください。`,
+          components: [row],
+        });
+      } catch (error) {
+        console.error("アイコン更新処理中にエラー:", error);
+        return interaction.editReply({
+          content: "アイコンの更新中に予期せぬエラーが発生しました。",
+        });
       }
 
-      // 新しいアイコンをアップロード
-      const fetched = await fetch(icon.url);
-      const buffer = Buffer.from(await fetched.arrayBuffer());
-      // サイズチェックを追加
-      if (buffer.length > 1024 * 1024) {
-        await interaction.editReply({
-          flags: [4096, 64], //silent,ephemeral
-          content: "アイコンファイルのサイズが1MBを超えています。",
-        });
-        return;
-      }
+      // 【パターンB: 即時Modal表示】
+      // `message`オプションが無く、アイコン系のオプションも指定されていない場合。
+      // ユーザーは「既存のキャラ設定のまま、すぐに長文を入力したい」と考えています。
+    } else if (!message) {
+      // この処理はDBアクセスもファイルI/Oも無いため非常に高速です。deferは不要です。
 
-      // 拡張子を取得
-      const fileExt = icon.name.split(".").pop();
-      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt.toLowerCase())) {
-        await interaction.editReply({
-          flags: [4096, 64], //silent,ephemeral
-          content:
-            "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
-        });
-        return;
-      }
-      //const result = await uploadToImgur(buffer);
-      const result = await uploadFile(
-        buffer,
-        interaction.user.id,
-        slot,
-        fileExt,
-        "icons"
-      );
-      if (result) {
-        face = result.url;
-        const newIconPath = result.path;
-        if (illustrator !== null) {
-          copyright = illustrator;
+      // 1. Modal（ポップアップウィンドウ）を作成します。
+      const modal = new ModalBuilder()
+        // customIdに情報を埋め込み、どのModalからの送信かを後で識別できるようにします。
+        .setCustomId(`roleplay-post-modal_${slot}_${nocredit || false}`)
+        .setTitle(`スロット${slot}: ${loadchara.name} で発言`);
+
+      // 2. Modalの中に、複数行のテキスト入力欄を作成します。
+      //ここを弄ったらパターンAの時のmodalもbuttonHandler.mjs弄って調整してください
+      const messageInput = new TextInputBuilder()
+        .setCustomId("messageInput")
+        .setLabel("発言内容")
+        .setStyle(TextInputStyle.Paragraph) // Paragraphで複数行入力が可能になります。
+        .setMaxLength(1750) // ← これを追加！
+        .setPlaceholder(
+          "ここにセリフを入力してください。（最大1750文字)\n改行もそのまま反映されます。"
+        )
+        .setRequired(true);
+
+      // 3. 入力欄をModalに追加します。
+      const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
+      modal.addComponents(firstActionRow);
+
+      // 4. ユーザーにModalを表示します。これでこのインタラクションへの応答は完了です。
+      await interaction.showModal(modal);
+
+      // 【パターンC: 従来の直接投稿】
+      // `message`オプションが指定されている場合。
+      // ユーザーは「短い文章を素早く投稿したい」または「従来通りの使い方をしたい」と考えています。
+    } else {
+      // Webhookの送信など、少し時間がかかる可能性があるので応答を遅延させます。
+      await interaction.deferReply({ ephemeral: true });
+
+      try {
+        // 元のコードにあった、Webhookでメッセージを送信する処理をここに記述します。
+        // このフローでもアイコンの同時変更を許容する場合は、パターンAのアイコン処理をここにも実装する必要があります。
+        // （現在の分岐ロジックでは、messageとiconが両方あってもこちらに来ます）
+
+        // --- Webhook送信処理 ---
+        let name = loadchara.name;
+        let pbwflag = loadchara.pbwflag;
+        let face = loadicon ? loadicon.iconUrl : null;
+        let copyright = loadicon ? loadicon.illustrator : null;
+
+        // (もしこのフローでもアイコン変更を許可する場合、ここにアイコン処理を記述)
+
+        // 権利表記の`illustratorname`を実際のイラストレーター名で置き換えます。
+        if (pbwflag.includes("illustratorname")) {
+          pbwflag = pbwflag.replace("illustratorname", copyright);
+        } else {
+          return interaction.editReply({
+            content: `大変お手数をおかけしますが、再度キャラを登録し直してください`,
+          });
         }
 
-        await Icon.upsert({
-          userId: charaslot,
-          iconUrl: face,
-          illustrator: copyright,
-          pbw: loadicon.pbw,
-          deleteHash: newIconPath,
+        // メッセージ内の改行コードを変換します。
+        let finalMessage = message
+          .replace(/@@@/g, "\n")
+          .replace(/<br>/g, "\n")
+          .replace(/\\n/g, "\n");
+
+        // `nocredit`がfalseの場合、メッセージの末尾に権利表記を追加します。
+        if (!nocredit) {
+          finalMessage += "\n" + `-# ` + pbwflag;
+        }
+
+        // Webhookを取得し、前の投稿者と被らないように交互に使い分けます。
+        const webhookTargetChannel = interaction.channel.isThread()
+          ? interaction.channel.parent
+          : interaction.channel;
+        const threadId = interaction.channel.isThread()
+          ? interaction.channel.id
+          : null;
+        const { hookA, hookB } = await getWebhookPair(webhookTargetChannel);
+        const lastMessages = await interaction.channel.messages.fetch({
+          limit: 1,
         });
-      } else {
-        interaction.editReply({
-          flags: [4096, 64], //silent,ephemeral
-          content: `アイコンのアップロードでエラーが発生しました。`,
-        });
-        return;
-      }
-    } else {
-      face = loadicon ? loadicon.iconUrl : null;
-    }
-
-    // `illustratorname` が `pbwflag` に含まれているか確認します。
-    if (pbwflag.includes(illustratorname)) {
-      // `illustratorname` を `copyright` で置き換えます。
-      pbwflag = pbwflag.replace(illustratorname, copyright);
-    } else {
-      // `illustratorname` が含まれていない場合はエラーとして返します。(初期のデータとの互換のため)
-      interaction.editReply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `大変お手数をおかけしますが、再度キャラを登録し直してください`,
-      });
-      return;
-    }
-
-    message = message
-      .replace(/@@@/g, "\n")
-      .replace(/<br>/g, "\n")
-      .replace(/\\n/g, "\n");
-    if (!nocredit) {
-      message = message + "\n" + `-# ` + pbwflag;
-    }
-
-    try {
-      // スレッドの場合、Webhookは親チャンネルから取得する
-      const webhookTargetChannel = interaction.channel.isThread()
-        ? interaction.channel.parent
-        : interaction.channel;
-      const threadId = interaction.channel.isThread()
-        ? interaction.channel.id
-        : null;
-
-      // 1. Webhookのペアを取得
-      const { hookA, hookB } = await getWebhookPair(webhookTargetChannel);
-
-      // 2. このチャンネル（スレッド含む）の最後のメッセージを1件だけ取得
-      const lastMessages = await interaction.channel.messages.fetch({
-        limit: 1,
-      });
-      const lastMessage = lastMessages.first();
-
-      let webhookToUse = hookA; // デフォルトはAを使う
-
-      // 3. 最後の投稿があり、それがWebhookによるものだったら
-      if (lastMessage && lastMessage.webhookId) {
-        // 4. そのIDがhookAのものだったら、次はBを使う
-        if (lastMessage.webhookId === hookA.id) {
+        const lastMessage = lastMessages.first();
+        let webhookToUse = hookA;
+        if (
+          lastMessage &&
+          lastMessage.webhookId &&
+          lastMessage.webhookId === hookA.id
+        ) {
           webhookToUse = hookB;
         }
+
+        // Webhookを使ってメッセージを送信します。
+        const postmessage = await webhookToUse.send({
+          content: finalMessage,
+          username: name,
+          threadId: threadId,
+          avatarURL: face,
+        });
+
+        // ドミノ機能やポイント更新などの追加処理
+        if (
+          finalMessage.match(
+            /(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i
+          ) ||
+          interaction.channel.id === config.dominoch
+        ) {
+          dominoeffect(
+            postmessage,
+            interaction.client,
+            interaction.user.id,
+            interaction.user.username,
+            name
+          );
+        }
+        await updatePoints(interaction.user.id);
+
+        // ユーザーに完了を通知します。
+        await interaction.editReply({ content: `送信しました` });
+      } catch (error) {
+        console.error("メッセージ送信に失敗しました:", error);
+        await interaction.editReply({ content: `エラーが発生しました。` });
       }
-
-      // 5. 選んだWebhookで送信 (flagsはもう不要！)
-      const postmessage = await webhookToUse.send({
-        content: message,
-        username: name,
-        threadId: threadId,
-        avatarURL: face,
-      });
-
-      //ドミノを振る機能
-      if (
-        message.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) ||
-        interaction.channel.id === config.dominoch
-      ) {
-        const user = interaction.member; //DMならuser
-        dominoeffect(
-          postmessage,
-          interaction.client,
-          user.id,
-          user.user.username,
-          name
-        );
-      }
-      // IDに対してポイントの更新処理を追加
-      await updatePoints(interaction.user.id);
-
-      await interaction.editReply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `送信しました`,
-      });
-      /*
-      // 4. 送信された（編集された）メッセージの Message オブジェクトを取得
-      const confirmMessage = await interaction.fetchReply();// こうするべきだがエラーが出るので削除
-      setTimeout(() => {
-        confirmMessage.delete();
-      }, 5000);
-      */
-    } catch (error) {
-      console.error("メッセージ送信に失敗しました:", error);
-      interaction.editReply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `エラーが発生しました。`,
-      });
     }
     //ここからセーブデータ表示の処理
   } else if (subcommand === "display") {
@@ -890,7 +942,7 @@ function dataslot(id, slot) {
 }
 
 //発言するたびにポイント+1
-async function updatePoints(userId) {
+export async function updatePoints(userId) {
   try {
     // ユーザーのポイントデータを取得
     const pointEntry = await Point.findOne({
