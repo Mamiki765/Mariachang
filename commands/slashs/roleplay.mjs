@@ -592,7 +592,7 @@ export async function execute(interaction) {
 
         // 9. ユーザーに処理完了を知らせ、ボタンを表示します。
         await interaction.editReply({
-          content: `スロット${slot}の情報を更新しました！\nボタンを押してセリフを入力してください。`,
+          content: `**${loadchara.name}**（スロット${slot}）のアイコン情報を更新しました！\nボタンを押してセリフを入力してください。`,
           components: [row],
         });
       } catch (error) {
