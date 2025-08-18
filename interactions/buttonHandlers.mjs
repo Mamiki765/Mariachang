@@ -229,7 +229,8 @@ export default async function handleButtonInteraction(interaction) {
 
       // ユーザーに成功を報告
       return interaction.reply({
-        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${updatedPointEntry.acorn}個 今まで集めたどんぐり:${updatedPointEntry.totalacorn}個 `,
+        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${updatedPointEntry.acorn}個 今まで集めたどんぐり:${updatedPointEntry.totalacorn}個 \n
+        ロスアカもお忘れなく……https://rev2.reversion.jp`,
         ephemeral: true,
       });
     } catch (error) {
