@@ -10,7 +10,7 @@ import { replytoDM, replyfromDM } from "../components/buttons.mjs";
 //RP機能周り
 import { getWebhookPair } from "../utils/webhook.mjs";
 import { Character, Icon, Point } from "../models/database.mjs";
-import { dominoeffect } from "../utils/domino.mjs";
+import { dominoeffect } from "../commands/utils/domino.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 //RP周りここまで
 
