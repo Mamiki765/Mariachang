@@ -11,7 +11,7 @@ import {
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
 import { safeDelete } from "../utils/messageutil.mjs";
-import { Point } from "../models/database.mjs";
+import { Point, sequelize } from "../models/database.mjs";
 
 export default async function handleButtonInteraction(interaction) {
   //以下変数定義
@@ -211,8 +211,7 @@ export default async function handleButtonInteraction(interaction) {
         // 最後に押した日時が、最後に朝8時が来た日時よりも後か？
         if (lastClaim > last8AM) {
           return interaction.reply({
-            content:
-              `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n持っているどんぐり: ${pointEntry.acorn}個 今まで集めたどんぐり:${pointEntry.totalacorn}個`,
+            content: `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n持っているどんぐり: ${pointEntry.acorn}個 今まで集めたどんぐり:${pointEntry.totalacorn}個`,
             ephemeral: true,
           });
         }
@@ -220,8 +219,13 @@ export default async function handleButtonInteraction(interaction) {
       // ▲▲▲ ここまでが資格チェック ▲▲▲
 
       // 資格をクリアしたので、どんぐりを1つ増やし、最後に拾った時間を記録
-      const updatedPointEntry = await pointEntry.increment({ acorn: 1, totalacorn: 1 });
-      await pointEntry.update({ lastAcornDate: now });
+      await pointEntry.update({
+        acorn: sequelize.literal("acorn + 1"),
+        totalacorn: sequelize.literal("totalacorn + 1"),
+        lastAcornDate: now,
+      });
+      // update()は更新内容を返さないため、reload()で最新の状態を取得します。
+      const updatedPointEntry = await pointEntry.reload();
 
       // ユーザーに成功を報告
       return interaction.reply({
