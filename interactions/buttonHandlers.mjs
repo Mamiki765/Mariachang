@@ -212,7 +212,7 @@ export default async function handleButtonInteraction(interaction) {
         if (lastClaim > last8AM) {
           return interaction.reply({
             content:
-              "今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）",
+              `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n持っているどんぐり: ${pointEntry.acorn}個 今まで集めたどんぐり:${pointEntry.totalacorn}個`,
             ephemeral: true,
           });
         }
@@ -225,7 +225,7 @@ export default async function handleButtonInteraction(interaction) {
 
       // ユーザーに成功を報告
       return interaction.reply({
-        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${pointEntry.acorn + 1}個 今まで集めたどんぐり:${totalacorn + 1}個 `,
+        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${pointEntry.acorn + 1}個 今まで集めたどんぐり:${pointEntry.totalacorn + 1}個 `,
         ephemeral: true,
       });
     } catch (error) {
