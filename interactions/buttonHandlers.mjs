@@ -220,12 +220,12 @@ export default async function handleButtonInteraction(interaction) {
       // ▲▲▲ ここまでが資格チェック ▲▲▲
 
       // 資格をクリアしたので、どんぐりを1つ増やし、最後に拾った時間を記録
-      await pointEntry.increment({ acorn: 1, totalacorn: 1 });
+      const updatedPointEntry = await pointEntry.increment({ acorn: 1, totalacorn: 1 });
       await pointEntry.update({ lastAcornDate: now });
 
       // ユーザーに成功を報告
       return interaction.reply({
-        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${pointEntry.acorn + 1}個 今まで集めたどんぐり:${pointEntry.totalacorn + 1}個 `,
+        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${updatedPointEntry.acorn}個 今まで集めたどんぐり:${updatedPointEntry.totalacorn}個 `,
         ephemeral: true,
       });
     } catch (error) {
