@@ -111,4 +111,5 @@ export default {
     ],
     vipLimit: 50 // VIPの最大登録数
   },
+  nyowacoin : "<:nyowacoin:1407422205624844288>",
 };

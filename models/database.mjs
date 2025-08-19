@@ -118,9 +118,9 @@ const Point = sequelize.define(
     },
     //↑RP使用回数
     //↓あまやどんぐり
-     acorn: {
+    acorn: {
       type: DataTypes.INTEGER,
-      defaultValue: 0,   // 新規ユーザーは0個からスタート
+      defaultValue: 0, // 新規ユーザーは0個からスタート
     },
     totalacorn: {
       type: DataTypes.INTEGER,
@@ -129,6 +129,11 @@ const Point = sequelize.define(
     lastAcornDate: {
       type: DataTypes.DATE,
       allowNull: true, // まだ一度も拾ったことがないユーザーはnullになる
+    },
+    // コイン
+    coin: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
     },
   },
   {
