@@ -3,8 +3,6 @@
 import { Sequelize, DataTypes } from "sequelize";
 
 // Supabase 接続情報
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_KEY;
 const supabaseDatabaseUrl = process.env.DATABASE_URL;
 //console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
 // Sequelize インスタンスの生成
