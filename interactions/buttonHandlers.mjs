@@ -28,7 +28,7 @@ export default async function handleButtonInteraction(interaction) {
   );
   //RPキャンセルボタン
   const rpDeleteRequestMatch = interaction.customId.match(
-    /^request-delete-rp-post_(\d+)_(\d+)$/
+    /^delete-rp-post_(\d+)_(\d+)$/
   );
   const rpDeleteConfirmMatch = interaction.customId.match(
     /^confirm-delete-rp-post_(\d+)_(\d+)$/
