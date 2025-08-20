@@ -102,7 +102,7 @@ export const acornLoginButton = new ActionRowBuilder().addComponents(
 export function createRpDeleteButton(messageId, userId) {
   const deleteButton = new ButtonBuilder()
     .setCustomId(`delete-rp-post_${messageId}_${userId}`)
-    .setLabel("いました発言を削除")
+    .setLabel("今の発言をキャンセル")
     .setStyle(ButtonStyle.Danger);
 
   return new ActionRowBuilder().addComponents(deleteButton);
