@@ -92,3 +92,39 @@ export const acornLoginButton = new ActionRowBuilder().addComponents(
     .setLabel("あまやどんぐりを拾う")
     .setStyle(ButtonStyle.Success) // 成功をイメージさせる緑色
 );
+
+/**
+ * 【ステップ1】RP投稿を削除するための、投稿者専用ボタンを作成します。
+ * @param {string} messageId 削除対象のメッセージID
+ * @param {string} userId このボタンを押すことを許可されたユーザーのID
+ * @returns {import('discord.js').ActionRowBuilder} ボタンを含むActionRow
+ */
+export function createRpDeleteButton(messageId, userId) {
+  const deleteButton = new ButtonBuilder()
+    .setCustomId(`delete-rp-post_${messageId}_${userId}`)
+    .setLabel("いました発言を削除")
+    .setStyle(ButtonStyle.Danger);
+
+  return new ActionRowBuilder().addComponents(deleteButton);
+}
+
+/**
+ * 【ステップ2】最終確認のための、「はい」と「いいえ」のボタンセットを作成します。
+ * @param {string} messageId 削除対象のメッセージID
+ * @param {string} userId 許可されたユーザーのID
+ * @returns {import('discord.js').ActionRowBuilder}
+ */
+export function createRpDeleteConfirmButtons(messageId, userId) {
+  const confirmButton = new ButtonBuilder()
+    // これが、本当に削除を実行するボタンのID
+    .setCustomId(`confirm-delete-rp-post_${messageId}_${userId}`)
+    .setLabel("はい、完全に削除します")
+    .setStyle(ButtonStyle.Danger); // ここで初めて、危険な赤色が登場する
+
+  const cancelButton = new ButtonBuilder()
+    .setCustomId(`cancel-delete-rp-post`) // キャンセルに情報は不要
+    .setLabel("いいえ、やめておきます")
+    .setStyle(ButtonStyle.Secondary);
+
+  return new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+}

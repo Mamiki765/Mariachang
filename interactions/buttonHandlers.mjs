@@ -1,5 +1,8 @@
 //interactions\buttonHandlers.mjs
-import { deleteconfirm } from "../components/buttons.mjs";
+import {
+  deleteconfirm,
+  createRpDeleteConfirmButtons,
+} from "../components/buttons.mjs";
 import {
   ModalBuilder,
   TextInputBuilder,
@@ -22,6 +25,16 @@ export default async function handleButtonInteraction(interaction) {
   const UniqueDeletematch = interaction.customId.match(/UniqueDelete-(\d+)/);
   const Selftimeoutmatch = interaction.customId.match(
     /confirm_selftimeout-(\d+)/
+  );
+  //RPキャンセルボタン
+  const rpDeleteRequestMatch = interaction.customId.match(
+    /^request-delete-rp-post_(\d+)_(\d+)$/
+  );
+  const rpDeleteConfirmMatch = interaction.customId.match(
+    /^confirm-delete-rp-post_(\d+)_(\d+)$/
+  );
+  const rpDeleteCancelMatch = interaction.customId.match(
+    /^cancel-delete-rp-post$/
   );
   //以下ボタン処理
   //削除ボタン
@@ -239,6 +252,65 @@ export default async function handleButtonInteraction(interaction) {
         ephemeral: true,
       });
     }
+    //RP 機能　Cancelボタン処理
+  } else if (rpDeleteRequestMatch) {
+    // 【ステップ1：削除要求の受付】
+    await interaction.deferUpdate();
+
+    const messageId = rpDeleteRequestMatch[1];
+    const authorizedUserId = rpDeleteRequestMatch[2];
+
+    if (interaction.user.id !== authorizedUserId) {
+      return interaction.followUp({
+        content: "このボタンは、投稿した本人しか使用できません。",
+        ephemeral: true,
+      });
+    }
+
+    // ★★★ ここでメッセージを更新し、最終確認を求める ★★★
+    const confirmButtons = createRpDeleteConfirmButtons(
+      messageId,
+      authorizedUserId
+    );
+    await interaction.editReply({
+      content:
+        "**本当に、この投稿を削除しますか？**\nこの操作は取り消せません。",
+      components: [confirmButtons],
+    });
+  } else if (rpDeleteConfirmMatch) {
+    // 【ステップ2：最終確認後の、実際の削除処理】
+    await interaction.deferUpdate();
+
+    const messageId = rpDeleteConfirmMatch[1];
+    const authorizedUserId = rpDeleteConfirmMatch[2];
+
+    if (interaction.user.id !== authorizedUserId) {
+      return interaction.followUp({
+        content: "このボタンは、投稿した本人しか使用できません。",
+        ephemeral: true,
+      });
+    }
+
+    // ★★★ ここで、今まで書いていた削除ロジックを実行します ★★★
+    try {
+      await interaction.channel.messages.delete(messageId);
+      await interaction.editReply({
+        content: "✅ 投稿を削除しました。",
+        components: [],
+      });
+    } catch (error) {
+      console.error("RP投稿の削除に失敗しました:", error);
+      await interaction.editReply({
+        content: "❌ 削除に失敗しました。",
+        components: [],
+      });
+    }
+  } else if (rpDeleteCancelMatch) {
+    // 【ステップ2のキャンセル処理】
+    await interaction.update({
+      content: "削除はキャンセルされました。",
+      components: [],
+    });
   } else {
     //ボタンが不明のとき
     return;

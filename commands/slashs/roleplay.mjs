@@ -10,11 +10,9 @@ import {
   TextInputStyle,
 } from "discord.js";
 import { Op } from "sequelize";
-import { getWebhookPair } from "../../utils/webhook.mjs";
+import { createRpDeleteRequestButton } from "../../components/buttons.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
-import { dominoeffect } from "../utils/domino.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
-import config from "../../config.mjs";
 
 // キャラ上限数を定数として定義
 const MAX_SLOTS = 25;
@@ -641,17 +639,7 @@ export async function execute(interaction) {
       await interaction.deferReply({ flags: 64 });
 
       try {
-        // 元のコードにあった、Webhookでメッセージを送信する処理をここに記述します。
-        // このフローでもアイコンの同時変更を許容する場合は、パターンAのアイコン処理をここにも実装する必要があります。
-        // （現在の分岐ロジックでは、messageとiconが両方あってもこちらに来ます）
-
-        // --- Webhook送信処理 ---
-        let name = loadchara.name;
-        let pbwflag = loadchara.pbwflag;
-        let face = loadicon ? loadicon.iconUrl : null;
-        let copyright = loadicon ? loadicon.illustrator : null;
-
-        // ▼▼▼ ここからアイコン処理を追加 ▼▼▼
+        // アイコンの同時更新処理は、ここで行います
         // `icon`か`illustrator`が指定されている場合のみ、更新処理を行う
         if (icon || illustrator) {
           if (icon) {
@@ -693,98 +681,59 @@ export async function execute(interaction) {
             }
 
             // 5. データベースを更新
-            const newIllustrator = illustrator || loadicon.illustrator;
+            const newIllustrator =
+              illustrator || (loadicon ? loadicon.illustrator : "絵師様");
             await Icon.upsert({
               userId: charaslot,
               iconUrl: result.url,
               illustrator: newIllustrator,
-              pbw: loadicon.pbw,
+              pbw: loadicon ? loadicon.pbw : null,
               deleteHash: result.path,
             });
 
-            // 6. ★重要★ 今回の投稿で使う変数を、新しい情報で上書きする
-            face = result.url;
-            copyright = newIllustrator;
+            // 6. ★★★ 最重要ポイント ★★★
+            // DBだけでなく、メモリ上の`loadicon`の情報も、最新の状態に更新します！
+            if (!loadicon) {
+              // もしアイコンが今まで無かった場合
+              loadicon = { userId: charaslot }; // 新しいオブジェクトを作成
+            }
+            loadicon.iconUrl = result.url;
+            loadicon.illustrator = newIllustrator;
           } else if (illustrator) {
             // イラストレーター名だけを更新
             await Icon.upsert({
               userId: charaslot,
               illustrator: illustrator,
             });
-            // ★重要★ 今回の投稿で使う変数を、新しい情報で上書きする
-            copyright = illustrator;
+
+            // ★★★ こちらも同様に、メモリ上の情報を更新！ ★★★
+            if (loadicon) {
+              loadicon.illustrator = illustrator;
+            }
           }
         }
-        // ▲▲▲ ここまでアイコン処理 ▲▲▲
 
-        // 権利表記の`illustratorname`を実際のイラストレーター名で置き換えます。
-        if (pbwflag.includes("illustratorname")) {
-          pbwflag = pbwflag.replace("illustratorname", copyright);
-        } else {
-          return interaction.editReply({
-            content: `大変お手数をおかけしますが、再度キャラを登録し直してください`,
-          });
-        }
+        // これで、sendWebhookAsCharacterには、常に最新の情報が渡されます
+        const postedMessage = await sendWebhookAsCharacter(
+          interaction,
+          loadchara,
+          loadicon, // ★★★ ここには、更新済みの最新情報が入っている！ ★★★
+          message,
+          nocredit
+        );
 
-        // メッセージ内の改行コードを変換します。
-        let finalMessage = message
-          .replace(/@@@/g, "\n")
-          .replace(/<br>/g, "\n")
-          .replace(/\\n/g, "\n");
-
-        // `nocredit`がfalseの場合、メッセージの末尾に権利表記を追加します。
-        if (!nocredit) {
-          finalMessage += "\n" + `-# ` + pbwflag;
-        }
-
-        // Webhookを取得し、前の投稿者と被らないように交互に使い分けます。
-        const webhookTargetChannel = interaction.channel.isThread()
-          ? interaction.channel.parent
-          : interaction.channel;
-        const threadId = interaction.channel.isThread()
-          ? interaction.channel.id
-          : null;
-        const { hookA, hookB } = await getWebhookPair(webhookTargetChannel);
-        const lastMessages = await interaction.channel.messages.fetch({
-          limit: 1,
-        });
-        const lastMessage = lastMessages.first();
-        let webhookToUse = hookA;
-        if (
-          lastMessage &&
-          lastMessage.webhookId &&
-          lastMessage.webhookId === hookA.id
-        ) {
-          webhookToUse = hookB;
-        }
-
-        // Webhookを使ってメッセージを送信します。
-        const postmessage = await webhookToUse.send({
-          content: finalMessage,
-          username: name,
-          threadId: threadId,
-          avatarURL: face,
-        });
-
-        // ドミノ機能やポイント更新などの追加処理
-        if (
-          finalMessage.match(
-            /(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i
-          ) ||
-          interaction.channel.id === config.dominoch
-        ) {
-          dominoeffect(
-            postmessage,
-            interaction.client,
-            interaction.user.id,
-            interaction.user.username,
-            name
-          );
-        }
+        // ★★★ 同じように、ポイント更新と削除ボタンを追加 ★★★
         await updatePoints(interaction.user.id);
 
-        // ユーザーに完了を通知します。
-        await interaction.editReply({ content: `送信しました` });
+      const deleteRequestButtonRow = createRpDeleteRequestButton(
+        postedMessage.id,
+        interaction.user.id
+      );
+
+      await interaction.editReply({
+        content: `送信しました。`,
+        components: [deleteRequestButtonRow], // ★★★ これを使う ★★★
+      });
       } catch (error) {
         console.error("メッセージ送信に失敗しました:", error);
         await interaction.editReply({ content: `エラーが発生しました。` });

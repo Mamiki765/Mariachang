@@ -6,11 +6,9 @@ import {
   ButtonStyle,
 } from "discord.js";
 import config from "../config.mjs";
-import { replytoDM, replyfromDM } from "../components/buttons.mjs";
+import { replytoDM, replyfromDM, createRpDeleteRequestButton  } from "../components/buttons.mjs";
 //RP機能周り
-import { getWebhookPair } from "../utils/webhook.mjs";
-import { Character, Icon, Point } from "../models/database.mjs";
-import { dominoeffect } from "../commands/utils/domino.mjs";
+import { Character, Icon} from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 //RP周りここまで
 
@@ -186,75 +184,24 @@ export default async function handleModalInteraction(interaction) {
         });
       }
 
-      // --- 4. ここからが、パターンCと同じWebhook送信処理 ---
-      let name = loadchara.name;
-      let pbwflag = loadchara.pbwflag;
-      let face = loadicon ? loadicon.iconUrl : null;
-      let copyright = loadicon ? loadicon.illustrator : null;
-
-      if (pbwflag.includes("illustratorname")) {
-        pbwflag = pbwflag.replace("illustratorname", copyright);
-      } else {
-        return interaction.editReply({
-          content: `大変お手数をおかけしますが、再度キャラを登録し直してください`,
-        });
-      }
-
-      let finalMessage = message
-        .replace(/@@@/g, "\n")
-        .replace(/<br>/g, "\n")
-        .replace(/\\n/g, "\n");
-
-      if (!nocredit) {
-        finalMessage += "\n" + `-# ` + pbwflag;
-      }
-
-      // Webhookのペアを取得し、最後の投稿者と被らないように交互に使い分けます。
-      const webhookTargetChannel = interaction.channel.isThread()
-        ? interaction.channel.parent
-        : interaction.channel;
-      const threadId = interaction.channel.isThread()
-        ? interaction.channel.id
-        : null;
-      const { hookA, hookB } = await getWebhookPair(webhookTargetChannel);
-      const lastMessages = await interaction.channel.messages.fetch({
-        limit: 1,
-      });
-      const lastMessage = lastMessages.first();
-      let webhookToUse = hookA;
-      if (
-        lastMessage &&
-        lastMessage.webhookId &&
-        lastMessage.webhookId === hookA.id
-      ) {
-        webhookToUse = hookB;
-      }
-
-      // Webhookを使ってメッセージを送信します。
-      const postmessage = await webhookToUse.send({
-        content: finalMessage,
-        username: name,
-        threadId: threadId,
-        avatarURL: face,
-      });
-
-      // ドミノ機能やポイント更新などの追加処理
-      if (
-        finalMessage.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) ||
-        interaction.channel.id === config.dominoch
-      ) {
-        dominoeffect(
-          postmessage,
-          interaction.client,
-          interaction.user.id,
-          interaction.user.username,
-          name
-        );
-      }
+       const postedMessage = await sendWebhookAsCharacter(
+        interaction,
+        loadchara,
+        loadicon,
+        message,
+        nocredit
+      );
       await updatePoints(interaction.user.id);
 
-      // ユーザーに完了を通知します。
-      await interaction.editReply({ content: `送信しました` });
+      const deleteRequestButtonRow = createRpDeleteRequestButton(
+        postedMessage.id,
+        interaction.user.id
+      );
+
+      await interaction.editReply({
+        content: `送信しました。`,
+        components: [deleteRequestButtonRow], // ★★★ これを使う ★★★
+      });
     } catch (error) {
       console.error("Modalからのメッセージ送信に失敗しました:", error);
       await interaction.editReply({ content: `エラーが発生しました。` });
