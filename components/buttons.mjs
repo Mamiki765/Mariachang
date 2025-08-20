@@ -99,7 +99,7 @@ export const acornLoginButton = new ActionRowBuilder().addComponents(
  * @param {string} userId このボタンを押すことを許可されたユーザーのID
  * @returns {import('discord.js').ActionRowBuilder} ボタンを含むActionRow
  */
-export function createRpDeleteButton(messageId, userId) {
+export function  createRpDeleteRequestButton(messageId, userId) {
   const deleteButton = new ButtonBuilder()
     .setCustomId(`delete-rp-post_${messageId}_${userId}`)
     .setLabel("今の発言をキャンセル")
