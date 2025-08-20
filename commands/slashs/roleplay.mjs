@@ -13,6 +13,7 @@ import { Op } from "sequelize";
 import { createRpDeleteRequestButton } from "../../components/buttons.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
+import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
 
 // キャラ上限数を定数として定義
 const MAX_SLOTS = 25;

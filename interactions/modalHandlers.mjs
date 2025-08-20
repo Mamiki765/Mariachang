@@ -8,6 +8,7 @@ import {
 import config from "../config.mjs";
 import { replytoDM, replyfromDM, createRpDeleteRequestButton  } from "../components/buttons.mjs";
 //RP機能周り
+import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
 import { Character, Icon} from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 //RP周りここまで
