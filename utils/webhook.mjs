@@ -145,7 +145,8 @@ export async function sendWebhookAsCharacter(interaction, character, icon, messa
   // (今回は、呼び出し元で updatePoints を呼ぶ形に戻しましょう)
   if (
     finalMessage.match(/(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i) ||
-    interaction.channel.id === config.dominoch
+    interaction.channel.id === config.dominoch ||
+    interaction.channel.id === "1364908910032719934" //別館ドミノ
   ) {
     dominoeffect(
       postedMessage,
