@@ -15,6 +15,7 @@ import {
 } from "../commands/slashs/suyasuya.mjs";
 import { safeDelete } from "../utils/messageutil.mjs";
 import { Point, sequelize } from "../models/database.mjs";
+import config from "../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
   //以下変数定義
@@ -224,25 +225,43 @@ export default async function handleButtonInteraction(interaction) {
         // 最後に押した日時が、最後に朝8時が来た日時よりも後か？
         if (lastClaim > last8AM) {
           return interaction.reply({
-            content: `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n持っているどんぐり: ${pointEntry.acorn}個 今まで集めたどんぐり:${pointEntry.totalacorn}個`,
+            content: `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n所持どんぐり: ${pointEntry.acorn}個 集めたどんぐり:${pointEntry.totalacorn}個 ${config.nyowacoin}: ${pointEntry.coin}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`,
             ephemeral: true,
           });
         }
       }
       // ▲▲▲ ここまでが資格チェック ▲▲▲
 
-      // 資格をクリアしたので、どんぐりを1つ増やし、最後に拾った時間を記録
-      await pointEntry.update({
+      // 1. 更新するデータを準備するオブジェクトを作成
+      const updateData = {
         acorn: sequelize.literal("acorn + 1"),
         totalacorn: sequelize.literal("totalacorn + 1"),
         lastAcornDate: now,
-      });
+      };
+
+      let bonusMessage = ""; // ボーナスメッセージを初期化
+      let coinsAdded = 0; // 追加されたコイン数を記録する変数
+
+      // 2. 1/3の確率チェック
+      if (Math.floor(Math.random() * 3) === 0) {
+        // 0, 1, 2のいずれかがランダムで生成され、0なら当たり（1/3の確率）
+        // 3. 1〜9枚のコインを計算
+        coinsAdded = Math.floor(Math.random() * 9) + 1; // 1〜9のランダムな整数
+
+        // 4. 更新データにコインの加算処理を追加
+        updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
+
+        // 5. ユーザーへの通知メッセージを作成
+        bonusMessage = `\n${config.nyowacoin}も**${coinsAdded}枚**落ちていたので拾いました✨`;
+      }
+      // 6. データベースを更新
+      await pointEntry.update(updateData);
       // update()は更新内容を返さないため、reload()で最新の状態を取得します。
       const updatedPointEntry = await pointEntry.reload();
 
       // ユーザーに成功を報告
       return interaction.reply({
-        content: `### あまやどんぐりを1つ拾いました🐿️\n持っているどんぐり: ${updatedPointEntry.acorn}個 今まで集めたどんぐり:${updatedPointEntry.totalacorn}個 \nロスアカもお忘れなく……https://rev2.reversion.jp`,
+        content: `### あまやどんぐりを1つ拾いました🐿️${bonusMessage}\n所持どんぐり: ${updatedPointEntry.acorn}個 集めたどんぐり:${updatedPointEntry.totalacorn}個 ${config.nyowacoin}: ${updatedPointEntry.coin}枚 \nロスアカもお忘れなく……https://rev2.reversion.jp`,
         ephemeral: true,
       });
     } catch (error) {
