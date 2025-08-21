@@ -159,7 +159,20 @@ async function startBot() {
   client.on("error", async (error) => {
     // Koyeb側のログに、エラーのスタックトレースを詳細に出力する
     console.error("An error occurred in the client:", error.stack || error);
+  // ▼▼▼ Discord 内への通知を止めるもの▼▼▼
+  // Koyebが再起動時に古いバージョンと同時起動したり、
+  // あるいは起動時にコマンドの再登録でよく出るエラー
+  // この配列に、無視したいエラーコードを追加していくだけで、
+  // 将来、どんなノイズが増えても、簡単に対処できます。
+  const ignoredErrorCodes = [
+    10062, // Unknown Interaction
+    40060, // Interaction has already been acknowledged
+  ];
 
+  if (ignoredErrorCodes.includes(error.code)) {
+    console.log(`[INFO] Ignored sending error with code ${error.code} to Discord.`);
+    return;
+  }
     try {
       const channel = await client.channels.fetch(config.logch.error);
       if (channel.isTextBased()) {
