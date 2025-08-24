@@ -10,6 +10,9 @@ FROM node:22-slim
 #     --no-install-recommends \
 #     && rm -rf /var/lib/apt/lists/*
 
+# simple-git が内部で git コマンドを呼び出すため、git 本体をインストールする
+RUN apt-get update && apt-get install -y git --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
