@@ -240,20 +240,20 @@ export default async function handleButtonInteraction(interaction) {
       };
 
       let bonusMessage = ""; // ボーナスメッセージを初期化
-      let coinsAdded = 0; // 追加されたコイン数を記録する変数
+      let coinsAdded = 1; // 追加されたコイン数を記録する変数
 
       // 2. 1/3の確率チェック
       if (Math.floor(Math.random() * 3) === 0) {
         // 0, 1, 2のいずれかがランダムで生成され、0なら当たり（1/3の確率）
         // 3. 1〜9枚のコインを計算
-        coinsAdded = Math.floor(Math.random() * 9) + 1; // 1〜9のランダムな整数
-
+        coinsAdded = Math.floor(Math.random() * 9) + 2; // 2〜10のランダムな整数
+        }
         // 4. 更新データにコインの加算処理を追加
         updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
 
         // 5. ユーザーへの通知メッセージを作成
         bonusMessage = `\n${config.nyowacoin}も**${coinsAdded}枚**落ちていたので拾いました✨`;
-      }
+      
       // 6. データベースを更新
       await pointEntry.update(updateData);
       // update()は更新内容を返さないため、reload()で最新の状態を取得します。
