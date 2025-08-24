@@ -5,6 +5,7 @@ import {
   uploadFile,
   deleteFile,
   getDirectorySize,
+  uploadHtmlFile,
 } from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
 import sizeOf from "image-size";
@@ -92,8 +93,8 @@ export async function autocomplete(interaction) {
 
   let whereClause = {};
 
-  if (subcommand === "post") {
-    // 【postの場合】自分がオーナー、または公開されているスタンプ
+  if (subcommand === "post" || subcommand === "preview") {
+    // 【postやpreviewの場合】自分がオーナー、または公開されているスタンプ
     whereClause = {
       [Op.or]: [{ ownerId: userId }, { isPublic: true }],
       name: { [Op.like]: `${focusedValue}%` },
@@ -106,10 +107,20 @@ export async function autocomplete(interaction) {
     };
   }
 
+  let orderClause; // 並び順を格納する変数を定義
+ // もしユーザーが何も入力していなければ (focusedValueが空なら)
+  if (focusedValue === '') {
+    // 新着順（作成日の降順）に設定
+    orderClause = [["createdAt", "DESC"]];
+  } else {
+    // 何か入力していたら、今まで通り名前順（昇順）に設定
+    orderClause = [["name", "ASC"]];
+  }
+
   const choices = await Sticker.findAll({
     where: whereClause,
     limit: 25,
-    order: [["name", "ASC"]], // 名前順にソートすると見やすい
+    order: orderClause, // ★ 変数を使うように変更
   });
 
   await interaction.respond(
@@ -133,10 +144,14 @@ export async function execute(interaction) {
 
     // 登録数制限のチェック
     // VIPロールを持っているかどうかを確認
-    const isVip = config.sticker.vipRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+    const isVip = config.sticker.vipRoles.some((roleId) =>
+      interaction.member.roles.cache.has(roleId)
+    );
     // ユーザーごとのスタンプ登録上限数を取得
     // VIPなら上限を引き上げる 5 -> 50
-    const STICKER_LIMIT = isVip ? config.sticker.vipLimit : config.sticker.limitPerUser;
+    const STICKER_LIMIT = isVip
+      ? config.sticker.vipLimit
+      : config.sticker.limitPerUser;
     const currentStickerCount = await Sticker.count({
       where: { ownerId: userId },
     });
@@ -248,6 +263,11 @@ export async function execute(interaction) {
         });
 
       await interaction.editReply({ embeds: [embed] });
+      // register サブコマンドの成功処理の後
+      // こっそーりWebサイトを作ります
+      if (isPublic) {
+        updateStickerHtmlPage(); // Fire and Forget!
+      }
     } catch (error) {
       console.error("スタンプ登録エラー:", error);
       await interaction.editReply({
@@ -293,6 +313,8 @@ export async function execute(interaction) {
     }
 
     try {
+      //一覧更新のため、公開スタンプだったかメモを残しておく
+      const wasPublic = stickerToDelete.isPublic;
       // Supabase Storageからファイルを削除
       await deleteFile(stickerToDelete.filePath);
       // データベースからレコードを削除
@@ -301,11 +323,78 @@ export async function execute(interaction) {
       await interaction.editReply({
         content: `✅ スタンプ「${name}」を削除しました。`,
       });
+      //公開スタンプを消したのなら、こちらからも消す
+      if (wasPublic) {
+        updateStickerHtmlPage(); // Fire and Forget!
+      }
     } catch (error) {
       console.error("スタンプ削除エラー:", error);
       await interaction.editReply({
         content: "スタンプの削除中にエラーが発生しました。",
       });
     }
+  }
+}
+
+/**
+ * 公開スタンプ一覧のHTMLページを生成し、Supabaseにアップロードする関数
+ */
+async function updateStickerHtmlPage() {
+  console.log("[Background Job] スタンプHTMLページの更新処理を開始します。");
+  try {
+    // 1. isPublic: true のスタンプを全て取得
+    const publicStickers = await Sticker.findAll({
+      where: { isPublic: true },
+      order: [["name", "ASC"]],
+    });
+
+    // 2. HTMLコンテンツを生成
+    const pageTitle = "神谷マリア スタンプ一覧";
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="ja">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${pageTitle}</title>
+        <style>
+          body { font-family: sans-serif; background-color: #333; color: #fff; padding: 1em; }
+          h1 { text-align: center; }
+          .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1em; }
+          .stamp { text-align: center; }
+          .stamp img { max-width: 100%; height: 100px; object-fit: contain; }
+          .stamp p { margin-top: 5px; font-size: 14px; word-break: break-all; }
+        </style>
+      </head>
+      <body>
+        <h1>${pageTitle} (${publicStickers.length}個)</h1>
+        <div class="container">
+          ${publicStickers
+            .map(
+              (sticker) => `
+            <div class="stamp">
+              <img src="${sticker.imageUrl}" alt="${sticker.name}" loading="lazy">
+              <p>${sticker.name}</p>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </body>
+      </html>
+    `;
+
+    // 3. Supabase Storageにアップロード（上書き）
+    // ※事前に supabaseStorage.mjs に uploadHtmlFile 関数を作っておく必要があります
+    const filePath = "public/stickers-list.html";
+    await uploadHtmlFile(htmlContent, filePath);
+
+    console.log(
+      "[Background Job] スタンプHTMLページの更新が正常に完了しました。"
+    );
+  } catch (error) {
+    console.error(
+      "[Background Job] スタンプHTMLページの更新中にエラーが発生しました:",
+      error
+    );
   }
 }
