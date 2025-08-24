@@ -125,39 +125,6 @@ async function getDirectorySize(directoryName = '') {
   }
 }
 
-/**
- * HTMLコンテンツをSupabase Storageにアップロード（または上書き）する関数
- * @param {string} htmlContent - アップロードするHTMLの文字列
- * @param {string} filePath - バケット内での保存パス (例: 'public/stamps.html')
- * @returns {Promise<string|null>} 成功した場合は公開URL、失敗した場合はnull
- */
-async function uploadHtmlFile(htmlContent, filePath) {
-  // HTMLのMIMEタイプは 'text/html'
-  const contentType = "text/html;charset=utf-8";
-
-  // HTMLコンテンツをBufferに変換
-  const fileBuffer = Buffer.from(htmlContent, "utf-8");
-
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, fileBuffer, {
-      contentType,
-      upsert: true, // ★重要: trueに設定することで、同名ファイルがあれば上書きする
-    });
-
-  if (uploadError) {
-    console.error("HTMLファイルのアップロードエラー:", uploadError);
-    return null;
-  }
-
-  // 公開URLを取得して返す
-  const { data: urlData } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(filePath);
-
-  console.log("HTMLファイルのアップロード成功:", urlData.publicUrl);
-  return urlData.publicUrl;
-}
 
 
-export { uploadFile, deleteFile, getDirectorySize, uploadHtmlFile };
+export { uploadFile, deleteFile, getDirectorySize };

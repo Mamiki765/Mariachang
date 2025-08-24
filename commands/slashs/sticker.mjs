@@ -5,8 +5,8 @@ import {
   uploadFile,
   deleteFile,
   getDirectorySize,
-  uploadHtmlFile,
 } from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
+import { deployStickerListPage } from "../../utils/gitHubDeployer.mjs"
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
 import sizeOf from "image-size";
 import config from "../../config.mjs";
@@ -266,7 +266,7 @@ export async function execute(interaction) {
       // register サブコマンドの成功処理の後
       // こっそーりWebサイトを作ります
       if (isPublic) {
-        updateStickerHtmlPage(); // Fire and Forget!
+        deployStickerListPage(); // Fire and Forget!
       }
     } catch (error) {
       console.error("スタンプ登録エラー:", error);
@@ -325,7 +325,7 @@ export async function execute(interaction) {
       });
       //公開スタンプを消したのなら、こちらからも消す
       if (wasPublic) {
-        updateStickerHtmlPage(); // Fire and Forget!
+        deployStickerListPage(); // Fire and Forget!
       }
     } catch (error) {
       console.error("スタンプ削除エラー:", error);
@@ -337,6 +337,7 @@ export async function execute(interaction) {
 }
 
 /**
+ * 公開スタンプ登録・削除時に機能
  * 公開スタンプ一覧のHTMLページを生成し、Supabaseにアップロードする関数
  */
 async function updateStickerHtmlPage() {
