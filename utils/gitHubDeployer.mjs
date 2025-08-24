@@ -81,8 +81,7 @@ export async function deployStickerListPage() {
     </details>`
     )
     .join("")}
-</div>
-        )     
+</div>     
         </div>
       </body>
       </html>
