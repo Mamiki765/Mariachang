@@ -1,5 +1,11 @@
 // commands/slashs/sticker.mjs
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} from "discord.js";
 import { Sticker } from "../../models/database.mjs"; // あなたのデータベース設定からStickerモデルをインポート
 import {
   uploadFile,
