@@ -6,7 +6,7 @@ import {
   deleteFile,
   getDirectorySize,
 } from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
-import { deployStickerListPage } from "../../utils/gitHubDeployer.mjs"
+import { deployStickerListPage } from "../../utils/gitHubDeployer.mjs";
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
 import sizeOf from "image-size";
 import config from "../../config.mjs";
@@ -67,6 +67,24 @@ export const data = new SlashCommandBuilder()
           .setAutocomplete(true)
       )
   )
+  //　プレビューサブコマンド
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("preview")
+      .setNameLocalizations({
+        ja: "プレビュー",
+      })
+      .setDescription("スタンプをプレビュー表示、または一覧ページを開きます。")
+      .addStringOption((option) =>
+        option
+          .setName("name")
+          .setDescription(
+            "プレビューしたいスタンプの名前（指定しない場合は一覧を表示）"
+          )
+          .setRequired(false)
+          .setAutocomplete(true)
+      )
+  )
 
   // 削除サブコマンド
   .addSubcommand((subcommand) =>
@@ -108,8 +126,8 @@ export async function autocomplete(interaction) {
   }
 
   let orderClause; // 並び順を格納する変数を定義
- // もしユーザーが何も入力していなければ (focusedValueが空なら)
-  if (focusedValue === '') {
+  // もしユーザーが何も入力していなければ (focusedValueが空なら)
+  if (focusedValue === "") {
     // 新着順（作成日の降順）に設定
     orderClause = [["createdAt", "DESC"]];
   } else {
@@ -333,69 +351,61 @@ export async function execute(interaction) {
         content: "スタンプの削除中にエラーが発生しました。",
       });
     }
-  }
-}
+    // プレビュー
+  } else if (subcommand === "preview") {
+    // ユーザーが入力したスタンプ名を取得します
+    const name = interaction.options.getString("name");
+    // --- 分岐処理 ---
+    // 【ケース1】もし、nameが指定されていたら (個別プレビュー)
+    if (name) {
+      await interaction.deferReply({ ephemeral: true }); // 自分だけに表示
+      // DBで、そのスタンプが本当に存在するか、見る権限があるかを確認
+      const sticker = await Sticker.findOne({
+        where: {
+          name: name,
+          [Op.or]: [{ ownerId: userId }, { isPublic: true }],
+        },
+      });
 
-/**
- * 公開スタンプ登録・削除時に機能
- * 公開スタンプ一覧のHTMLページを生成し、Supabaseにアップロードする関数
- */
-async function updateStickerHtmlPage() {
-  console.log("[Background Job] スタンプHTMLページの更新処理を開始します。");
-  try {
-    // 1. isPublic: true のスタンプを全て取得
-    const publicStickers = await Sticker.findAll({
-      where: { isPublic: true },
-      order: [["name", "ASC"]],
-    });
+      if (!sticker) {
+        return interaction.editReply({
+          content: `スタンプ「${name}」が見つからないか、プレビューする権限がありません。`,
+        });
+      }
 
-    // 2. HTMLコンテンツを生成
-    const pageTitle = "神谷マリア スタンプ一覧";
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="ja">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${pageTitle}</title>
-        <style>
-          body { font-family: sans-serif; background-color: #333; color: #fff; padding: 1em; }
-          h1 { text-align: center; }
-          .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1em; }
-          .stamp { text-align: center; }
-          .stamp img { max-width: 100%; height: 100px; object-fit: contain; }
-          .stamp p { margin-top: 5px; font-size: 14px; word-break: break-all; }
-        </style>
-      </head>
-      <body>
-        <h1>${pageTitle} (${publicStickers.length}個)</h1>
-        <div class="container">
-          ${publicStickers
-            .map(
-              (sticker) => `
-            <div class="stamp">
-              <img src="${sticker.imageUrl}" alt="${sticker.name}" loading="lazy">
-              <p>${sticker.name}</p>
-            </div>`
-            )
-            .join("")}
-        </div>
-      </body>
-      </html>
-    `;
+      // Embedで見やすく表示
+      const embed = new EmbedBuilder()
+        .setTitle(`スタンププレビュー: ${sticker.name}`)
+        .setImage(sticker.imageUrl)
+        .setColor("Aqua")
+        .setFooter({ text: `オーナー: ${sticker.isPublic ? "公開" : "個人"}` });
 
-    // 3. Supabase Storageにアップロード（上書き）
-    // ※事前に supabaseStorage.mjs に uploadHtmlFile 関数を作っておく必要があります
-    const filePath = "public/stickers-list.html";
-    await uploadHtmlFile(htmlContent, filePath);
+      await interaction.editReply({ embeds: [embed] });
 
-    console.log(
-      "[Background Job] スタンプHTMLページの更新が正常に完了しました。"
-    );
-  } catch (error) {
-    console.error(
-      "[Background Job] スタンプHTMLページの更新中にエラーが発生しました:",
-      error
-    );
+      // 【ケース2】もし、nameが指定されていなかったら (一覧表示)
+    } else {
+      const pageUrl = "https://mamiki765.github.io/Mariachang-pages/";
+
+      const embed = new EmbedBuilder()
+        .setColor("Blue")
+        .setTitle("神谷マリア / スタンプ一覧")
+        .setDescription(
+          "登録されている公開スタンプの一覧をウェブページで確認できます。\n下のボタンからアクセスしてください！"
+        );
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel("スタンプ一覧ページを開く")
+          .setStyle(ButtonStyle.Link)
+          .setURL(pageUrl)
+          .setEmoji("🌐")
+      );
+
+      await interaction.reply({
+        embeds: [embed],
+        components: [row],
+        ephemeral: true, // こちらも自分だけに表示すると、チャット欄が荒れなくて親切
+      });
+    }
   }
 }
