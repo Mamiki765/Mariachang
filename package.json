@@ -8,6 +8,9 @@
   "type": "module",
   "scripts": {
     "start": "node --trace-warnings main.mjs",
+    "_comment_format": "npm run format:check で整形が必要なファイルを確認し、npm run format で自動整形する",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "_comment_tree": "npm run treeでプロジェクトの構造を project-structure.txt に出力する",
     "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json,project-structure.txt\" -l 3 -o project-structure.txt"
   },
