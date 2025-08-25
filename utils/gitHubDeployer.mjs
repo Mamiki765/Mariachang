@@ -42,6 +42,9 @@ export async function deployStickerListPage() {
             content="width=device-width, initial-scale=1.0"
           />
           <title>${pageTitle}</title>
+          <!-- ファビコン -->
+          <link rel="icon" href="favicon.ico" sizes="any" type="image/x-icon">
+          <link rel="apple-touch-icon" href="apple-touch-icon.png">
           <style>
             body {
               font-family: sans-serif;
@@ -116,7 +119,7 @@ export async function deployStickerListPage() {
           <p>
             スタンプを「公開」にすると、サーバーの誰もが使えるようになり、この一覧にも掲載されます。<br />
             <strong>PBW納品物</strong
-            >などを新規に登録する際は、作者様の利用規約をよくご確認の上、「外部利用ライセンス」などを取得した作品のみを公開設定にすることを、推奨します。
+            >などを新規に登録する際は、各会社の利用規約をよくご確認の上、「外部利用ライセンス」などを取得した作品のみを公開設定にすることを、推奨します。
           </p>
           <div class="stamp-accordion">
             ${publicStickers
