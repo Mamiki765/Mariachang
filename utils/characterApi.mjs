@@ -108,10 +108,12 @@ export async function getCharacterSummary(characterId) {
       }
       return reply;
     } else if (character.owner) {
-      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
+      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
       return reply;
     } else {
-      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}\n`;
+      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
       const displayOrder = [1, 2, 3, 4, 13, 9, 10, 5, 6, 7, 8, 11, 12, 14];
@@ -193,6 +195,47 @@ const compactStatusGroups = [
 ];
 
 /**
+ * ライセンスの対応表
+ * 将来絵文字にしたいなって時に置き換えれるように対応している
+ */
+const licenseMasterData = new Map([
+  ['1', { shortName: 'PC', emoji: '🎨' }], // 公式ライセンス（PC・EXPC）
+  ['2', { shortName: 'NPC', emoji: '🤝' }],// 公式ライセンス（NPC）
+  ['3', { shortName: 'EX', emoji: '👑' }], // 公式ライセンス（EX）
+]);
+
+/**
+ * 【究極進化版】キャラクターが所有するライセンスをチェックし、
+ * 「☑(PC)(NPC)」のような、最終的な表示用文字列を生成するヘルパー関数
+ * @param {Array<object>} licensesArray - character.licenses の配列
+ * @returns {string} - " ☑(PC)(NPC)" のような、整形済みの文字列
+ */
+function formatLicenseDisplay(licensesArray) {
+  if (!licensesArray || licensesArray.length === 0) {
+    return "";
+  }
+
+  // 所有ライセンスIDの中から、マスターデータに存在するshortNameだけを抽出
+  const ownedLicenseNames = licensesArray
+    .map(license => {
+      const data = licenseMasterData.get(license.id);
+      return data ? data.shortName : null;
+    })
+    .filter(Boolean); // 変換できなかったもの(null)を取り除く
+
+  // 表示すべきライセンスが1つもなければ、何も返さない
+  if (ownedLicenseNames.length === 0) {
+    return "";
+  }
+
+  // "(PC)", "(NPC)" のようなパーツの配列を作る
+  const nameParts = ownedLicenseNames.map(name => `(${name})`);
+
+  // 「 ☑(PC)(NPC)」という、最終的な文字列を組み立てて返す
+  return ` ☑${nameParts.join('')}`;
+}
+
+/**
  * 【NEW】文字列からXML/HTMLタグを取り除くヘルパー関数
  * @param {string} text タグを含む可能性のある文字列
  * @returns {string} タグが取り除かれた文字列
@@ -255,10 +298,12 @@ export async function getCharacterSummaryCompact(characterId) {
       }
       return reply;
     } else if (character.owner) {
-      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。\n`;
+      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
       return reply;
     } else {
-      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}\n`;
+      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
       if (character.sub_status && character.sub_status.length > 0) {
