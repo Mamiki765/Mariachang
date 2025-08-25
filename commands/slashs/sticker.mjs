@@ -179,7 +179,7 @@ export async function execute(interaction) {
     const currentStickerCount = await Sticker.count({
       where: { ownerId: userId },
     });
-    if (currentStickerCount >= STICKER_LIMIT) {
+    if (currentStickerCount >= STICKER_LIMIT && userId != config.administrator) {
       return interaction.editReply({
         content: `登録できるスタンプの上限（${STICKER_LIMIT}個）に達しています。\n通常ユーザー：${config.sticker.limitPerUser}個、IL/モデレーター：${config.sticker.vipLimit}個`,
       });

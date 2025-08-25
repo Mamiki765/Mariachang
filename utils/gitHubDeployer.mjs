@@ -31,59 +31,73 @@ export async function deployStickerListPage() {
 
     // 2. 取得した情報をもとに、HTMLの文字列を組み立てます
     const pageTitle = "神谷マリア /スタンプ一覧";
-    const htmlContent = /* html */ `
+    const htmlContent = /* HTML */ `
       <!DOCTYPE html>
       <html lang="ja">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${pageTitle}</title>
-        <style>
-        body { font-family: sans-serif; background-color: #2c2f33; color: #ffffff; margin: 0; padding: 1.5em; }
-        h1 { text-align: center; border-bottom: 2px solid #7289da; padding-bottom: 0.5em; }
-  
-         /* --- ここからがアコーディオン用のスタイル --- */
-        .stamp-accordion details {
-    background-color: #40444b;
-    border: 1px solid #555;
-    border-radius: 4px;
-    margin-bottom: 5px;
-  }
-  .stamp-accordion summary {
-    cursor: pointer;
-    padding: 0.5em 1em;
-    font-weight: bold;
-    outline: none; /* クリック時の青い枠線を消す */
-  }
-  .stamp-content {
-    padding: 1em;
-    text-align: center;
-    border-top: 1px solid #555;
-  }
-  .stamp-content img {
-    max-width: 100%;
-    height: 100px;
-    object-fit: contain;
-  }
-</style>
-      </head>
-      <body>
-        <h1>${pageTitle} (${publicStickers.length}個)</h1>
-        <div class="stamp-accordion">
-  ${publicStickers
-    .map(
-      (sticker) => `
+        <head>
+          <meta charset="UTF-8" />
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+          />
+          <title>${pageTitle}</title>
+          <style>
+            body {
+              font-family: sans-serif;
+              background-color: #2c2f33;
+              color: #ffffff;
+              margin: 0;
+              padding: 1.5em;
+            }
+            h1 {
+              text-align: center;
+              border-bottom: 2px solid #7289da;
+              padding-bottom: 0.5em;
+            }
+
+            /* --- ここからがアコーディオン用のスタイル --- */
+            .stamp-accordion details {
+              background-color: #40444b;
+              border: 1px solid #555;
+              border-radius: 4px;
+              margin-bottom: 5px;
+            }
+            .stamp-accordion summary {
+              cursor: pointer;
+              padding: 0.5em 1em;
+              font-weight: bold;
+              outline: none; /* クリック時の青い枠線を消す */
+            }
+            .stamp-content {
+              padding: 1em;
+              text-align: center;
+              border-top: 1px solid #555;
+            }
+            .stamp-content img {
+              max-width: 100%;
+              height: 100px;
+              object-fit: contain;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${pageTitle} (${publicStickers.length}個)</h1>
+          <br />/sticker
+          postで投稿できる公共スタンプの一覧です、通信量が厳しいので見たい奴だけ開く形式でごめんなさい…
+          <div class="stamp-accordion">
+            ${publicStickers
+              .map(
+                (sticker) => `
     <details>
       <summary>${sticker.name}</summary>
       <div class="stamp-content">
         <img src="${sticker.imageUrl}" alt="${sticker.name}" loading="lazy">
       </div>
     </details>`
-    )
-    .join("")}
-</div>     
-        </div>
-      </body>
+              )
+              .join("")}
+          </div>
+        </body>
       </html>
     `;
 
