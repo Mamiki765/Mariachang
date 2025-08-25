@@ -34,6 +34,7 @@ export async function deployStickerListPage() {
     const htmlContent = /* HTML */ `
       <!DOCTYPE html>
       <html lang="ja">
+      <!-- ミョミョミョワァァーン --!>
         <head>
           <meta charset="UTF-8" />
           <meta
@@ -82,8 +83,41 @@ export async function deployStickerListPage() {
         </head>
         <body>
           <h1>${pageTitle} (${publicStickers.length}個)</h1>
-          <br />/sticker
-          postで投稿できる公共スタンプの一覧です、通信量が厳しいので見たい奴だけ開く形式でごめんなさい…
+          <p>
+            /スタンプ 投稿
+            で投稿できる公共スタンプの一覧です。通信量を節約するため、見たいスタンプだけを開く形式になっています。
+          </p>
+
+          <hr />
+          <!-- 水平線で区切ると、さらに見やすい -->
+
+          <h3>使い方</h3>
+          <ul>
+            <li>
+              <strong>/スタンプ 投稿 [名前]</strong>:
+              スタンプを投稿します。名前を入力すると候補が表示されます。
+            </li>
+            <li>
+              <strong>/スタンプ 登録 [画像] [名前] [公開設定]</strong>:
+              新しいスタンプを登録します。
+              <ul>
+                <li>
+                  画像は <strong>320x320px</strong> 以下、<strong>512KB</strong>
+                  以下にしてください。
+                </li>
+                <li>
+                  登録は一人<strong>5件</strong>までです。（Mod/ILは50件まで）
+                </li>
+              </ul>
+            </li>
+          </ul>
+
+          <h3>公開設定について</h3>
+          <p>
+            スタンプを「公開」にすると、サーバーの誰もが使えるようになり、この一覧にも掲載されます。<br />
+            <strong>PBW納品物</strong
+            >などを新規に登録する際は、作者様の利用規約をよくご確認の上、「外部利用ライセンス」などを取得した作品のみを公開設定にすることを、推奨します。
+          </p>
           <div class="stamp-accordion">
             ${publicStickers
               .map(

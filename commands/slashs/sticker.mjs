@@ -179,7 +179,7 @@ export async function execute(interaction) {
     const currentStickerCount = await Sticker.count({
       where: { ownerId: userId },
     });
-    if (currentStickerCount >= STICKER_LIMIT && userId != config.administrator) {
+    if (currentStickerCount >= STICKER_LIMIT && userId != config.administrator) {//管理人は無限
       return interaction.editReply({
         content: `登録できるスタンプの上限（${STICKER_LIMIT}個）に達しています。\n通常ユーザー：${config.sticker.limitPerUser}個、IL/モデレーター：${config.sticker.vipLimit}個`,
       });
@@ -206,7 +206,7 @@ export async function execute(interaction) {
     // 3. 画素数チェック！
     try {
       const dimensions = sizeOf(buffer);
-      if (dimensions.width > 320 || dimensions.height > 320) {
+      if ((dimensions.width > 320 || dimensions.height > 320) && userId != config.administrator) {//管理人は無視
         return interaction.editReply({
           content: `画像のサイズが大きすぎます。幅と高さは、それぞれ320ピクセル以下にしてください。\n(現在のサイズ: ${dimensions.width}x${dimensions.height})`,
         });
