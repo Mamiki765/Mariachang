@@ -115,21 +115,21 @@ async function handleSlots(interaction, slotConfig) {
 
       // 1. 全て回転中
       embed.setDescription(
-        `[ ${rotateEmoji} | ${rotateEmoji} | ${rotateEmoji} ]`
+        `# [ ${rotateEmoji} | ${rotateEmoji} | ${rotateEmoji} ]`
       );
       await interaction.editReply({ embeds: [embed], components: [] });
       await sleep(1000);
 
       // 2. 1番目のリールが停止
       embed.setDescription(
-        `[ ${resultEmojis[0]} | ${rotateEmoji} | ${rotateEmoji} ]`
+        `# [ ${resultEmojis[0]} | ${rotateEmoji} | ${rotateEmoji} ]`
       );
       await interaction.editReply({ embeds: [embed] });
       await sleep(1000);
 
       // 3. 2番目のリールが停止
       // ▼▼▼ まず、基本となるリールの文字列を生成 ▼▼▼
-      let description = `[ ${resultEmojis[0]} | ${resultEmojis[1]} | ${rotateEmoji} ]`;
+      let description = `# [ ${resultEmojis[0]} | ${resultEmojis[1]} | ${rotateEmoji} ]`;
       // ★ リーチ演出の追加 --- ここから ---
       let lastReelDelay = 1500; // 通常の待機時間
       isReach =
@@ -174,7 +174,7 @@ async function handleSlots(interaction, slotConfig) {
       embed
         .setColor(winAmount > 0 ? "#57F287" : "#ED4245")
         .setDescription(
-          `[ ${resultEmojis[0]} | ${resultEmojis[1]} | ${resultEmojis[2]} ]`
+          `# [ ${resultEmojis[0]} | ${resultEmojis[1]} | ${resultEmojis[2]} ]`
         )
         .setFields(
           { name: "役", value: prize.prizeName, inline: true },
