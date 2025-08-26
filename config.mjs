@@ -117,7 +117,7 @@ export default {
     slot: {
       //スロット
       symbols: {//絵柄
-        7: "7️⃣",
+        7: "<:nyowa7:1409958172545912904>",
         watermelon: "🍉",
         grape: "🍇",
         lemon: "🍋",

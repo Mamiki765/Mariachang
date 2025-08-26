@@ -113,9 +113,8 @@ async function handleSlots(interaction) {
       await sleep(1000);
 
       // 3. 2番目のリールが停止
-      embed.setDescription(
-        `[ ${resultEmojis[0]} | ${resultEmojis[1]} | ${rotateEmoji} ]`
-      );
+      // ▼▼▼ まず、基本となるリールの文字列を生成 ▼▼▼
+      let description = `[ ${resultEmojis[0]} | ${resultEmojis[1]} | ${rotateEmoji} ]`;
       // ★ リーチ演出の追加 --- ここから ---
       let lastReelDelay = 1500; // 通常の待機時間
       isReach =
@@ -124,11 +123,11 @@ async function handleSlots(interaction) {
 
       if (isReach) {
         lastReelDelay = 3000; // リーチ時の待機時間に延長
-        embed.setFooter({
-          text: `${slotConfig.symbols.reach} リーチ！ ${slotConfig.symbols.reach}`,
-        });
+        description += `\n\n${slotConfig.symbols.reach} **リーチ！** ${slotConfig.symbols.reach}`;
       }
       // ★ リーチ演出の追加 --- ここまで ---
+      // ▼▼▼ 最終的に生成した文字列で、setDescriptionを一度だけ呼ぶ ▼▼▼
+      embed.setDescription(description);
 
       await interaction.editReply({ embeds: [embed] });
       await sleep(lastReelDelay); // 設定された待機時間だけ待つ
@@ -174,13 +173,13 @@ async function handleSlots(interaction) {
           }
         )
         .setFooter({
-          text: `今回のセッション: ${sessionPlays}プレイ / 損益: ${sessionProfit > 0 ? "+" : ""}${sessionProfit}${config.nyowacoin}`,
+          text: `今回のセッション: ${sessionPlays}プレイ / 損益: ${sessionProfit > 0 ? "+" : ""}${sessionProfit}コイン`,
         });
 
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("spin_again")
-          .setLabel(`もう一度回す (${betAmount}${config.nyowacoin})`)
+          .setLabel(`もう一度回す (${betAmount}コイン)`)
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("stop_playing")
