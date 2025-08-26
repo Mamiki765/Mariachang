@@ -168,47 +168,6 @@ const CurrentDomino = sequelize.define(
   }
 );
 
-// ドミノの履歴使用終了
-/*
-const DominoHistory = sequelize.define(
-  "DominoHistory",
-  {
-    highestRecord: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
-    highestRecordHolder: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    zeroCount: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
-    players: {
-      type: DataTypes.JSON, // JSON型に変更
-      allowNull: false,
-      defaultValue: [],
-    },
-    totals: {
-      type: DataTypes.JSON, // JSON型に変更
-      allowNull: false,
-      defaultValue: [],
-    },
-    losers: {
-      type: DataTypes.JSON, // JSON型に変更
-      allowNull: false,
-      defaultValue: [],
-    },
-  },
-  {
-    tableName: "dominohistorys",
-    timestamps: false,
-  }
-);
-*/
 // ドミノの履歴v2（正規化版）
 const DominoLog = sequelize.define(
   "DominoLog",
@@ -386,6 +345,39 @@ const Sticker = sequelize.define(
   }
 );
 
+// カジノ統計モデル
+const CasinoStats = sequelize.define(
+  "CasinoStats",
+  {
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      primaryKey: true, // ユーザーIDを主キーの一部にする
+    },
+    gameName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      primaryKey: true, // ゲーム名を主キーの一部にする
+    },
+    gamesPlayed: {
+      type: DataTypes.BIGINT, // BIGINTにしておくと安心
+      defaultValue: 0,
+    },
+    totalBet: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
+    },
+    totalWin: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
+    },
+  },
+  {
+    tableName: "casino_stats",
+    timestamps: true, // 統計なので作成日時や更新日時があっても良いでしょう
+  }
+);
+
 // データベースの同期処理
 async function syncModels() {
   try {
@@ -400,6 +392,7 @@ async function syncModels() {
     await DominoLog.sync({ alter: true });
     await Scenario.sync({ alter: true });
     await Sticker.sync({ alter: true }); // スタンプモデルの同期
+    await CasinoStats.sync({ alter: true });
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
@@ -419,4 +412,5 @@ export {
   DominoLog, // ← 追加
   Scenario, // シナリオモデルをエクスポート
   Sticker, // スタンプモデルをエクスポート
+  CasinoStats,
 };

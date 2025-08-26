@@ -106,10 +106,101 @@ export default {
     directorySizeLimit: 300 * 1024 * 1024, // 300MB
     // スタンプ登録上限数を引き上げるVIPロール
     vipRoles: [
-      '1038083096618209301', // モデレーターロールのID
-      '1025453404362903622'  // イラストレーターロールのID
+      "1038083096618209301", // モデレーターロールのID
+      "1025453404362903622", // イラストレーターロールのID
     ],
-    vipLimit: 50 // VIPの最大登録数
+    vipLimit: 50, // VIPの最大登録数
   },
-  nyowacoin : "<:nyowacoin:1407422205624844288>",
+  nyowacoin: "<:nyowacoin:1407422205624844288>",
+  casino: {
+    //カジノ設定
+    slot: {
+      //スロット
+      symbols: {//絵柄
+        7: "7️⃣",
+        watermelon: "🍉",
+        grape: "🍇",
+        lemon: "🍋",
+        cherry: "🍒",
+        rotate: "<a:nyowamiyarika_down:1265938514462380144>",//回転中の絵柄
+        reach: "<a:nyowamiyarika_rainbow:1265941562945441817>",//リーチ告知時の絵文字もここに
+      },
+      reels: [
+        [//1レーン　7:1 スイカ:1 ぶどう:2 レモン:3 チェリー:4
+          "7",
+          "watermelon",
+          "grape",
+          "grape",
+          "lemon",
+          "lemon",
+          "lemon",
+          "cherry",
+          "cherry",
+          "cherry",
+          "cherry",
+        ],
+        [//2レーン　7:1 スイカ:1 ぶどう:2 レモン:3 チェリー:4
+          "7",
+          "watermelon",
+          "grape",
+          "grape",
+          "lemon",
+          "lemon",
+          "lemon",
+          "cherry",
+          "cherry",
+          "cherry",
+          "cherry",
+        ],
+        [//3レーン　7:1 スイカ:2 ぶどう:2 レモン:3 チェリー:4
+          "7",
+          "watermelon",
+          "watermelon",
+          "grape",
+          "grape",
+          "lemon",
+          "lemon",
+          "lemon",
+          "cherry",
+          "cherry",
+          "cherry",
+          "cherry",
+        ],
+      ],
+      payouts: [
+        { id: "777", name: "777", payout: 500, pattern: ["7", "7", "7"] },
+        {
+          id: "watermelon",
+          name: "スイカ",
+          payout: 100,
+          pattern: ["watermelon", "watermelon", "watermelon"],
+        },
+        {
+          id: "grape",
+          name: "ぶどう",
+          payout: 20,
+          pattern: ["grape", "grape", "grape"],
+        },
+        {
+          id: "lemon",
+          name: "レモン",
+          payout: 10,
+          pattern: ["lemon", "lemon", "lemon"],
+        },
+        {
+          id: "cherry3",
+          name: "チェリーx3",
+          payout: 3,
+          pattern: ["cherry", "cherry", "cherry"],
+        },
+        {
+          id: "cherry2",
+          name: "チェリーx2",
+          payout: 1,
+          minCount: 2,
+          symbol: "cherry",
+        },
+      ],
+    },
+  },
 };
