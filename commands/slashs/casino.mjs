@@ -46,9 +46,9 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === "slots") {
-    await handleSlots(interaction, config.casino.slot); 
+    await handleSlots(interaction, config.casino.slot);
   } else if (subcommand === "slots_easy") {
-    await handleSlots(interaction, config.casino.slot_lowrisk); 
+    await handleSlots(interaction, config.casino.slot_lowrisk);
   }
 }
 
@@ -196,12 +196,16 @@ async function handleSlots(interaction, slotConfig) {
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("spin_again")
-          .setLabel(`もう一度回す (${betAmount}コイン)`)
+          .setLabel(`${betAmount}コインで更に回す`)
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("stop_playing")
           .setLabel("やめる")
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("show_payouts")
+          .setLabel("役の一覧")
+          .setStyle(ButtonStyle.Success)
       );
 
       const message = await interaction.editReply({
@@ -223,6 +227,22 @@ async function handleSlots(interaction, slotConfig) {
             buttons.components.forEach((btn) => btn.setDisabled(true));
             await interaction.editReply({ components: [buttons] });
           }
+        } else if (i.customId === "show_payouts") {
+          // ▼▼▼ 役一覧表示の処理 ▼▼▼
+
+          // 1. configから役一覧のテキストを生成
+          let payoutsText = `**${slotConfig.displayname} 役の一覧**\n\n`;
+          for (const prize of slotConfig.payouts) {
+            // display があれば表示し、なければ名前にする
+            const displayEmoji = prize.display ? `${prize.display} ` : `${prize.name}`;
+            payoutsText += `**${displayEmoji}**: ${prize.payout}倍\n`;
+          }
+
+          // 2. 「あなただけに表示」(ephemeral)で返信する
+          await i.reply({
+            content: payoutsText,
+            flags: 64,
+          });
         } else {
           buttons.components.forEach((btn) => btn.setDisabled(true));
           await i.update({ components: [buttons] });

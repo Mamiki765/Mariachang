@@ -117,18 +117,20 @@ export default {
     slot: {
       //スロット1号機（ハイリスク）
       displayname: "ニョワミヤスロットマシン(1号機)",
-      gameName: "slots",//戦績に残すためのタグ
-      symbols: {//絵柄
+      gameName: "slots", //戦績に残すためのタグ
+      symbols: {
+        //絵柄
         7: "<:nyowa7:1409958172545912904>",
         watermelon: "🍉",
         grape: "🍇",
         lemon: "🍋",
         cherry: "🍒",
-        rotate: "<a:nyowamiyarika_down:1265938514462380144>",//回転中の絵柄
-        reach: "<a:nyowamiyarika_rainbow:1265941562945441817>",//リーチ告知時の絵文字もここに
+        rotate: "<a:nyowamiyarika_down:1265938514462380144>", //回転中の絵柄
+        reach: "<a:nyowamiyarika_rainbow:1265941562945441817>", //リーチ告知時の絵文字もここに
       },
       reels: [
-        [//1レーン　7:1 スイカ:1 ぶどう:2 レモン:3 チェリー:4
+        [
+          //1レーン　7:1 スイカ:1 ぶどう:2 レモン:3 チェリー:4
           "7",
           "watermelon",
           "grape",
@@ -141,7 +143,8 @@ export default {
           "cherry",
           "cherry",
         ],
-        [//2レーン　7:1 スイカ:1 ぶどう:2 レモン:3 チェリー:4
+        [
+          //2レーン　7:1 スイカ:1 ぶどう:2 レモン:3 チェリー:4
           "7",
           "watermelon",
           "grape",
@@ -154,7 +157,8 @@ export default {
           "cherry",
           "cherry",
         ],
-        [//3レーン　7:1 スイカ:2 ぶどう:2 レモン:3 チェリー:4
+        [
+          //3レーン　7:1 スイカ:2 ぶどう:2 レモン:3 チェリー:4
           "7",
           "watermelon",
           "watermelon",
@@ -170,30 +174,41 @@ export default {
         ],
       ],
       payouts: [
-        { id: "777", name: "777", payout: 500, pattern: ["7", "7", "7"] },
+        {
+          id: "777",
+          name: "777",
+          payout: 500,
+          pattern: ["7", "7", "7"],
+          display:
+            "<:nyowa7:1409958172545912904><:nyowa7:1409958172545912904><:nyowa7:1409958172545912904>",
+        },
         {
           id: "watermelon",
           name: "スイカ",
           payout: 100,
           pattern: ["watermelon", "watermelon", "watermelon"],
+          display: "🍉🍉🍉",
         },
         {
           id: "grape",
           name: "ぶどう",
           payout: 20,
           pattern: ["grape", "grape", "grape"],
+          display: "🍇🍇🍇",
         },
         {
           id: "lemon",
           name: "レモン",
           payout: 10,
           pattern: ["lemon", "lemon", "lemon"],
+          display: "🍋🍋🍋",
         },
         {
           id: "cherry3",
           name: "チェリーx3",
           payout: 3,
           pattern: ["cherry", "cherry", "cherry"],
+          display: "🍒🍒🍒",
         },
         {
           id: "cherry2",
@@ -201,15 +216,17 @@ export default {
           payout: 1,
           leftAlign: 2,
           symbol: "cherry",
+          display: "🍒🍒",
         },
       ],
     },
     slot_lowrisk: {
       //スロット2号機（ローリスク）
       displayname: "ひめこスロットマシン(2号機)",
-      gameName: "slots_easy",//戦績に残すためのタグ
+      gameName: "slots_easy", //戦績に残すためのタグ
       symbols: {
-        bell: "🔔",
+        bell: "<:katakana_ko:1265165857445908542>",
+        bell2: "<:katakana_ro:1265166237399388242>",
         lemon: "🍋",
         grape: "🍇",
         cherry: "🍒",
@@ -217,20 +234,95 @@ export default {
         reach: "<a:toruchan_kokoro2:1265162645330464898>",
       },
       reels: [
-        // R1 (11通り): ベル1, レモン2, ぶどう3, チェリー5
-        ["bell", "lemon", "lemon", "grape", "grape", "grape", "cherry", "cherry", "cherry", "cherry", "cherry"],
-        // R2 (11通り): ベル1, レモン3, ぶどう3, チェリー4
-        ["bell", "lemon", "lemon", "lemon", "grape", "grape", "grape", "cherry", "cherry", "cherry", "cherry"],
-        // R3 (12通り): ベル1, レモン3, ぶどう4, チェリー4
-        ["bell", "lemon", "lemon", "lemon", "grape", "grape", "grape", "grape", "cherry", "cherry", "cherry", "cherry"],
+        // R1 (11通り): コ1, レモン2, ぶどう3, チェリー5
+        [
+          "bell",
+          "lemon",
+          "lemon",
+          "grape",
+          "grape",
+          "grape",
+          "cherry",
+          "cherry",
+          "cherry",
+          "cherry",
+          "cherry",
+        ],
+        // R2 (11通り): コ1, レモン3, ぶどう3, チェリー4
+        [
+          "bell",
+          "lemon",
+          "lemon",
+          "lemon",
+          "grape",
+          "grape",
+          "grape",
+          "cherry",
+          "cherry",
+          "cherry",
+          "cherry",
+        ],
+        // R3 (12通り): ロ1, レモン3, ぶどう4, チェリー4
+        [
+          "bell2",
+          "lemon",
+          "lemon",
+          "lemon",
+          "grape",
+          "grape",
+          "grape",
+          "grape",
+          "cherry",
+          "cherry",
+          "cherry",
+          "cherry",
+        ],
       ],
       payouts: [
-        { id: "bell3", name: "ベル", payout: 38, pattern: ["bell", "bell", "bell"] },
-        { id: "lemon3", name: "レモン", payout: 14, pattern: ["lemon", "lemon", "lemon"] },
-        { id: "grape3", name: "ぶどう", payout: 5, pattern: ["grape", "grape", "grape"] },
-        { id: "cherry3", name: "チェリーx3", payout: 3, pattern: ["cherry", "cherry", "cherry"] },
-        { id: "cherry2", name: "チェリーx2", payout: 2, leftAlign: 2, symbol: "cherry" },
-        { id: "cherry1", name: "チェリーx1", payout: 1, leftAlign: 1, symbol: "cherry" }, // 賭け金が戻ってくる役
+        {
+          id: "bell3",
+          name: "ココロー！",
+          payout: 38,
+          pattern: ["bell", "bell", "bell2"],
+          display: "<:katakana_ko:1265165857445908542><:katakana_ko:1265165857445908542><:katakana_ro:1265166237399388242>",
+        },
+        {
+          id: "lemon3",
+          name: "レモン",
+          payout: 14,
+          pattern: ["lemon", "lemon", "lemon"],
+          display: "🍋🍋🍋",
+        },
+        {
+          id: "grape3",
+          name: "ぶどう",
+          payout: 5,
+          pattern: ["grape", "grape", "grape"],
+          display: "🍇🍇🍇",
+        },
+        {
+          id: "cherry3",
+          name: "チェリーx3",
+          payout: 3,
+          pattern: ["cherry", "cherry", "cherry"],
+          display: "🍒🍒🍒",
+        },
+        {
+          id: "cherry2",
+          name: "チェリーx2",
+          payout: 2,
+          leftAlign: 2,
+          symbol: "cherry",
+          display: "🍒🍒",
+        },
+        {
+          id: "cherry1",
+          name: "チェリーx1",
+          payout: 1,
+          leftAlign: 1,
+          symbol: "cherry",
+          display: "🍒",
+        }, // 賭け金が戻ってくる役
       ],
     },
   },
