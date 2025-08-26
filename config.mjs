@@ -115,7 +115,9 @@ export default {
   casino: {
     //カジノ設定
     slot: {
-      //スロット
+      //スロット1号機（ハイリスク）
+      displayname: "ニョワミヤスロットマシン(1号機)",
+      gameName: "slots",//戦績に残すためのタグ
       symbols: {//絵柄
         7: "<:nyowa7:1409958172545912904>",
         watermelon: "🍉",
@@ -200,6 +202,35 @@ export default {
           leftAlign: 2,
           symbol: "cherry",
         },
+      ],
+    },
+    slot_lowrisk: {
+      //スロット2号機（ローリスク）
+      displayname: "ひめこスロットマシン(2号機)",
+      gameName: "slots_easy",//戦績に残すためのタグ
+      symbols: {
+        bell: "🔔",
+        lemon: "🍋",
+        grape: "🍇",
+        cherry: "🍒",
+        rotate: "<a:himeko_down:1409986521058246737>",
+        reach: "<a:toruchan_kokoro2:1265162645330464898>",
+      },
+      reels: [
+        // R1 (11通り): ベル1, レモン2, ぶどう3, チェリー5
+        ["bell", "lemon", "lemon", "grape", "grape", "grape", "cherry", "cherry", "cherry", "cherry", "cherry"],
+        // R2 (11通り): ベル1, レモン3, ぶどう3, チェリー4
+        ["bell", "lemon", "lemon", "lemon", "grape", "grape", "grape", "cherry", "cherry", "cherry", "cherry"],
+        // R3 (12通り): ベル1, レモン3, ぶどう4, チェリー4
+        ["bell", "lemon", "lemon", "lemon", "grape", "grape", "grape", "grape", "cherry", "cherry", "cherry", "cherry"],
+      ],
+      payouts: [
+        { id: "bell3", name: "ベル", payout: 38, pattern: ["bell", "bell", "bell"] },
+        { id: "lemon3", name: "レモン", payout: 14, pattern: ["lemon", "lemon", "lemon"] },
+        { id: "grape3", name: "ぶどう", payout: 5, pattern: ["grape", "grape", "grape"] },
+        { id: "cherry3", name: "チェリーx3", payout: 3, pattern: ["cherry", "cherry", "cherry"] },
+        { id: "cherry2", name: "チェリーx2", payout: 2, leftAlign: 2, symbol: "cherry" },
+        { id: "cherry1", name: "チェリーx1", payout: 1, leftAlign: 1, symbol: "cherry" }, // 賭け金が戻ってくる役
       ],
     },
   },

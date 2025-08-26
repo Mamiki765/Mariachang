@@ -9,8 +9,6 @@ import {
 import { Point, CasinoStats, sequelize } from "../../models/database.mjs";
 import config from "../../config.mjs";
 
-// --- 設定ファイルのショートカット ---
-const slotConfig = config.casino.slot;
 // --- ユーティリティ ---
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -20,7 +18,20 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("slots")
-      .setDescription("スロットマシンをプレイします。")
+      .setDescription("【1号機】一攫千金を夢見る最凶のスロットマシン")
+      .addIntegerOption((option) =>
+        option
+          .setName("bet")
+          .setDescription("賭けるコインの枚数(1-20)")
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(20)
+      )
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("slots_easy")
+      .setDescription("【2号機】当たりやすい安全設計のスロットマシン")
       .addIntegerOption((option) =>
         option
           .setName("bet")
@@ -32,13 +43,17 @@ export const data = new SlashCommandBuilder()
   );
 // --- コマンド実行部分 ---
 export async function execute(interaction) {
-  if (interaction.options.getSubcommand() === "slots") {
-    await handleSlots(interaction);
+  const subcommand = interaction.options.getSubcommand();
+
+  if (subcommand === "slots") {
+    await handleSlots(interaction, config.casino.slot); 
+  } else if (subcommand === "slots_easy") {
+    await handleSlots(interaction, config.casino.slot_lowrisk); 
   }
 }
 
 // --- スロットゲームのメインロジック ---
-async function handleSlots(interaction) {
+async function handleSlots(interaction, slotConfig) {
   const betAmount = interaction.options.getInteger("bet");
   const userId = interaction.user.id;
 
@@ -96,7 +111,7 @@ async function handleSlots(interaction) {
       // --- アニメーション ---
       const embed = new EmbedBuilder()
         .setColor("#2f3136")
-        .setTitle("スロットマシン");
+        .setTitle(`${slotConfig.displayname}`);
 
       // 1. 全て回転中
       embed.setDescription(
@@ -119,11 +134,13 @@ async function handleSlots(interaction) {
       let lastReelDelay = 1500; // 通常の待機時間
       isReach =
         resultSymbols[0] === resultSymbols[1] &&
-        (resultSymbols[0] === "7" || resultSymbols[0] === "watermelon");
-
+        (resultSymbols[0] === "7" ||
+          resultSymbols[0] === "watermelon" ||
+          resultSymbols[0] === "bell");
+      //1号機の７とスイカ、2号機のベル
       if (isReach) {
         lastReelDelay = 3000; // リーチ時の待機時間に延長
-        description += `\n\n${slotConfig.symbols.reach} **リーチ！** ${slotConfig.symbols.reach}`;
+        description += `\n# ${slotConfig.symbols.reach} **リーチ！** ${slotConfig.symbols.reach}`;
       }
       // ★ リーチ演出の追加 --- ここまで ---
       // ▼▼▼ 最終的に生成した文字列で、setDescriptionを一度だけ呼ぶ ▼▼▼
@@ -133,12 +150,12 @@ async function handleSlots(interaction) {
       await sleep(lastReelDelay); // 設定された待機時間だけ待つ
 
       // --- 役の判定とDB更新 ---
-      const prize = getSlotPrize(resultSymbols);
+      const prize = getSlotPrize(resultSymbols, slotConfig);
       const winAmount = betAmount * prize.payout;
       userPoint.coin += winAmount;
 
       const [stats] = await CasinoStats.findOrCreate({
-        where: { userId, gameName: "slots" },
+        where: { userId, gameName: slotConfig.gameName },
         transaction: t,
       });
       stats.gamesPlayed = BigInt(stats.gamesPlayed.toString()) + 1n;
@@ -240,10 +257,12 @@ async function handleSlots(interaction) {
 
 /**
  * スロットの結果から役を判定し、役の情報を返します。
- * @param {string[]} result - スロットのリール結果 (例: ['cherry', 'cherry', 'lemon'])
+ * @param {string[]} result - スロットのリール結果
+ * @param {object} slotConfig - 使用するスロットの設定オブジェクト
  * @returns {{ prizeId: string, prizeName: string, payout: number }} 役の情報オブジェクト
  */
-function getSlotPrize(result) {
+// ▼▼▼ 第2引数でslotConfigを受け取るように変更 ▼▼▼
+function getSlotPrize(result, slotConfig) {
   // 高配当（配列の上の方）から順にチェック
   for (const prize of slotConfig.payouts) {
     // 3つ揃いのパターンをチェック
