@@ -197,7 +197,7 @@ export default {
           id: "cherry2",
           name: "チェリーx2",
           payout: 1,
-          minCount: 2,
+          leftAlign: 2,
           symbol: "cherry",
         },
       ],

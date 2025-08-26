@@ -50,6 +50,8 @@ async function handleSlots(interaction) {
 
   // --- ゲームループ関数 ---
   const gameLoop = async (isFirstPlay = true) => {
+    let resultSymbols = [];
+    let isReach = false;
     const t = await sequelize.transaction();
     try {
       const userPoint = await Point.findOne({
@@ -74,7 +76,7 @@ async function handleSlots(interaction) {
       userPoint.coin -= betAmount;
 
       // --- スロットの結果を先に決定 ---
-      const resultSymbols = [
+      resultSymbols = [
         slotConfig.reels[0][
           Math.floor(Math.random() * slotConfig.reels[0].length)
         ],
@@ -116,15 +118,18 @@ async function handleSlots(interaction) {
       );
       // ★ リーチ演出の追加 --- ここから ---
       let lastReelDelay = 1500; // 通常の待機時間
-      const isReach = resultSymbols[0] === resultSymbols[1] && 
-                      (resultSymbols[0] === '7' || resultSymbols[0] === 'watermelon');
+      isReach =
+        resultSymbols[0] === resultSymbols[1] &&
+        (resultSymbols[0] === "7" || resultSymbols[0] === "watermelon");
 
       if (isReach) {
         lastReelDelay = 3000; // リーチ時の待機時間に延長
-        embed.setFooter({ text: `${slotConfig.symbols.reach} リーチ！ ${slotConfig.symbols.reach}` });
+        embed.setFooter({
+          text: `${slotConfig.symbols.reach} リーチ！ ${slotConfig.symbols.reach}`,
+        });
       }
       // ★ リーチ演出の追加 --- ここまで ---
-      
+
       await interaction.editReply({ embeds: [embed] });
       await sleep(lastReelDelay); // 設定された待機時間だけ待つ
 
@@ -137,9 +142,9 @@ async function handleSlots(interaction) {
         where: { userId, gameName: "slots" },
         transaction: t,
       });
-      stats.gamesPlayed = BigInt(stats.gamesPlayed) + 1n; // BigIntの計算
-      stats.totalBet = BigInt(stats.totalBet) + BigInt(betAmount);
-      stats.totalWin = BigInt(stats.totalWin) + BigInt(winAmount);
+      stats.gamesPlayed = BigInt(stats.gamesPlayed.toString()) + 1n;
+      stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount);
+      stats.totalWin = BigInt(stats.totalWin.toString()) + BigInt(winAmount);
 
       await userPoint.save({ transaction: t });
       await stats.save({ transaction: t });
@@ -157,10 +162,14 @@ async function handleSlots(interaction) {
         )
         .setFields(
           { name: "役", value: prize.prizeName, inline: true },
-          { name: "配当", value: `+${winAmount} ${config.nyowacoin}`, inline: true },
+          {
+            name: "配当",
+            value: `+${winAmount} ${config.nyowacoin}`,
+            inline: true,
+          },
           {
             name: `所持コイン`,
-            value: `**${userPoint.coin}**${config.nyowacoin}`, 
+            value: `**${userPoint.coin}**${config.nyowacoin}`,
             inline: true,
           }
         )
@@ -212,6 +221,12 @@ async function handleSlots(interaction) {
       });
     } catch (error) {
       console.error("スロット処理中にエラー:", error);
+      console.error(`[Casino Error Log] エラー発生時のスロット出目と状況:`, {
+        userId: userId,
+        betAmount: betAmount,
+        isReach: isReach,
+        result: resultSymbols,
+      });
       await t.rollback();
       await interaction.followUp({
         content:
@@ -245,7 +260,22 @@ function getSlotPrize(result) {
         };
       }
     }
-    // 特定シンボルの数でチェック (チェリーx2など)
+    // 左揃えのパターンをチェック (例: チェリーx2)
+    else if (prize.leftAlign && prize.symbol) {
+      // 役の成立に必要な絵柄が、左から連続で揃っているか確認
+      const targetSlice = result.slice(0, prize.leftAlign);
+      const isMatch = targetSlice.every((s) => s === prize.symbol);
+
+      if (isMatch) {
+        return {
+          prizeId: prize.id,
+          prizeName: prize.name,
+          payout: prize.payout,
+        };
+      }
+    }
+    /*
+    // 特定シンボルの数でチェック (今は未使用)
     else if (prize.minCount && prize.symbol) {
       const count = result.filter((s) => s === prize.symbol).length;
       if (count >= prize.minCount) {
@@ -256,6 +286,7 @@ function getSlotPrize(result) {
         };
       }
     }
+    */
   }
   // どの役にも当てはまらない場合
   return { prizeId: "none", prizeName: "ハズレ...", payout: 0 };
