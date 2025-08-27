@@ -1187,7 +1187,9 @@ async function handleDealerTurnAndSettle(
       name: "ディーラー",
       value: `${formatCards(dealerHand)} \`(${getHandValue(dealerHand).value})\``,
     });
-    finalEmbed.setDescription(bonusMessage);
+    if (bonusMessage) {
+      finalEmbed.setDescription(bonusMessage);
+    }
     finalEmbed.setFooter({ text: `所持コイン: ${userPoint.coin}` });
     // ▼▼▼ Discordへの返信処理だけを、独立した try-catch で囲む ▼▼▼
     try {
