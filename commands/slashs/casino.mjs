@@ -1160,11 +1160,12 @@ async function handleDealerTurnAndSettle(
     // active_game を消去し、永続データだけを残す
     delete persistentData.active_game;
     stats.gameData = persistentData;
-    stats.changed('gameData', true);
+    stats.changed("gameData", true);
     await userPoint.save({ transaction: t });
     await stats.save({ transaction: t });
+    // Discordへの返信処理 "より前" に、DBへの変更を確定させる！
     await t.commit(); // ここで全ての変更を確定！
-
+    // --- ここからはトランザクションの外 ---
     // 最終結果のEmbedを生成
     const finalEmbed = new EmbedBuilder()
       .setTitle("決着！")
@@ -1188,26 +1189,43 @@ async function handleDealerTurnAndSettle(
     });
     finalEmbed.setDescription(bonusMessage);
     finalEmbed.setFooter({ text: `所持コイン: ${userPoint.coin}` });
-
-    // interaction.editReply が使えるかチェック
-    if (interaction.editReply) {
-      await interaction.editReply({ embeds: [finalEmbed], components: [] });
-    } else {
-      // タイムアウト時は、新しいメッセージとして結果を送信
-      await interaction.channel.send({ embeds: [finalEmbed] });
+    // ▼▼▼ Discordへの返信処理だけを、独立した try-catch で囲む ▼▼▼
+    try {
+      if (interaction.editReply) {
+        await interaction.editReply({ embeds: [finalEmbed], components: [] });
+      } else {
+        await interaction.channel.send({ embeds: [finalEmbed] });
+      }
+    } catch (replyError) {
+      console.error("BJ決着後の返信でエラー:", replyError);
+      // DBは正常に更新されているので、ここではエラーをログに出すだけで握りつぶす。
+      // フォールバックとして、新しいメッセージで結果を通知する試み。
+      await interaction.channel
+        .send({
+          content: `<@${userId}>さんのブラックジャックのゲームが完了しました。`,
+          embeds: [finalEmbed],
+        })
+        .catch((finalErr) =>
+          console.error("BJ決着後のフォールバック送信にも失敗:", finalErr)
+        );
     }
-  } catch (error) {
-    await t.rollback();
-    console.error("BJ決着処理エラー:", error);
-    // エラーが発生した場合、ユーザーに通知
-    if (interaction.editReply) {
+  } catch (dbError) {
+    // ▼▼▼ このcatchブロックは、DB操作が失敗した場合にのみ実行される ▼▼▼
+    console.error("BJ決着処理中のDBエラー:", dbError);
+    // トランザクションがまだ終わっていなければロールバックを試みる
+    if (t && !t.finished) {
+      await t.rollback();
+    }
+
+    // ユーザーにDBエラーを通知
+    try {
       await interaction.editReply({
-        content: "ゲームの決着処理中にエラーが発生しました。",
+        content: "ゲームの決着処理中にデータベースエラーが発生しました。",
         components: [],
       });
-    } else {
+    } catch (replyError) {
       await interaction.channel.send({
-        content: `<@${userId}> ゲームの決着処理中にエラーが発生しました。`,
+        content: `<@${userId}> ゲームの決着処理中にデータベースエラーが発生しました。`,
       });
     }
   }
