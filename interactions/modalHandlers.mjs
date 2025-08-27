@@ -6,17 +6,23 @@ import {
   ButtonStyle,
 } from "discord.js";
 import config from "../config.mjs";
-import { replytoDM, replyfromDM, createRpDeleteRequestButton  } from "../components/buttons.mjs";
-//RP機能周り
+import {
+  replytoDM,
+  replyfromDM,
+  createRpDeleteRequestButton,
+} from "../components/buttons.mjs";
+//RP機能周りimport
 import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
-import { Character, Icon} from "../models/database.mjs";
+import { Character, Icon, sequelize, Point } from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 //RP周りここまで
 
 export default async function handleModalInteraction(interaction) {
   //モーダル
+  //DMやり取り系
   const DMregex = /^admin_replytoDM_submit-(\d+)$/;
   const DMmatch = interaction.customId.match(DMregex);
+
   //管理人室とやりとり（ユーザー→モデレーター)
   if (interaction.customId == "admin_replyfromDM_submit") {
     const content = interaction.fields.getTextInputValue("message");
@@ -185,7 +191,7 @@ export default async function handleModalInteraction(interaction) {
         });
       }
 
-       const postedMessage = await sendWebhookAsCharacter(
+      const postedMessage = await sendWebhookAsCharacter(
         interaction,
         loadchara,
         loadicon,
@@ -207,6 +213,57 @@ export default async function handleModalInteraction(interaction) {
       console.error("Modalからのメッセージ送信に失敗しました:", error);
       await interaction.editReply({ content: `エラーが発生しました。` });
     }
+    //両替
+  } else if (
+    interaction.customId === "exchange_points_submit" ||
+    interaction.customId === "exchange_acorns_submit"
+  ) {
+    const amountStr = interaction.fields.getTextInputValue("amount_input");
+    const amount = parseInt(amountStr, 10);
+
+    if (isNaN(amount) || amount <= 0) {
+      return interaction.reply({
+        content: "有効な数値を入力してください。",
+        ephemeral: true,
+      });
+    }
+
+    try {
+      const resultMessage = await sequelize.transaction(async (t) => {
+        const [user] = await Point.findOrCreate({
+          where: { userId: interaction.user.id },
+          transaction: t,
+        });
+
+        if (interaction.customId === "exchange_points_submit") {
+          if (user.point < amount)
+            throw new Error("所持しているRPが足りません！");
+          const coinsGained = amount * 20; //1RP20coin
+          user.point -= amount;
+          user.coin += coinsGained;
+          await user.save({ transaction: t });
+          return `💎 RP **${amount}** を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
+        } else if (interaction.customId === "exchange_acorns_submit") {
+          if (user.acorn < amount)
+            throw new Error("所持しているどんぐりが足りません！");
+          const coinsGained = amount * 100; //1acorn 100coin
+          user.acorn -= amount;
+          user.coin += coinsGained;
+          await user.save({ transaction: t });
+          return `🐿️ どんぐり **${amount}** 個を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
+        }
+      });
+      await interaction.reply({
+        content: `✅ **両替成功！**\n${resultMessage}`,
+        ephemeral: true,
+      });
+    } catch (error) {
+      await interaction.reply({
+        content: `❌ **エラー**\n${error.message}`,
+        ephemeral: true,
+      });
+    }
+    return; // 処理が終わったので、ここで関数を抜ける
   } else {
     //モーダルが不明のとき
     return;

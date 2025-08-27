@@ -15,10 +15,25 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const data = new SlashCommandBuilder()
   .setName("casino")
   .setDescription("ニョワコインで遊べるカジノです。")
+  //スロット1号機
   .addSubcommand((subcommand) =>
     subcommand
       .setName("slots")
-      .setDescription("【1号機】一攫千金を夢見る最凶のスロットマシン")
+      .setDescription("【スロット1号機】一攫千金を夢見る最凶のマシン")
+      .addIntegerOption((option) =>
+        option
+          .setName("bet")
+          .setDescription("賭けるコインの枚数(1-20)")
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(20)
+      )
+  )
+  //スロット２号機
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("slots_easy")
+      .setDescription("【2号機】当たりやすい安全設計のマシン")
       .addIntegerOption((option) =>
         option
           .setName("bet")
@@ -30,17 +45,10 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("slots_easy")
-      .setDescription("【2号機】当たりやすい安全設計のスロットマシン")
-      .addIntegerOption((option) =>
-        option
-          .setName("bet")
-          .setDescription("賭けるコインの枚数(1-20)")
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(20)
-      )
+      .setName("balance")
+      .setDescription("コインや他の通貨を確認したり両替できます")
   );
+
 // --- コマンド実行部分 ---
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -49,6 +57,8 @@ export async function execute(interaction) {
     await handleSlots(interaction, config.casino.slot);
   } else if (subcommand === "slots_easy") {
     await handleSlots(interaction, config.casino.slot_lowrisk);
+  } else if (subcommand === "balance") {
+    await handleBalance(interaction);
   }
 }
 
@@ -234,7 +244,9 @@ async function handleSlots(interaction, slotConfig) {
           let payoutsText = `**${slotConfig.displayname} 役の一覧**\n\n`;
           for (const prize of slotConfig.payouts) {
             // display があれば表示し、なければ名前にする
-            const displayEmoji = prize.display ? `${prize.display} ` : `${prize.name}`;
+            const displayEmoji = prize.display
+              ? `${prize.display} `
+              : `${prize.name}`;
             payoutsText += `**${displayEmoji}**: ${prize.payout}倍\n`;
           }
 
@@ -329,4 +341,76 @@ function getSlotPrize(result, slotConfig) {
   }
   // どの役にも当てはまらない場合
   return { prizeId: "none", prizeName: "ハズレ...", payout: 0 };
+}
+
+//balance
+async function handleBalance(interaction) {
+  const userId = interaction.user.id;
+  try {
+    const [user] = await Point.findOrCreate({ where: { userId } });
+
+    const embed = new EmbedBuilder()
+      .setTitle(`👛 ${interaction.user.username} さんの財布`)
+      .setColor("#FEE75C")
+      .addFields(
+        { name: "💎 Roleplay Point", value: `**${user.point}**RP`, inline: false },
+        { name: "🐿️ あまやどんぐり", value: `**${user.acorn}**個`, inline: false },
+        { name: `${config.nyowacoin} ニョワコイン`, value: `**${user.coin}**枚`, inline: false }
+      )
+      .setTimestamp();
+
+    const buttons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("exchange_points_modal")
+        .setLabel("1RP -> 20ｺｲﾝ")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("exchange_acorns_modal")
+        .setLabel("1どんぐり -> 100ｺｲﾝ")
+        .setStyle(ButtonStyle.Success)
+    );
+    
+    // ephemeral: true で本人にだけ表示する
+    const message = await interaction.reply({ embeds: [embed], components: [buttons], ephemeral: true });
+    
+    // Modalを呼び出すためのコレクター
+    const collector = message.createMessageComponentCollector({
+      filter: i => i.user.id === userId,
+      time: 60_000, // 60秒間操作を待つ
+    });
+
+    collector.on('collect', async i => {
+      // どのボタンが押されたかで、表示するModalを切り替える
+      const modal = new ModalBuilder();
+      const amountInput = new TextInputBuilder()
+        .setCustomId('amount_input')
+        .setLabel("両替したい量")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+      if (i.customId === 'exchange_points_modal') {
+        modal.setCustomId('exchange_points_submit').setTitle('RP → コイン');
+        amountInput.setPlaceholder('例: 10');
+      } else if (i.customId === 'exchange_acorns_modal') {
+        modal.setCustomId('exchange_acorns_submit').setTitle('どんぐり → コイン');
+        amountInput.setPlaceholder('例: 5');
+      }
+
+      modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+      await i.showModal(modal);
+      
+      // Modalを表示したら、コレクターの役目は終わり
+      collector.stop();
+    });
+
+    collector.on('end', () => {
+      // タイムアウトしたらボタンを無効化
+      buttons.components.forEach(btn => btn.setDisabled(true));
+      interaction.editReply({ components: [buttons] }).catch(()=>{});
+    });
+
+  } catch (error) {
+    console.error("残高の取得中にエラー:", error);
+    await interaction.reply({ content: "残高の取得に失敗しました。", ephemeral: true });
+  }
 }
