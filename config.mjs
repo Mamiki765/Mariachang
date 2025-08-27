@@ -284,7 +284,8 @@ export default {
           name: "ココロー！",
           payout: 38,
           pattern: ["bell", "bell", "bell2"],
-          display: "<:katakana_ko:1265165857445908542><:katakana_ko:1265165857445908542><:katakana_ro:1265166237399388242>",
+          display:
+            "<:katakana_ko:1265165857445908542><:katakana_ko:1265165857445908542><:katakana_ro:1265166237399388242>",
         },
         {
           id: "lemon3",
@@ -324,6 +325,27 @@ export default {
           display: "🍒",
         }, // 賭け金が戻ってくる役
       ],
+    },
+    blackjack: {
+      gameName: "blackjack",
+      displayName: "ブラックジャック",
+      rules: {
+        deck_count: 6,
+        dealer_stands_on_soft_17: true,
+        double_after_split: true,
+        double_on_any_two: true, // "9-11のみ" or "10-11のみ" にしたければ false にして別途処理
+        resplit_limit: 4, // 最大4ハンドまで
+        resplit_aces: false,
+        hit_split_aces: false,
+        late_surrender: true,
+        blackjack_payout: 1.5, // 3:2 payout (ボーナスなので賭け金の1.5倍)
+        bonus_payout: 1.0, // 2連BJボーナス
+      },
+      betting: {
+        min: 2,
+        max: 40,
+        increment: 2, // 2枚単位
+      },
     },
   },
 };
