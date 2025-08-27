@@ -89,8 +89,8 @@ async function handleSlots(interaction, slotConfig) {
 
       if (!userPoint || userPoint.coin < betAmount) {
         const message = isFirstPlay
-          ? `コインが足りません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚`
-          : `コインが足りなくなったため、ゲームを終了します。\n-# /exchange(経済) transferでどんぐりやRPをコインに交換できます。`;
+          ? `コインが足りません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚\n-# /casino balanceでどんぐりやRPをコインに交換できます。`
+          : `コインが足りなくなったため、ゲームを終了します。\n-# /casino balanceでどんぐりやRPをコインに交換できます。`;
         await interaction.editReply({
           content: message,
           embeds: [],
