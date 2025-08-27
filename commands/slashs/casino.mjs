@@ -688,7 +688,13 @@ async function startInteractionCollector(message, interaction, bjConfig) {
         stats.totalBet =
           BigInt(stats.totalBet.toString()) + BigInt(additionalBet);
         currentHand.cards.push(activeGame.deck.pop());
-        currentHand.status = "doubled"; // 'doubled'という特別な状態にする（実質スタンドと同じ）
+        // ダブルダウンでカードを引いた後、バーストしていないかチェックする
+        const handValue = getHandValue(currentHand.cards).value;
+        if (handValue > 21) {
+          currentHand.status = "busted"; // バースト！
+        } else {
+          currentHand.status = "doubled"; // バーストしていなければ、スタンドと同じ状態にする
+        }
 
         await userPoint.save({ transaction: t });
       } else if (i.customId === "bj_split") {
