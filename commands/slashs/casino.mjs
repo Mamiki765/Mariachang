@@ -77,7 +77,7 @@ async function handleSlots(interaction, slotConfig) {
       if (!userPoint || userPoint.coin < betAmount) {
         const message = isFirstPlay
           ? `コインが足りません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚`
-          : `コインが足りなくなったため、ゲームを終了します。`;
+          : `コインが足りなくなったため、ゲームを終了します。\n-# /exchange(経済) transferでどんぐりやRPをコインに交換できます。`;
         await interaction.editReply({
           content: message,
           embeds: [],
@@ -220,8 +220,8 @@ async function handleSlots(interaction, slotConfig) {
       });
 
       collector.on("collect", async (i) => {
-        collector.stop();
         if (i.customId === "spin_again") {
+          collector.stop();
           await i.deferUpdate();
           if ((await gameLoop(false)) === "end_game") {
             buttons.components.forEach((btn) => btn.setDisabled(true));
@@ -246,6 +246,7 @@ async function handleSlots(interaction, slotConfig) {
         } else {
           buttons.components.forEach((btn) => btn.setDisabled(true));
           await i.update({ components: [buttons] });
+          collector.stop();
         }
       });
 
