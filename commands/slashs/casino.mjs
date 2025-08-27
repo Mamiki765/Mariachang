@@ -52,7 +52,7 @@ export const data = new SlashCommandBuilder()
       .setDescription("コインや他の通貨を確認したり両替できます")
   )
   //ブラックジャック
-  .addSubcommand((subcommand) =>
+/*  .addSubcommand((subcommand) =>
     subcommand
       .setName("blackjack")
       .setDescription("マリアとブラックジャックで勝負！")
@@ -66,7 +66,7 @@ export const data = new SlashCommandBuilder()
           .setMaxValue(config.casino.blackjack.betting.max)
           .setRequired(true)
       )
-  );
+  )*/;
 
 // --- コマンド実行部分 ---
 export async function execute(interaction) {
