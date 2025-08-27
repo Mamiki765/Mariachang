@@ -204,6 +204,7 @@ async function handleSlots(interaction, slotConfig) {
         const currentData = stats.gameData; // 既存のデータを読み込む
         currentData.wins_777 = (currentData.wins_777 || 0) + 1; // カウンターを+1
         stats.gameData = currentData; // 更新したデータをセットし直す
+        stats.changed("gameData", true);
       }
 
       await userPoint.save({ transaction: t });
@@ -539,12 +540,13 @@ async function handleBlackjack(interaction) {
       persistentData.active_game = activeGame;
       stats.gameData = persistentData;
       stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount);
+      stats.changed("gameData", true); //jsonの更新を通知
 
       await userPoint.save({ transaction: t });
       await stats.save({ transaction: t });
 
       // 初手でBJか判定
-      const playerValue = getHandValue(activeGame.playerHands[0].cards); 
+      const playerValue = getHandValue(activeGame.playerHands[0].cards);
       const dealerValue = getHandValue(activeGame.dealerHand);
 
       if (playerValue.value === 21 || dealerValue.value === 21) {
@@ -779,6 +781,7 @@ async function startInteractionCollector(message, interaction, bjConfig) {
       } else {
         // まだプレイヤーのターンが続く（次の手札へ移る、など）
         stats.gameData = gameData; // 変更をセット
+        stats.changed("gameData", true); //jsonの変更を通知
         await stats.save({ transaction: t });
         await t.commit(); // ここで一旦DBに保存
 
@@ -1157,7 +1160,7 @@ async function handleDealerTurnAndSettle(
     // active_game を消去し、永続データだけを残す
     delete persistentData.active_game;
     stats.gameData = persistentData;
-
+    stats.changed('gameData', true);
     await userPoint.save({ transaction: t });
     await stats.save({ transaction: t });
     await t.commit(); // ここで全ての変更を確定！
