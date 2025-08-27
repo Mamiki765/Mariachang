@@ -145,6 +145,9 @@ async function handleSlots(interaction, slotConfig) {
       let description = `# [ ${resultEmojis[0]} | ${resultEmojis[1]} | ${rotateEmoji} ]`;
       // ★ リーチ演出の追加 --- ここから ---
       let lastReelDelay = 1500; // 通常の待機時間
+      if(resultSymbols[0] != resultSymbols[1]){//リーチでないなら待たせない
+        lastReelDelay = 1000;
+      }
       isReach =
         resultSymbols[0] === resultSymbols[1] &&
         (resultSymbols[0] === "7" ||
