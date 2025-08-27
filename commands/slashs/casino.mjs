@@ -56,7 +56,7 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName("blackjack")
       .setDescription(
-        "【デバッグ中さわるな危険】マリアとブラックジャックで勝負！"
+        "マリアとブラックジャックで勝負！"
       )
       .addIntegerOption((option) =>
         option
