@@ -52,10 +52,12 @@ export const data = new SlashCommandBuilder()
       .setDescription("コインや他の通貨を確認したり両替できます")
   )
   //ブラックジャック
-/*  .addSubcommand((subcommand) =>
+  .addSubcommand((subcommand) =>
     subcommand
       .setName("blackjack")
-      .setDescription("マリアとブラックジャックで勝負！")
+      .setDescription(
+        "【デバッグ中さわるな危険】マリアとブラックジャックで勝負！"
+      )
       .addIntegerOption((option) =>
         option
           .setName("bet")
@@ -66,7 +68,7 @@ export const data = new SlashCommandBuilder()
           .setMaxValue(config.casino.blackjack.betting.max)
           .setRequired(true)
       )
-  )*/;
+  );
 
 // --- コマンド実行部分 ---
 export async function execute(interaction) {
@@ -488,89 +490,121 @@ async function handleBlackjack(interaction) {
   }
 
   await interaction.deferReply();
-  const t = await sequelize.transaction();
   try {
-    const [userPoint] = await Point.findOrCreate({
-      where: { userId },
-      transaction: t,
-    });
-    const [stats] = await CasinoStats.findOrCreate({
-      where: { userId, gameName: bjConfig.gameName },
-      transaction: t,
-    });
-
-    if (stats.gameData && stats.gameData.active_game) {
-      await t.rollback(); // トランザクションは不要なので閉じる
-      return interaction.reply({
-        content:
-          "現在進行中のブラックジャックのゲームがあります。まずはそちらを終了させてください。",
-        ephemeral: true,
+    // --- DB操作の実行 ---
+    // DB操作だけを別のtry-catchで囲み、トランザクションの範囲を限定する
+    const t = await sequelize.transaction();
+    try {
+      const userPoint = await Point.findOne({
+        where: { userId },
+        transaction: t,
       });
-    }
-    if (userPoint.coin < betAmount) throw new Error("コインが足りません！");
+      const [stats] = await CasinoStats.findOrCreate({
+        where: { userId, gameName: bjConfig.gameName },
+        transaction: t,
+      });
 
-    // 2. ゲームの初期化
-    userPoint.coin -= betAmount;
-    const deck = createShuffledDeck(bjConfig.rules.deck_count);
+      if (stats.gameData && stats.gameData.active_game) {
+        await t.rollback();
+        return interaction.editReply({
+          content:
+            "現在進行中のブラックジャックのゲームがあります。まずはそちらを終了させてください。",
+        });
+      }
+      if (!userPoint || userPoint.coin < betAmount) {
+        await t.rollback();
+        throw new Error("コインが足りません！");
+      }
 
-    const initialGameData = {
-      deck: deck,
-      playerHands: [
-        { cards: [deck.pop(), deck.pop()], bet: betAmount, status: "playing" },
-      ],
-      dealerHand: [deck.pop(), deck.pop()],
-      currentHandIndex: 0,
-    };
+      // ゲームの初期化
+      userPoint.coin -= betAmount;
+      const deck = createShuffledDeck(bjConfig.rules.deck_count);
 
-    // 3. データベースにゲーム状態を保存
-    const persistentData = stats.gameData || {};
-    persistentData.active_game = initialGameData;
-    stats.gameData = persistentData;
-    stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount); // 先にベット額を加算
+      const initialGameData = {
+        deck: deck,
+        playerHands: [
+          {
+            cards: [deck.pop(), deck.pop()],
+            bet: betAmount,
+            status: "playing",
+          },
+        ],
+        dealerHand: [deck.pop(), deck.pop()],
+        currentHandIndex: 0,
+      };
 
-    await userPoint.save({ transaction: t });
-    await stats.save({ transaction: t });
+      // データベースにゲーム状態を保存
+      const persistentData = stats.gameData || {};
+      persistentData.active_game = initialGameData;
+      stats.gameData = persistentData;
+      stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount);
 
-    // 4. 初回描画
-    const playerValue = getHandValue(initialGameData.playerHands[0].cards);
-    const dealerValue = getHandValue(initialGameData.dealerHand);
+      await userPoint.save({ transaction: t });
+      await stats.save({ transaction: t });
 
-    // 初手でBJか判定
-    if (playerValue.value === 21 || dealerValue.value === 21) {
-      //即座に終了
-      await handleDealerTurnAndSettle(
-        interaction,
-        stats,
-        { active_game: initialGameData },
-        bjConfig,
-        t
-      );
-    } else {
-      // ここで一旦コミットし、トランザクションを完了させる
-      // 通常通りゲーム開始
+      // 初手でBJか判定
+      const playerValue = getHandValue(initialGameData.playerHands[0].cards);
+      const dealerValue = getHandValue(initialGameData.dealerHand);
+
+      if (playerValue.value === 21 || dealerValue.value === 21) {
+        // BJなら、このトランザクションtを使って決着処理を行い、ここで処理を終える
+        // handleDealerTurnAndSettle内でcommitまで行われる
+        await handleDealerTurnAndSettle(
+          interaction,
+          stats,
+          { active_game: initialGameData },
+          bjConfig,
+          t
+        );
+        return; // ★重要: 決着したらここで抜ける
+      }
+
+      // 通常通りゲームが始まるなら、DBへの変更を確定
       await t.commit();
-      const embed = renderGameEmbed(
-        initialGameData,
-        interaction.user,
-        bjConfig
-      );
-      const buttons = createActionButtons(
-        initialGameData.playerHands[0],
-        bjConfig.rules,
-        initialGameData.playerHands.length
-      );
-      const message = await interaction.editReply({
-        embeds: [embed],
-        components: [buttons],
-      });
-
-      // ボタン操作の受付開始
-      await startInteractionCollector(message, interaction, bjConfig);
+    } catch (dbError) {
+      await t.rollback(); // DB操作中にエラーが起きたらロールバック
+      throw dbError; // エラーを外側のcatchに投げる
     }
+
+    // --- ここからはトランザクションの外 ---
+    // DB操作が成功した場合のみ、この部分が実行される
+
+    // 画面描画とボタン操作の待受を開始
+    const latestStats = await CasinoStats.findOne({
+      where: { userId, gameName: bjConfig.gameName },
+    });
+    const activeGame = latestStats.gameData.active_game;
+
+    // ★ 取得したデータを使ってEmbedとButtonを作成
+    const embed = renderGameEmbed(activeGame, interaction.user, bjConfig);
+    const buttons = createActionButtons(
+      activeGame.playerHands[0],
+      bjConfig.rules,
+      activeGame.playerHands.length // playerHands.lengthも正確な値を使う
+    );
+    const message = await interaction.editReply({
+      embeds: [embed],
+      components: [buttons],
+    });
+
+    // ボタン操作の受付開始
+    await startInteractionCollector(message, interaction, bjConfig);
   } catch (error) {
-    await t.rollback();
+    // 全体で発生したエラー（DBエラー含む）をここで最終的に処理する
     console.error("BJ開始エラー:", error);
-    await interaction.editReply({ content: `エラー: ${error.message}` });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction
+        .reply({ content: `エラー: ${error.message}`, ephemeral: true })
+        .catch(() => {});
+    } else {
+      await interaction
+        .editReply({
+          content: `エラー: ${error.message}`,
+          embeds: [],
+          components: [],
+        })
+        .catch(() => {});
+    }
   }
 }
 
@@ -595,7 +629,18 @@ async function startInteractionCollector(message, interaction, bjConfig) {
         where: { userId, gameName: bjConfig.gameName },
         transaction: t,
       });
-      let gameData = stats.gameData;
+      const gameData = stats.gameData || {}; // gameDataがnullの場合も考慮
+      // 進行中のゲームが存在しない場合は、ボタンを押したユーザーに通知して処理を安全に中断する
+      if (!gameData.active_game) {
+        await t.rollback(); // トランザクションは何もしていないので閉じる
+        await i.editReply({
+          content: "このゲームは既に終了しています。",
+          embeds: [],
+          components: [],
+        });
+        collector.stop(); // コレクターを停止して、これ以上ボタンを押せなくする
+        return; // ここで処理を終了！
+      }
       let activeGame = gameData.active_game;
       let currentHand = activeGame.playerHands[activeGame.currentHandIndex];
 
@@ -643,7 +688,8 @@ async function startInteractionCollector(message, interaction, bjConfig) {
         // 2. 追加ベットを行い、カードを1枚だけ引く
         userPoint.coin -= additionalBet;
         currentHand.bet += additionalBet;
-        stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(additionalBet);
+        stats.totalBet =
+          BigInt(stats.totalBet.toString()) + BigInt(additionalBet);
         currentHand.cards.push(activeGame.deck.pop());
         currentHand.status = "doubled"; // 'doubled'という特別な状態にする（実質スタンドと同じ）
 
@@ -676,13 +722,14 @@ async function startInteractionCollector(message, interaction, bjConfig) {
 
         // 2. 手札を2つに分割する
         userPoint.coin -= additionalBet;
-        stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(additionalBet);
+        stats.totalBet =
+          BigInt(stats.totalBet.toString()) + BigInt(additionalBet);
         const cardToMove = currentHand.cards.pop();
         const newHand = {
           cards: [cardToMove],
           bet: additionalBet,
           status: "playing",
-          isSplitHand: true,//スプリットしたものはBJにならない
+          isSplitHand: true, //スプリットしたものはBJにならない
         };
         currentHand.isSplitHand = true;
 
@@ -1024,7 +1071,10 @@ async function handleDealerTurnAndSettle(
 
     for (const playerHand of activeGame.playerHands) {
       const handValue = getHandValue(playerHand.cards).value;
-      const playerHasBJ = handValue === 21 && playerHand.cards.length === 2 && !playerHand.isSplitHand;
+      const playerHasBJ =
+        handValue === 21 &&
+        playerHand.cards.length === 2 &&
+        !playerHand.isSplitHand;
       let payout = 0;
       let resultText = "";
       if (playerHasBJ && dealerHasBJ) {
@@ -1136,7 +1186,7 @@ async function handleDealerTurnAndSettle(
     });
     finalEmbed.addFields({
       name: "ディーラー",
-       value: `${formatCards(dealerHand)} \`(${getHandValue(dealerHand).value})\``,
+      value: `${formatCards(dealerHand)} \`(${getHandValue(dealerHand).value})\``,
     });
     finalEmbed.setDescription(bonusMessage);
     finalEmbed.setFooter({ text: `所持コイン: ${userPoint.coin}` });
