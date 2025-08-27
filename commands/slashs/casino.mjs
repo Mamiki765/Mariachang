@@ -1141,11 +1141,11 @@ async function handleDealerTurnAndSettle(
         const bonusPayout =
           activeGame.playerHands[0].bet * bjConfig.rules.bonus_payout;
         totalPayout += bonusPayout;
-        bonusMessage = `\n\n:tada: **連続BJボーナス！ +${bonusPayout}コイン！** :tada:`;
+        bonusMessage = `\n\n「2連続でブラックジャックとは恐れいるにゃ…マリアは約束は守るにゃ、もってけドロボーにゃ！」\n+${bonusPayout}コイン！`;
         delete persistentData.last_bj_info;
       } else {
         // ★★★ 初回BJ！ ★★★
-        bonusMessage = `\n\n:zap: 次も**同額ベットでBJ**ならボーナス！ :zap:`;
+        bonusMessage = `\n\n「へえ、運がいいのにゃあ。でももう一回それができるかにゃあ？ できたらご褒美にゃよ\n ……だからって掛け金変えたらダメだからにゃ？」`;
         persistentData.last_bj_info = {
           eligible: true,
           betAmount: activeGame.playerHands[0].bet,
