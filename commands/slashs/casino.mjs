@@ -491,6 +491,7 @@ async function handleBlackjack(interaction) {
 
   await interaction.deferReply();
   try {
+    let activeGame;
     // --- DB操作の実行 ---
     // DB操作だけを別のtry-catchで囲み、トランザクションの範囲を限定する
     const t = await sequelize.transaction();
@@ -520,7 +521,7 @@ async function handleBlackjack(interaction) {
       userPoint.coin -= betAmount;
       const deck = createShuffledDeck(bjConfig.rules.deck_count);
 
-      const initialGameData = {
+      activeGame = {
         deck: deck,
         playerHands: [
           {
@@ -533,9 +534,9 @@ async function handleBlackjack(interaction) {
         currentHandIndex: 0,
       };
 
-      // データベースにゲーム状態を保存
+      // データベースにゲーム状態を保存 (initialGameData を activeGame に変更)
       const persistentData = stats.gameData || {};
-      persistentData.active_game = initialGameData;
+      persistentData.active_game = activeGame;
       stats.gameData = persistentData;
       stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount);
 
@@ -543,8 +544,8 @@ async function handleBlackjack(interaction) {
       await stats.save({ transaction: t });
 
       // 初手でBJか判定
-      const playerValue = getHandValue(initialGameData.playerHands[0].cards);
-      const dealerValue = getHandValue(initialGameData.dealerHand);
+      const playerValue = getHandValue(activeGame.playerHands[0].cards); 
+      const dealerValue = getHandValue(activeGame.dealerHand);
 
       if (playerValue.value === 21 || dealerValue.value === 21) {
         // BJなら、このトランザクションtを使って決着処理を行い、ここで処理を終える
@@ -552,7 +553,7 @@ async function handleBlackjack(interaction) {
         await handleDealerTurnAndSettle(
           interaction,
           stats,
-          { active_game: initialGameData },
+          { active_game: activeGame },
           bjConfig,
           t
         );
@@ -569,18 +570,12 @@ async function handleBlackjack(interaction) {
     // --- ここからはトランザクションの外 ---
     // DB操作が成功した場合のみ、この部分が実行される
 
-    // 画面描画とボタン操作の待受を開始
-    const latestStats = await CasinoStats.findOne({
-      where: { userId, gameName: bjConfig.gameName },
-    });
-    const activeGame = latestStats.gameData.active_game;
-
-    // ★ 取得したデータを使ってEmbedとButtonを作成
+    // メモリ上にある最新の activeGame を使ってEmbedとButtonを作成
     const embed = renderGameEmbed(activeGame, interaction.user, bjConfig);
     const buttons = createActionButtons(
       activeGame.playerHands[0],
       bjConfig.rules,
-      activeGame.playerHands.length // playerHands.lengthも正確な値を使う
+      activeGame.playerHands.length
     );
     const message = await interaction.editReply({
       embeds: [embed],
