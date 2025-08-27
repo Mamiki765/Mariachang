@@ -5,6 +5,9 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 import { Point, CasinoStats, sequelize } from "../../models/database.mjs";
 import config from "../../config.mjs";
@@ -353,9 +356,21 @@ async function handleBalance(interaction) {
       .setTitle(`👛 ${interaction.user.username} さんの財布`)
       .setColor("#FEE75C")
       .addFields(
-        { name: "💎 Roleplay Point", value: `**${user.point}**RP`, inline: false },
-        { name: "🐿️ あまやどんぐり", value: `**${user.acorn}**個`, inline: false },
-        { name: `${config.nyowacoin} ニョワコイン`, value: `**${user.coin}**枚`, inline: false }
+        {
+          name: "💎 Roleplay Point",
+          value: `**${user.point}**RP (累計${user.totalpoint})`,
+          inline: false,
+        },
+        {
+          name: "🐿️ あまやどんぐり",
+          value: `**${user.acorn}**個 (累計${user.totalacorn})`,
+          inline: false,
+        },
+        {
+          name: `${config.nyowacoin} ニョワコイン`,
+          value: `**${user.coin}**枚`,
+          inline: false,
+        }
       )
       .setTimestamp();
 
@@ -369,48 +384,56 @@ async function handleBalance(interaction) {
         .setLabel("1どんぐり -> 100ｺｲﾝ")
         .setStyle(ButtonStyle.Success)
     );
-    
+
     // ephemeral: true で本人にだけ表示する
-    const message = await interaction.reply({ embeds: [embed], components: [buttons], ephemeral: true });
-    
+    const message = await interaction.reply({
+      embeds: [embed],
+      components: [buttons],
+      flags: 64,
+    });
+
     // Modalを呼び出すためのコレクター
     const collector = message.createMessageComponentCollector({
-      filter: i => i.user.id === userId,
+      filter: (i) => i.user.id === userId,
       time: 60_000, // 60秒間操作を待つ
     });
 
-    collector.on('collect', async i => {
+    collector.on("collect", async (i) => {
       // どのボタンが押されたかで、表示するModalを切り替える
       const modal = new ModalBuilder();
       const amountInput = new TextInputBuilder()
-        .setCustomId('amount_input')
+        .setCustomId("amount_input")
         .setLabel("両替したい量")
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
-      if (i.customId === 'exchange_points_modal') {
-        modal.setCustomId('exchange_points_submit').setTitle('RP → コイン');
-        amountInput.setPlaceholder('例: 10');
-      } else if (i.customId === 'exchange_acorns_modal') {
-        modal.setCustomId('exchange_acorns_submit').setTitle('どんぐり → コイン');
-        amountInput.setPlaceholder('例: 5');
+      if (i.customId === "exchange_points_modal") {
+        modal.setCustomId("exchange_points_submit").setTitle("RP → コイン");
+        amountInput.setPlaceholder("例: 10");
+      } else if (i.customId === "exchange_acorns_modal") {
+        modal
+          .setCustomId("exchange_acorns_submit")
+          .setTitle("どんぐり → コイン");
+        amountInput.setPlaceholder("例: 5");
       }
 
       modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
       await i.showModal(modal);
-      
+
       // Modalを表示したら、コレクターの役目は終わり
       collector.stop();
     });
 
-    collector.on('end', () => {
+    collector.on("end", () => {
       // タイムアウトしたらボタンを無効化
-      buttons.components.forEach(btn => btn.setDisabled(true));
-      interaction.editReply({ components: [buttons] }).catch(()=>{});
+      buttons.components.forEach((btn) => btn.setDisabled(true));
+      interaction.editReply({ components: [buttons] }).catch(() => {});
     });
-
   } catch (error) {
     console.error("残高の取得中にエラー:", error);
-    await interaction.reply({ content: "残高の取得に失敗しました。", ephemeral: true });
+    await interaction.reply({
+      content: "残高の取得に失敗しました。",
+      ephemeral: true,
+    });
   }
 }
