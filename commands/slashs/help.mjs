@@ -152,7 +152,7 @@ export async function execute(interaction) {
     },
     context: {
       title: "コンテキストメニュー",
-      description: "メッセージを右クリック/長押しで使えます。",
+      description: "メッセージを右クリック/長押し→アプリで使えるコマンドです。",
     },
     chat: {
       title: "チャットコマンド",
