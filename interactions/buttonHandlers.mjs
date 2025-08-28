@@ -247,13 +247,13 @@ export default async function handleButtonInteraction(interaction) {
         // 0, 1, 2のいずれかがランダムで生成され、0なら当たり（1/3の確率）
         // 3. 1〜9枚のコインを計算
         coinsAdded = Math.floor(Math.random() * 9) + 2; // 2〜10のランダムな整数
-        }
-        // 4. 更新データにコインの加算処理を追加
-        updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
+      }
+      // 4. 更新データにコインの加算処理を追加
+      updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
 
-        // 5. ユーザーへの通知メッセージを作成
-        bonusMessage = `\n${config.nyowacoin}も**${coinsAdded}枚**落ちていたので拾いました✨`;
-      
+      // 5. ユーザーへの通知メッセージを作成
+      bonusMessage = `\n${config.nyowacoin}も**${coinsAdded}枚**落ちていたので拾いました✨`;
+
       // 6. データベースを更新
       await pointEntry.update(updateData);
       // update()は更新内容を返さないため、reload()で最新の状態を取得します。

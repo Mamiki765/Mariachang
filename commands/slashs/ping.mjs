@@ -11,9 +11,10 @@ import process from "process";
 import { deletebuttonanyone } from "../../components/buttons.mjs";
 
 export const help = {
-  category: "slash", 
+  category: "slash",
   description: "ぽんにゃ！",
-  notes: "Botの生存状態を簡易的に確認します、ついでにレイテンシと詳細なステータス情報を表示します。",
+  notes:
+    "Botの生存状態を簡易的に確認します、ついでにレイテンシと詳細なステータス情報を表示します。",
 };
 
 function formatUptime(seconds) {

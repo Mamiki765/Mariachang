@@ -6,11 +6,12 @@ import {
 // import { PermissionsBitField} from "discord.js";
 import { deletebuttonanyone } from "../../components/buttons.mjs";
 
-  export const help = {
-    category: 'context',
-    description: '神谷マリアが選択したメッセージをコピーしてDMに送信します。',
-    notes: '特に記憶に残しておきたいやつを備忘録代わりに使ったりするなどの用途にどうぞ\nサーバーメンバーからのDMを受け取るをONにしないとエラーになります。'
-  };
+export const help = {
+  category: "context",
+  description: "神谷マリアが選択したメッセージをコピーしてDMに送信します。",
+  notes:
+    "特に記憶に残しておきたいやつを備忘録代わりに使ったりするなどの用途にどうぞ\nサーバーメンバーからのDMを受け取るをONにしないとエラーになります。",
+};
 
 export const data = new ContextMenuCommandBuilder()
   .setName("DMにメッセージをコピー")

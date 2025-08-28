@@ -12,9 +12,10 @@ import {
 import { chatHelpData } from "../../help/chat_help_data.mjs";
 
 export const help = {
-  category: 'slash',
-  description: 'Botに搭載されている、全てのコマンドの機能や使い方を説明します。',
-  notes: '今まさに、あなたが見ているこのコマンドですにゃ！'
+  category: "slash",
+  description:
+    "Botに搭載されている、全てのコマンドの機能や使い方を説明します。",
+  notes: "今まさに、あなたが見ているこのコマンドですにゃ！",
 };
 
 export const data = new SlashCommandBuilder()

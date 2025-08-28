@@ -1,10 +1,10 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 
-  export const help = {
-    category: 'slash', 
-    description: 'ダイスを振れます。補正値(+10など)もかけれます',
-    notes: '最大100個、面数は2,147,483,647までです。'
-  };
+export const help = {
+  category: "slash",
+  description: "ダイスを振れます。補正値(+10など)もかけれます",
+  notes: "最大100個、面数は2,147,483,647までです。",
+};
 
 export const data = new SlashCommandBuilder()
   .setName("dice")

@@ -371,7 +371,8 @@ const CasinoStats = sequelize.define(
       type: DataTypes.BIGINT,
       defaultValue: 0,
     },
-    gameData: {//各カジノに合わせたデータをjsonで保存する
+    gameData: {
+      //各カジノに合わせたデータをjsonで保存する
       type: DataTypes.JSONB,
       allowNull: false,
       defaultValue: {}, // デフォルト値を空のオブジェクトに

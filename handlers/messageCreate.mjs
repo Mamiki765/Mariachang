@@ -560,7 +560,7 @@ export default async (message) => {
     }
     const fileUrls = message.attachments.map((attachment) => attachment.url);
     await sendMessage(message, updatedMessage, fileUrls, null, 4096);
-    await safeDelete(message); //元メッセージは消す 
+    await safeDelete(message); //元メッセージは消す
     // 250814、message.delete()だと多重Deploy時にエラーが出るので置き換え
   }
   //メッセージから内容チラ見せ

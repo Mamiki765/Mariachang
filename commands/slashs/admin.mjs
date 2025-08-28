@@ -11,9 +11,10 @@ import { checkNewScenarios } from "../../tasks/scenario-checker.mjs";
 import { checkAtelierCards } from "../../tasks/atelier-checker.mjs";
 
 export const scope = "guild"; // 指定ギルドでのみ使用可
-  export const help = {//ヘルプは不要
-    adminOnly: true
-  };
+export const help = {
+  //ヘルプは不要
+  adminOnly: true,
+};
 
 export const data = new SlashCommandBuilder()
   .setName("admin")

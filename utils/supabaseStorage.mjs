@@ -80,7 +80,7 @@ async function deleteFile(filePath) {
  * @param {string} directoryName - 探索を開始するパス (例: 'stickers')
  * @returns {Promise<number>} ディレクトリの合計サイズ (バイト単位)
  */
-async function getDirectorySize(directoryName = '') {
+async function getDirectorySize(directoryName = "") {
   try {
     // Supabaseに、指定されたディレクトリのファイル一覧を要求
     const { data: files, error } = await supabase.storage
@@ -108,7 +108,9 @@ async function getDirectorySize(directoryName = '') {
       } else {
         // ★ これは「フォルダ」なので、再帰的に自分自身を呼び出し、
         //    その中の合計サイズを取得して、加算する！
-        const subfolderPath = directoryName ? `${directoryName}/${file.name}` : file.name; // フォルダのパスを作成
+        const subfolderPath = directoryName
+          ? `${directoryName}/${file.name}`
+          : file.name; // フォルダのパスを作成
         const subfolderSize = await getDirectorySize(subfolderPath);
 
         if (subfolderSize !== -1) {
@@ -116,15 +118,12 @@ async function getDirectorySize(directoryName = '') {
         }
       }
     }
-    
-    return totalSize;
 
+    return totalSize;
   } catch (e) {
     console.error(`ディレクトリサイズ計算中に例外発生 (${directoryName}):`, e);
     return -1;
   }
 }
-
-
 
 export { uploadFile, deleteFile, getDirectorySize };

@@ -121,7 +121,7 @@ export async function checkAtelierCards(client) {
       // 0枚でもログを残してから終了する
       await supabase.from("task_logs").upsert({
         task_name: "atelier-checker",
-        last_successful_run: new Date().toISOString(), 
+        last_successful_run: new Date().toISOString(),
       });
       console.log(
         "[rev2エクストラカード]現在、予約期間中のアトリエカードはありませんでした。"

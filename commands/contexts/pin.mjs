@@ -11,8 +11,7 @@ export const data = new ContextMenuCommandBuilder()
 export const help = {
   category: "context",
   description: "ピン留めができます。すでにピン留めがされていたら解除します。",
-  notes:
-    "上限(1チャンネル最大250)に引っかかったらエラーが出ます。",
+  notes: "上限(1チャンネル最大250)に引っかかったらエラーが出ます。",
 };
 
 export async function execute(interaction) {

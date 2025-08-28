@@ -8,9 +8,11 @@ import {
 import { selftimeout_check } from "../../components/buttons.mjs";
 
 export const help = {
-  category: 'slash',
-  description: '依存防止機能。発言やリアクションを禁じて作業や睡眠に集中するなどご自由にどうぞ',
-  notes: '1~720分(12時間)まで指定できます。**__解除はしないので使用は自己責任で__**'
+  category: "slash",
+  description:
+    "依存防止機能。発言やリアクションを禁じて作業や睡眠に集中するなどご自由にどうぞ",
+  notes:
+    "1~720分(12時間)まで指定できます。**__解除はしないので使用は自己責任で__**",
 };
 
 export const data = new SlashCommandBuilder()

@@ -3,18 +3,19 @@ import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import axios from "axios";
 
 export const help = {
-  category: 'slash',
-  description: '現実世界の主要通貨の為替レートを表示します。(対JPY)',
-  notes: '米ドル、ユーロ、英ポンド、豪ドル、NZドル、カナダドル、\nスイスフラン、トルコリラ、南アフリカランド、メキシコペソ、RC、☆(!?)'
+  category: "slash",
+  description: "現実世界の主要通貨の為替レートを表示します。(対JPY)",
+  notes:
+    "米ドル、ユーロ、英ポンド、豪ドル、NZドル、カナダドル、\nスイスフラン、トルコリラ、南アフリカランド、メキシコペソ、RC、☆(!?)",
 };
 
 export const data = new SlashCommandBuilder()
   .setName("exchange")
-  .setNameLocalizations({ ja: "為替" }) 
-  .setDescription("現実世界の主要通貨の為替レートを表示します。(対JPY)")
+  .setNameLocalizations({ ja: "為替" })
+  .setDescription("現実世界の主要通貨の為替レートを表示します。(対JPY)");
 
-  // サブコマンド: forex (為替)
-  /*
+// サブコマンド: forex (為替)
+/*
   .addSubcommand((subcommand) =>
     subcommand
       .setName("forex")
@@ -27,8 +28,8 @@ export async function execute(interaction) {
   //const subcommandGroup = interaction.options.getSubcommandGroup();
   //為替を見る
   //if (subcommand === "forex") {
-    await interaction.deferReply({});
-    await executeForex(interaction);
+  await interaction.deferReply({});
+  await executeForex(interaction);
   //}
 }
 

@@ -1,21 +1,21 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import fs from "fs";
 
-  export const help = {
-    category: 'slash',
-    subcommands: [
-      {
-        name: 'ppp', 
-        description: 'PPP闇市シミュレーター',
-        notes: '初期に作った名残。前作rev1のガチャのレアリティに合わせています'
-      },
-      {
-        name: 'laplace', 
-        description: 'ロスアカラプラスシミュレーター',
-        notes: '初期に作った名残。今作rev2のガチャのレアリティに合わせていますす'
-      }
-    ]
-  };
+export const help = {
+  category: "slash",
+  subcommands: [
+    {
+      name: "ppp",
+      description: "PPP闇市シミュレーター",
+      notes: "初期に作った名残。前作rev1のガチャのレアリティに合わせています",
+    },
+    {
+      name: "laplace",
+      description: "ロスアカラプラスシミュレーター",
+      notes: "初期に作った名残。今作rev2のガチャのレアリティに合わせていますす",
+    },
+  ],
+};
 
 export const scope = "guild"; // 指定ギルドでのみ使用可
 

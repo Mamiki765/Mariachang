@@ -5,7 +5,7 @@ import handleModalInteraction from "../interactions/modalHandlers.mjs";
 import config from "../config.mjs";
 
 export default async (interaction) => {
-   // オートコンプリートはログを取る前に済ませる
+  // オートコンプリートはログを取る前に済ませる
   if (interaction.isAutocomplete()) {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command || !command.autocomplete) {

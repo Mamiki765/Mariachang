@@ -108,11 +108,11 @@ export async function getCharacterSummary(characterId) {
       }
       return reply;
     } else if (character.owner) {
-      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
       return reply;
     } else {
-      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
@@ -160,7 +160,7 @@ export async function getCharacterSummary(characterId) {
         if (specialAbilities.length > 0) {
           reply += `\n・その他能力\n`;
           for (const ability of specialAbilities) {
-             const displayValue = ability.value ?? "-";
+            const displayValue = ability.value ?? "-";
             reply += `${ability.name}: ${displayValue}  `;
           }
         }
@@ -199,9 +199,9 @@ const compactStatusGroups = [
  * 将来絵文字にしたいなって時に置き換えれるように対応している
  */
 const licenseMasterData = new Map([
-  ['1', { shortName: 'PC', emoji: '🎨' }], // 公式ライセンス（PC・EXPC）
-  ['2', { shortName: 'NPC', emoji: '🤝' }],// 公式ライセンス（NPC）
-  ['3', { shortName: 'EX', emoji: '👑' }], // 公式ライセンス（EX）
+  ["1", { shortName: "PC", emoji: "🎨" }], // 公式ライセンス（PC・EXPC）
+  ["2", { shortName: "NPC", emoji: "🤝" }], // 公式ライセンス（NPC）
+  ["3", { shortName: "EX", emoji: "👑" }], // 公式ライセンス（EX）
 ]);
 
 /**
@@ -217,7 +217,7 @@ function formatLicenseDisplay(licensesArray) {
 
   // 所有ライセンスIDの中から、マスターデータに存在するshortNameだけを抽出
   const ownedLicenseNames = licensesArray
-    .map(license => {
+    .map((license) => {
       const data = licenseMasterData.get(license.id);
       return data ? data.shortName : null;
     })
@@ -229,10 +229,10 @@ function formatLicenseDisplay(licensesArray) {
   }
 
   // "(PC)", "(NPC)" のようなパーツの配列を作る
-  const nameParts = ownedLicenseNames.map(name => `(${name})`);
+  const nameParts = ownedLicenseNames.map((name) => `(${name})`);
 
   // 「 ☑(PC)(NPC)」という、最終的な文字列を組み立てて返す
-  return ` ☑${nameParts.join('')}`;
+  return ` ☑${nameParts.join("")}`;
 }
 
 /**
@@ -298,11 +298,11 @@ export async function getCharacterSummaryCompact(characterId) {
       }
       return reply;
     } else if (character.owner) {
-      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
       return reply;
     } else {
-      const licenseDisplay = formatLicenseDisplay(character.licenses);//ライセンス確認
+      const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
@@ -384,19 +384,30 @@ export async function getCharacterSummaryCompact(characterId) {
         //代わりにスキル名だけを表示するセクションを追加
         //クラス・エスプリ表記
         // 'classes' または 'esprits' が存在する場合のみ、セクションを表示
-        if ((character.classes && character.classes.length > 0) || (character.esprits && character.esprits.length > 0)) {
-          
+        if (
+          (character.classes && character.classes.length > 0) ||
+          (character.esprits && character.esprits.length > 0)
+        ) {
           let classLine = "\n・クラス："; // 位置を揃えるための全角スペース
 
           // --- 各パーツを安全に取得（存在しない場合は「なし」） ---
-          const class1Name = formatSkillNames(character.classes?.[0] ? [character.classes[0]] : []) || "なし";
-          const class2Name = formatSkillNames(character.classes?.[1] ? [character.classes[1]] : []) || "なし";
-          const espritName = formatSkillNames(character.esprits?.[0] ? [character.esprits[0]] : []) || "なし";
+          const class1Name =
+            formatSkillNames(
+              character.classes?.[0] ? [character.classes[0]] : []
+            ) || "なし";
+          const class2Name =
+            formatSkillNames(
+              character.classes?.[1] ? [character.classes[1]] : []
+            ) || "なし";
+          const espritName =
+            formatSkillNames(
+              character.esprits?.[0] ? [character.esprits[0]] : []
+            ) || "なし";
 
           // --- パーツを賢く結合する（エスプリはclass1に追従） ---
 
           let finalClass1Part = class1Name;
-          
+
           // class1が存在し、かつ、エスプリも存在する場合のみ、結合する
           if (class1Name !== "なし" && espritName !== "なし") {
             finalClass1Part = `${class1Name}(${espritName})`;
@@ -416,7 +427,7 @@ export async function getCharacterSummaryCompact(characterId) {
           else if (finalClass1Part === "なし" && class2Name !== "なし") {
             classLine += ` / ${class2Name}`;
           }
-          
+
           reply += classLine;
         }
 

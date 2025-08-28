@@ -61,9 +61,10 @@ function getNextScenarioCheckTime() {
 }
 
 export const help = {
-  category: 'slash',
-  description: 'ロスト・アーカディアの予約・参加可能なシナリオの一覧を出します',
-  notes: '数時間に1回不定期に更新。自分だけに表示したり帯書きも表示したりできます。'
+  category: "slash",
+  description: "ロスト・アーカディアの予約・参加可能なシナリオの一覧を出します",
+  notes:
+    "数時間に1回不定期に更新。自分だけに表示したり帯書きも表示したりできます。",
 };
 
 // --- コマンドの定義 ---
@@ -244,8 +245,9 @@ export async function execute(interaction) {
           flags: isPrivate ? MessageFlags.Ephemeral : undefined,
         });
       } else {
-        await interaction.followUp({ embeds: [embed],
-           flags: isPrivate ? MessageFlags.Ephemeral : undefined,
+        await interaction.followUp({
+          embeds: [embed],
+          flags: isPrivate ? MessageFlags.Ephemeral : undefined,
         });
       }
     }

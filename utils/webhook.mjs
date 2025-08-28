@@ -1,6 +1,6 @@
 // ./utils/webhook.mjs
-import { dominoeffect } from "../commands/utils/domino.mjs"; 
-import config from "../config.mjs"; 
+import { dominoeffect } from "../commands/utils/domino.mjs";
+import config from "../config.mjs";
 // 250814：「1つのチャンネルにつき2つずつ」Webhookを取得する。
 // これにより、違う人がロールプレイなりきりだの、URL置換だので連投する形になっても表示が省略されるリスクを防…げるといいなあ
 // Webhookのペア { hookA, hookB } をキャッシュするMap
@@ -26,17 +26,21 @@ export async function getWebhookPair(channel) {
 
   if (oldHook) {
     // 4. もし見つかったら、それを「A」に改名して再利用する
-    console.log(`[Webhook Migration] Old webhook found in #${channel.name}. Renaming to 'A'...`);
+    console.log(
+      `[Webhook Migration] Old webhook found in #${channel.name}. Renaming to 'A'...`
+    );
     hookA = await oldHook.edit({ name: "マリアのWebhook A" });
   } else {
     // 5. 古いのがなければ、通常通り「A」を探す（なければ作る）
-    hookA = webhooks.find((v) => v.name === "マリアのWebhook A" && v.token) ?? 
-            await channel.createWebhook({ name: "マリアのWebhook A" });
+    hookA =
+      webhooks.find((v) => v.name === "マリアのWebhook A" && v.token) ??
+      (await channel.createWebhook({ name: "マリアのWebhook A" }));
   }
 
   // 6. 「B」は、常になければ作る
-  hookB = webhooks.find((v) => v.name === "マリアのWebhook B" && v.token) ?? 
-          await channel.createWebhook({ name: "マリアのWebhook B" });
+  hookB =
+    webhooks.find((v) => v.name === "マリアのWebhook B" && v.token) ??
+    (await channel.createWebhook({ name: "マリアのWebhook B" }));
 
   const webhookPair = { hookA, hookB };
   cacheWebhooks.set(channel.id, webhookPair);
@@ -61,8 +65,8 @@ export async function getWebhookInChannel(channel) {
  * @param {import('discord.js').TextChannel} channel
  */
 export async function getWebhook(channel) {
-    const { hookA } = await getWebhookPair(channel);
-    return hookA;
+  const { hookA } = await getWebhookPair(channel);
+  return hookA;
 }
 
 /**
@@ -80,7 +84,13 @@ export async function getWebhook(channel) {
 // もしエラーが出たら、updatePointsを呼び出す部分をコメントアウトするか、
 // イベントを発行するなどの高度な方法が必要になります。
 // 今回は、まず動かすことを優先しましょう。
-export async function sendWebhookAsCharacter(interaction, character, icon, message, nocredit) {
+export async function sendWebhookAsCharacter(
+  interaction,
+  character,
+  icon,
+  message,
+  nocredit
+) {
   // ---- 1. 必要な情報を準備する ----
   const name = character.name;
   let pbwflag = character.pbwflag;
@@ -113,11 +123,13 @@ export async function sendWebhookAsCharacter(interaction, character, icon, messa
   const webhookTargetChannel = interaction.channel.isThread()
     ? interaction.channel.parent
     : interaction.channel;
-  const threadId = interaction.channel.isThread() ? interaction.channel.id : null;
-  
+  const threadId = interaction.channel.isThread()
+    ? interaction.channel.id
+    : null;
+
   // getWebhookPairは、このファイル内にすでにあるので、そのまま使えます
   const { hookA, hookB } = await getWebhookPair(webhookTargetChannel);
-  
+
   const lastMessages = await interaction.channel.messages.fetch({ limit: 1 });
   const lastMessage = lastMessages.first();
   let webhookToUse = hookA;

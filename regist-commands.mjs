@@ -81,7 +81,9 @@ export default async () => {
 
         // [安全装置] module.data が存在しないファイルを安全にスキップします
         if (!module.data) {
-          console.warn(`[WARN] ${file} に 'data' がエクスポートされていません。コマンドとして扱わず、スキップします。`);
+          console.warn(
+            `[WARN] ${file} に 'data' がエクスポートされていません。コマンドとして扱わず、スキップします。`
+          );
           continue; // 次のファイルへ
         }
 
@@ -93,12 +95,17 @@ export default async () => {
           globalCommands.push(module.data.toJSON());
         }
       } catch (error) {
-        console.error(`[ERROR] コマンドファイル ${file} の読み込みに失敗しました:`, error);
+        console.error(
+          `[ERROR] コマンドファイル ${file} の読み込みに失敗しました:`,
+          error
+        );
       }
     }
   }
 
-  console.log(`[INIT] ${globalCommands.length}個のグローバルコマンドと${guildCommands.length}個のギルドコマンドを読み込みました。`);
+  console.log(
+    `[INIT] ${globalCommands.length}個のグローバルコマンドと${guildCommands.length}個のギルドコマンドを読み込みました。`
+  );
 
   // これ以降のDiscord APIへの登録処理は、以前の提案と同じです
   const rest = new REST().setToken(process.env.TOKEN);
@@ -107,36 +114,50 @@ export default async () => {
     // === ギルドコマンドの登録処理 ===
     if (guildCommands.length > 0) {
       if (!process.env.GUILD_IDS) {
-        console.error("[ERROR] ギルドコマンドが存在しますが、.envにGUILD_IDSが設定されていません。登録をスキップします。");
+        console.error(
+          "[ERROR] ギルドコマンドが存在しますが、.envにGUILD_IDSが設定されていません。登録をスキップします。"
+        );
       } else {
-        const guildIds = process.env.GUILD_IDS.split(",").map(id => id.trim());
-        console.log(`[INIT] ${guildCommands.length}個のギルドコマンドを、${guildIds.length}個のサーバーに登録します...`);
+        const guildIds = process.env.GUILD_IDS.split(",").map((id) =>
+          id.trim()
+        );
+        console.log(
+          `[INIT] ${guildCommands.length}個のギルドコマンドを、${guildIds.length}個のサーバーに登録します...`
+        );
 
         await Promise.all(
           guildIds.map((guildId) =>
             rest.put(
-              Routes.applicationGuildCommands(process.env.APPLICATION_ID, guildId),
+              Routes.applicationGuildCommands(
+                process.env.APPLICATION_ID,
+                guildId
+              ),
               { body: guildCommands }
             )
           )
         );
-        console.log("[SUCCESS] 全ての指定サーバーへのギルドコマンド登録が完了しました。");
+        console.log(
+          "[SUCCESS] 全ての指定サーバーへのギルドコマンド登録が完了しました。"
+        );
       }
     }
 
     // === グローバルコマンドの登録処理 ===
     if (globalCommands.length > 0) {
-      console.log(`[INIT] ${globalCommands.length}個のコマンドをグローバルに登録します...`);
-      await rest.put(
-        Routes.applicationCommands(process.env.APPLICATION_ID),
-        { body: globalCommands }
+      console.log(
+        `[INIT] ${globalCommands.length}個のコマンドをグローバルに登録します...`
       );
+      await rest.put(Routes.applicationCommands(process.env.APPLICATION_ID), {
+        body: globalCommands,
+      });
       console.log("[SUCCESS] グローバルコマンドの登録が完了しました。");
     }
 
     console.log("[SUCCESS] 全てのコマンド登録処理が正常に完了しました。");
-
   } catch (error) {
-    console.error("[FATAL] Discordへのコマンド登録中に致命的なエラーが発生しました:", error);
+    console.error(
+      "[FATAL] Discordへのコマンド登録中に致命的なエラーが発生しました:",
+      error
+    );
   }
 };

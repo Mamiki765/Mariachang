@@ -29,7 +29,7 @@ process.on("unhandledRejection", (reason, promise) => {
 const app = express();
 let postCount = 0;
 //get(ブラウザ閲覧)された時に見せるHTMLファイル
-const statusPageHtml = fs.readFileSync('./index.html', 'utf8');
+const statusPageHtml = fs.readFileSync("./index.html", "utf8");
 
 app.post("/", function (req, res) {
   console.log(`Received POST request.`);
@@ -159,20 +159,22 @@ async function startBot() {
   client.on("error", async (error) => {
     // Koyeb側のログに、エラーのスタックトレースを詳細に出力する
     console.error("An error occurred in the client:", error.stack || error);
-  // ▼▼▼ Discord 内への通知を止めるもの▼▼▼
-  // Koyebが再起動時に古いバージョンと同時起動したり、
-  // あるいは起動時にコマンドの再登録でよく出るエラー
-  // この配列に、無視したいエラーコードを追加していくだけで、
-  // 将来、どんなノイズが増えても、簡単に対処できます。
-  const ignoredErrorCodes = [
-    10062, // Unknown Interaction
-    40060, // Interaction has already been acknowledged
-  ];
+    // ▼▼▼ Discord 内への通知を止めるもの▼▼▼
+    // Koyebが再起動時に古いバージョンと同時起動したり、
+    // あるいは起動時にコマンドの再登録でよく出るエラー
+    // この配列に、無視したいエラーコードを追加していくだけで、
+    // 将来、どんなノイズが増えても、簡単に対処できます。
+    const ignoredErrorCodes = [
+      10062, // Unknown Interaction
+      40060, // Interaction has already been acknowledged
+    ];
 
-  if (ignoredErrorCodes.includes(error.code)) {
-    console.log(`[INFO] Ignored sending error with code ${error.code} to Discord.`);
-    return;
-  }
+    if (ignoredErrorCodes.includes(error.code)) {
+      console.log(
+        `[INFO] Ignored sending error with code ${error.code} to Discord.`
+      );
+      return;
+    }
     try {
       const channel = await client.channels.fetch(config.logch.error);
       if (channel.isTextBased()) {
@@ -203,19 +205,25 @@ async function startBot() {
   });
   client.on("ready", () => handlers.get("ready").default(client));
 
-app.listen(3000, (error) => {
-  if (error) { //express5からエラーハンドリングに対応したので念の為
-    console.error("[EXPRESS]Express server failed to start:", error);
-    throw error;
-  }
-  console.log("[EXPRESS]Express server is listening on port 3000 for health checks.");
-});
+  app.listen(3000, (error) => {
+    if (error) {
+      //express5からエラーハンドリングに対応したので念の為
+      console.error("[EXPRESS]Express server failed to start:", error);
+      throw error;
+    }
+    console.log(
+      "[EXPRESS]Express server is listening on port 3000 for health checks."
+    );
+  });
 
   await CommandsRegister();
   await client.login(process.env.TOKEN);
 }
 
 startBot().catch((error) => {
-  console.error("[FATAL ERROR]Botの起動中に致命的なエラーが発生しました:", error);
+  console.error(
+    "[FATAL ERROR]Botの起動中に致命的なエラーが発生しました:",
+    error
+  );
   process.exit(1);
 });

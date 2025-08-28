@@ -1,5 +1,5 @@
 // utils/supabaseClient.mjs
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 // 【補足】
 // このファイルは、SupabaseのWeb APIと通信するための「クライアント」を
@@ -23,7 +23,9 @@ export function getSupabaseClient() {
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase API URL or Service Key is not set in environment variables.");
+    throw new Error(
+      "Supabase API URL or Service Key is not set in environment variables."
+    );
   }
 
   supabaseClient = createClient(supabaseUrl, supabaseKey);
