@@ -19,6 +19,31 @@ import config from "../../config.mjs";
 // スタンプの登録、投稿、削除を行うスラッシュコマンド
 
 export const scope = "guild"; // 指定ギルドでのみ使用可
+  export const help = {
+    category: 'slash',
+    subcommands: [
+      {
+        name: 'register', // サブコマンド名
+        description: '疑似スタンプの登録',
+        notes: 'マリアで使える擬似的なスタンプを登録できます。\n画像サイズは320x320 512KBまで、一人5枚まで登録可です\n他人が使用不可のスタンプもつくれます'
+      },
+      {
+        name: 'post',
+        description: '疑似スタンプの投稿',
+        notes: 'マリアに登録した疑似スタンプを投稿します。'
+      },
+      {
+        name: 'preview',
+        description: '疑似スタンプのプレビュー',
+        notes: 'マリアに登録したスタンプをこっそり確認できます。\n何もいれなければ公開スタンプの一覧が見れるホームページが開きます。'
+      },
+      {
+        name: 'delete',
+        description: '疑似スタンプの削除',
+        notes: 'マリアに登録した疑似スタンプを完全に削除します。\n取り消せないので注意してください。'
+      }
+    ]
+  };
 
 // --- 1. コマンドの「設計図」を定義します ---
 export const data = new SlashCommandBuilder()

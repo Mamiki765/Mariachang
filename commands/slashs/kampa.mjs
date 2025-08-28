@@ -6,6 +6,12 @@ import {
   ButtonStyle,
 } from "discord.js";
 
+export const help = {
+  category: 'slash',
+  description: '制作者にbot代のカンパが出来ます。',
+  notes: '雨宿りの機能維持には毎年30ドルほど必要です。\n-# したいっていわれたからおいてるけどしなくていいからね…？お金は自分のしたいことに使おうね…？'
+};
+
 export const data = new SlashCommandBuilder()
   .setName("kampa")
   .setNameLocalizations({

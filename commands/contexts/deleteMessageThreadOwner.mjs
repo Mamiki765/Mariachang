@@ -10,6 +10,12 @@ import {
 import { safeDelete } from "../../utils/messageutil.mjs";
 
 export const scope = "guild"; // 指定ギルドでのみ使用可
+export const help = {
+  category: "context",
+  description: "他人の発言を削除できます。（スレッド主のみ）",
+  notes:
+    "スレッドとフォーマルスレッド（自由雑談）に対応しています。\nプライベートスレッドでは使えません。",
+};
 
 export const data = new ContextMenuCommandBuilder()
   .setName("メッセージを削除 (スレ主限定)")

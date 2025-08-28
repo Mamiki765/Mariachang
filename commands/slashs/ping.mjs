@@ -10,6 +10,12 @@ import os from "os";
 import process from "process";
 import { deletebuttonanyone } from "../../components/buttons.mjs";
 
+export const help = {
+  category: "slash", 
+  description: "ぽんにゃ！",
+  notes: "Botの生存状態を簡易的に確認します、ついでにレイテンシと詳細なステータス情報を表示します。",
+};
+
 function formatUptime(seconds) {
   const d = Math.floor(seconds / (3600 * 24));
   const h = Math.floor((seconds % (3600 * 24)) / 3600);

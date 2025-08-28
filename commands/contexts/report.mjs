@@ -9,6 +9,12 @@ import {
 import config from "../../config.mjs";
 
 export const scope = "guild"; // 指定ギルドでのみ使用可
+export const help = {
+  category: "context",
+  description: "ルールに反している発言などをこっそりモデレーターに報告します。",
+  notes:
+    "空気が荒れたりヤバい発言を見かけた時のｺｯｼｮﾘ非常用ボタン。\n使用されないに越した事はないですが万一の時は躊躇せず押してください。状況を加味し管理人が協議します。\n悪戯や個人的な不快感での通報はご遠慮ください。",
+};
 
 export const data = new ContextMenuCommandBuilder()
   .setName("【このメッセージを報告】")

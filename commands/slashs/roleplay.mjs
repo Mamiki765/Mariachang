@@ -15,6 +15,37 @@ import { Character, Icon, Point } from "../../models/database.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 
+
+export const help = {
+  category: 'slash',
+  // roleplayコマンドは、他のファイルに影響を与えないよう、
+  // data.description などを直接参照せず、あえて手で書くことを推奨します。
+  description: 'キャラクターになりきって発言できる、ロールプレイ支援機能です。',
+  notes: '最大25キャラクターまでセーブデータに保存し、切り替えて使用することができます。',
+  subcommands: [
+    {
+      name: 'register',
+      description: 'キャラクターを新規登録、または上書き登録します。',
+      notes: '名前、アイコン画像やそのイラストレーター、所属PBWなどを指定して登録します。'
+    },
+    {
+      name: 'post',
+      description: '登録したキャラクターとして、メッセージを投稿します。',
+      notes: '最後に登録したアイコンが使われます、発言のたびにアップロードして更新する事も可能です。'
+    },
+    {
+      name: 'display',
+      description: '登録されているキャラの一覧を確認します。',
+      notes: '最後に使われたアイコンや権利表記も確認できます。'
+    },
+    {
+      name: 'delete',
+      description: '指定したセーブデータのキャラクターとアイコンを完全に削除します。',
+      notes: '削除したデータは元に戻せないので、慎重に操作してください。'
+    }
+  ]
+};
+
 // キャラ上限数を定数として定義
 const MAX_SLOTS = 25;
 

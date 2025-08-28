@@ -12,6 +12,27 @@ import {
 import { Point, CasinoStats, sequelize } from "../../models/database.mjs";
 import config from "../../config.mjs";
 
+  export const help = {
+    category: 'slash',
+    subcommands: [
+      {
+        name: 'slots', 
+        description: 'スロット1号機',
+        notes: '滅多に当たりませんが最大500倍配当もあるスロットです'
+      },
+      {
+        name: 'slots_easy', 
+        description: 'スロット2号機',
+        notes: '当選率が高くコツコツ当たるスロットです'
+      },
+      {
+        name: 'blackjack',
+        description: 'ブラックジャックです。',
+        notes: 'ボーナスがあったり難易度の低い設計になっております。'
+      }
+    ]
+  };
+
 // --- ユーティリティ ---
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

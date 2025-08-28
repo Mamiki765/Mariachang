@@ -1,8 +1,12 @@
 // commands\slashs\exchange.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import axios from "axios";
-import { sequelize, Point } from "../../models/database.mjs";
-import config from "../../config.mjs";
+
+export const help = {
+  category: 'slash',
+  description: '現実世界の主要通貨の為替レートを表示します。(対JPY)',
+  notes: '米ドル、ユーロ、英ポンド、豪ドル、NZドル、カナダドル、\nスイスフラン、トルコリラ、南アフリカランド、メキシコペソ、RC、☆(!?)'
+};
 
 export const data = new SlashCommandBuilder()
   .setName("exchange")
@@ -10,20 +14,22 @@ export const data = new SlashCommandBuilder()
   .setDescription("現実世界の主要通貨の為替レートを表示します。(対JPY)")
 
   // サブコマンド: forex (為替)
+  /*
   .addSubcommand((subcommand) =>
     subcommand
       .setName("forex")
       .setDescription("現実世界の主要通貨の為替レートを表示します。(対JPY)")
   );
+  */
 
 export async function execute(interaction) {
-  const subcommand = interaction.options.getSubcommand();
-  const subcommandGroup = interaction.options.getSubcommandGroup();
+  //const subcommand = interaction.options.getSubcommand();
+  //const subcommandGroup = interaction.options.getSubcommandGroup();
   //為替を見る
-  if (subcommand === "forex") {
+  //if (subcommand === "forex") {
     await interaction.deferReply({});
     await executeForex(interaction);
-  }
+  //}
 }
 
 //為替をみる機能

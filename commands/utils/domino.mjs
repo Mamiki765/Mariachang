@@ -4,6 +4,12 @@ import { DominoLog, CurrentDomino, sequelize } from "../../models/database.mjs";
 import config from "../../config.mjs";
 import { safeDelete } from "../../utils/messageutil.mjs";
 
+  export const help = {
+    category: 'slash',
+    description: 'ドミノのログを見る',
+    notes: '統計情報や、何回目に誰が何枚倒したなどの情報も詳しく見れます。'
+  };
+
 export const data = new SlashCommandBuilder()
   .setName("domino")
   .setNameLocalizations({
