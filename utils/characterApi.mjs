@@ -38,16 +38,21 @@ async function getCharacterDetail(characterId) {
  * @param {number} minValue サーバー全体の最小値
  * @param {number} maxValue サーバー全体の最大値
  * @param {number} barLength ゲージの長さ (デフォルトは10)
- * @returns {string} テキストゲージ (例: "[■■■□□□□□□□]★")
+ * @returns {string} テキストゲージ (例: "[||||||||||]★")
  */
 function createStatusBar(currentValue, minValue, maxValue, barLength = 10) {
+  const BG_CREAM_WHITE = "\u001b[47m"; // 背景: クリームホワイト(ゲージの背景)
+  const FG_TEAL = "\u001b[1;36m"; // 文字: ブライトシアン (ゲージの色)
+  const FG_WHITE = "\u001b[1;37m"; // 文字: ホワイト (空ゲージの色)
+  const FG_GOLD = "\u001b[1;33m"; // 文字: ブライトイエロー (★の色)
+  const RESET = "\u001b[0m"; // カラーのリセット
   // 最大値以上なら、満タンのゲージと★を返す
   if (currentValue >= maxValue) {
-    return `[${"|".repeat(barLength)}]★`;
+    return `${BG_CREAM_WHITE}${FG_TEAL}[${"|".repeat(barLength)}]${FG_GOLD}★${RESET}`;
   }
   // 最小値以下なら、空のゲージを返す
   if (currentValue <= minValue) {
-    return `[${".".repeat(barLength)}]`;
+    return `${BG_CREAM_WHITE}${FG_WHITE}[${".".repeat(barLength)}]${RESET}`;
   }
 
   const totalRange = maxValue - minValue;
@@ -63,7 +68,7 @@ function createStatusBar(currentValue, minValue, maxValue, barLength = 10) {
   const filledPart = "|".repeat(safeFilledCount);
   const emptyPart = ".".repeat(barLength - safeFilledCount);
 
-  return `[${filledPart}${emptyPart}]`;
+  return `${BG_CREAM_WHITE}${FG_TEAL}[${filledPart}${FG_WHITE}${emptyPart}${FG_TEAL}]${RESET}`;
 }
 
 //文字の「表示幅」を計算するヘルパー関数
@@ -120,7 +125,7 @@ export async function getCharacterSummary(characterId) {
       const targetStatusIds = new Set(displayOrder);
 
       if (character.sub_status && character.sub_status.length > 0) {
-        reply += `\`\`\`▼副能力 | 主能力 P:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
+        reply += `\`\`\`ansi\n▼副能力 | 主能力 P:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
         const sortedSubStatus = character.sub_status
           .filter((s) => targetStatusIds.has(s.id))
@@ -152,6 +157,26 @@ export async function getCharacterSummary(characterId) {
           reply += `\n${statName}${bar}${formattedValue}`;
         }
 
+        // 属性値を色を付けて並べる
+        const elementStatusIds = [101, 102, 103, 104, 105, 106, 199];
+        const elementStatuses = character.sub_status.filter((s) =>
+          elementStatusIds.includes(s.id)
+        );
+        if (elementStatuses.length > 0) {
+          reply += `\n`;
+          for (const statusId of elementStatusIds) {
+            const status = elementStatuses.find((s) => s.id === statusId);
+            if (status) {
+              let statusText = `${status.abbr}: ${status.value}`;
+              if (elementColorMap.has(statusId)) {
+                const color = elementColorMap.get(statusId);
+                statusText = `${color}${statusText}${RESET_COLOR}`;
+              }
+              reply += `${statusText} `; //半角スペース1つで区切る
+            }
+          }
+        }
+
         // --- 2. 特殊能力のセクション ---
         const specialAbilities = character.sub_status.filter(
           (s) => s.id >= 200
@@ -163,6 +188,17 @@ export async function getCharacterSummary(characterId) {
             const displayValue = ability.value ?? "-";
             reply += `${ability.name}: ${displayValue}  `;
           }
+        }
+
+        // 新しい関数を呼び出して、スキル情報の文字列を取得
+        const skillsSection = createSkillsAndClassesSection(character);
+
+        // スキル情報が空でなければ、コードブロックで囲んでreplyに追加
+        if (skillsSection) {
+          // もし、前のセクションが```で終わっているなら、```を付けずに結合
+          // そうでなければ、新しく```で囲む
+          // (ここでは、前の```を消して、最後にまとめて囲むのが綺麗)
+          reply += `\n${skillsSection}`;
         }
 
         reply += `\`\`\``;
@@ -193,6 +229,20 @@ const compactStatusGroups = [
   [101, 102, 103, 104], // 属性値　4属性
   [105, 106, 199], // 属性値　光闇無
 ];
+
+/**
+ * 属性IDと、それに対応するANSIカラーコードのマッピング
+ */
+const elementColorMap = new Map([
+  [101, "\u001b[1;31m"], // 火
+  [102, "\u001b[1;34m"], // 水
+  [103, "\u001b[0;33m"], // 土
+  [104, "\u001b[0;32m"], // 風
+  [105, "\u001b[2;40m\u001b[1;37m"], // 光
+  [106, "\u001b[2;45m\u001b[1;37m"], // 闇
+  [199, "\u001b[1;30m\u001b[1;44m"], // 無
+]);
+const RESET_COLOR = "\u001b[0m";
 
 /**
  * ライセンスの対応表
@@ -307,7 +357,7 @@ export async function getCharacterSummaryCompact(characterId) {
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
 
       if (character.sub_status && character.sub_status.length > 0) {
-        reply += `\`\`\`P:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
+        reply += `\`\`\`ansi\nP:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
         // 効率的にステータスを検索できるよう、IDをキーにしたMapを作成
         const statusMap = new Map(character.sub_status.map((s) => [s.id, s]));
@@ -320,7 +370,13 @@ export async function getCharacterSummaryCompact(characterId) {
             if (statusMap.has(statusId)) {
               const subStatus = statusMap.get(statusId);
               // 「名前: 値」の形式でパーツを作成
-              lineParts.push(`${subStatus.abbr}: ${subStatus.value}`);
+              let statusText = `${subStatus.abbr}: ${subStatus.value}`;
+              // 属性値なら、色を付ける
+              if (elementColorMap.has(statusId)) {
+                const color = elementColorMap.get(statusId);
+                statusText = `${color}${statusText}${RESET_COLOR}`;
+              }
+              lineParts.push(statusText);
             }
           }
 
@@ -384,73 +440,15 @@ export async function getCharacterSummaryCompact(characterId) {
         //代わりにスキル名だけを表示するセクションを追加
         //クラス・エスプリ表記
         // 'classes' または 'esprits' が存在する場合のみ、セクションを表示
-        if (
-          (character.classes && character.classes.length > 0) ||
-          (character.esprits && character.esprits.length > 0)
-        ) {
-          let classLine = "\n・クラス："; // 位置を揃えるための全角スペース
+        // 新しい関数を呼び出して、スキル情報の文字列を取得
+        const skillsSection = createSkillsAndClassesSection(character);
 
-          // --- 各パーツを安全に取得（存在しない場合は「なし」） ---
-          const class1Name =
-            formatSkillNames(
-              character.classes?.[0] ? [character.classes[0]] : []
-            ) || "なし";
-          const class2Name =
-            formatSkillNames(
-              character.classes?.[1] ? [character.classes[1]] : []
-            ) || "なし";
-          const espritName =
-            formatSkillNames(
-              character.esprits?.[0] ? [character.esprits[0]] : []
-            ) || "なし";
-
-          // --- パーツを賢く結合する（エスプリはclass1に追従） ---
-
-          let finalClass1Part = class1Name;
-
-          // class1が存在し、かつ、エスプリも存在する場合のみ、結合する
-          if (class1Name !== "なし" && espritName !== "なし") {
-            finalClass1Part = `${class1Name}(${espritName})`;
-          }
-
-          // --- 最終的な表示文字列を組み立てる ---
-
-          // まず、class1(+esprit)部分を表示
-          classLine += finalClass1Part;
-
-          // class2が存在する場合のみ、" / "を付けて追加
-          if (class2Name !== "なし") {
-            classLine += ` / ${class2Name}`;
-          }
-          // もし、class1は「なし」だが、class2は存在するという稀なケース
-          // （例: 2枠目にだけ装備）も考慮
-          else if (finalClass1Part === "なし" && class2Name !== "なし") {
-            classLine += ` / ${class2Name}`;
-          }
-
-          reply += classLine;
-        }
-
-        // 'skills' オブジェクトが存在するか確認
-        if (character.skills) {
-          // ★★★ ここからが、この関数の心臓部です ★★★
-          reply += `\n・活性化スキル`;
-          const activeSkills = formatSkillNames(character.skills.a);
-          const passiveSkills = formatSkillNames(character.skills.p);
-          const nonCombatSkills = formatSkillNames(character.skills.n);
-
-          // 各カテゴリのスキルリストが存在する場合のみ、行を追加
-          if (activeSkills) {
-            reply += `\nアクティブ：${activeSkills}`;
-          }
-          if (passiveSkills) {
-            reply += `\nパッシブ　：${passiveSkills}`; //「：」の位置を揃えるため全角スペース
-          }
-          if (nonCombatSkills) {
-            reply += `\n非戦　　　：${nonCombatSkills}`; //「：」の位置を揃えるため全角スペース
-          }
-
-          // ★★★ ここまで ★★★
+        // スキル情報が空でなければ、コードブロックで囲んでreplyに追加
+        if (skillsSection) {
+          // もし、前のセクションが```で終わっているなら、```を付けずに結合
+          // そうでなければ、新しく```で囲む
+          // (ここでは、前の```を消して、最後にまとめて囲むのが綺麗)
+          reply += `\n${skillsSection}`;
         }
 
         reply += `\`\`\``;
@@ -464,4 +462,64 @@ export async function getCharacterSummaryCompact(characterId) {
     );
     return `情報取得中にエラーが発生しました。しばらくしてからもう一度お試しください。`;
   }
+}
+
+/**
+ * キャラクターのクラス、エスプリ、スキル情報を整形して、
+ * Discordのコードブロックで表示するための文字列を生成します。
+ * @param {object} character - APIから取得したキャラクターオブジェクト
+ * @returns {string} 整形されたスキル情報の文字列。表示すべき情報がなければ空文字列を返す。
+ */
+function createSkillsAndClassesSection(character) {
+  // 表示する行を、この配列にどんどん追加していく
+  const lines = [];
+
+  // --- 1. クラスとエスプリのセクション ---
+  if (
+    (character.classes && character.classes.length > 0) ||
+    (character.esprits && character.esprits.length > 0)
+  ) {
+    const class1Name =
+      formatSkillNames(character.classes?.[0] ? [character.classes[0]] : []) ||
+      "なし";
+    const class2Name =
+      formatSkillNames(character.classes?.[1] ? [character.classes[1]] : []) ||
+      "なし";
+    const espritName =
+      formatSkillNames(character.esprits?.[0] ? [character.esprits[0]] : []) ||
+      "なし";
+
+    let finalClass1Part = class1Name;
+    if (class1Name !== "なし" && espritName !== "なし") {
+      finalClass1Part = `${class1Name}(${espritName})`;
+    }
+
+    let classLine = "・クラス　　：" + finalClass1Part; // 位置を揃えるため全角スペース
+    if (class2Name !== "なし") {
+      classLine += ` / ${class2Name}`;
+    }
+
+    // どちらかが「なし」でなければ、行を追加
+    if (class1Name !== "なし" || class2Name !== "なし") {
+      lines.push(classLine);
+    }
+  }
+
+  // --- 2. 活性化スキルのセクション ---
+  if (character.skills) {
+    const activeSkills = formatSkillNames(character.skills.a);
+    const passiveSkills = formatSkillNames(character.skills.p);
+    const nonCombatSkills = formatSkillNames(character.skills.n);
+
+    // 何か一つでもスキルがあれば、ヘッダーを追加
+    if (activeSkills || passiveSkills || nonCombatSkills) {
+      lines.push("・活性化スキル");
+      if (activeSkills) lines.push(`アクティブ：${activeSkills}`);
+      if (passiveSkills) lines.push(`パッシブ　：${passiveSkills}`);
+      if (nonCombatSkills) lines.push(`非戦　　　：${nonCombatSkills}`);
+    }
+  }
+
+  // 配列に何も追加されていなければ空文字列を、そうでなければ改行で連結して返す
+  return lines.length > 0 ? lines.join("\n") : "";
 }
