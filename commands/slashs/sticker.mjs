@@ -146,16 +146,16 @@ export async function autocomplete(interaction) {
   let whereClause = {};
 
   if (subcommand === "post" || subcommand === "preview") {
-    // 【postやpreviewの場合】自分がオーナー、または公開されているスタンプ
+    //投稿とプレビューは、自分のスタンプと公開スタンプの両方を検索
     whereClause = {
       [Op.or]: [{ ownerId: userId }, { isPublic: true }],
-      name: { [Op.like]: `${focusedValue}%` },
+      name: { [Op.iLike]: `%${focusedValue}%` }, // 部分一致
     };
   } else if (subcommand === "delete") {
-    // 【deleteの場合】自分がオーナーのスタンプのみ
+    //削除は自分のスタンプだけを検索
     whereClause = {
       ownerId: userId,
-      name: { [Op.like]: `${focusedValue}%` },
+      name: { [Op.iLike]: `%${focusedValue}%` }, // 部分一致
     };
   }
 
