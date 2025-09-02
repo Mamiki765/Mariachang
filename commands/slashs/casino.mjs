@@ -218,14 +218,22 @@ async function handleSlots(interaction, slotConfig) {
       stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount);
       stats.totalWin = BigInt(stats.totalWin.toString()) + BigInt(winAmount);
 
-      // 777が当たった場合だけ、カウンターを増やす
-      if (prize.prizeId === "777") {
-        const currentData = stats.gameData; // 既存のデータを読み込む
-        currentData.wins_777 = (currentData.wins_777 || 0) + 1; // カウンターを+1
-        stats.gameData = currentData; // 更新したデータをセットし直す
+      // 役が決まったら、ハズレ("none")以外はすべて記録する
+      if (prize.prizeId !== "none") {
+        // 1. gameDataを取得 (なければ空のオブジェクト{})
+        const currentData = stats.gameData || {};
+
+        // 2. "wins_ watermelon" のように、動的にキーを生成
+        const prizeKey = `wins_${prize.prizeId}`;
+
+        // 3. 対応する役のカウンターを+1する
+        currentData[prizeKey] = (currentData[prizeKey] || 0) + 1;
+
+        // 4. 更新したデータをセットし直し、変更を通知する
+        stats.gameData = currentData;
         stats.changed("gameData", true);
       }
-
+      
       await userPoint.save({ transaction: t });
       await stats.save({ transaction: t });
       await t.commit(); // ここでDBへの変更を確定
