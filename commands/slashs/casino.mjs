@@ -233,7 +233,7 @@ async function handleSlots(interaction, slotConfig) {
         stats.gameData = currentData;
         stats.changed("gameData", true);
       }
-      
+
       await userPoint.save({ transaction: t });
       await stats.save({ transaction: t });
       await t.commit(); // ここでDBへの変更を確定
@@ -416,22 +416,31 @@ async function handleBalance(interaction) {
       .setColor("#FEE75C")
       .addFields(
         {
-          name: "💎 Roleplay Point",
-          value: `**${user.point}**RP (累計${user.totalpoint})`,
+          name: "💎 Roleplay Point",          
+          value: `**${user.point.toLocaleString()}**RP (累計${user.totalpoint.toLocaleString()})`,
           inline: false,
         },
         {
           name: "🐿️ あまやどんぐり",
-          value: `**${user.acorn}**個 (累計${user.totalacorn})`,
+          value: `**${user.acorn.toLocaleString()}**個 (累計${user.totalacorn.toLocaleString()})`,
           inline: false,
         },
         {
           name: `${config.nyowacoin} ニョワコイン`,
-          value: `**${user.coin}**枚`,
+          value: `**${user.coin.toLocaleString()}**枚`,
           inline: false,
         }
-      )
-      .setTimestamp();
+      );
+    // レガシー通貨を持っているかチェックし、持っていればフィールドを追加
+    if (user.legacy_pizza && user.legacy_pizza > 0) {
+      embed.addFields({
+        name: "🍕 レガシーピザ", // 絵文字や名前は自由に変更してください！
+        // toLocaleString() を使うと、1158576 が 1,158,576 のようにカンマ区切りになり見やすいです
+        value: `**${user.legacy_pizza.toLocaleString()}**枚`,
+        inline: false,
+      });
+    }
+    embed.setTimestamp();
 
     const buttons = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
