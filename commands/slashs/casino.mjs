@@ -40,6 +40,11 @@ export const help = {
       description: "ヨーロピアンスタイルのルーレットで遊びます。",
       notes: "ニョワコインやレガシーピザを賭けて遊べます。",
     },
+    {
+      name: "stats",
+      description: "カジノの個人成績を確認します。",
+      notes: "他の人の成績を見る場合は、ユーザーを指定します。",
+    },
   ],
 };
 
@@ -126,6 +131,16 @@ export const data = new SlashCommandBuilder()
             .setMinValue(1)
             .setMaxValue(10000) // レガシーピザの最大ベット額
       )
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("stats")
+      .setDescription("カジノの個人成績を確認します。")
+      .addUserOption((option) =>
+        option
+          .setName("user")
+          .setDescription("他の人の成績を見る場合は、ユーザーを指定します。")
+      )
   );
 // --- オートコンプリート処理 ---
 export async function autocomplete(interaction) {
@@ -177,10 +192,13 @@ export async function execute(interaction) {
     await handleBlackjack(interaction);
   } else if (subcommand === "roulette") {
     await handleRoulette(interaction);
+  } else if (subcommand === "stats") {
+    await handleStats(interaction);
   }
 }
 // ==================================================================
-
+//スロット
+// ==================================================================
 // --- スロットゲームのメインロジック ---
 async function handleSlots(interaction, slotConfig) {
   const betAmount = interaction.options.getInteger("bet");
@@ -1402,7 +1420,8 @@ async function handleRoulette(interaction) {
     });
 
     // 賭け金チェック
-    if ((userPoint[currencyKey] || 0) < amount) { //null対策で0をデフォルトに
+    if ((userPoint[currencyKey] || 0) < amount) {
+      //null対策で0をデフォルトに
       await t.rollback();
       return interaction.editReply({
         content: `${currencyInfo.displayName}が足りません！\n現在の所持${currencyInfo.emoji}: ${userPoint[currencyKey]}`,
@@ -1485,7 +1504,8 @@ async function handleRoulette(interaction) {
     await t.commit();
 
     const numberEmoji = { red: "🔴", black: "⚫", green: "🟢" };
-    const ROULETTE_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/European_roulette.svg/960px-European_roulette.svg.png";
+    const ROULETTE_IMAGE_URL =
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/European_roulette.svg/960px-European_roulette.svg.png";
     const resultEmbed = new EmbedBuilder()
       .setTitle(`**${rouletteConfig.displayName}**`)
       .setDescription(
@@ -1550,5 +1570,96 @@ async function handleRoulette(interaction) {
       content:
         "エラーが発生したため、処理を中断しました。通貨は消費されていません。",
     });
+  }
+}
+
+// ==================================================================
+// 統計表示
+// ==================================================================
+async function handleStats(interaction) {
+  // 表示対象のユーザーを決定 (オプションがなければ自分)
+  const targetUser = interaction.options.getUser("user") || interaction.user;
+  const userId = targetUser.id;
+
+  await interaction.deferReply();
+
+  try {
+    // 1. ユーザーの全てのカジノ統計を一度に取得する
+    const allStats = await CasinoStats.findAll({ where: { userId } });
+
+    // 2. プレイ記録が全くない場合の処理
+    if (allStats.length === 0) {
+      const embed = new EmbedBuilder()
+        .setTitle(`**${targetUser.username}** さんのカジノ成績`)
+        .setColor("#f2c75c")
+        .setDescription("まだカジノで遊んだ記録がないようです！");
+      return interaction.editReply({ embeds: [embed] });
+    }
+
+    // 3. 扱いやすいように、gameNameをキーにしたオブジェクトに変換する
+    const stats = allStats.reduce((acc, current) => {
+      acc[current.gameName] = current;
+      return acc;
+    }, {});
+
+    // 4. Embedを組み立てる
+    const embed = new EmbedBuilder()
+      .setTitle(`**${targetUser.username}** さんのカジノ成績`)
+      .setColor("#f2c75c")
+      .setTimestamp();
+
+    // --- ブラックジャックの成績 (データがあれば追加) ---
+    if (stats.blackjack) {
+      const bj = stats.blackjack;
+      const netProfit = BigInt(bj.totalWin) - BigInt(bj.totalBet);
+      const sign = netProfit >= 0 ? "+" : "";
+      embed.addFields({
+        name: "🃏 ブラックジャック",
+        value: `**プレイ回数:** ${bj.gamesPlayed.toLocaleString()}回\n**総収支:** ${sign}${netProfit.toLocaleString()}コイン`,
+      });
+    }
+
+    // --- スロット1号機の成績 (データがあれば追加) ---
+    if (stats.slots) {
+      const slot = stats.slots;
+      let slotDetails = "";
+      for (const prize of config.casino.slot.payouts) {
+        const prizeCount = slot.gameData[`wins_${prize.id}`] || 0;
+        if (prizeCount > 0) {
+          slotDetails += `${prize.display}: ${prizeCount}回\n`;
+        }
+      }
+      embed.addFields({
+        name: `🎰 ${config.casino.slot.displayname}`,
+        value: `**プレイ回数:** ${slot.gamesPlayed.toLocaleString()}回\n${slotDetails}`,
+      });
+    }
+    // (同様にスロット2号機の処理も書く)
+
+    // --- ルーレットの成績 (データがあれば追加) ---
+    if (stats.roulette) {
+      const roulette = stats.roulette;
+      let rouletteDetails = `**総プレイ回数:** ${roulette.gamesPlayed.toLocaleString()}回\n\n`;
+
+      // gameData内の通貨ごとにループ
+      for (const currencyKey in roulette.gameData) {
+        const currencyStats = roulette.gameData[currencyKey];
+        const currencyInfo = config.casino.currencies[currencyKey];
+        const netProfit =
+          BigInt(currencyStats.totalWin) - BigInt(currencyStats.totalBet);
+        const sign = netProfit >= 0 ? "+" : "";
+
+        rouletteDetails += `**${currencyInfo.displayName} ${currencyInfo.emoji}**\n- **プレイ回数:** ${BigInt(currencyStats.gamesPlayed).toLocaleString()}回\n- **総収支:** ${sign}${netProfit.toLocaleString()}\n`;
+      }
+      embed.addFields({
+        name: "🎡 ルーレット",
+        value: rouletteDetails,
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("統計表示でエラー:", error);
+    await interaction.editReply("成績の取得中にエラーが発生しました。");
   }
 }
