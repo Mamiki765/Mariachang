@@ -201,7 +201,7 @@ export default async function handleButtonInteraction(interaction) {
 
     // 4. ボタンが押されたインタラクションへの応答として、Modalを表示します。
     return interaction.showModal(modal);
-    //あまやどんぐり
+    // --- ここから下は、あまやどんぐりのログインボーナス処理 ---
   } else if (interaction.customId === "claim_acorn_login_bonus") {
     try {
       const [pointEntry, created] = await Point.findOrCreate({
@@ -225,7 +225,7 @@ export default async function handleButtonInteraction(interaction) {
         // 最後に押した日時が、最後に朝8時が来た日時よりも後か？
         if (lastClaim > last8AM) {
           return interaction.reply({
-            content: `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n所持どんぐり: ${pointEntry.acorn}個 集めたどんぐり:${pointEntry.totalacorn}個 ${config.nyowacoin}: ${pointEntry.coin}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`,
+            content: `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個 ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`,
             ephemeral: true,
           });
         }
@@ -233,36 +233,77 @@ export default async function handleButtonInteraction(interaction) {
       // ▲▲▲ ここまでが資格チェック ▲▲▲
 
       // 1. 更新するデータを準備するオブジェクトを作成
+      // どんぐり、必ず1増える
+      // acornとtotalacornを1増やし、lastAcornDateを現在日時に更新
       const updateData = {
         acorn: sequelize.literal("acorn + 1"),
         totalacorn: sequelize.literal("totalacorn + 1"),
         lastAcornDate: now,
       };
 
-      let bonusMessage = ""; // ボーナスメッセージを初期化
-      let coinsAdded = 1; // 追加されたコイン数を記録する変数
-
-      // 2. 1/3の確率チェック
-      if (Math.floor(Math.random() * 3) === 0) {
-        // 0, 1, 2のいずれかがランダムで生成され、0なら当たり（1/3の確率）
-        // 3. 1〜9枚のコインを計算
-        coinsAdded = Math.floor(Math.random() * 9) + 2; // 2〜10のランダムな整数
+      let Message = "### あまやどんぐりを1つ拾いました🐿️"; // ログインボーナスのメッセージ
+      // コイン、基本枚数に加え、確率でボーナスがある
+      const coinConfig = config.loginBonus.nyowacoin; // 設定からコインの基本情報を取得
+      // 基本給
+      let coinsAdded = coinConfig.baseAmount;
+      // 1/Nの確率でボーナス(1+1~9枚のようになる)
+      if (Math.floor(Math.random() * coinConfig.bonus.chance) === 0) {
+        const bonusAmount =
+          Math.floor(
+            Math.random() *
+              (coinConfig.bonus.amount.max - coinConfig.bonus.amount.min + 1)
+          ) + coinConfig.bonus.amount.min;
+        coinsAdded += bonusAmount;
+        Message += `\nなんと${config.nyowacoin}が**${coinsAdded}枚**も落ちていました✨✨`;
+      } else {
+        Message += `\n${config.nyowacoin}も**${coinsAdded}枚**落ちていたので拾いました✨`;
       }
-      // 4. 更新データにコインの加算処理を追加
+      // 最終的なコイン加算を更新データにセット
       updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
 
-      // 5. ユーザーへの通知メッセージを作成
-      bonusMessage = `\n${config.nyowacoin}も**${coinsAdded}枚**落ちていたので拾いました✨`;
-
+      // レガシーピザ、ランダム基本給＋ロールに応じたボーナス
+      const pizzaConfig = config.loginBonus.legacy_pizza; // 設定からレガシーピザの基本情報を取得
+      // 基本給
+      const basePizza =
+        Math.floor(
+          Math.random() *
+            (pizzaConfig.baseAmount.max - pizzaConfig.baseAmount.min + 1)
+        ) + pizzaConfig.baseAmount.min;
+      let totalPizza = basePizza;
+      Message += `\nレガシーピザも${basePizza}枚焼き上がったようです🍕`;
+      // ロールに応じたボーナス、サーバーブースター
+      if (interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
+        totalPizza += pizzaConfig.boosterBonus;
+        Message += `\nサーバーブースターのあなたに感謝の気持ちを込めて、**${pizzaConfig.boosterBonus.toLocaleString()}**枚追加で焼き上げました🍕`;
+      }
+      // Mee6のレベルに応じたボーナス、mee6LevelBonusesにkey valueでレベルロールとボーナス枚数を設定している
+      for (const [roleId, bonusAmount] of Object.entries(
+        pizzaConfig.mee6LevelBonuses
+      )) {
+        if (interaction.member.roles.cache.has(roleId)) {
+          totalPizza += bonusAmount;
+          Message += `\n雨宿りでいっぱい発言したあなたにニョワミヤ達が**${bonusAmount.toLocaleString()}**枚持ってきてくれました🍕`;
+        }
+      }
+      Message += `🍕合計:+**${totalPizza}**枚`; // 最後の行のおしりにくっつける
+      // 最終的なレガシーピザ加算を更新データにセット
+      updateData.legacy_pizza = sequelize.literal(
+        `legacy_pizza + ${totalPizza}`
+      );
       // 6. データベースを更新
       await pointEntry.update(updateData);
       // update()は更新内容を返さないため、reload()で最新の状態を取得します。
       const updatedPointEntry = await pointEntry.reload();
+      // 7. ユーザーに成功を報告するメッセージを作成
+      // 区切り線
+      Message += `\n--------------------`;
+      // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
+      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 ${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 \n${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`;
 
-      // ユーザーに成功を報告
+      // 8. ユーザーに返信
       return interaction.reply({
-        content: `### あまやどんぐりを1つ拾いました🐿️${bonusMessage}\n所持どんぐり: ${updatedPointEntry.acorn}個 集めたどんぐり:${updatedPointEntry.totalacorn}個 ${config.nyowacoin}: ${updatedPointEntry.coin}枚 \nロスアカもお忘れなく……https://rev2.reversion.jp`,
-        ephemeral: true,
+        content: Message,
+        flags: 64, //ephemeralは古い書き方なのでこちらを使用
       });
     } catch (error) {
       console.error("ログインボーナスの処理中にエラーが発生しました:", error);
