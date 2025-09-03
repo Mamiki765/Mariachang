@@ -10,7 +10,11 @@ import { syncModels } from "../models/database.mjs";
 //ログボボタン
 import { acornLoginButton } from "../components/buttons.mjs";
 // package.jsonからバージョンを取得
-import packageJson from "../package.json";
+import { readFileSync } from 'node:fs';
+// package.json を同期で読み込む (起動時のみ)
+const packageJson = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
+);
 
 //250817 noOverlap: true…node-cron3->4から実装、多重実行を防ぐ。ちなみにscheduledは不要になりました。
 export default async (client) => {
