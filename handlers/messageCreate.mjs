@@ -1,15 +1,15 @@
 //handlers/messageCreate.mjs
 import {
   EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
 } from "discord.js";
 import fs from "fs";
 
 import config from "../config.mjs";
+//ダイス
 import { ndnDice } from "../commands/utils/dice.mjs";
+//ドミノ並べ
 import { dominoeffect } from "../commands/utils/domino.mjs";
+//　メッセージ周り
 import {
   createEmbed,
   getImagesFromMessage,
@@ -17,10 +17,15 @@ import {
   safeDelete,
 } from "../utils/messageutil.mjs";
 import { deletebuttonunique } from "../components/buttons.mjs";
+// ロスアカステシ開示API
 import {
   getCharacterSummary,
   getCharacterSummaryCompact,
 } from "../utils/characterApi.mjs";
+// 250904発言によるピザトークン獲得
+const activeUsersForPizza = new Set();
+export { activeUsersForPizza }; // 他のモジュールで使用するためにエクスポート
+
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
@@ -38,6 +43,8 @@ const rev2urlPatterns = {
 };
 
 export default async (message) => {
+  // 250904ピザトークンのために、発言者を記録
+  activeUsersForPizza.add(message.author.id);
   //定義系
   //ロスアカステシ詳細表示用正規表現
   const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);

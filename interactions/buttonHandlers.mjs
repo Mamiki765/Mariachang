@@ -270,7 +270,7 @@ export default async function handleButtonInteraction(interaction) {
             (pizzaConfig.baseAmount.max - pizzaConfig.baseAmount.min + 1)
         ) + pizzaConfig.baseAmount.min;
       let totalPizza = basePizza;
-      Message += `\nレガシーピザも${basePizza}枚焼き上がったようです🍕`;
+      Message += `\nレガシーピザも**${basePizza}枚**焼き上がったようです🍕`;
       // ロールに応じたボーナス、サーバーブースター
       if (interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
         totalPizza += pizzaConfig.boosterBonus;
@@ -285,7 +285,7 @@ export default async function handleButtonInteraction(interaction) {
           Message += `\n雨宿りでいっぱい発言したあなたにニョワミヤ達が**${bonusAmount.toLocaleString()}**枚持ってきてくれました🍕`;
         }
       }
-      Message += `🍕合計:+**${totalPizza}**枚`; // 最後の行のおしりにくっつける
+      Message += `合計:+**${totalPizza}**枚`; // 最後の行のおしりにくっつける
       // 最終的なレガシーピザ加算を更新データにセット
       updateData.legacy_pizza = sequelize.literal(
         `legacy_pizza + ${totalPizza}`
@@ -298,7 +298,7 @@ export default async function handleButtonInteraction(interaction) {
       // 区切り線
       Message += `\n--------------------`;
       // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
-      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 ${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 \n${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`;
+      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`;
 
       // 8. ユーザーに返信
       return interaction.reply({

@@ -225,11 +225,29 @@ async function handleSlots(interaction, slotConfig) {
         const message = isFirstPlay
           ? `コインが足りません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚\n-# /casino balanceでどんぐりやRPをコインに交換できます。`
           : `コインが足りなくなったため、ゲームを終了します。\n-# /casino balanceでどんぐりやRPをコインに交換できます。`;
+
+      // ▼▼▼ ここで、初回かどうかで表示を分岐させる ▼▼▼
+      if (isFirstPlay) {
+        // --- 初回プレイでコイン不足の場合 ---
+        // シンプルなテキストメッセージだけを表示する
         await interaction.editReply({
           content: message,
-          embeds: [],
+          embeds: [], // Embedは表示しない
           components: [],
         });
+      } else {
+        // --- 連続プレイ中にコイン不足になった場合 ---
+        // 最後の盤面(Embed)を残しつつ、テキストでメッセージを伝える
+        embed.setFooter({
+          text: `ゲーム終了 | 今回のセッション: ${sessionPlays}プレイ / 損益: ${sessionProfit > 0 ? "+" : ""}${sessionProfit}コイン`,
+        });
+        await interaction.editReply({
+          content: message,
+          embeds: [embed], // 最後の盤面と損益を表示
+          components: [],
+        });
+      }
+
         await t.rollback();
         return "end_game";
       }

@@ -9,6 +9,8 @@ import { checkAtelierCards } from "../tasks/atelier-checker.mjs"; // エクス�
 import { syncModels } from "../models/database.mjs";
 //ログボボタン
 import { acornLoginButton } from "../components/buttons.mjs";
+//発言ピザ
+import { startPizzaDistribution } from "../tasks/pizza-distributor.mjs";
 // package.jsonからバージョンを取得
 import { readFileSync } from 'node:fs';
 // package.json を同期で読み込む (起動時のみ)
@@ -172,6 +174,8 @@ export default async (client) => {
     ],
   });
   // ログイン通知ここまで
+  startPizzaDistribution(); // 発言によるピザトークン付与の定期タスク開始
+  console.log("[INIT]ピザ配布の定期タスクを開始しました。");
 };
 
 /* SUPABASEに移行したのでコメントアウト

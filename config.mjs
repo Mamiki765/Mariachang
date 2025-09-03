@@ -521,12 +521,13 @@ export default {
   },
   //ログインボーナス設定
   loginBonus: {
-    legacy_pizza:{
-      baseAmount :{ //typo注意 amountのmは1文字
+    legacy_pizza: {
+      baseAmount: {
+        //typo注意 amountのmは1文字
         min: 80, //前botは４時間ごとに40枚だったので２倍、下も同様
-        max: 1000 //500x2
+        max: 1000, //500x2
       },
-       // サーバーブースターによるボーナス
+      // サーバーブースターによるボーナス
       boosterBonus: 1000,
       boosterRoleId: "1025744211552776214", // サーバーブースターロールID
       // MEE6のレベル称号によるボーナス
@@ -541,17 +542,28 @@ export default {
         "1092504786978492529": 800, //Lv80
         "1092505092827127828": 900, //Lv90
         "1092505190973845614": 1000, //Lv100+
-      }
+      },
     },
-    nyowacoin:{
-      baseAmount : 1, //基本は１枚
-      bonus:{
-        chance : 3, //1/3の確率でボーナス
-        amount: { //追加量
+    nyowacoin: {
+      baseAmount: 1, //基本は１枚
+      bonus: {
+        chance: 3, //1/3の確率でボーナス
+        amount: {
+          //追加量
           min: 1,
-          max: 11 // 9 -> 11に増量、基本と合わせた期待値3枚
-        }
-      }
-    }
+          max: 11, // 9 -> 11に増量、基本と合わせた期待値3枚
+        },
+      },
+    },
+  },
+  // 発言によるピザトークン獲得のための設定
+  chatBonus: {
+    legacy_pizza: {
+      // 1分に1回、この範囲でピザを獲得する (MEE6経験値と同じ乱数)
+      amount: {
+        min: 15,
+        max: 25,
+      },
+    },
   },
 };
