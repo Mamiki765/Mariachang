@@ -9,6 +9,8 @@ import { checkAtelierCards } from "../tasks/atelier-checker.mjs"; // エクス�
 import { syncModels } from "../models/database.mjs";
 //ログボボタン
 import { acornLoginButton } from "../components/buttons.mjs";
+// package.jsonからバージョンを取得
+import packageJson from "../package.json" assert { type: "json" };
 
 //250817 noOverlap: true…node-cron3->4から実装、多重実行を防ぐ。ちなみにscheduledは不要になりました。
 export default async (client) => {
@@ -152,13 +154,14 @@ export default async (client) => {
   });
   console.log(`[INFO]${client.user.tag} がログインしました！`);
 
-  // 240718管理室にログイン通知
+  // 240718デバッグサーバーにログイン通知
+  // 250904名前とバージョンを表示するように変更
   client.channels.cache.get(config.logch.login).send({
     embeds: [
       new EmbedBuilder()
         .setTitle("起動完了")
         .setDescription(
-          `> Botが起動しました。\nサービス名：${process.env.SERVICE_NAME}`
+          `> Botが起動しました。\n${packageJson.name} v${packageJson.version}\nサービス名：${process.env.SERVICE_NAME}`
         )
         .setColor("#B78CFE")
         .setTimestamp(),
