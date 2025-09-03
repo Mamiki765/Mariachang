@@ -1622,6 +1622,8 @@ async function handleStats(interaction) {
     // --- スロット1号機の成績 (データがあれば追加) ---
     if (stats.slots) {
       const slot = stats.slots;
+      const netProfit = BigInt(slot.totalWin) - BigInt(slot.totalBet);
+      const sign = netProfit >= 0 ? "+" : "";
       let slotDetails = "";
       for (const prize of config.casino.slot.payouts) {
         const prizeCount = slot.gameData[`wins_${prize.id}`] || 0;
@@ -1631,10 +1633,26 @@ async function handleStats(interaction) {
       }
       embed.addFields({
         name: `🎰 ${config.casino.slot.displayname}`,
-        value: `**プレイ回数:** ${slot.gamesPlayed.toLocaleString()}回\n${slotDetails}`,
+        value: `**プレイ回数:** ${slot.gamesPlayed.toLocaleString()}回  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${slotDetails}`,
       });
     }
-    // (同様にスロット2号機の処理も書く)
+    // --- スロット2号機の成績 (データがあれば追加) ---
+    if (stats.slots_easy){
+      const slot_easy = stats.slots_easy;
+      const netProfit = BigInt(slot_easy.totalWin) - BigInt(slot_easy.totalBet);
+      const sign = netProfit >= 0 ? "+" : "";
+      let slotEasyDetails = "";
+      for (const prize of config.casino.slot_lowrisk.payouts) {
+        const prizeCount = slot_easy.gameData[`wins_${prize.id}`] || 0;
+        if (prizeCount > 0) {
+          slotEasyDetails += `${prize.display}: ${prizeCount}回\n`;
+        }
+      }
+      embed.addFields({
+        name: `🎰 ${config.casino.slot_lowrisk.displayname}`,
+        value: `**プレイ回数:** ${slot_easy.gamesPlayed.toLocaleString()}回  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${slotEasyDetails}`,
+      });
+    }
 
     // --- ルーレットの成績 (データがあれば追加) ---
     if (stats.roulette) {
