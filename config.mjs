@@ -114,6 +114,31 @@ export default {
   nyowacoin: "<:nyowacoin:1407422205624844288>",
   casino: {
     //カジノ設定
+    //通貨の定義
+    currencies: {
+      coin: {
+        db_column: "coin", // Pointモデルでのカラム名
+        displayName: "ニョワコイン",
+        emoji: "<:nyowacoin:1407422205624844288>",
+      },
+      // ピザの定義を追加
+      legacy_pizza: {
+        db_column: "legacy_pizza", // Pointモデルでのカラム名
+        displayName: "レガシーピザ",
+        emoji: "🍕",
+      },
+      //念の為どんぐりとRPも定義しとく
+      acorn: {
+        db_column: "acorn",
+        displayName: "あまやどんぐり",
+        emoji: "🌰",
+      },
+      point: {
+        db_column: "point",
+        displayName: "RP",
+        emoji: "💎",
+      },
+    },
     slot: {
       //スロット1号機（ハイリスク）
       displayname: "ニョワミヤスロットマシン(1号機)",
@@ -326,6 +351,7 @@ export default {
         }, // 賭け金が戻ってくる役
       ],
     },
+    //ブラックジャック
     blackjack: {
       gameName: "blackjack",
       displayName: "ブラックジャック",
@@ -345,6 +371,151 @@ export default {
         min: 2,
         max: 40,
         increment: 2, // 2枚単位
+      },
+    },
+    //ルーレット
+    roulette: {
+      gameName: "roulette",
+      displayName: "ヨーロピアンルーレット",
+      // 各ポケットの番号と色を定義
+      pockets: {
+        0: "green",
+        1: "red",
+        2: "black",
+        3: "red",
+        4: "black",
+        5: "red",
+        6: "black",
+        7: "red",
+        8: "black",
+        9: "red",
+        10: "black",
+        11: "black",
+        12: "red",
+        13: "black",
+        14: "red",
+        15: "black",
+        16: "red",
+        17: "black",
+        18: "red",
+        19: "black",
+        20: "black",
+        21: "red",
+        22: "black",
+        23: "red",
+        24: "black",
+        25: "red",
+        26: "black",
+        27: "red",
+        28: "red",
+        29: "black",
+        30: "red",
+        31: "black",
+        32: "red",
+        33: "black",
+        34: "red",
+        35: "black",
+        36: "red",
+      },
+      // ベットの種類を定義
+      // payoutは、賭け金を除いた純粋な勝ち分（例: 10枚賭けてストレートアップが当たると、10 + (10 * 35) = 360枚戻る）
+      bets: {
+        // --- アウトサイドベット ---
+        red: { name: "赤 (Red)", type: "color", value: "red", payout: 1 },
+        black: { name: "黒 (Black)", type: "color", value: "black", payout: 1 },
+        odd: { name: "奇数 (Odd)", type: "even_odd", value: "odd", payout: 1 },
+        even: {
+          name: "偶数 (Even)",
+          type: "even_odd",
+          value: "even",
+          payout: 1,
+        },
+        low: {
+          name: "ロー (1-18)",
+          type: "range",
+          value: { min: 1, max: 18 },
+          payout: 1,
+        },
+        high: {
+          name: "ハイ (19-36)",
+          type: "range",
+          value: { min: 19, max: 36 },
+          payout: 1,
+        },
+        dozen1: {
+          name: "1st 12 (1-12)",
+          type: "range",
+          value: { min: 1, max: 12 },
+          payout: 2,
+        },
+        dozen2: {
+          name: "2nd 12 (13-24)",
+          type: "range",
+          value: { min: 13, max: 24 },
+          payout: 2,
+        },
+        dozen3: {
+          name: "3rd 12 (25-36)",
+          type: "range",
+          value: { min: 25, max: 36 },
+          payout: 2,
+        },
+        column1: {
+          name: "上段 (1,4,7...)",
+          type: "column",
+          value: 1,
+          payout: 2,
+        },
+        column2: {
+          name: "中段 (2,5,8...)",
+          type: "column",
+          value: 2,
+          payout: 2,
+        },
+        column3: {
+          name: "下段 (3,6,9...)",
+          type: "column",
+          value: 0,
+          payout: 2,
+        }, // 3の倍数
+        // --- インサイドベット ---
+        straight_0: { name: "0", type: "number", value: 0, payout: 35 },
+        straight_1: { name: "1", type: "number", value: 1, payout: 35 },
+        straight_2: { name: "2", type: "number", value: 2, payout: 35 },
+        straight_3: { name: "3", type: "number", value: 3, payout: 35 },
+        straight_4: { name: "4", type: "number", value: 4, payout: 35 },
+        straight_5: { name: "5", type: "number", value: 5, payout: 35 },
+        straight_6: { name: "6", type: "number", value: 6, payout: 35 },
+        straight_7: { name: "7", type: "number", value: 7, payout: 35 },
+        straight_8: { name: "8", type: "number", value: 8, payout: 35 },
+        straight_9: { name: "9", type: "number", value: 9, payout: 35 },
+        straight_10: { name: "10", type: "number", value: 10, payout: 35 },
+        straight_11: { name: "11", type: "number", value: 11, payout: 35 },
+        straight_12: { name: "12", type: "number", value: 12, payout: 35 },
+        straight_13: { name: "13", type: "number", value: 13, payout: 35 },
+        straight_14: { name: "14", type: "number", value: 14, payout: 35 },
+        straight_15: { name: "15", type: "number", value: 15, payout: 35 },
+        straight_16: { name: "16", type: "number", value: 16, payout: 35 },
+        straight_17: { name: "17", type: "number", value: 17, payout: 35 },
+        straight_18: { name: "18", type: "number", value: 18, payout: 35 },
+        straight_19: { name: "19", type: "number", value: 19, payout: 35 },
+        straight_20: { name: "20", type: "number", value: 20, payout: 35 },
+        straight_21: { name: "21", type: "number", value: 21, payout: 35 },
+        straight_22: { name: "22", type: "number", value: 22, payout: 35 },
+        straight_23: { name: "23", type: "number", value: 23, payout: 35 },
+        straight_24: { name: "24", type: "number", value: 24, payout: 35 },
+        straight_25: { name: "25", type: "number", value: 25, payout: 35 },
+        straight_26: { name: "26", type: "number", value: 26, payout: 35 },
+        straight_27: { name: "27", type: "number", value: 27, payout: 35 },
+        straight_28: { name: "28", type: "number", value: 28, payout: 35 },
+        straight_29: { name: "29", type: "number", value: 29, payout: 35 },
+        straight_30: { name: "30", type: "number", value: 30, payout: 35 },
+        straight_31: { name: "31", type: "number", value: 31, payout: 35 },
+        straight_32: { name: "32", type: "number", value: 32, payout: 35 },
+        straight_33: { name: "33", type: "number", value: 33, payout: 35 },
+        straight_34: { name: "34", type: "number", value: 34, payout: 35 },
+        straight_35: { name: "35", type: "number", value: 35, payout: 35 },
+        straight_36: { name: "36", type: "number", value: 36, payout: 35 },
       },
     },
   },

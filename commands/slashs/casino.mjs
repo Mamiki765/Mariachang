@@ -30,6 +30,16 @@ export const help = {
       description: "ブラックジャックです。",
       notes: "ボーナスがあったり難易度の低い設計になっております。",
     },
+    {
+      name: "balance",
+      description: "コインや他の通貨を確認したり両替できます",
+      notes: "RPやどんぐりをコインに両替できます。",
+    },
+    {
+      name: "roulette",
+      description: "ヨーロピアンスタイルのルーレットで遊びます。",
+      notes: "ニョワコインやレガシーピザを賭けて遊べます。",
+    },
   ],
 };
 
@@ -87,8 +97,72 @@ export const data = new SlashCommandBuilder()
           .setMaxValue(config.casino.blackjack.betting.max)
           .setRequired(true)
       )
+  )
+  //ルーレット
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("roulette")
+      .setDescription("ヨーロピアンスタイルのルーレットで遊びます。")
+      .addStringOption((option) =>
+        option
+          .setName("bet")
+          .setDescription("賭ける場所を選択してください。")
+          .setRequired(true)
+          .setAutocomplete(true)
+      )
+      .addIntegerOption(
+        (option) =>
+          option
+            .setName("coin")
+            .setDescription("ニョワコインを賭けます（最大100枚）")
+            .setMinValue(1)
+            .setMaxValue(100) // ニョワコインの最大ベット額
+      )
+      .addIntegerOption(
+        (option) =>
+          option
+            .setName("legacy_pizza")
+            .setDescription("レガシーピザを賭けます（最大10,000枚）")
+            .setMinValue(1)
+            .setMaxValue(10000) // レガシーピザの最大ベット額
+      )
   );
+// --- オートコンプリート処理 ---
+export async function autocomplete(interaction) {
+  const focusedOption = interaction.options.getFocused(true);
 
+  if (focusedOption.name === "bet") {
+    const userInput = focusedOption.value.toLowerCase();
+
+    const allBets = Object.entries(config.casino.roulette.bets).map(
+      ([key, value]) => ({
+        name: value.name,
+        value: key,
+        type: value.type, // 並び替え用にtypeを保持
+      })
+    );
+
+    // ユーザーの入力がある場合は、通常通りフィルター
+    if (userInput) {
+      const filtered = allBets.filter(
+        (choice) =>
+          choice.name.toLowerCase().includes(userInput) ||
+          choice.value.toLowerCase().includes(userInput)
+      );
+      await interaction.respond(filtered.slice(0, 25));
+    } else {
+      // ▼▼▼ 入力が空の場合のロジック ▼▼▼
+      const outsideBets = allBets.filter((b) => b.type !== "number");
+      const insideBets = allBets.filter((b) => b.type === "number");
+
+      // アウトサイドベットを先に表示し、残りをインサイドベットで埋める
+      const sortedBets = [...outsideBets, ...insideBets];
+
+      await interaction.respond(sortedBets.slice(0, 25));
+    }
+  }
+}
+// ==================================================================
 // --- コマンド実行部分 ---
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -101,8 +175,11 @@ export async function execute(interaction) {
     await handleBalance(interaction);
   } else if (subcommand === "blackjack") {
     await handleBlackjack(interaction);
+  } else if (subcommand === "roulette") {
+    await handleRoulette(interaction);
   }
 }
+// ==================================================================
 
 // --- スロットゲームのメインロジック ---
 async function handleSlots(interaction, slotConfig) {
@@ -416,7 +493,7 @@ async function handleBalance(interaction) {
       .setColor("#FEE75C")
       .addFields(
         {
-          name: "💎 Roleplay Point",          
+          name: "💎 Roleplay Point",
           value: `**${user.point.toLocaleString()}**RP (累計${user.totalpoint.toLocaleString()})`,
           inline: false,
         },
@@ -1272,5 +1349,206 @@ async function handleDealerTurnAndSettle(
         content: `<@${userId}> ゲームの決着処理中にデータベースエラーが発生しました。`,
       });
     }
+  }
+}
+// ==================================================================
+// ルーレット
+// ==================================================================
+async function handleRoulette(interaction) {
+  const userId = interaction.user.id;
+
+  // --- 通貨と賭け金の決定 ---
+  const coinAmount = interaction.options.getInteger("coin");
+  const pizzaAmount = interaction.options.getInteger("legacy_pizza");
+  const betKey = interaction.options.getString("bet");
+
+  let currencyKey;
+  let amount;
+
+  if (coinAmount) {
+    currencyKey = "coin";
+    amount = coinAmount;
+  } else if (pizzaAmount) {
+    currencyKey = "legacy_pizza";
+    amount = pizzaAmount;
+  } else {
+    // どちらも入力されていない場合
+    return interaction.reply({
+      content:
+        "賭ける通貨（`coin`または`legacy_pizza`）と枚数を指定してください。",
+      ephemeral: true,
+    });
+  }
+
+  const currencyInfo = config.casino.currencies[currencyKey];
+  const betInfo = config.casino.roulette.bets[betKey];
+  const rouletteConfig = config.casino.roulette;
+
+  if (!betInfo) {
+    return interaction.reply({
+      content: "無効なベットが指定されました。選択肢から選んでください。",
+      ephemeral: true,
+    });
+  }
+
+  await interaction.deferReply();
+
+  const t = await sequelize.transaction();
+  try {
+    const [userPoint, created] = await Point.findOrCreate({
+      where: { userId },
+      defaults: { userId },
+      transaction: t,
+    });
+
+    // 賭け金チェック
+    if ((userPoint[currencyKey] || 0) < amount) { //null対策で0をデフォルトに
+      await t.rollback();
+      return interaction.editReply({
+        content: `${currencyInfo.displayName}が足りません！\n現在の所持${currencyInfo.emoji}: ${userPoint[currencyKey]}`,
+      });
+    }
+
+    userPoint[currencyKey] -= amount;
+
+    const winningNumber = Math.floor(Math.random() * 37);
+    const winningColor = rouletteConfig.pockets[winningNumber];
+
+    let isWin = false;
+    if (winningNumber > 0) {
+      switch (betInfo.type) {
+        case "color":
+          isWin = winningColor === betInfo.value;
+          break;
+        case "even_odd":
+          isWin = (winningNumber % 2 === 0 ? "even" : "odd") === betInfo.value;
+          break;
+        case "range":
+          isWin =
+            winningNumber >= betInfo.value.min &&
+            winningNumber <= betInfo.value.max;
+          break;
+        case "column":
+          isWin = winningNumber % 3 === betInfo.value;
+          break;
+      }
+    }
+    if (betInfo.type === "number") {
+      isWin = winningNumber === betInfo.value;
+    }
+
+    let payout = 0;
+    let winAmount = 0;
+    if (isWin) {
+      payout = amount * betInfo.payout;
+      winAmount = amount + payout;
+      userPoint[currencyKey] += winAmount;
+    }
+
+    const [stats] = await CasinoStats.findOrCreate({
+      where: { userId, gameName: rouletteConfig.gameName },
+      transaction: t,
+    });
+    // 統計の更新
+    stats.gamesPlayed = BigInt(stats.gamesPlayed) + 1n;
+    //賭ける通貨ごとに記録するので、totalBet, totalWinは使わない
+    //stats.totalBet = BigInt(stats.totalBet) + BigInt(amount);
+    //stats.totalWin = BigInt(stats.totalWin) + BigInt(winAmount);
+
+    // gameData に通貨ごとの詳細な統計を保存
+    const gameData = stats.gameData || {}; // 既存のgameDataを取得、なければ空オブジェクト
+    if (!gameData[currencyKey]) {
+      // この通貨でのプレイが初めてなら、初期オブジェクトを作成
+      gameData[currencyKey] = {
+        gamesPlayed: "0",
+        totalBet: "0",
+        totalWin: "0",
+      };
+    }
+    // BigIntで安全に計算
+    gameData[currencyKey].gamesPlayed = (
+      BigInt(gameData[currencyKey].gamesPlayed) + 1n
+    ).toString();
+    gameData[currencyKey].totalBet = (
+      BigInt(gameData[currencyKey].totalBet) + BigInt(amount)
+    ).toString();
+    gameData[currencyKey].totalWin = (
+      BigInt(gameData[currencyKey].totalWin) + BigInt(winAmount)
+    ).toString();
+
+    // 更新したgameDataをセットし直し、変更をSequelizeに通知
+    stats.gameData = gameData;
+    stats.changed("gameData", true);
+
+    await userPoint.save({ transaction: t });
+    await stats.save({ transaction: t });
+    await t.commit();
+
+    const numberEmoji = { red: "🔴", black: "⚫", green: "🟢" };
+    const ROULETTE_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/European_roulette.svg/960px-European_roulette.svg.png";
+    const resultEmbed = new EmbedBuilder()
+      .setTitle(`**${rouletteConfig.displayName}**`)
+      .setDescription(
+        `ベット: **${amount}** ${currencyInfo.emoji} on **${betInfo.name}**`
+      )
+      .setTimestamp();
+
+    await interaction.editReply({ content: "ルーレットを回しています... 🤞" });
+    await sleep(2000);
+
+    if (isWin) {
+      resultEmbed
+        .setColor("#57F287")
+        .setTitle(`🎉 **当たり！** 🎉`)
+        .addFields(
+          {
+            name: "結果",
+            value: `${numberEmoji[winningColor]} **${winningNumber}**`,
+            inline: true,
+          },
+          {
+            name: "配当",
+            value: `+${winAmount.toLocaleString()} ${currencyInfo.emoji}`,
+            inline: true,
+          },
+          {
+            name: `所持${currencyInfo.displayName}`,
+            value: `${userPoint[currencyKey].toLocaleString()} ${currencyInfo.emoji}`,
+            inline: true,
+          }
+        );
+    } else {
+      resultEmbed
+        .setColor("#ED4245")
+        .setTitle(`**ハズレ...**`)
+        .addFields(
+          {
+            name: "結果",
+            value: `${numberEmoji[winningColor]} **${winningNumber}**`,
+            inline: true,
+          },
+          {
+            name: "損失",
+            value: `-${amount.toLocaleString()} ${currencyInfo.emoji}`,
+            inline: true,
+          },
+          {
+            name: `所持${currencyInfo.displayName}`,
+            value: `${userPoint[currencyKey].toLocaleString()} ${currencyInfo.emoji}`,
+            inline: true,
+          }
+        );
+    }
+    // ルーレットの画像を添付
+    resultEmbed.setImage(ROULETTE_IMAGE_URL);
+
+    await interaction.editReply({ content: "", embeds: [resultEmbed] });
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    console.error("ルーレット処理中にエラー:", error);
+    await interaction.editReply({
+      content:
+        "エラーが発生したため、処理を中断しました。通貨は消費されていません。",
+    });
   }
 }
