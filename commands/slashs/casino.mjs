@@ -1637,7 +1637,7 @@ async function handleStats(interaction) {
       });
     }
     // --- スロット2号機の成績 (データがあれば追加) ---
-    if (stats.slots_easy){
+    if (stats.slots_easy) {
       const slot_easy = stats.slots_easy;
       const netProfit = BigInt(slot_easy.totalWin) - BigInt(slot_easy.totalBet);
       const sign = netProfit >= 0 ? "+" : "";
