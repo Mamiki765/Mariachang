@@ -211,7 +211,7 @@ async function handleSlots(interaction, slotConfig) {
   await interaction.deferReply();
 
   // --- ゲームループ関数 ---
-  const gameLoop = async (isFirstPlay = true) => {
+  const gameLoop = async (isFirstPlay = true, embed) => {
     let resultSymbols = [];
     let isReach = false;
     const t = await sequelize.transaction();
@@ -408,7 +408,7 @@ async function handleSlots(interaction, slotConfig) {
         if (i.customId === "spin_again") {
           collector.stop();
           await i.deferUpdate();
-          if ((await gameLoop(false)) === "end_game") {
+          if ((await gameLoop(false, embed)) === "end_game") {
             buttons.components.forEach((btn) => btn.setDisabled(true));
             await interaction.editReply({ components: [buttons] });
           }
@@ -460,7 +460,7 @@ async function handleSlots(interaction, slotConfig) {
     }
   };
 
-  await gameLoop(); // 最初のゲームを開始
+  await gameLoop(true, embed); // 最初のゲームを開始
 }
 
 /**
