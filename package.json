@@ -15,10 +15,10 @@
     "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json,project-structure.txt\" -l 3 -o project-structure.txt"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.55.0",
+    "@supabase/supabase-js": "^2.57.0",
     "axios": "^1.9.0",
-    "cron-parser": "^5.3.0",
-    "discord.js": "^14.21.0",
+    "cron-parser": "^5.3.1",
+    "discord.js": "^14.22.1",
     "express": "^5.1.0",
     "image-size": "^2.0.2",
     "node-cron": "^4.2.1",
