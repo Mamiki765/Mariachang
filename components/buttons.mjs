@@ -128,3 +128,23 @@ export function createRpDeleteConfirmButtons(messageId, userId) {
 
   return new ActionRowBuilder().addComponents(confirmButton, cancelButton);
 }
+
+/**
+ * ログインボーナス受け取り後に表示するボタンセットを作成します。
+ * @returns {import('discord.js').ActionRowBuilder}
+ */
+export function createLoginResultButtons() {
+  // 1. ロスアカへのリンクボタン
+  const lostArcadiaButton = new ButtonBuilder()
+    .setLabel("ロスアカの公式サイトへ") // ボタンのテキスト
+    .setStyle(ButtonStyle.Link) // ★これが重要！ リンクボタンにする
+    .setURL("https://rev2.reversion.jp"); // ここにURLを設定
+
+  // 2. 通貨説明を表示するボタン
+  const currencyInfoButton = new ButtonBuilder()
+    .setCustomId("show_currency_help") // このボタンだけの特別なID
+    .setLabel("雨宿りの通貨について")
+    .setStyle(ButtonStyle.Secondary); // 補助的なのでSecondaryが良いでしょう
+
+  return new ActionRowBuilder().addComponents(lostArcadiaButton, currencyInfoButton);
+}

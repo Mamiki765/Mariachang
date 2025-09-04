@@ -2,6 +2,7 @@
 import {
   deleteconfirm,
   createRpDeleteConfirmButtons,
+  createLoginResultButtons,
 } from "../components/buttons.mjs";
 import {
   ModalBuilder,
@@ -225,7 +226,13 @@ export default async function handleButtonInteraction(interaction) {
         // 最後に押した日時が、最後に朝8時が来た日時よりも後か？
         if (lastClaim > last8AM) {
           return interaction.reply({
-            content: `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個 ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`,
+            content:
+              `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n` +
+              `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
+              ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚 ` +
+              `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚\n` +
+              `ロスアカのどんぐりもお忘れなく……`,
+            components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
             ephemeral: true,
           });
         }
@@ -298,11 +305,12 @@ export default async function handleButtonInteraction(interaction) {
       // 区切り線
       Message += `\n--------------------`;
       // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
-      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚\nロスアカもお忘れなく……https://rev2.reversion.jp`;
+      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚\nロスアカのどんぐりもお忘れなく……`;
 
       // 8. ユーザーに返信
       return interaction.reply({
         content: Message,
+        components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
         flags: 64, //ephemeralは古い書き方なのでこちらを使用
       });
     } catch (error) {
@@ -312,6 +320,29 @@ export default async function handleButtonInteraction(interaction) {
         ephemeral: true,
       });
     }
+    // あまやどんぐりのヘルプを表示するボタン
+  } else if (interaction.customId === "show_currency_help") {
+    const helpText = `### 雨宿りの通貨について
+毎日1回、ログインボーナスとして「あまやどんぐり」をはじめ様々な通貨を受け取る事ができます。
+これらの通貨の所持数は、/casino balance で確認できます。
+- **あまやどんぐり**
+雑談チャンネルで8時22時の時報についているボタンを押すと毎日1個拾えるログボです
+1どんぐり -> 100コインで両替できます。
+- **ニョワコイン**
+ログボで拾える通貨です${config.nyowacoin}ニョワカジノ(/casino)で遊ぶことができます。将来的にはMee6経験値への転換機能も予定しています。
+- **発言レベル(Mee6)**
+発言すると上がるお得意様レベルです。現在のレベル・経験値は \`!rank\` と喋れば確認できます。10レベルごとにロールを付与されたり、レガシーピザのログボが増えたりします。
+- **レガシーピザ**
+ログボの受取や雨宿り内で発言をする事で少しずつ手に入るピザです。今は記念通貨のようなものですが、ルーレットでコインの代わりに賭けることができます。
+- **RP(Roleplay Point)**
+雨宿りの/ロールプレイコマンドで発言する度に貯まるポイントです。1RP -> 20コインで両替できます。
+    `;
+    await interaction.reply({
+      content: helpText,
+      ephemeral: true,
+    });
+    // --- ここまでが、あまやどんぐりのログインボーナス処理 ---
+    // --- ここから下は、ロールプレイ機能の削除ボタン処理 ---
     //RP 機能　Cancelボタン処理
   } else if (rpDeleteRequestMatch) {
     // 【ステップ1：削除要求の受付】

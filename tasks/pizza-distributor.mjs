@@ -36,7 +36,7 @@ export function startPizzaDistribution() {
         throw error;
       }
 
-      console.log(`[RPC]${userIds.length}人のユーザーへのピザ配布が完了しました。`);
+      //console.log(`[RPC]${userIds.length}人のユーザーへのピザ配布が完了しました。`);
 
     } catch (error) {
       console.error("[RPC]ピザ配布タスクでエラーが発生しました:", error);
