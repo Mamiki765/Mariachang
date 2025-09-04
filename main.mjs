@@ -203,7 +203,7 @@ async function startBot() {
       console.error("エラーメッセージのDiscordへの送信に失敗しました:", err);
     }
   });
-  client.on("ready", () => handlers.get("ready").default(client));
+  client.on("clientReady", () => handlers.get("clientReady").default(client));
 
   app.listen(3000, (error) => {
     if (error) {

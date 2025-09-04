@@ -211,7 +211,11 @@ async function handleSlots(interaction, slotConfig) {
   await interaction.deferReply();
 
   // --- ゲームループ関数 ---
-  const gameLoop = async (isFirstPlay = true, currentEmbed = null) => {
+  const gameLoop = async (
+    isFirstPlay = true,
+    currentEmbed = null,
+    interactionContext
+  ) => {
     let resultSymbols = [];
     let isReach = false;
     let embed = currentEmbed;
@@ -234,7 +238,7 @@ async function handleSlots(interaction, slotConfig) {
         if (isFirstPlay) {
           // --- 初回プレイでコイン不足の場合 ---
           // シンプルなテキストメッセージだけを表示する
-          await interaction.editReply({
+          await interactionContext.editReply({
             content: message,
             embeds: [], // Embedは表示しない
             components: [],
@@ -245,7 +249,7 @@ async function handleSlots(interaction, slotConfig) {
           embed.setFooter({
             text: `ゲーム終了 | 今回のセッション: ${sessionPlays}プレイ / 損益: ${sessionProfit > 0 ? "+" : ""}${sessionProfit}コイン`,
           });
-          await interaction.editReply({
+          await interactionContext.editReply({
             content: message,
             embeds: [embed], // 最後の盤面と損益を表示
             components: [],
@@ -288,14 +292,14 @@ async function handleSlots(interaction, slotConfig) {
       embed.setDescription(
         `# [ ${rotateEmoji} | ${rotateEmoji} | ${rotateEmoji} ]`
       );
-      await interaction.editReply({ embeds: [embed], components: [] });
+      await interactionContext.editReply({ embeds: [embed], components: [] });
       await sleep(1000);
 
       // 2. 1番目のリールが停止
       embed.setDescription(
         `# [ ${resultEmojis[0]} | ${rotateEmoji} | ${rotateEmoji} ]`
       );
-      await interaction.editReply({ embeds: [embed] });
+      await interactionContext.editReply({ embeds: [embed] });
       await sleep(1000);
 
       // 3. 2番目のリールが停止
@@ -321,7 +325,7 @@ async function handleSlots(interaction, slotConfig) {
       // ▼▼▼ 最終的に生成した文字列で、setDescriptionを一度だけ呼ぶ ▼▼▼
       embed.setDescription(description);
 
-      await interaction.editReply({ embeds: [embed] });
+      await interactionContext.editReply({ embeds: [embed] });
       await sleep(lastReelDelay); // 設定された待機時間だけ待つ
 
       // --- 役の判定とDB更新 ---
@@ -399,7 +403,7 @@ async function handleSlots(interaction, slotConfig) {
           .setStyle(ButtonStyle.Success)
       );
 
-      const message = await interaction.editReply({
+      const message = await interactionContext.editReply({
         embeds: [embed],
         components: [buttons],
       });
@@ -414,10 +418,8 @@ async function handleSlots(interaction, slotConfig) {
         if (i.customId === "spin_again") {
           collector.stop();
           await i.deferUpdate();
-          if ((await gameLoop(false, embed)) === "end_game") {
-            buttons.components.forEach((btn) => btn.setDisabled(true));
-            await interaction.editReply({ components: [buttons] });
-          }
+          // gameLoopを呼び出すだけ。終了処理はgameLoop自身が責任を持つ。
+          await gameLoop(false, embed, i);
         } else if (i.customId === "show_payouts") {
           // ▼▼▼ 役一覧表示の処理 ▼▼▼
 
@@ -444,9 +446,11 @@ async function handleSlots(interaction, slotConfig) {
       });
 
       collector.on("end", (collected) => {
+        // タイムアウトで終了した場合のみボタンを無効化
         if (collected.size === 0) {
           buttons.components.forEach((btn) => btn.setDisabled(true));
-          interaction.editReply({ components: [buttons] }).catch(() => {});
+          // interactionContextではなく、collectorを生成したmessageオブジェクトで編集する
+          message.edit({ components: [buttons] }).catch(() => {});
         }
       });
     } catch (error) {
@@ -458,15 +462,24 @@ async function handleSlots(interaction, slotConfig) {
         result: resultSymbols,
       });
       await t.rollback();
-      await interaction.followUp({
-        content:
-          "エラーが発生したため、処理を中断しました。コインは消費されていません。",
-        ephemeral: true,
-      });
+      // エラー通知の失敗でBotがクラッシュしないよう、さらにtry...catchで囲む
+      try {
+        await interactionContext.followUp({
+          content:
+            "エラーが発生したため、処理を中断しました。コインは消費されていません。",
+          ephemeral: true,
+        });
+      } catch (followUpError) {
+        console.error(
+          "スロットのエラー通知(followUp)に失敗しました:",
+          followUpError
+        );
+        // ここではエラーを握りつぶし、Botの動作を継続させる
+      }
     }
   };
 
-  await gameLoop(); // 最初のゲームを開始
+  await gameLoop(true, null, interaction); // 最初のゲームを開始
 }
 
 /**

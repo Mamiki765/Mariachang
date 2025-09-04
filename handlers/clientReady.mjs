@@ -1,4 +1,5 @@
-// handlers/ready.mjs
+// handlers/clientReady.mjs
+// discord.js v15よりreadyイベントはclientReadyに名称変更されたため、ready.mjsからリネーム
 import { EmbedBuilder, ActivityType } from "discord.js";
 import cron from "node-cron";
 import config from "../config.mjs";
