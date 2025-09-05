@@ -15,7 +15,7 @@ import {
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
 import { safeDelete } from "../utils/messageutil.mjs";
-import { Point, sequelize } from "../models/database.mjs";
+import { Point, sequelize, Mee6Level } from "../models/database.mjs";
 import config from "../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
