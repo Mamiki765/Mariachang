@@ -417,10 +417,20 @@ const Mee6Level = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 55, // レベル1→2に必要なXP
     },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.fn("now"),
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.fn("now"),
+    },
   },
   {
     tableName: "mee6_levels",
-    timestamps: true, // データの最終同期日時を追跡するために `updatedAt` を利用
+    timestamps: false, // データの最終同期日時を追跡するために `updatedAt` を利用
   }
 );
 
@@ -438,7 +448,7 @@ async function syncModels() {
     await Scenario.sync({ alter: true });
     await Sticker.sync({ alter: true }); // スタンプモデルの同期
     await CasinoStats.sync({ alter: true });
-    await Mee6Level.sync({ alter: true }); 
+    await Mee6Level.sync({ alter: true });
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
