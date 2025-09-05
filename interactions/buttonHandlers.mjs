@@ -328,7 +328,7 @@ export default async function handleButtonInteraction(interaction) {
           mee6MessagePart = `<@&${winningRoleId}>: **${roleBonus.toLocaleString()}枚**`;
         }
 
-        pizzaMessages.push(`${mee6MessageIntro} > ${mee6MessagePart}`);
+        pizzaMessages.push(`${mee6MessageIntro} -> ${mee6MessagePart}`);
         pizzaBreakdown.push(finalMee6Bonus);
       }
 
@@ -360,7 +360,8 @@ export default async function handleButtonInteraction(interaction) {
       Message += `\n--------------------`;
       // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
       Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚\nロスアカのどんぐりもお忘れなく……`;
-
+      //放置ゲームの宣伝
+      Message += `\n【PR】拾ったピザを/放置ゲーム(/idle)で使えるようになりました。🍕`;
       // 8. ユーザーに返信
       return interaction.reply({
         content: Message,
@@ -387,7 +388,7 @@ export default async function handleButtonInteraction(interaction) {
 - **発言レベル(Mee6)**
 発言すると上がるお得意様レベルです。現在のレベル・経験値は \`!rank\` と喋れば確認できます。10レベルごとにロールを付与されたり、レガシーピザのログボが増えたりします。
 - **レガシーピザ**
-ログボの受取や雨宿り内で発言をする事で少しずつ手に入るピザです。今は記念通貨のようなものですが、ルーレットでコインの代わりに賭けることができます。
+ログボの受取や雨宿り内で発言をする事で少しずつ手に入るピザです。ルーレットでコインの代わりに賭けたり、放置ゲームで遊ぶのに使えます。もう記念通貨の域を出てしまいました。
 - **RP(Roleplay Point)**
 雨宿りの/ロールプレイコマンドで発言する度に貯まるポイントです。1RP -> 20コインで両替できます。
     `;

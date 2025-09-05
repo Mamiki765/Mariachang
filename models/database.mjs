@@ -434,6 +434,41 @@ const Mee6Level = sequelize.define(
   }
 );
 
+// 放置ゲーム状態モデル
+const IdleGame = sequelize.define(
+  "IdleGame",
+  {
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      primaryKey: true,
+    },
+    // 人口は天文学的な数値になる可能性があるのでDOUBLE型が最適
+    population: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0,
+    },
+    pizzaOvenLevel: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0, // レベル0では人口が増えないので、初期値は0
+    },
+    cheeseFactoryLevel: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    // 最後に資源計算を反映した時刻
+    lastUpdatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.fn("now"),
+    },
+  },
+  {
+    tableName: "idle_games",
+    timestamps: false,
+  }
+);
+
 // データベースの同期処理
 async function syncModels() {
   try {
@@ -449,6 +484,7 @@ async function syncModels() {
     await Sticker.sync({ alter: true }); // スタンプモデルの同期
     await CasinoStats.sync({ alter: true });
     await Mee6Level.sync({ alter: true });
+    await IdleGame.sync({ alter: true });
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
@@ -469,4 +505,5 @@ export {
   Sticker, // スタンプモデルをエクスポート
   Mee6Level,
   CasinoStats,
+  IdleGame,
 };

@@ -567,4 +567,20 @@ export default {
       },
     },
   },
+  // 放置ゲーム設定
+  idle: {
+    oven: {
+      baseCost: 100,      // 基本コスト
+      multiplier: 1.08,   // レベルで加算される乗数 (気軽に変えると大変！)
+      effect: 1,          // 1レベルあたりの効果 (+1人/分)
+    },
+    cheese: {
+      baseCost: 500,
+      multiplier: 1.15,
+      effect: 0.05,       // 1レベルあたりの効果 (+5%)
+    },
+    meat: {
+      effect: 0.01,       // 1レベルあたりの効果 (^1.01)
+    },
+  },
 };
