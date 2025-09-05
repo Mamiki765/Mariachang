@@ -12,11 +12,13 @@ import { syncModels } from "../models/database.mjs";
 import { acornLoginButton } from "../components/buttons.mjs";
 //発言ピザ
 import { startPizzaDistribution } from "../tasks/pizza-distributor.mjs";
+// Mee6レベル同期タスク
+import { syncMee6Levels } from '../tasks/mee6-level-updater.mjs'; 
 // package.jsonからバージョンを取得
-import { readFileSync } from 'node:fs';
+import { readFileSync } from "node:fs";
 // package.json を同期で読み込む (起動時のみ)
 const packageJson = JSON.parse(
-  readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
+  readFileSync(new URL("../package.json", import.meta.url), "utf-8")
 );
 
 //250817 noOverlap: true…node-cron3->4から実装、多重実行を防ぐ。ちなみにscheduledは不要になりました。
@@ -154,6 +156,23 @@ export default async (client) => {
       timezone: "Asia/Tokyo", // 日本時間を指定
     }
   );
+  // -----------------------------------------------------------------
+  // Mee6レベル同期タスク
+  // 最初に一度実行して、データを最新にする
+  syncMee6Levels();
+
+  // その後、1日2回（朝7:50 と 夜19:50）定期実行してデータを更新し続ける
+  cron.schedule(
+    "50 7,19 * * *",
+    () => {
+      syncMee6Levels();
+    },
+    {
+      noOverlap: true,
+      timezone: "Asia/Tokyo",
+    }
+  );
+  // -----------------------------------------------------------------
 
   await client.user.setActivity("🍙", {
     type: ActivityType.Custom,

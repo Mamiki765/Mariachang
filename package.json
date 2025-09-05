@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "1.9.3",
+  "version": "1.10.0",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -21,6 +21,7 @@
     "discord.js": "^14.22.1",
     "express": "^5.1.0",
     "image-size": "^2.0.2",
+    "mee6-levels-api": "^1.3.1",
     "node-cron": "^4.2.1",
     "pg": "^8.15.6",
     "sequelize": "^6.37.3",

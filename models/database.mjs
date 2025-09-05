@@ -389,6 +389,41 @@ const CasinoStats = sequelize.define(
   }
 );
 
+// Mee6 レベル情報モデル
+const Mee6Level = sequelize.define(
+  "Mee6Level",
+  {
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      primaryKey: true,
+    },
+    level: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    xpInLevel: {
+      // 現在のレベル内での経験値
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    totalXp: {
+      // 累計の経験値
+      type: DataTypes.BIGINT, // 非常に大きくなる可能性があるのでBIGINT
+      defaultValue: 0,
+    },
+    xpForNextLevel: {
+      // 次のレベルまでに必要な経験値
+      type: DataTypes.INTEGER,
+      defaultValue: 55, // レベル1→2に必要なXP
+    },
+  },
+  {
+    tableName: "mee6_levels",
+    timestamps: true, // データの最終同期日時を追跡するために `updatedAt` を利用
+  }
+);
+
 // データベースの同期処理
 async function syncModels() {
   try {
@@ -397,13 +432,13 @@ async function syncModels() {
     await Icon.sync({ alter: true });
     await Point.sync({ alter: true });
     await CurrentDomino.sync({ alter: true });
-    //    await DominoHistory.sync({ alter: true });
     await Notification.sync({ alter: true });
     await AdminMemo.sync({ alter: true });
     await DominoLog.sync({ alter: true });
     await Scenario.sync({ alter: true });
     await Sticker.sync({ alter: true }); // スタンプモデルの同期
     await CasinoStats.sync({ alter: true });
+    await Mee6Level.sync({ alter: true }); 
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
@@ -417,11 +452,11 @@ export {
   Point,
   CurrentDomino,
   Notification,
-  //  DominoHistory,
   AdminMemo,
   syncModels,
   DominoLog, // ← 追加
   Scenario, // シナリオモデルをエクスポート
   Sticker, // スタンプモデルをエクスポート
+  Mee6Level,
   CasinoStats,
 };
