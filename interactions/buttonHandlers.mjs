@@ -269,68 +269,88 @@ export default async function handleButtonInteraction(interaction) {
       updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
 
       // レガシーピザ、ランダム基本給＋ロールに応じたボーナス
-      const pizzaConfig = config.loginBonus.legacy_pizza; // 設定からレガシーピザの基本情報を取得
-      // 基本給
+      const pizzaConfig = config.loginBonus.legacy_pizza;
+      const pizzaMessages = []; // ピザボーナスの内訳メッセージを格納する配列
+      const pizzaBreakdown = []; // 合計計算式のための数値を格納する配列
+
+      // 1.基本給
       const basePizza =
         Math.floor(
           Math.random() *
             (pizzaConfig.baseAmount.max - pizzaConfig.baseAmount.min + 1)
         ) + pizzaConfig.baseAmount.min;
-      let totalPizza = basePizza;
-      Message += `\nレガシーピザも**${basePizza}枚**焼き上がったようです🍕`;
-      // サーバーブースターのボーナス
-      if (interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
-        totalPizza += pizzaConfig.boosterBonus;
-        Message += `\nサーバーブースターのあなたに感謝の気持ちを込めて、**${pizzaConfig.boosterBonus.toLocaleString()}**枚追加で焼き上げました🍕`;
-      }
-      // Mee6のレベルに応じたボーナス、Mee6Levelテーブルを参照する新ロジックとロールベースの旧ロジックの両方を実行し、多い方を採用する
-      // ▼▼▼ ここからがローカルDBを参照する新Mee6ボーナスロジック ▼▼▼
+      pizzaMessages.push(
+        `レガシーピザも**${basePizza.toLocaleString()}枚**焼き上がったようです🍕`
+      );
+      pizzaBreakdown.push(basePizza);
+
+      // 2.Mee6レベル or ロール特典(Lv10ごとに100のものを安全のため併用し高い方を採用)
       let mee6Bonus = 0;
       const mee6Info = await Mee6Level.findOne({
         where: { userId: interaction.user.id },
       });
 
+      let mee6MessagePart = "";
       if (mee6Info) {
-        // DBから情報が取れた場合
         const levelBonus = mee6Info.level * 10;
-        const xpProgress = (mee6Info.xpInLevel / mee6Info.xpForNextLevel) * 100;
-        const xpBonus = Math.floor(xpProgress / 10);
-
+        const xpProgress = mee6Info.xpInLevel / mee6Info.xpForNextLevel;
+        const xpBonus = Math.floor(xpProgress * 10); // 10%ごとに1枚 -> 進捗率(0-1) * 10
         mee6Bonus = levelBonus + xpBonus;
-        Message += `\n現在のMee6レベル(${mee6Info.level})と経験値から、ボーナス**${mee6Bonus.toLocaleString()}**枚を獲得！`;
+
+        const xpPercentage = Math.floor(xpProgress * 100);
+        mee6MessagePart = `Lv.${mee6Info.level} Exp.${xpPercentage}% = **${mee6Bonus.toLocaleString()}枚**`;
       }
 
-      // 従来のロールベースでのボーナスも計算する (フォールバック 兼 比較用)
       let roleBonus = 0;
+      let winningRoleId = null;
       for (const [roleId, bonusAmount] of Object.entries(
         pizzaConfig.mee6LevelBonuses
       )) {
         if (interaction.member.roles.cache.has(roleId)) {
           if (bonusAmount > roleBonus) {
             roleBonus = bonusAmount;
+            winningRoleId = roleId; // IDを更新
           }
         }
       }
 
       const finalMee6Bonus = Math.max(mee6Bonus, roleBonus);
+      if (finalMee6Bonus > 0) {
+        let mee6MessageIntro =
+          "さらに雨宿りでいっぱい喋ったあなたに、ニョワミヤ達がピザを持ってきてくれました！";
 
-      if (roleBonus > mee6Bonus && mee6Bonus > 0) {
-        // mee6Bonus > 0 を追加し、DBにない人へのメッセージを防ぐ
-        Message += `\n(ロール特典により、ボーナスが**${finalMee6Bonus.toLocaleString()}**枚に増額されました！)`;
+        if (roleBonus > mee6Bonus && mee6Info) {
+          mee6MessagePart += ` (ロール特典により **${roleBonus.toLocaleString()}枚** に増額)`;
+        } else if (!mee6Info) {
+          // 導入メッセージ自体を、より状況に合ったものに変更する
+          mee6MessageIntro =
+            "さらに雨宿りでいっぱい喋った称号を持つあなたに、ニョワミヤ達がピザを持ってきてくれました！";
+          mee6MessagePart = `<@&${winningRoleId}>: **${roleBonus.toLocaleString()}枚**`;
+        }
+
+        pizzaMessages.push(`${mee6MessageIntro} > ${mee6MessagePart}`);
+        pizzaBreakdown.push(finalMee6Bonus);
       }
 
-      if (finalMee6Bonus > 0 && !mee6Info) {
-        // DBに情報がなく、ロールボーナスのみ適用された場合
-        Message += `\n雨宿りでいっぱい発言したあなたにニョワミヤ達が**${finalMee6Bonus.toLocaleString()}**枚持ってきてくれました🍕`;
+      // 3.サーバーブースター
+      let boosterBonus = 0;
+      if (interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
+        boosterBonus = pizzaConfig.boosterBonus;
+        pizzaMessages.push(
+          `さらにさらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕`
+        );
+        pizzaBreakdown.push(boosterBonus);
       }
 
-      totalPizza += finalMee6Bonus;
-      // ▲▲▲ Mee6ボーナスの新ロジックここまで ▲▲▲
-      Message += `合計:+**${totalPizza}**枚`; // 最後の行のおしりにくっつける
-      // 最終的なレガシーピザ加算を更新データにセット
+      // 合計の計算と最終メッセージの構築
+      const totalPizza = pizzaBreakdown.reduce((sum, val) => sum + val, 0);
+      Message += `\n${pizzaMessages.join("\n")}`; // \n\nで少し間を空ける
+      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚のピザを受け取りました！**`;
+
       updateData.legacy_pizza = sequelize.literal(
         `legacy_pizza + ${totalPizza}`
       );
+      // ▲▲▲ 新ピザメッセージ構築ロジックここまで ▲▲▲
       // 6. データベースを更新
       await pointEntry.update(updateData);
       // update()は更新内容を返さないため、reload()で最新の状態を取得します。
