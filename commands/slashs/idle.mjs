@@ -5,7 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
-import { Point, IdleGame, Mee6Level } from "../../models/database.mjs";
+import { Point, IdleGame, Mee6Level, sequelize } from "../../models/database.mjs";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
 
 export const help = {
@@ -86,7 +86,7 @@ export async function execute(interaction) {
         },
         {
           name: "計算式",
-          value: `(${ovenEffect} × ${cheeseEffect}) ^ ${meatEffect}}`,
+          value: `(${ovenEffect} × ${cheeseEffect}) ^ ${meatEffect}`,
         },
         {
           name: "毎分の増加予測",
