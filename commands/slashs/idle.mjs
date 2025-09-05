@@ -5,7 +5,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
-import { Point, IdleGame, Mee6Level, sequelize } from "../../models/database.mjs";
+import {
+  Point,
+  IdleGame,
+  Mee6Level,
+  sequelize,
+} from "../../models/database.mjs";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
 
 export const help = {
@@ -51,20 +56,24 @@ export async function execute(interaction) {
     idleGame.lastUpdatedAt = now;
     await idleGame.save();
   }
-  // 人口ボーナスを計算 (表示用)
-  let pizzaBonusPercentage = 0;
-  if (idleGame.population >= 1) {
-    // あなたのアイデア通り、最終的な総人口のlog10をボーナス(%)とする
-    pizzaBonusPercentage = Math.log10(idleGame.population);
-  }
   // --- ★★★ ここからが修正箇所 ★★★ ---
 
   // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
-  const generateEmbed = (isFinal = false) =>
-    new EmbedBuilder()
+  const generateEmbed = (isFinal = false) => {
+    // 最新のDBオブジェクトから値を読み出す
+    const ovenEffect = idleGame.pizzaOvenLevel;
+    const cheeseEffect =
+      1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
+    const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
+    const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect);
+    let pizzaBonusPercentage = 0;
+    if (idleGame.population >= 1) {
+      pizzaBonusPercentage = Math.log10(idleGame.population);
+    }
+
+    return new EmbedBuilder()
       .setTitle("ニョワ集めステータス")
       .setColor(isFinal ? "Grey" : "Gold")
-      // ★★★ idleGame.population を直接参照し、その場で整形する ★★★
       .setDescription(
         `現在のニョワミヤ人口: **${Math.floor(idleGame.population).toLocaleString()} 匹**`
       )
@@ -86,18 +95,21 @@ export async function execute(interaction) {
         },
         {
           name: "計算式",
-          value: `(${ovenEffect} × ${cheeseEffect}) ^ ${meatEffect}`,
+          value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)}`,
         },
         {
           name: "毎分の増加予測",
           value: `${productionPerMinute.toLocaleString()} 匹/分`,
         },
-        { name: "人口ボーナス (ピザ獲得量)(未実装)", value: `+${pizzaBonusPercentage.toFixed(2)} %` }
+        {
+          name: "人口ボーナス (ピザ獲得量)(未実装)",
+          value: `+${pizzaBonusPercentage.toFixed(3)} %`,
+        }
       )
-      // ★★★ point.legacy_pizza も同様に、直接参照する ★★★
       .setFooter({
         text: `現在の所持ピザ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚 | 再度コマンドを使用すると、オフライン中の人口が増加します。`,
       });
+  };
 
   // generateButtons関数：こちらも、最新のDBオブジェクトからコストを計算するようにする
   const generateButtons = (isDisabled = false) => {
@@ -119,7 +131,9 @@ export async function execute(interaction) {
         .setDisabled(isDisabled || point.legacy_pizza < ovenCost),
       new ButtonBuilder()
         .setCustomId(`upgrade_cheese`)
-        .setLabel(`チーズ工場強化(+${config.idle.cheese.effect * 100}%) (${cheeseCost.toLocaleString()}ピザ)`)
+        .setLabel(
+          `チーズ工場強化(+${config.idle.cheese.effect * 100}%) (${cheeseCost.toLocaleString()}ピザ)`
+        )
         .setStyle(ButtonStyle.Success)
         .setDisabled(isDisabled || point.legacy_pizza < cheeseCost)
     );
