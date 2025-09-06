@@ -216,7 +216,8 @@ export default async function handleModalInteraction(interaction) {
     //両替
   } else if (
     interaction.customId === "exchange_points_submit" ||
-    interaction.customId === "exchange_acorns_submit"
+    interaction.customId === "exchange_acorns_submit" ||
+    interaction.customId === "exchange_coin_to_pizza_submit"
   ) {
     const amountStr = interaction.fields.getTextInputValue("amount_input");
     const amount = parseInt(amountStr, 10);
@@ -229,7 +230,10 @@ export default async function handleModalInteraction(interaction) {
     }
 
     try {
-      const resultMessage = await sequelize.transaction(async (t) => {
+      // sequelize.transactionの外でメッセージを組み立てる準備
+      let resultMessage = "";
+
+      await sequelize.transaction(async (t) => {
         const [user] = await Point.findOrCreate({
           where: { userId: interaction.user.id },
           transaction: t,
@@ -238,21 +242,42 @@ export default async function handleModalInteraction(interaction) {
         if (interaction.customId === "exchange_points_submit") {
           if (user.point < amount)
             throw new Error("所持しているRPが足りません！");
-          const coinsGained = amount * 20; //1RP20coin
+          const coinsGained = amount * 20;
           user.point -= amount;
           user.coin += coinsGained;
           await user.save({ transaction: t });
-          return `💎 RP **${amount}** を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
+          resultMessage = `💎 RP **${amount}** を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
         } else if (interaction.customId === "exchange_acorns_submit") {
           if (user.acorn < amount)
             throw new Error("所持しているどんぐりが足りません！");
-          const coinsGained = amount * 100; //1acorn 100coin
+          const coinsGained = amount * 100;
           user.acorn -= amount;
           user.coin += coinsGained;
           await user.save({ transaction: t });
-          return `🐿️ どんぐり **${amount}** 個を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
+          resultMessage = `🐿️ どんぐり **${amount}** 個を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
+
+          // ★★★ ここに、コイン→ピザの両替ロジックを追加 ★★★
+        } else if (interaction.customId === "exchange_coin_to_pizza_submit") {
+          const baseRate = 30; // 1コインあたりの基本ピザ
+          if (user.coin < amount)
+            throw new Error("所持しているコインが足りません！");
+          // 1. 基本となるピザ量を計算し、ボーナスをかける関数で処理
+          const basePizzaToGet = amount * baseRate;
+          const finalPizzaToGet = await applyPizzaBonus(
+            interaction.user.id,
+            basePizzaToGet
+          );
+          // 3. DBを更新
+          user.coin -= amount;
+          user.legacy_pizza += finalPizzaToGet;
+          await user.save({ transaction: t });
+          // 4. 返信メッセージを生成
+          const bonusAmount = finalPizzaToGet - basePizzaToGet;
+          resultMessage = `${config.nyowacoin}**${amount.toLocaleString()}枚**を 🍕**${finalPizzaToGet.toLocaleString()}枚**に両替しました！(内訳 ${basePizzaToGet}+ボーナス${bonusAmount})`;
         }
       });
+
+      // トランザクションが成功した後で、最終的なメッセージを返信する
       await interaction.reply({
         content: `✅ **両替成功！**\n${resultMessage}`,
         ephemeral: true,

@@ -9,7 +9,13 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { Point, CasinoStats, sequelize, IdleGame } from "../../models/database.mjs";
+import {
+  Point,
+  CasinoStats,
+  sequelize,
+  IdleGame,
+} from "../../models/database.mjs";
+import { getPizzaBonusMultiplier } from "../commands/utils/idle.mjs";
 import config from "../../config.mjs";
 
 export const help = {
@@ -542,7 +548,6 @@ async function handleBalance(interaction) {
   const userId = interaction.user.id;
   try {
     const [user] = await Point.findOrCreate({ where: { userId } });
-
     // ★★★ 追加: 放置ゲームのデータを取得してボーナス率を確認 ★★★
     const idleGame = await IdleGame.findOne({ where: { userId } });
 
@@ -554,6 +559,12 @@ async function handleBalance(interaction) {
       // toFixed(3)で小数点以下3桁に整形
       bonusText = ` (${emoji} +${idleGame.pizzaBonusPercentage.toFixed(3)}%)`;
     }
+
+    // コイン -> ピザレートは倍率が影響する
+    const baseRate = 30;
+    const multiplier = await getPizzaBonusMultiplier(userId);
+    const finalRate = baseRate * multiplier;
+    const buttonLabel = `1コイン -> ${finalRate.toFixed(2)}ピザ`;
 
     const embed = new EmbedBuilder()
       .setTitle(`👛 ${interaction.user.username} さんの財布`)
@@ -573,17 +584,15 @@ async function handleBalance(interaction) {
           name: `${config.nyowacoin} ニョワコイン`,
           value: `**${user.coin.toLocaleString()}**枚`,
           inline: false,
+        },
+        {
+          //コンバートしたときと異なりもう発言で気軽に拾えるので分岐は不要
+          name: "🍕 レガシーピザ",
+          value: `**${user.legacy_pizza.toLocaleString()}**枚${bonusText}`,
+          inline: false,
         }
       );
-    // レガシー通貨を持っているかチェックし、持っていればフィールドを追加
-    if (user.legacy_pizza && user.legacy_pizza > 0) {
-      embed.addFields({
-        name: "🍕 レガシーピザ", // 絵文字や名前は自由に変更してください！
-        // toLocaleString() を使うと、1158576 が 1,158,576 のようにカンマ区切りになり見やすいです
-        value: `**${user.legacy_pizza.toLocaleString()}**枚${bonusText}`,
-        inline: false,
-      });
-    }
+
     embed.setTimestamp();
 
     const buttons = new ActionRowBuilder().addComponents(
@@ -594,8 +603,24 @@ async function handleBalance(interaction) {
       new ButtonBuilder()
         .setCustomId("exchange_acorns_modal")
         .setLabel("1どんぐり -> 100ｺｲﾝ")
-        .setStyle(ButtonStyle.Success)
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("exchange_coin_to_pizza_modal")
+        .setLabel(buttonLabel)
+        .setStyle(ButtonStyle.Secondary)
     );
+
+    // このコマンドが実行されたサーバーが、.envで指定されたMee6のサーバーの場合のみ、
+    // XP交換ボタンを追加します。
+    if (interaction.guild.id === process.env.MEE6_GUILD_ID) {
+      buttons.addComponents(
+        new ButtonBuilder()
+          .setCustomId("exchange_coin_to_mee6_xp")
+          .setLabel("1000コイン -> 1K XP")
+          .setStyle(ButtonStyle.Danger) // 警告を促すDangerスタイル
+          .setEmoji("⚡")
+      );
+    }
 
     // ephemeral: true で本人にだけ表示する
     const message = await interaction.reply({
@@ -611,35 +636,97 @@ async function handleBalance(interaction) {
     });
 
     collector.on("collect", async (i) => {
-      // どのボタンが押されたかで、表示するModalを切り替える
-      const modal = new ModalBuilder();
-      const amountInput = new TextInputBuilder()
-        .setCustomId("amount_input")
-        .setLabel("両替したい量")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+      // -------------------------------------------------
+      // ▼▼▼ グループ1: Modalを開くボタンたちの処理 ▼▼▼
+      // -------------------------------------------------
+      if (
+        i.customId === "exchange_points_modal" ||
+        i.customId === "exchange_acorns_modal" ||
+        i.customId === "exchange_coin_to_pizza_modal" // ★ピザを追加！
+      ) {
+        const modal = new ModalBuilder();
+        const amountInput = new TextInputBuilder()
+          .setCustomId("amount_input")
+          .setLabel("両替したい量")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
 
-      if (i.customId === "exchange_points_modal") {
-        modal.setCustomId("exchange_points_submit").setTitle("RP → コイン");
-        amountInput.setPlaceholder("例: 10");
-      } else if (i.customId === "exchange_acorns_modal") {
-        modal
-          .setCustomId("exchange_acorns_submit")
-          .setTitle("どんぐり → コイン");
-        amountInput.setPlaceholder("例: 5");
+        // 押されたボタンに応じて、Modalの内容を動的に設定
+        if (i.customId === "exchange_points_modal") {
+          modal.setCustomId("exchange_points_submit").setTitle("RP → コイン");
+          amountInput.setPlaceholder("例: 10");
+        } else if (i.customId === "exchange_acorns_modal") {
+          modal
+            .setCustomId("exchange_acorns_submit")
+            .setTitle("どんぐり → コイン");
+          amountInput.setPlaceholder("例: 5");
+        } else if (i.customId === "exchange_coin_to_pizza_modal") {
+          modal
+            .setCustomId("exchange_coin_to_pizza_submit")
+            .setTitle("コイン → ピザ");
+          amountInput.setLabel("両替したいコインの枚数");
+          amountInput.setPlaceholder("例: 100");
+        }
+
+        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+        await i.showModal(modal);
+
+        // Modalを表示したら、このコレクターの役目は終わり
+        collector.stop();
+        return; // ★重要: これ以降の処理に進まないようにする
       }
 
-      modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
-      await i.showModal(modal);
+      // -------------------------------------------------
+      // ▼▼▼ グループ2: 確認メッセージを出すボタンの処理 ▼▼▼
+      // -------------------------------------------------
+      if (i.customId === "exchange_coin_to_mee6_xp") {
+        const cost = 1000;
+        const warningMessage =
+          `**【重要：必ずお読みください】**\n` +
+          `本当に ${config.nyowacoin}**${cost}枚** を **Mee6経験値${cost}** に交換しますか？\n\n` +
+          `- この操作は**取り消すことができません。**\n` +
+          `- Mee6がレベルアップしても、Discordの通知は表示されません。\n` +
+          `- 交換処理の完了には、数秒かかる場合があります。`;
 
-      // Modalを表示したら、コレクターの役目は終わり
-      collector.stop();
+        const confirmationButtons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("confirm_exchange_coin_to_xp")
+            .setLabel("はい、交換します")
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId("cancel_exchange")
+            .setLabel("いいえ、やめておきます")
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+        // ★重要: 元のメッセージを「更新」するのではなく、
+        // ボタン操作(i)に対して、「新しい一時的なメッセージ」で返信する
+        await i.reply({
+          content: warningMessage,
+          components: [confirmationButtons],
+          ephemeral: true,
+        });
+
+        // 確認メッセージを出したら、元の財布ボタンは押せなくする
+        collector.stop();
+        return;
+      }
     });
 
-    collector.on("end", () => {
-      // タイムアウトしたらボタンを無効化
-      buttons.components.forEach((btn) => btn.setDisabled(true));
-      interaction.editReply({ components: [buttons] }).catch(() => {});
+    collector.on("end", (collected) => {
+      // タイムアウトした場合、またはボタンが押されて stop() された場合に、
+      // 元の財布メッセージのボタンを無効化する
+      if (message.components.length > 0) {
+        const disabledButtons = new ActionRowBuilder();
+        message.components[0].components.forEach((button) => {
+          disabledButtons.addComponents(
+            ButtonBuilder.from(button).setDisabled(true)
+          );
+        });
+        interaction
+          .editReply({ components: [disabledButtons] })
+          .catch(() => {});
+      }
     });
   } catch (error) {
     console.error("残高の取得中にエラー:", error);

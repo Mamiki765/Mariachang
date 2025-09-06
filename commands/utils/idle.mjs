@@ -298,3 +298,30 @@ export async function updateUserIdleGame(userId) {
     pizzaBonusPercentage: pizzaBonusPercentage,
   };
 }
+
+//--------------------------
+//ピザボーナスのいろいろ
+//--------------------------
+/**
+ * ユーザーIDから、現在のピザボーナス倍率を取得する関数 (例: 8.2% -> 1.082)
+ * @param {string} userId - DiscordのユーザーID
+ * @returns {Promise<number>} ボーナス倍率。ボーナスがない場合は 1.0
+ */
+export async function getPizzaBonusMultiplier(userId) {
+  const idleGame = await IdleGame.findOne({ where: { userId } });
+  if (!idleGame || idleGame.pizzaBonusPercentage <= 0) {
+    return 1.0; // ボーナスなし
+  }
+  return 1 + idleGame.pizzaBonusPercentage / 100.0;
+}
+
+/**
+ * ★★★ 万能ピザボーナス適用関数（リファクタリング版）★★★
+ * 与えられたベース量にボーナスを適用し、「整数」で返す。
+ */
+export async function applyPizzaBonus(userId, baseAmount) {
+  // 1. 新しい関数で倍率を取得
+  const multiplier = await getPizzaBonusMultiplier(userId);
+  // 2. 計算して、切り捨てて返す
+  return Math.floor(baseAmount * multiplier);
+}

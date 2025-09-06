@@ -229,7 +229,9 @@ export default async function handleButtonInteraction(interaction) {
         if (lastClaim > last8AM) {
           // 既にログボを受け取っている時の表示
           // 放置ゲームの人口を取得する、データがなければ0
-          const idleGame = await IdleGame.findOne({ where: { userId: interaction.user.id } });
+          const idleGame = await IdleGame.findOne({
+            where: { userId: interaction.user.id },
+          });
           const population = idleGame ? Math.floor(idleGame.population) : 0;
           return interaction.reply({
             content:
@@ -397,7 +399,8 @@ export default async function handleButtonInteraction(interaction) {
       Message += `\n--------------------`;
       // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
       Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚`;
-      if (idleResult) { // 放置ゲームの結果があれば、人口も表示
+      if (idleResult) {
+        // 放置ゲームの結果があれば、人口も表示
         Message += ` <:nyowamiyarika:1264010111970574408>: ${Math.floor(idleResult.population).toLocaleString()}匹`;
       }
       Message += `\nロスアカのどんぐりもお忘れなく……`;
@@ -494,6 +497,77 @@ export default async function handleButtonInteraction(interaction) {
     // 【ステップ2のキャンセル処理】
     await interaction.update({
       content: "削除はキャンセルされました。",
+      components: [],
+    });
+
+    // ====================================================================
+    // ★★★ ここからが、Mee6 XP交換の「第二段階」ロジック ★★★
+    // ====================================================================
+  } else if (interaction.customId === "confirm_exchange_coin_to_xp") {
+    const cost = 1000;
+    const mee6RoleId = "1413916213532295345";
+    const userId = interaction.user.id;
+
+    // 「処理中...」というメッセージで応答を更新し、確認ボタンを無効化する
+    await interaction.update({
+      content: "処理中です。しばらくお待ちください...",
+      components: [], // ボタンを消す
+    });
+
+    const t = await sequelize.transaction();
+    try {
+      const userPoint = await Point.findOne({
+        where: { userId },
+        transaction: t,
+      });
+      if (!userPoint || userPoint.coin < cost) {
+        throw new Error(
+          `コインが足りません！ (必要: ${cost} / 所持: ${userPoint?.coin || 0})`
+        );
+      }
+
+      // 1. コインを引く
+      userPoint.coin -= cost;
+
+      // 2. Discordにロールを付与
+      await interaction.member.roles.add(mee6RoleId);
+
+      // 3. DB変更を保存
+      await userPoint.save({ transaction: t });
+
+      // 4. トランザクションをコミット
+      await t.commit();
+
+      // 5. ユーザーに成功を報告
+      await interaction.followUp({
+        content: `✅ **両替成功！**\n${config.nyowacoin}**${cost}枚**を **Mee6経験値${cost}** に変換しました！\nMee6が経験値を付与するまで、少しお待ちください。`,
+        ephemeral: true,
+      });
+    } catch (error) {
+      await t.rollback();
+      console.error("Mee6 XP交換エラー:", error);
+
+      // エラーメッセージを組み立てる
+      let errorMessage = "処理に失敗しました。";
+      if (error.message.includes("コインが足りません")) {
+        errorMessage = error.message; // ユーザーに分かりやすいエラーメッセージをそのまま表示
+      } else if (error.code === 50013) {
+        // Missing Permissions エラーコード
+        errorMessage =
+          "Botの権限不足により、ロールを付与できませんでした。管理者に連絡してください。";
+        console.error(
+          `[Mee6 Exchange Error] Missing Permissions: ユーザーID ${userId}, サーバーID ${interaction.guildId}`
+        );
+      }
+
+      await interaction.followUp({
+        content: `❌ **エラー**\n${errorMessage}`,
+        ephemeral: true,
+      });
+    }
+  } else if (interaction.customId === "cancel_exchange") {
+    await interaction.update({
+      content: "交換をキャンセルしました。",
       components: [],
     });
   } else {
