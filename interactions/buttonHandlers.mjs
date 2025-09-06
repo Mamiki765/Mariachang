@@ -227,12 +227,17 @@ export default async function handleButtonInteraction(interaction) {
 
         // 最後に押した日時が、最後に朝8時が来た日時よりも後か？
         if (lastClaim > last8AM) {
+          // 既にログボを受け取っている時の表示
+          // 放置ゲームの人口を取得する、データがなければ0
+          const idleGame = await IdleGame.findOne({ where: { userId: interaction.user.id } });
+          const population = idleGame ? Math.floor(idleGame.population) : 0;
           return interaction.reply({
             content:
               `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n` +
               `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
               ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚 ` +
-              `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚\n` +
+              `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚` +
+              `<:nyowamiyarika:1264010111970574408>: ${population.toLocaleString()}匹\n` +
               `ロスアカのどんぐりもお忘れなく……`,
             components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
             ephemeral: true,
