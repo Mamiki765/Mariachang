@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ActionRowBuilder } from "discord.js";
 // 既存のログインボーナスボタンを、再利用します！
-import { acornLoginButton } from "../../components/buttons.mjs";
+import { acornLoginButtonComponent } from "../../components/buttons.mjs";
 
 export const help = {
   category: "slash",
@@ -14,8 +14,8 @@ export const data = new SlashCommandBuilder()
   .setDescription("ログインボーナス用のボタンを、あなただけに表示します。");
 
 export async function execute(interaction) {
-  // ボタンをActionRowに配置
-  const row = new ActionRowBuilder().addComponents(acornLoginButton);
+  // ボタン本体を、新しい「行」に入れる
+  const row = new ActionRowBuilder().addComponents(acornLoginButtonComponent);
 
   // ephemeral (自分だけに表示) で、ボタンを返信するだけ！
   await interaction.reply({

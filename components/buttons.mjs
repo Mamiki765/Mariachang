@@ -84,15 +84,17 @@ export function selftimeout_check(minutes) {
   return [timeout];
 }
 
+//ログインボーナス用のボタン本体
+export const acornLoginButtonComponent = new ButtonBuilder()
+  .setEmoji("🐿️")
+  .setCustomId("claim_acorn_login_bonus")
+  .setLabel("あまやどんぐりを拾う")
+  .setStyle(ButtonStyle.Success);
+
 // ログインボーナス用のボタンを追加
 export const acornLoginButton = new ActionRowBuilder().addComponents(
-  new ButtonBuilder()
-    .setEmoji("🐿️")
-    .setCustomId("claim_acorn_login_bonus") // このボタンだけの、特別なID
-    .setLabel("あまやどんぐりを拾う")
-    .setStyle(ButtonStyle.Success) // 成功をイメージさせる緑色
+  acornLoginButtonComponent // 作成したボタン本体を入れる
 );
-
 /**
  * 【ステップ1】RP投稿を削除するための、投稿者専用ボタンを作成します。
  * @param {string} messageId 削除対象のメッセージID
