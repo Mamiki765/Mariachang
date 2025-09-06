@@ -15,7 +15,9 @@ import {
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
 import { safeDelete } from "../utils/messageutil.mjs";
-import { Point, sequelize, Mee6Level } from "../models/database.mjs";
+import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
+// 放置ゲームの人口を更新する関数をインポート
+import { updateUserIdleGame } from "../commands/utils/idle.mjs";
 import config from "../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
@@ -317,14 +319,14 @@ export default async function handleButtonInteraction(interaction) {
       const finalMee6Bonus = Math.max(mee6Bonus, roleBonus);
       if (finalMee6Bonus > 0) {
         let mee6MessageIntro =
-          "さらに雨宿りでいっぱい喋ったあなたに、ニョワミヤ達がピザを持ってきてくれました！";
+          "さらに雨宿りでいっぱい喋ったあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
 
         if (roleBonus > mee6Bonus && mee6Info) {
           mee6MessagePart += ` (ロール特典により **${roleBonus.toLocaleString()}枚** に増額)`;
         } else if (!mee6Info) {
           // 導入メッセージ自体を、より状況に合ったものに変更する
           mee6MessageIntro =
-            "さらに雨宿りでいっぱい喋った称号を持つあなたに、ニョワミヤ達がピザを持ってきてくれました！";
+            "さらに雨宿りでいっぱい喋った称号を持つあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
           mee6MessagePart = `<@&${winningRoleId}>: **${roleBonus.toLocaleString()}枚**`;
         }
 
@@ -340,6 +342,36 @@ export default async function handleButtonInteraction(interaction) {
           `さらにさらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕`
         );
         pizzaBreakdown.push(boosterBonus);
+      }
+
+      // 4.放置ゲームの人口ボーナス
+      // 新しい関数を呼び出して、人口を更新＆ボーナスを取得
+      const idleResult = await updateUserIdleGame(interaction.user.id);
+
+      if (idleResult && idleResult.pizzaBonusPercentage > 0) {
+        // もし放置ゲームをプレイしていて、ボーナスがあるなら...
+
+        // ★★★ (678 + 600 + 1000) x 1.0512 みたいに... ★★★
+        // 今までの合計値(totalPizza)に、パーセントボーナスを掛ける！
+        const populationBonusMultiplier =
+          1 + idleResult.pizzaBonusPercentage / 100;
+        const pizzaBeforeBonus = pizzaBreakdown.reduce(
+          (sum, val) => sum + val,
+          0
+        );
+        const bonusAmount = Math.floor(
+          pizzaBeforeBonus * (populationBonusMultiplier - 1)
+        );
+
+        pizzaMessages.push(
+          `ボーナス **${bonusAmount.toLocaleString()}枚**(**+${idleResult.pizzaBonusPercentage.toFixed(3)}%**)`
+        );
+        pizzaBreakdown.push(bonusAmount);
+      } else {
+        // もし放置ゲームをプレイしていないなら...
+        pizzaMessages.push(
+          `【PR】拾ったピザを/放置ゲーム(/idle)で使えるようになりました。🍕`
+        );
       }
 
       // 合計の計算と最終メッセージの構築
@@ -359,9 +391,11 @@ export default async function handleButtonInteraction(interaction) {
       // 区切り線
       Message += `\n--------------------`;
       // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
-      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚\nロスアカのどんぐりもお忘れなく……`;
-      //放置ゲームの宣伝
-      Message += `\n【PR】拾ったピザを/放置ゲーム(/idle)で使えるようになりました。🍕`;
+      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚`;
+      if (idleResult) { // 放置ゲームの結果があれば、人口も表示
+        Message += ` <:nyowamiyarika:1264010111970574408>: ${Math.floor(idleResult.population).toLocaleString()}匹`;
+      }
+      Message += `\nロスアカのどんぐりもお忘れなく……`;
       // 8. ユーザーに返信
       return interaction.reply({
         content: Message,

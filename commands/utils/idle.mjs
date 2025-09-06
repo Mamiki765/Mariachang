@@ -1,3 +1,4 @@
+// commands/utils/idle.mjs
 import {
   SlashCommandBuilder,
   EmbedBuilder,
@@ -27,35 +28,19 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const initialReply = await interaction.reply({
-    content: "データを取得中...",
+    content: "Now loading...ニョワミヤを数えています...",
     ephemeral: true,
   });
 
   const userId = interaction.user.id;
   const [point, createdPoint] = await Point.findOrCreate({ where: { userId } });
-  const [idleGame, createdIdle] = await IdleGame.findOrCreate({
-    where: { userId },
-  });
+  const [idleGame, createdIdle] = await IdleGame.findOrCreate({ where: { userId } });
+  //オフライン計算
+  await updateUserIdleGame(userId);
+  //Mee6レベル取得
   const mee6Level = await Mee6Level.findOne({ where: { userId } });
   const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
 
-  // (オフライン計算 - 変更なし)
-  const now = new Date();
-  const lastUpdate = idleGame.lastUpdatedAt;
-  const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
-
-  const ovenEffect = idleGame.pizzaOvenLevel;
-  const cheeseEffect =
-    1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
-  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
-  const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect);
-
-  if (elapsedSeconds > 0) {
-    const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
-    idleGame.population += addedPopulation;
-    idleGame.lastUpdatedAt = now;
-    await idleGame.save();
-  }
   // --- ★★★ ここからが修正箇所 ★★★ ---
 
   // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
@@ -248,4 +233,51 @@ export async function execute(interaction) {
       components: [generateButtons(true)],
     });
   });
+}
+
+
+/**
+ * 特定ユーザーの放置ゲームデータを更新し、最新の人口を返す関数
+ * @param {string} userId - DiscordのユーザーID
+ * @returns {Promise<object|null>} 成功した場合は { population, pizzaBonusPercentage }、データがなければ null
+ */
+export async function updateUserIdleGame(userId) {
+  // IdleGameテーブルにユーザーデータがあるか確認
+  const idleGame = await IdleGame.findOne({ where: { userId } });
+  // データがなければ、何もせず null を返す
+  if (!idleGame) {
+    return null;
+  }
+  
+  // --- 既存のオフライン計算ロジックを、ほぼそのまま持ってくる ---
+  const mee6Level = await Mee6Level.findOne({ where: { userId } });
+  const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
+
+  const now = new Date();
+  const lastUpdate = idleGame.lastUpdatedAt;
+  const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+
+  const ovenEffect = idleGame.pizzaOvenLevel;
+  const cheeseEffect = 1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
+  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
+  const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect);
+
+  if (elapsedSeconds > 0) {
+    const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
+    idleGame.population += addedPopulation;
+    idleGame.lastUpdatedAt = now;
+    await idleGame.save();
+  }
+
+  // 人口ボーナスを計算
+  let pizzaBonusPercentage = 0;
+  if (idleGame.population >= 1) {
+    pizzaBonusPercentage = Math.log10(idleGame.population);
+  }
+  
+  // 最新の人口と、計算したボーナスをオブジェクトとして返す
+  return {
+    population: idleGame.population,
+    pizzaBonusPercentage: pizzaBonusPercentage,
+  };
 }
