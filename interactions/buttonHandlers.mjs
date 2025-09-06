@@ -17,7 +17,7 @@ import {
 import { safeDelete } from "../utils/messageutil.mjs";
 import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 // 放置ゲームの人口を更新する関数をインポート
-import { updateUserIdleGame } from "../commands/utils/idle.mjs";
+import { updateUserIdleGame,formatNumberReadable } from "../commands/utils/idle.mjs";
 import config from "../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
@@ -239,7 +239,7 @@ export default async function handleButtonInteraction(interaction) {
               `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
               ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚 ` +
               `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚` +
-              `<:nyowamiyarika:1264010111970574408>: ${population.toLocaleString()}匹\n` +
+              `<:nyowamiyarika:1264010111970574408>: ${formatNumberReadable(population)}匹\n` +
               `ロスアカのどんぐりもお忘れなく……`,
             components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
             ephemeral: true,
@@ -400,8 +400,21 @@ export default async function handleButtonInteraction(interaction) {
       // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
       Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚`;
       if (idleResult) {
-        // 放置ゲームの結果があれば、人口も表示
-        Message += ` <:nyowamiyarika:1264010111970574408>: ${Math.floor(idleResult.population).toLocaleString()}匹`;
+        //放置ゲーの人口及びブースト表示
+        // 人口表示
+        Message += ` <:nyowamiyarika:1264010111970574408>: ${formatNumberReadable(Math.floor(idleResult.population))}匹`;
+        // ブースト表示
+        if (idleResult.buffRemaining) {
+          const { hours, minutes } = idleResult.buffRemaining;
+          if (hours > 0 || minutes > 0) {
+            Message += ` 🔥ブースト**${hours}時間${minutes}分**`;
+          } else {
+            Message += ` 🔥ブーストなし /idleで点火できます。`;
+          }
+        } else {
+          // バフ情報自体がない場合も
+          Message += ` 🔥ブーストなし /idleで点火できます。`;
+        }
       }
       Message += `\nロスアカのどんぐりもお忘れなく……`;
       // 8. ユーザーに返信
@@ -426,7 +439,7 @@ export default async function handleButtonInteraction(interaction) {
 雑談チャンネルで8時22時の時報についているボタンを押すと毎日1個拾えるログボです
 1どんぐり -> 100コインで両替できます。
 - **ニョワコイン**
-ログボで拾える通貨です${config.nyowacoin}ニョワカジノ(/casino)で遊ぶことができます。将来的にはMee6経験値への転換機能も予定しています。
+ログボで拾える通貨です${config.nyowacoin}ニョワカジノ(/casino)で遊ぶことができます。1000コイン->1000Mee6経験値に交換もできます。
 - **発言レベル(Mee6)**
 発言すると上がるお得意様レベルです。現在のレベル・経験値は \`!rank\` と喋れば確認できます。10レベルごとにロールを付与されたり、レガシーピザのログボが増えたりします。
 - **レガシーピザ**

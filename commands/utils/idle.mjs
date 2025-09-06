@@ -34,9 +34,26 @@ export async function execute(interaction) {
 
   const userId = interaction.user.id;
   const [point, createdPoint] = await Point.findOrCreate({ where: { userId } });
-  const [idleGame, createdIdle] = await IdleGame.findOrCreate({ where: { userId } });
+  const [idleGame, createdIdle] = await IdleGame.findOrCreate({
+    where: { userId },
+  });
   //オフライン計算
   await updateUserIdleGame(userId);
+  // ★★★ ピザ窯覗きバフ処理 ★★★
+  const now = new Date();
+  if (!idleGame.buffExpiresAt || idleGame.buffExpiresAt < now) {
+    // バフなし or 切れていた場合 → 新しく24hバフ付与
+    idleGame.buffMultiplier = 2.0;
+    idleGame.buffExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    await idleGame.save();
+  } else {
+    // バフ中 → 残りが24h未満ならリセット
+    const remaining = idleGame.buffExpiresAt - now;
+    if (remaining < 24 * 60 * 60 * 1000) {
+      idleGame.buffExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      await idleGame.save();
+    }
+  }
   //Mee6レベル取得
   const mee6Level = await Mee6Level.findOne({ where: { userId } });
   const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
@@ -50,7 +67,9 @@ export async function execute(interaction) {
     const cheeseEffect =
       1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
     const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
-    const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect);
+    //バフも乗るように
+    const productionPerMinute =
+      Math.pow(ovenEffect * cheeseEffect, meatEffect) * idleGame.buffMultiplier;
     let pizzaBonusPercentage = 0;
     if (idleGame.population >= 1) {
       pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
@@ -65,11 +84,25 @@ export async function execute(interaction) {
       productionString = productionPerMinute.toFixed(2);
     }
 
-    return new EmbedBuilder()
+    // ★ バフ残り時間計算
+    let buffField = null;
+    if (idleGame.buffExpiresAt && idleGame.buffExpiresAt > new Date()) {
+      const ms = idleGame.buffExpiresAt - new Date();
+      const hours = Math.floor(ms / (1000 * 60 * 60));
+      const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+      buffField = {
+        name: "監督ボーナス",
+        value: `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`,
+      };
+    }
+
+    const embed = new EmbedBuilder()
       .setTitle("ニョワ集めステータス")
       .setColor(isFinal ? "Grey" : "Gold")
       .setDescription(
-        `現在のニョワミヤ人口: **${Math.floor(idleGame.population).toLocaleString()} 匹**`
+        `現在のニョワミヤ人口: **${Math.floor(
+          idleGame.population
+        ).toLocaleString()} 匹**`
       )
       .addFields(
         {
@@ -89,7 +122,9 @@ export async function execute(interaction) {
         },
         {
           name: "計算式",
-          value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)}`,
+          value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(
+            2
+          )}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
         },
         {
           name: "毎分の増加予測",
@@ -101,8 +136,14 @@ export async function execute(interaction) {
         }
       )
       .setFooter({
-        text: `現在の所持ピザ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
+        text: `現在の所持ピザ: ${Math.floor(
+          point.legacy_pizza
+        ).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
       });
+
+    if (buffField) embed.addFields(buffField);
+
+    return embed;
   };
 
   // generateButtons関数：こちらも、最新のDBオブジェクトからコストを計算するようにする
@@ -135,7 +176,8 @@ export async function execute(interaction) {
 
   // 最初のメッセージを送信
   await interaction.editReply({
-    content: "",
+    content:
+      "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！",
     embeds: [generateEmbed()],
     components: [generateButtons()],
   });
@@ -235,7 +277,6 @@ export async function execute(interaction) {
   });
 }
 
-
 /**
  *  * ==========================================================================================
  * ★★★ 将来の自分へ: 計算式に関する超重要メモ ★★★
@@ -264,19 +305,25 @@ export async function updateUserIdleGame(userId) {
   if (!idleGame) {
     return null;
   }
-  
+
   // --- 既存のオフライン計算ロジックを、ほぼそのまま持ってくる ---
   const mee6Level = await Mee6Level.findOne({ where: { userId } });
   const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
-
   const now = new Date();
-  const lastUpdate = idleGame.lastUpdatedAt;
+
+  const lastUpdate = idleGame.lastUpdatedAt || now;
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
-  const ovenEffect = idleGame.pizzaOvenLevel;
-  const cheeseEffect = 1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
-  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
-  const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect);
+  const ovenEffect = idleGame.pizzaOvenLevel; //基礎
+  const cheeseEffect = 
+    1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;//乗算
+  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;//指数
+  let currentBuffMultiplier = 1.0; // ブースト
+  if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
+    currentBuffMultiplier = idleGame.buffMultiplier;
+  }
+  // ((基礎*乗算)^指数)*ブースト
+  const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect) * currentBuffMultiplier;
 
   if (elapsedSeconds > 0) {
     const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
@@ -291,11 +338,21 @@ export async function updateUserIdleGame(userId) {
   if (idleGame.population >= 1) {
     pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
   }
-  
+
+ // バフ残り時間（ms → 時間・分に変換）を計算
+let buffRemaining = null;
+if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
+  const ms = idleGame.buffExpiresAt - now;
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  buffRemaining = { hours, minutes };
+}
+
   // 最新の人口と、計算したボーナスをオブジェクトとして返す
   return {
     population: idleGame.population,
     pizzaBonusPercentage: pizzaBonusPercentage,
+    buffRemaining,
   };
 }
 
@@ -324,4 +381,27 @@ export async function applyPizzaBonus(userId, baseAmount) {
   const multiplier = await getPizzaBonusMultiplier(userId);
   // 2. 計算して、切り捨てて返す
   return Math.floor(baseAmount * multiplier);
+}
+
+//人口とかの丸め
+/**
+ * 大きな数を見やすく整形
+ * 0〜99,999 → そのまま
+ * 10万~9,999,999 →　●●.●●万
+ * 1000万〜9999億 → ●億●万
+ * 1兆以上 → 指数表記
+ */
+export function formatNumberReadable(n) {
+  if (n <= 99999) {
+    return n.toString();
+   } else if (n < 1000_0000) { // 1000万未満
+    const man = n / 10000;
+    return `${man.toFixed(2)}万`;
+  } else if (n < 1_0000_0000_0000) { // 1兆未満
+    const oku = Math.floor(n / 100000000);
+    const man = Math.floor((n % 100000000) / 10000);
+    return `${oku > 0 ? oku + "億" : ""}${man > 0 ? man + "万" : ""}`;
+  } else {
+    return n.toExponential(2); // 小数点2桁の指数表記
+  }
 }
