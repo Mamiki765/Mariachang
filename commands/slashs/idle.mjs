@@ -71,6 +71,15 @@ export async function execute(interaction) {
       pizzaBonusPercentage = Math.log10(idleGame.population);
     }
 
+    let productionString;
+    if (productionPerMinute >= 100) {
+      // 100以上の場合は、小数点を切り捨ててカンマ区切りにする
+      productionString = Math.floor(productionPerMinute).toLocaleString();
+    } else {
+      // 100未満の場合は、小数点以下2桁で表示する
+      productionString = productionPerMinute.toFixed(2);
+    }
+
     return new EmbedBuilder()
       .setTitle("ニョワ集めステータス")
       .setColor(isFinal ? "Grey" : "Gold")
@@ -99,15 +108,15 @@ export async function execute(interaction) {
         },
         {
           name: "毎分の増加予測",
-          value: `${productionPerMinute.toLocaleString()} 匹/分`,
+          value: `${productionString} 匹/分`,
         },
         {
-          name: "人口ボーナス (ピザ獲得量)(未実装)",
+          name: "人口ボーナス(ピザ獲得量)(未実装)",
           value: `+${pizzaBonusPercentage.toFixed(3)} %`,
         }
       )
       .setFooter({
-        text: `現在の所持ピザ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚 | 再度コマンドを使用すると、オフライン中の人口が増加します。`,
+        text: `現在の所持ピザ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚 | 再度/idle、あるいはログボ受取で人口は更新されます。`,
       });
   };
 
