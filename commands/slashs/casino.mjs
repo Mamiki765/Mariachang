@@ -9,7 +9,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { Point, CasinoStats, sequelize } from "../../models/database.mjs";
+import { Point, CasinoStats, sequelize, IdleGame } from "../../models/database.mjs";
 import config from "../../config.mjs";
 
 export const help = {
@@ -543,6 +543,18 @@ async function handleBalance(interaction) {
   try {
     const [user] = await Point.findOrCreate({ where: { userId } });
 
+    // ★★★ 追加: 放置ゲームのデータを取得してボーナス率を確認 ★★★
+    const idleGame = await IdleGame.findOne({ where: { userId } });
+
+    // ★★★ 追加: 表示するボーナス文字列を準備 ★★★
+    let bonusText = "";
+    // 放置ゲームのデータがあり、かつボーナスが0より大きい場合のみ文字列を生成
+    if (idleGame && idleGame.pizzaBonusPercentage > 0) {
+      const emoji = "<:nyowamiyarika:1264010111970574408>";
+      // toFixed(3)で小数点以下3桁に整形
+      bonusText = ` (${emoji} +${idleGame.pizzaBonusPercentage.toFixed(3)}%)`;
+    }
+
     const embed = new EmbedBuilder()
       .setTitle(`👛 ${interaction.user.username} さんの財布`)
       .setColor("#FEE75C")
@@ -568,7 +580,7 @@ async function handleBalance(interaction) {
       embed.addFields({
         name: "🍕 レガシーピザ", // 絵文字や名前は自由に変更してください！
         // toLocaleString() を使うと、1158576 が 1,158,576 のようにカンマ区切りになり見やすいです
-        value: `**${user.legacy_pizza.toLocaleString()}**枚`,
+        value: `**${user.legacy_pizza.toLocaleString()}**枚${bonusText}`,
         inline: false,
       });
     }
