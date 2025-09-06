@@ -568,7 +568,7 @@ export default {
     },
   },
   // 放置ゲーム設定
-  idle: {
+  idle: { // ここを変える時はSQLも変えるように！詳細はidle.mjs
     oven: {
       baseCost: 100,      // 基本コスト
       multiplier: 1.08,   // レベルで加算される乗数 (気軽に変えると大変！)

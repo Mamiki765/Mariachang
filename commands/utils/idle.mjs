@@ -96,12 +96,12 @@ export async function execute(interaction) {
           value: `${productionString} 匹/分`,
         },
         {
-          name: "人口ボーナス(ピザ獲得量)(未実装)",
+          name: "人口ボーナス(ピザ獲得量)",
           value: `+${pizzaBonusPercentage.toFixed(3)} %`,
         }
       )
       .setFooter({
-        text: `現在の所持ピザ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚 | 再度/idle、あるいはログボ受取で人口は更新されます。`,
+        text: `現在の所持ピザ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
       });
   };
 
@@ -237,6 +237,22 @@ export async function execute(interaction) {
 
 
 /**
+ *  * ==========================================================================================
+ * ★★★ 将来の自分へ: 計算式に関する超重要メモ ★★★
+ *
+ * この updateUserIdleGame 関数内の人口計算ロジックは、
+ * SupabaseのSQL関数 `update_all_idle_games_and_bonuses` 内でも、
+ * 全く同じ計算式でSQLとして再現されています。
+ *
+ * (SQL関数は、tasks/pizza-distributor.mjsから10分毎に呼び出され、
+ * 全ユーザーの人口を一括で更新するために使われています)
+ *
+ * そのため、将来ここで計算式を変更する場合 (例: 施設の補正数値をconfigで変える、新しい施設を追加する) は、
+ * 必ずSupabaseにある `update_all_idle_games_and_bonuses` 関数も
+ * 同じロジックになるよう修正してください！
+ *
+ * ==========================================================================================
+ *
  * 特定ユーザーの放置ゲームデータを更新し、最新の人口を返す関数
  * @param {string} userId - DiscordのユーザーID
  * @returns {Promise<object|null>} 成功した場合は { population, pizzaBonusPercentage }、データがなければ null
