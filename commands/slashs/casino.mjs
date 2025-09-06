@@ -15,7 +15,7 @@ import {
   sequelize,
   IdleGame,
 } from "../../models/database.mjs";
-import { getPizzaBonusMultiplier } from "../commands/utils/idle.mjs";
+import { getPizzaBonusMultiplier } from "../utils/idle.mjs";
 import config from "../../config.mjs";
 
 export const help = {
