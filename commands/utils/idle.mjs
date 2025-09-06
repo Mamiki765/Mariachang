@@ -53,7 +53,7 @@ export async function execute(interaction) {
     const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect);
     let pizzaBonusPercentage = 0;
     if (idleGame.population >= 1) {
-      pizzaBonusPercentage = Math.log10(idleGame.population);
+      pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
     }
 
     let productionString;
@@ -270,9 +270,10 @@ export async function updateUserIdleGame(userId) {
   }
 
   // 人口ボーナスを計算
+  // log10(人口) + 1 をパーセンテージとして返す 1桁で1% 2桁で2% 3桁で3% ...
   let pizzaBonusPercentage = 0;
   if (idleGame.population >= 1) {
-    pizzaBonusPercentage = Math.log10(idleGame.population);
+    pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
   }
   
   // 最新の人口と、計算したボーナスをオブジェクトとして返す
