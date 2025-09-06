@@ -449,12 +449,25 @@ const IdleGame = sequelize.define(
       defaultValue: 0,
     },
     pizzaOvenLevel: {
+      // ピザ窯（ベース生産量）
       type: DataTypes.INTEGER,
       defaultValue: 0, // レベル0では人口が増えないので、初期値は0
     },
     cheeseFactoryLevel: {
+      //チーズ工場（乗算係数）
       type: DataTypes.INTEGER,
       defaultValue: 0,
+    },
+    //指数係数である精肉工場のLVはMee6テーブルのLVから持ってくる
+    buffMultiplier: {
+      //ブースト(最終結果に対する乗算)
+      type: DataTypes.DOUBLE,
+      defaultValue: 1.0, // 初期値は倍率1（何もない状態）
+    },
+    buffExpiresAt: {
+      // ブーストの有効期限
+      type: DataTypes.DATE,
+      allowNull: true, // nullならバフなし
     },
     // 計算されたピザボーナス％を自動で計算保存しておく場所（チャットピザ用）
     pizzaBonusPercentage: {
