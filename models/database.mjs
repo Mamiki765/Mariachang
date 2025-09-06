@@ -456,6 +456,12 @@ const IdleGame = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    // 計算されたピザボーナス％を自動で計算保存しておく場所（チャットピザ用）
+    pizzaBonusPercentage: {
+      type: DataTypes.DOUBLE, // 小数点を扱うのでDOUBLE型
+      allowNull: false,
+      defaultValue: 0, // デフォルト値は0%
+    },
     // 最後に資源計算を反映した時刻
     lastUpdatedAt: {
       type: DataTypes.DATE,
