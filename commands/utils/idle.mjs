@@ -212,11 +212,17 @@ export async function execute(interaction) {
     );
   };
 
+  //もう一度時間を計算
+  const remainingMs = idleGame.buffExpiresAt
+    ? idleGame.buffExpiresAt.getTime() - now.getTime()
+    : 0;
+  const remainingHours = remainingMs / (1000 * 60 * 60);
   //24時間あるかないかで変わる
-  let content = "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
-  //if(hours >= 24){
-  //  content = "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
-  //}
+  let content =
+    "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
+  if(remainingHours >= 24){
+    content = "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
+  }
 
   // 最初のメッセージを送信
   await interaction.editReply({
