@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 import CommandsRegister from "./regist-commands.mjs";
 import config from "./config.mjs";
+import { closeDatabase } from "./models/database.mjs";
 
 // クラッシュ時にログを残す
 process.on("uncaughtException", (error, origin) => {
@@ -49,6 +50,8 @@ app.get("/", function (req, res) {
   );
   res.send(statusPageHtml);
 });
+
+let server; // Expressサーバーのインスタンスを保持するための変数
 
 const client = new Client({
   intents: [
@@ -205,7 +208,7 @@ async function startBot() {
   });
   client.on("clientReady", () => handlers.get("clientReady").default(client));
 
-  app.listen(3000, (error) => {
+  server = app.listen(3000, (error) => {
     if (error) {
       //express5からエラーハンドリングに対応したので念の為
       console.error("[EXPRESS]Express server failed to start:", error);
@@ -220,6 +223,57 @@ async function startBot() {
   await client.login(process.env.TOKEN);
 }
 
+/**
+ * 終了シグナルを受け取った際に、各種サービスを安全に停止させる関数
+ * @param {string} signal - 受け取ったシグナル名
+ */
+// 既にシャットダウン処理中かどうかの目印
+let isShuttingDown = false;
+async function gracefulShutdown(signal) {
+  // もし既にお片付け中なら、何もしない（二重実行防止）
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
+
+  // 万が一、処理が終わらない場合に備えた保険（10秒後に強制終了）
+  const forceShutdown = setTimeout(() => {
+    console.error(
+      "[Shutdown] Could not close connections in time, forcing shutdown."
+    );
+    process.exit(1);
+  }, 10000);
+
+  // 1. Webサーバーを停止
+  if (server) {
+    server.close(() => {
+      console.log("[Shutdown] Express server closed.");
+    });
+  }
+
+  // 2. Discord Botをログアウト
+  try {
+    await client.destroy();
+    console.log("[Shutdown] Discord client destroyed.");
+  } catch (err) {
+    console.error("[Shutdown] Error destroying Discord client:", err);
+  }
+
+  // 3. データベース接続を閉じる
+  try {
+    await closeDatabase(); // ステップ1でimportした関数
+  } catch (err) {
+    console.error("[Shutdown] Error closing database:", err);
+  }
+
+  console.log("[Shutdown] Graceful shutdown complete. Exiting.");
+  clearTimeout(forceShutdown); // 無事に終わったので、保険は解除
+  process.exit(0); // 全ての後片付けが終わったので、正常に終了
+}
+
+// 寝ろ！マリア！と言われた時に寝るためのもの
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT")); // ローカル開発でCtrl+C用
+// こっちは起きる方　寝ろとか起きろとかうるせえにゃ
 startBot().catch((error) => {
   console.error(
     "[FATAL ERROR]Botの起動中に致命的なエラーが発生しました:",

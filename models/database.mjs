@@ -510,6 +510,21 @@ async function syncModels() {
   }
 }
 
+/**
+ * Sequelizeのデータベース接続を安全に閉じるための関数
+ * これを main.mjs から呼び出す
+ */
+export async function closeDatabase() {
+  try {
+    await sequelize.close();
+    console.log("[Database] Sequelize connection has been closed gracefully.");
+  } catch (error) {
+    // 既に接続が切れている場合などにエラーが出ても、シャットダウンは続行させたいので
+    // ここでは console.error に留めるのが安全です。
+    console.error("[Database] Error closing the Sequelize connection:", error);
+  }
+}
+
 export {
   sequelize,
   Character,

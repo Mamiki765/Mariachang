@@ -395,7 +395,7 @@ export default async function handleButtonInteraction(interaction) {
         );
 
         pizzaMessages.push(
-          `ボーナス **${bonusAmount.toLocaleString()}枚**(**+${idleResult.pizzaBonusPercentage.toFixed(3)}%**)`
+          `-# ボーナス **${bonusAmount.toLocaleString()}枚**(**+${idleResult.pizzaBonusPercentage.toFixed(3)}%**)`
         );
         pizzaBreakdown.push(bonusAmount);
       } else {
