@@ -149,14 +149,41 @@ export async function execute(interaction) {
   // generateButtons関数：こちらも、最新のDBオブジェクトからコストを計算するようにする
   const generateButtons = (isDisabled = false) => {
     // ボタンを描画するたびに、コストを再計算する
+    //窯強化
     const ovenCost = Math.floor(
       config.idle.oven.baseCost *
         Math.pow(config.idle.oven.multiplier, idleGame.pizzaOvenLevel)
     );
+    //チーズ強化
     const cheeseCost = Math.floor(
       config.idle.cheese.baseCost *
         Math.pow(config.idle.cheese.multiplier, idleGame.cheeseFactoryLevel)
     );
+    //ブースト延長
+    //ブーストの残り時間を計算 (ミリ秒で)
+    const now = new Date();
+    const remainingMs = idleGame.buffExpiresAt
+      ? idleGame.buffExpiresAt.getTime() - now.getTime()
+      : 0;
+    const remainingHours = remainingMs / (1000 * 60 * 60);
+    // 残り時間に応じて、ニョボシの雇用コストを決定（1回目500,2回目1000)
+    let nyoboshiCost = 0;
+    let nyoboshiemoji = "1293141862634229811";
+    if (remainingHours > 0 && remainingHours < 24) {
+      nyoboshiCost = 500;
+    } else if (remainingHours >= 24 && remainingHours < 48) {
+      nyoboshiCost = 1000;
+      nyoboshiemoji = "1396542940096237658";
+    } else if (remainingHours >= 48) {
+      nyoboshiCost = 999999; //そもそもすぐ下を見ればわかるがこの時は押せないわけで無言の圧もとい絵文字用
+      nyoboshiemoji = "1414076963592736910";
+    }
+    // ボタンを無効化する条件を決定
+    const isNyoboshiDisabled =
+      isDisabled || // 全体的な無効化フラグ
+      remainingHours >= 48 || // 残り48時間以上
+      point.legacy_pizza < nyoboshiCost || // ピザが足りない
+      nyoboshiCost === 0; // コストが0 (バフが切れているなど)
 
     return new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -170,7 +197,17 @@ export async function execute(interaction) {
           `チーズ工場強化(+${config.idle.cheese.effect * 100}%) (${cheeseCost.toLocaleString()}ピザ)`
         )
         .setStyle(ButtonStyle.Success)
-        .setDisabled(isDisabled || point.legacy_pizza < cheeseCost)
+        .setDisabled(isDisabled || point.legacy_pizza < cheeseCost),
+      new ButtonBuilder()
+        .setCustomId("extend_buff")
+        .setLabel(
+          nyoboshiCost >= 999999
+            ? "ニョボシは忙しそうだ…"
+            : `ニョボシを雇う (+24h) (${nyoboshiCost.toLocaleString()}ピザ)`
+        )
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji(nyoboshiemoji)
+        .setDisabled(isNyoboshiDisabled)
     );
   };
 
@@ -204,7 +241,7 @@ export async function execute(interaction) {
           Math.pow(config.idle.oven.multiplier, latestIdleGame.pizzaOvenLevel)
       );
       facilityName = "ピザ窯";
-    } else {
+    } else if (i.customId === "upgrade_cheese") {
       // upgrade_cheese
       facility = "cheese";
       cost = Math.floor(
@@ -215,6 +252,11 @@ export async function execute(interaction) {
           )
       );
       facilityName = "チーズ工場";
+    } else if (i.customId === "extend_buff") {
+      //extend_buff
+      facility = "nyobosi";
+      cost = nyoboshiCost;
+      facilityName = "ニョボシ";
     }
 
     if (latestPoint.legacy_pizza < cost) {
@@ -237,11 +279,22 @@ export async function execute(interaction) {
             by: 1,
             transaction: t,
           });
-        } else {
+        } else if (facility === "cheese") {
+          //elseから念の為cheeseが必要な様に変更
           await latestIdleGame.increment("cheeseFactoryLevel", {
             by: 1,
             transaction: t,
           });
+        } else if (facility === "nyobosi") {
+          const now = new Date();
+          const currentBuff =
+            latestIdleGame.buffExpiresAt && latestIdleGame.buffExpiresAt > now
+              ? latestIdleGame.buffExpiresAt
+              : now;
+          latestIdleGame.buffExpiresAt = new Date(
+            currentBuff.getTime() + 24 * 60 * 60 * 1000
+          );
+          await latestIdleGame.save({ transaction: t });
         }
       });
 
@@ -256,8 +309,13 @@ export async function execute(interaction) {
         components: [generateButtons()],
       });
 
+      const successMsg =
+        facility === "nyobosi"
+          ? `✅ **ニョボシ** を雇い、ブーストを24時間延長しました！`
+          : `✅ **${facilityName}** の強化に成功しました！`;
+
       await i.followUp({
-        content: `✅ **${facilityName}** の強化に成功しました！`,
+        content: successMsg,
         ephemeral: true,
       });
     } catch (error) {
@@ -315,15 +373,16 @@ export async function updateUserIdleGame(userId) {
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
   const ovenEffect = idleGame.pizzaOvenLevel; //基礎
-  const cheeseEffect = 
-    1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;//乗算
-  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;//指数
+  const cheeseEffect =
+    1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel; //乗算
+  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel; //指数
   let currentBuffMultiplier = 1.0; // ブースト
   if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
     currentBuffMultiplier = idleGame.buffMultiplier;
   }
   // ((基礎*乗算)^指数)*ブースト
-  const productionPerMinute = Math.pow(ovenEffect * cheeseEffect, meatEffect) * currentBuffMultiplier;
+  const productionPerMinute =
+    Math.pow(ovenEffect * cheeseEffect, meatEffect) * currentBuffMultiplier;
 
   if (elapsedSeconds > 0) {
     const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
@@ -339,14 +398,14 @@ export async function updateUserIdleGame(userId) {
     pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
   }
 
- // バフ残り時間（ms → 時間・分に変換）を計算
-let buffRemaining = null;
-if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
-  const ms = idleGame.buffExpiresAt - now;
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  buffRemaining = { hours, minutes };
-}
+  // バフ残り時間（ms → 時間・分に変換）を計算
+  let buffRemaining = null;
+  if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
+    const ms = idleGame.buffExpiresAt - now;
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    buffRemaining = { hours, minutes };
+  }
 
   // 最新の人口と、計算したボーナスをオブジェクトとして返す
   return {
@@ -383,7 +442,7 @@ export async function applyPizzaBonus(userId, baseAmount) {
   return Math.floor(baseAmount * multiplier);
 }
 
-//人口とかの丸め
+//人口とかの丸め　ログボとか短くするよう
 /**
  * 大きな数を見やすく整形
  * 0〜99,999 → そのまま
@@ -394,10 +453,12 @@ export async function applyPizzaBonus(userId, baseAmount) {
 export function formatNumberReadable(n) {
   if (n <= 99999) {
     return n.toString();
-   } else if (n < 1000_0000) { // 1000万未満
+  } else if (n < 1000_0000) {
+    // 1000万未満
     const man = n / 10000;
     return `${man.toFixed(2)}万`;
-  } else if (n < 1_0000_0000_0000) { // 1兆未満
+  } else if (n < 1_0000_0000_0000) {
+    // 1兆未満
     const oku = Math.floor(n / 100000000);
     const man = Math.floor((n % 100000000) / 10000);
     return `${oku > 0 ? oku + "億" : ""}${man > 0 ? man + "万" : ""}`;
