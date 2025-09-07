@@ -90,10 +90,7 @@ export async function execute(interaction) {
       const ms = idleGame.buffExpiresAt - new Date();
       const hours = Math.floor(ms / (1000 * 60 * 60));
       const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-      buffField = {
-        name: "監督ボーナス",
-        value: `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`,
-      };
+      buffField = `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`;
     }
 
     const embed = new EmbedBuilder()
@@ -121,6 +118,11 @@ export async function execute(interaction) {
           inline: true,
         },
         {
+          name: "ブースト",
+          value: buffField ? buffField : "ブースト切れ", //ここを見てる時点で24時間あるはずだが念のため
+          inline: true,
+        },
+        {
           name: "計算式",
           value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(
             2
@@ -140,8 +142,6 @@ export async function execute(interaction) {
           point.legacy_pizza
         ).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
       });
-
-    if (buffField) embed.addFields(buffField);
 
     return embed;
   };
