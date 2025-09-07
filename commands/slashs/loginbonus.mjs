@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ActionRowBuilder, ApplicationCommandType } from "discord.js";
+import { SlashCommandBuilder, ActionRowBuilder } from "discord.js";
 // 既存のログインボーナスボタンを、再利用します！
 import { acornLoginButtonComponent } from "../../components/buttons.mjs";
 
@@ -13,8 +13,7 @@ export const help = {
 export const data = new SlashCommandBuilder()
   .setName("loginbonus")
   .setNameLocalizations({ ja: "ログボを受け取る" })
-  .setDescription("ログインボーナス用のボタンを、あなただけに表示します。")
-  .setContexts([ApplicationCommandType.Guild]);
+  .setDescription("ログインボーナス用のボタンを、あなただけに表示します。");
 
 export async function execute(interaction) {
   // ボタン本体を、新しい「行」に入れる
