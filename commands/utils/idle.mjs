@@ -255,7 +255,19 @@ export async function execute(interaction) {
     } else if (i.customId === "extend_buff") {
       //extend_buff
       facility = "nyobosi";
-      cost = nyoboshiCost;
+      const now = new Date();
+      const remainingMs = latestIdleGame.buffExpiresAt
+        ? latestIdleGame.buffExpiresAt.getTime() - now.getTime()
+        : 0;
+      const remainingHours = remainingMs / (1000 * 60 * 60);
+
+      if (remainingHours > 0 && remainingHours < 24) {
+        cost = 500;
+      } else if (remainingHours >= 24 && remainingHours < 48) {
+        cost = 1000;
+      } else {
+        cost = 1e300; // 絶対通らない
+      }
       facilityName = "ニョボシ";
     }
 
