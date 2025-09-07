@@ -86,9 +86,10 @@ export async function execute(interaction) {
 
     // ★ バフ残り時間計算
     let buffField = null;
+    let hours = null;
     if (idleGame.buffExpiresAt && idleGame.buffExpiresAt > new Date()) {
       const ms = idleGame.buffExpiresAt - new Date();
-      const hours = Math.floor(ms / (1000 * 60 * 60));
+      hours = Math.floor(ms / (1000 * 60 * 60));
       const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
       buffField = `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`;
     }
@@ -211,10 +212,15 @@ export async function execute(interaction) {
     );
   };
 
+  //24時間あるかないかで変わる
+  let content = "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
+  if(hours >= 24){
+    content = "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
+  }
+
   // 最初のメッセージを送信
   await interaction.editReply({
-    content:
-      "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！",
+    content: content,
     embeds: [generateEmbed()],
     components: [generateButtons()],
   });
