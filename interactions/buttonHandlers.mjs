@@ -17,7 +17,10 @@ import {
 import { safeDelete } from "../utils/messageutil.mjs";
 import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 // 放置ゲームの人口を更新する関数をインポート
-import { updateUserIdleGame,formatNumberReadable } from "../commands/utils/idle.mjs";
+import {
+  updateUserIdleGame,
+  formatNumberReadable,
+} from "../commands/utils/idle.mjs";
 import config from "../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
@@ -232,14 +235,35 @@ export default async function handleButtonInteraction(interaction) {
           const idleGame = await IdleGame.findOne({
             where: { userId: interaction.user.id },
           });
+          //ニョワ人口
           const population = idleGame ? Math.floor(idleGame.population) : 0;
+          //ブースト
+          let boostMessage = "🔥なし";
+          if (idleGame) {
+            if (idleGame.buffExpiresAt) {
+              const now = new Date();
+              const remainingMs =
+                idleGame.buffExpiresAt.getTime() - now.getTime();
+              if (remainingMs > 0) {
+                const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+                const minutes = Math.floor(
+                  (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
+                );
+                const multiplier = idleGame.buffMultiplier || 1;
+                boostMessage = `🔥x${multiplier} **${hours}時間${minutes}分**`;
+              }
+            } else {
+              // idleGameはあるがブーストを一度も点火していない人向けの案内
+              boostMessage = "🔥ブーストなし /idleで点火できます。";
+            }
+          }
           return interaction.reply({
             content:
               `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n` +
               `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
-              ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚 ` +
+              ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚\n` +
               `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚` +
-              `<:nyowamiyarika:1264010111970574408>: ${formatNumberReadable(population)}匹\n` +
+              `<:nyowamiyarika:1264010111970574408>: ${formatNumberReadable(population)}匹 ${boostMessage}\n` +
               `ロスアカのどんぐりもお忘れなく……`,
             components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
             ephemeral: true,
@@ -289,7 +313,7 @@ export default async function handleButtonInteraction(interaction) {
             (pizzaConfig.baseAmount.max - pizzaConfig.baseAmount.min + 1)
         ) + pizzaConfig.baseAmount.min;
       pizzaMessages.push(
-        `レガシーピザも**${basePizza.toLocaleString()}枚**焼き上がったようです🍕`
+        `-# レガシーピザも**${basePizza.toLocaleString()}枚**焼き上がったようです🍕`
       );
       pizzaBreakdown.push(basePizza);
 
@@ -326,14 +350,14 @@ export default async function handleButtonInteraction(interaction) {
       const finalMee6Bonus = Math.max(mee6Bonus, roleBonus);
       if (finalMee6Bonus > 0) {
         let mee6MessageIntro =
-          "さらに雨宿りでいっぱい喋ったあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
+          "-# さらに雨宿りでいっぱい喋ったあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
 
         if (roleBonus > mee6Bonus && mee6Info) {
           mee6MessagePart += ` (ロール特典により **${roleBonus.toLocaleString()}枚** に増額)`;
         } else if (!mee6Info) {
           // 導入メッセージ自体を、より状況に合ったものに変更する
           mee6MessageIntro =
-            "さらに雨宿りでいっぱい喋った称号を持つあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
+            "-# さらに雨宿りでいっぱい喋った称号を持つあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
           mee6MessagePart = `<@&${winningRoleId}>: **${roleBonus.toLocaleString()}枚**`;
         }
 
@@ -346,7 +370,7 @@ export default async function handleButtonInteraction(interaction) {
       if (interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
         boosterBonus = pizzaConfig.boosterBonus;
         pizzaMessages.push(
-          `さらにさらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕`
+          `-# さらにさらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕`
         );
         pizzaBreakdown.push(boosterBonus);
       }
@@ -407,7 +431,7 @@ export default async function handleButtonInteraction(interaction) {
         if (idleResult.buffRemaining) {
           const { hours, minutes } = idleResult.buffRemaining;
           if (hours > 0 || minutes > 0) {
-            Message += ` 🔥ブースト**${hours}時間${minutes}分**`;
+            Message += ` 🔥**${hours}時間${minutes}分**`;
           } else {
             Message += ` 🔥ブーストなし /idleで点火できます。`;
           }
