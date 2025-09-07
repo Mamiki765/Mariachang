@@ -314,6 +314,8 @@ export async function execute(interaction) {
       point.legacy_pizza = latestPoint.legacy_pizza;
       idleGame.pizzaOvenLevel = latestIdleGame.pizzaOvenLevel;
       idleGame.cheeseFactoryLevel = latestIdleGame.cheeseFactoryLevel;
+      idleGame.buffExpiresAt = latestIdleGame.buffExpiresAt;
+      idleGame.buffMultiplier = latestIdleGame.buffMultiplier;
 
       // そして、更新されたオブジェクトを使って、メッセージを再描画する
       await interaction.editReply({
