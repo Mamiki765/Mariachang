@@ -24,341 +24,495 @@ export const help = {
 export const data = new SlashCommandBuilder()
   .setName("idle")
   .setNameLocalizations({ ja: "放置ゲーム" })
-  .setDescription("あなたの放置ゲームの現在の状況を確認します。");
+  .setDescription("あなたの放置ゲームの現在の状況を確認します。")
+  .addStringOption((option) =>
+    option
+      .setName("ranking")
+      .setNameLocalizations({ ja: "ランキング表示" })
+      .setDescription("ランキングなどを表示できます")
+      .setRequired(false)
+      .addChoices(
+        { name: "ランキング表示（公開）", value: "public" },
+        { name: "ランキング表示（非公開）", value: "private" },
+        { name: "表示しない", value: "none" } // あるいは、ephemeral: trueを外した簡易的な自分の工場を見せるオプション
+      )
+  );
 
 export async function execute(interaction) {
-  const initialReply = await interaction.reply({
-    content: "Now loading...ニョワミヤを数えています...",
-    ephemeral: true,
-  });
-
-  const userId = interaction.user.id;
-  const [point, createdPoint] = await Point.findOrCreate({ where: { userId } });
-  const [idleGame, createdIdle] = await IdleGame.findOrCreate({
-    where: { userId },
-  });
-  //オフライン計算
-  await updateUserIdleGame(userId);
-  // ★★★ ピザ窯覗きバフ処理 ★★★
-  const now = new Date();
-  if (!idleGame.buffExpiresAt || idleGame.buffExpiresAt < now) {
-    // バフなし or 切れていた場合 → 新しく24hバフ付与
-    idleGame.buffMultiplier = 2.0;
-    idleGame.buffExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    await idleGame.save();
+  const rankingChoice = interaction.options.getString("ranking");
+  if (rankingChoice === "public" || rankingChoice === "private") {
+    const isPrivate = rankingChoice === "private";
+    await executeRankingCommand(interaction, isPrivate);
   } else {
-    // バフ中 → 残りが24h未満ならリセット
-    const remaining = idleGame.buffExpiresAt - now;
-    if (remaining < 24 * 60 * 60 * 1000) {
+    //工場
+    const initialReply = await interaction.reply({
+      content: "Now loading...ニョワミヤを数えています...",
+      flags: 64,
+    });
+
+    const userId = interaction.user.id;
+    const [point, createdPoint] = await Point.findOrCreate({
+      where: { userId },
+    });
+    const [idleGame, createdIdle] = await IdleGame.findOrCreate({
+      where: { userId },
+    });
+    //オフライン計算
+    await updateUserIdleGame(userId);
+    // ★★★ ピザ窯覗きバフ処理 ★★★
+    const now = new Date();
+    if (!idleGame.buffExpiresAt || idleGame.buffExpiresAt < now) {
+      // バフなし or 切れていた場合 → 新しく24hバフ付与
+      idleGame.buffMultiplier = 2.0;
       idleGame.buffExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       await idleGame.save();
-    }
-  }
-  //Mee6レベル取得
-  const mee6Level = await Mee6Level.findOne({ where: { userId } });
-  const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
-
-  // --- ★★★ ここからが修正箇所 ★★★ ---
-
-  // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
-  const generateEmbed = (isFinal = false) => {
-    // 最新のDBオブジェクトから値を読み出す
-    const ovenEffect = idleGame.pizzaOvenLevel;
-    const cheeseEffect =
-      1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
-    const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
-    //バフも乗るように
-    const productionPerMinute =
-      Math.pow(ovenEffect * cheeseEffect, meatEffect) * idleGame.buffMultiplier;
-    let pizzaBonusPercentage = 0;
-    if (idleGame.population >= 1) {
-      pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
-    }
-
-    let productionString;
-    if (productionPerMinute >= 100) {
-      // 100以上の場合は、小数点を切り捨ててカンマ区切りにする
-      productionString = Math.floor(productionPerMinute).toLocaleString();
     } else {
-      // 100未満の場合は、小数点以下2桁で表示する
-      productionString = productionPerMinute.toFixed(2);
+      // バフ中 → 残りが24h未満ならリセット
+      const remaining = idleGame.buffExpiresAt - now;
+      if (remaining < 24 * 60 * 60 * 1000) {
+        idleGame.buffExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        await idleGame.save();
+      }
     }
+    //Mee6レベル取得
+    const mee6Level = await Mee6Level.findOne({ where: { userId } });
+    const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
 
-    // ★ バフ残り時間計算
-    let buffField = null;
-    let hours = null;
-    if (idleGame.buffExpiresAt && idleGame.buffExpiresAt > new Date()) {
-      const ms = idleGame.buffExpiresAt - new Date();
-      hours = Math.floor(ms / (1000 * 60 * 60));
-      const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-      buffField = `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`;
-    }
+    // --- ★★★ ここからが修正箇所 ★★★ ---
 
-    const embed = new EmbedBuilder()
-      .setTitle("ニョワ集めステータス")
-      .setColor(isFinal ? "Grey" : "Gold")
-      .setDescription(
-        `現在のニョワミヤ人口: **${formatNumberJapanese(Math.floor(
-          idleGame.population
-        ))} 匹**`
-      )
-      .addFields(
-        {
-          name: "ピザ窯",
-          value: `Lv. ${idleGame.pizzaOvenLevel}`,
-          inline: true,
-        },
-        {
-          name: "チーズ工場",
-          value: `Lv. ${idleGame.cheeseFactoryLevel}`,
-          inline: true,
-        },
-        {
-          name: "精肉工場 (Mee6)",
-          value: `Lv. ${meatFactoryLevel}`,
-          inline: true,
-        },
-        {
-          name: "ブースト",
-          value: buffField ? buffField : "ブースト切れ", //ここを見てる時点で24時間あるはずだが念のため
-          inline: true,
-        },
-        {
-          name: "計算式",
-          value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(
-            2
-          )}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
-        },
-        {
-          name: "毎分の増加予測",
-          value: `${productionString} 匹/分`,
-        },
-        {
-          name: "人口ボーナス(ピザ獲得量)",
-          value: `+${pizzaBonusPercentage.toFixed(3)} %`,
-        }
-      )
-      .setFooter({
-        text: `現在の所持ピザ: ${Math.floor(
-          point.legacy_pizza
-        ).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
-      });
+    // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
+    const generateEmbed = (isFinal = false) => {
+      // 最新のDBオブジェクトから値を読み出す
+      const ovenEffect = idleGame.pizzaOvenLevel;
+      const cheeseEffect =
+        1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
+      const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
+      //バフも乗るように
+      const productionPerMinute =
+        Math.pow(ovenEffect * cheeseEffect, meatEffect) *
+        idleGame.buffMultiplier;
+      let pizzaBonusPercentage = 0;
+      if (idleGame.population >= 1) {
+        pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
+      }
 
-    return embed;
-  };
+      let productionString;
+      if (productionPerMinute >= 100) {
+        // 100以上の場合は、小数点を切り捨ててカンマ区切りにする
+        productionString = Math.floor(productionPerMinute).toLocaleString();
+      } else {
+        // 100未満の場合は、小数点以下2桁で表示する
+        productionString = productionPerMinute.toFixed(2);
+      }
 
-  // generateButtons関数：こちらも、最新のDBオブジェクトからコストを計算するようにする
-  const generateButtons = (isDisabled = false) => {
-    // ボタンを描画するたびに、コストを再計算する
-    //窯強化
-    const ovenCost = Math.floor(
-      config.idle.oven.baseCost *
-        Math.pow(config.idle.oven.multiplier, idleGame.pizzaOvenLevel)
-    );
-    //チーズ強化
-    const cheeseCost = Math.floor(
-      config.idle.cheese.baseCost *
-        Math.pow(config.idle.cheese.multiplier, idleGame.cheeseFactoryLevel)
-    );
-    //ブースト延長
-    //ブーストの残り時間を計算 (ミリ秒で)
-    const now = new Date();
+      // ★ バフ残り時間計算
+      let buffField = null;
+      let hours = null;
+      if (idleGame.buffExpiresAt && idleGame.buffExpiresAt > new Date()) {
+        const ms = idleGame.buffExpiresAt - new Date();
+        hours = Math.floor(ms / (1000 * 60 * 60));
+        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+        buffField = `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`;
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle("ニョワ集めステータス")
+        .setColor(isFinal ? "Grey" : "Gold")
+        .setDescription(
+          `現在のニョワミヤ人口: **${formatNumberJapanese(
+            Math.floor(idleGame.population)
+          )} 匹**`
+        )
+        .addFields(
+          {
+            name: "ピザ窯",
+            value: `Lv. ${idleGame.pizzaOvenLevel}`,
+            inline: true,
+          },
+          {
+            name: "チーズ工場",
+            value: `Lv. ${idleGame.cheeseFactoryLevel}`,
+            inline: true,
+          },
+          {
+            name: "精肉工場 (Mee6)",
+            value: `Lv. ${meatFactoryLevel}`,
+            inline: true,
+          },
+          {
+            name: "ブースト",
+            value: buffField ? buffField : "ブースト切れ", //ここを見てる時点で24時間あるはずだが念のため
+            inline: true,
+          },
+          {
+            name: "計算式",
+            value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(
+              2
+            )}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
+          },
+          {
+            name: "毎分の増加予測",
+            value: `${productionString} 匹/分`,
+          },
+          {
+            name: "人口ボーナス(ピザ獲得量)",
+            value: `+${pizzaBonusPercentage.toFixed(3)} %`,
+          }
+        )
+        .setFooter({
+          text: `現在の所持ピザ: ${Math.floor(
+            point.legacy_pizza
+          ).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
+        });
+
+      return embed;
+    };
+
+    // generateButtons関数：こちらも、最新のDBオブジェクトからコストを計算するようにする
+    const generateButtons = (isDisabled = false) => {
+      // ボタンを描画するたびに、コストを再計算する
+      //窯強化
+      const ovenCost = Math.floor(
+        config.idle.oven.baseCost *
+          Math.pow(config.idle.oven.multiplier, idleGame.pizzaOvenLevel)
+      );
+      //チーズ強化
+      const cheeseCost = Math.floor(
+        config.idle.cheese.baseCost *
+          Math.pow(config.idle.cheese.multiplier, idleGame.cheeseFactoryLevel)
+      );
+      //ブースト延長
+      //ブーストの残り時間を計算 (ミリ秒で)
+      const now = new Date();
+      const remainingMs = idleGame.buffExpiresAt
+        ? idleGame.buffExpiresAt.getTime() - now.getTime()
+        : 0;
+      const remainingHours = remainingMs / (1000 * 60 * 60);
+      // 残り時間に応じて、ニョボシの雇用コストを決定（1回目500,2回目1000)
+      let nyoboshiCost = 0;
+      let nyoboshiemoji = "1293141862634229811";
+      if (remainingHours > 0 && remainingHours < 24) {
+        nyoboshiCost = 500;
+      } else if (remainingHours >= 24 && remainingHours < 48) {
+        nyoboshiCost = 1000;
+        nyoboshiemoji = "1396542940096237658";
+      } else if (remainingHours >= 48) {
+        nyoboshiCost = 999999; //そもそもすぐ下を見ればわかるがこの時は押せないわけで無言の圧もとい絵文字用
+        nyoboshiemoji = "1414076963592736910";
+      }
+      // ボタンを無効化する条件を決定
+      const isNyoboshiDisabled =
+        isDisabled || // 全体的な無効化フラグ
+        remainingHours >= 48 || // 残り48時間以上
+        point.legacy_pizza < nyoboshiCost || // ピザが足りない
+        nyoboshiCost === 0; // コストが0 (バフが切れているなど)
+
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`upgrade_oven`)
+          .setLabel(`ピザ窯強化(+1) (${ovenCost.toLocaleString()}ピザ)`)
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(isDisabled || point.legacy_pizza < ovenCost),
+        new ButtonBuilder()
+          .setCustomId(`upgrade_cheese`)
+          .setLabel(
+            `チーズ工場強化(+${config.idle.cheese.effect * 100}%) (${cheeseCost.toLocaleString()}ピザ)`
+          )
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(isDisabled || point.legacy_pizza < cheeseCost),
+        new ButtonBuilder()
+          .setCustomId("extend_buff")
+          .setLabel(
+            nyoboshiCost >= 999999
+              ? "ニョボシは忙しそうだ…"
+              : `ニョボシを雇う (+24h) (${nyoboshiCost.toLocaleString()}ピザ)`
+          )
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji(nyoboshiemoji)
+          .setDisabled(isNyoboshiDisabled)
+      );
+    };
+
+    //もう一度時間を計算
     const remainingMs = idleGame.buffExpiresAt
       ? idleGame.buffExpiresAt.getTime() - now.getTime()
       : 0;
     const remainingHours = remainingMs / (1000 * 60 * 60);
-    // 残り時間に応じて、ニョボシの雇用コストを決定（1回目500,2回目1000)
-    let nyoboshiCost = 0;
-    let nyoboshiemoji = "1293141862634229811";
-    if (remainingHours > 0 && remainingHours < 24) {
-      nyoboshiCost = 500;
-    } else if (remainingHours >= 24 && remainingHours < 48) {
-      nyoboshiCost = 1000;
-      nyoboshiemoji = "1396542940096237658";
-    } else if (remainingHours >= 48) {
-      nyoboshiCost = 999999; //そもそもすぐ下を見ればわかるがこの時は押せないわけで無言の圧もとい絵文字用
-      nyoboshiemoji = "1414076963592736910";
+    //24時間あるかないかで変わる
+    let content =
+      "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
+    if (remainingHours >= 24) {
+      content =
+        "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
     }
-    // ボタンを無効化する条件を決定
-    const isNyoboshiDisabled =
-      isDisabled || // 全体的な無効化フラグ
-      remainingHours >= 48 || // 残り48時間以上
-      point.legacy_pizza < nyoboshiCost || // ピザが足りない
-      nyoboshiCost === 0; // コストが0 (バフが切れているなど)
 
+    // 最初のメッセージを送信
+    await interaction.editReply({
+      content: content,
+      embeds: [generateEmbed()],
+      components: [generateButtons()],
+    });
+
+    const filter = (i) => i.user.id === userId;
+    const collector = initialReply.createMessageComponentCollector({
+      filter,
+      time: 60_000,
+    });
+
+    collector.on("collect", async (i) => {
+      await i.deferUpdate();
+
+      // ★★★ コレクター内では、必ずDBから最新のデータを再取得する ★★★
+      const latestPoint = await Point.findOne({ where: { userId } });
+      const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+
+      let facility, cost, facilityName;
+
+      if (i.customId === "upgrade_oven") {
+        facility = "oven";
+        cost = Math.floor(
+          config.idle.oven.baseCost *
+            Math.pow(config.idle.oven.multiplier, latestIdleGame.pizzaOvenLevel)
+        );
+        facilityName = "ピザ窯";
+      } else if (i.customId === "upgrade_cheese") {
+        // upgrade_cheese
+        facility = "cheese";
+        cost = Math.floor(
+          config.idle.cheese.baseCost *
+            Math.pow(
+              config.idle.cheese.multiplier,
+              latestIdleGame.cheeseFactoryLevel
+            )
+        );
+        facilityName = "チーズ工場";
+      } else if (i.customId === "extend_buff") {
+        //extend_buff
+        facility = "nyobosi";
+        const now = new Date();
+        const remainingMs = latestIdleGame.buffExpiresAt
+          ? latestIdleGame.buffExpiresAt.getTime() - now.getTime()
+          : 0;
+        const remainingHours = remainingMs / (1000 * 60 * 60);
+
+        if (remainingHours > 0 && remainingHours < 24) {
+          cost = 500;
+        } else if (remainingHours >= 24 && remainingHours < 48) {
+          cost = 1000;
+        } else {
+          cost = 1e300; // 絶対通らない
+        }
+        facilityName = "ニョボシ";
+      }
+
+      if (latestPoint.legacy_pizza < cost) {
+        await i.followUp({
+          content: `ピザが足りません！ (必要: ${cost.toLocaleString()} / 所持: ${Math.floor(latestPoint.legacy_pizza).toLocaleString()})`,
+          ephemeral: true,
+        });
+        return; // この場合はコレクターを止めず、続けて操作できるようにする
+      }
+
+      try {
+        await sequelize.transaction(async (t) => {
+          // DB更新は、必ず再取得した最新のオブジェクトに対して行う
+          await latestPoint.decrement("legacy_pizza", {
+            by: cost,
+            transaction: t,
+          });
+          if (facility === "oven") {
+            await latestIdleGame.increment("pizzaOvenLevel", {
+              by: 1,
+              transaction: t,
+            });
+          } else if (facility === "cheese") {
+            //elseから念の為cheeseが必要な様に変更
+            await latestIdleGame.increment("cheeseFactoryLevel", {
+              by: 1,
+              transaction: t,
+            });
+          } else if (facility === "nyobosi") {
+            const now = new Date();
+            const currentBuff =
+              latestIdleGame.buffExpiresAt && latestIdleGame.buffExpiresAt > now
+                ? latestIdleGame.buffExpiresAt
+                : now;
+            latestIdleGame.buffExpiresAt = new Date(
+              currentBuff.getTime() + 24 * 60 * 60 * 1000
+            );
+            await latestIdleGame.save({ transaction: t });
+          }
+        });
+
+        // ★★★ 成功したら、DBから更新された最新の値を、関数のスコープ内にあるオリジナルのDBオブジェクトに再代入する ★★★
+        point.legacy_pizza = latestPoint.legacy_pizza;
+        idleGame.pizzaOvenLevel = latestIdleGame.pizzaOvenLevel;
+        idleGame.cheeseFactoryLevel = latestIdleGame.cheeseFactoryLevel;
+        idleGame.buffExpiresAt = latestIdleGame.buffExpiresAt;
+        idleGame.buffMultiplier = latestIdleGame.buffMultiplier;
+
+        // そして、更新されたオブジェクトを使って、メッセージを再描画する
+        await interaction.editReply({
+          embeds: [generateEmbed()],
+          components: [generateButtons()],
+        });
+
+        const successMsg =
+          facility === "nyobosi"
+            ? `✅ **ニョボシ** を雇い、ブーストを24時間延長しました！`
+            : `✅ **${facilityName}** の強化に成功しました！`;
+
+        await i.followUp({
+          content: successMsg,
+          ephemeral: true,
+        });
+      } catch (error) {
+        console.error("IdleGame Collector Upgrade Error:", error);
+        await i.followUp({
+          content: "❌ アップグレード中にエラーが発生しました。",
+          ephemeral: true,
+        });
+      }
+    });
+
+    collector.on("end", (collected) => {
+      interaction.editReply({
+        embeds: [generateEmbed(true)],
+        components: [generateButtons(true)],
+      });
+    });
+  }
+}
+
+/**
+ * 人口ランキングを表示し、ページめくり機能を担当する関数
+ * @param {import("discord.js").CommandInteraction} interaction - 元のインタラクション
+ * @param {boolean} isPrivate - この表示を非公開(ephemeral)にするか (デフォルト: public)
+ */
+async function executeRankingCommand(interaction, isPrivate) {
+  await interaction.reply({
+    content: "ランキングを集計しています...",
+    ephemeral: isPrivate,
+  });
+
+  const allIdleGames = await IdleGame.findAll({
+    order: [["population", "DESC"]],
+    limit: 100, // サーバー負荷を考慮し、最大100位までとする
+  });
+
+  if (allIdleGames.length === 0) {
+    await interaction.editReply({
+      content: "まだ誰もニョワミヤを集めていません。",
+    });
+    return;
+  }
+
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(allIdleGames.length / itemsPerPage);
+  let currentPage = 0;
+
+  const generateEmbed = async (page) => {
+    const start = page * itemsPerPage;
+    const end = start + itemsPerPage;
+    const currentItems = allIdleGames.slice(start, end);
+
+    const rankingFields = await Promise.all(
+      currentItems.map(async (game, index) => {
+        const rank = start + index + 1;
+        let displayName;
+
+        // ★ 改善ポイント1：退会ユーザーの表示を親切に ★
+        try {
+          const member =
+            interaction.guild.members.cache.get(game.userId) ||
+            (await interaction.guild.members.fetch(game.userId));
+          displayName = member.displayName;
+        } catch (e) {
+          displayName = "(退会したユーザー)";
+        }
+
+        const population = formatNumberJapanese(Math.floor(game.population));
+        return {
+          name: `**${rank}位**`,
+          value: `${displayName}\n└ ${population} 匹`,
+          inline: false,
+        };
+      })
+    );
+
+    // 自分の順位を探す
+    const myIndex = allIdleGames.findIndex(
+      (game) => game.userId === interaction.user.id
+    );
+    let myRankText = "あなたはまだピザ工場を持っていません。";
+    if (myIndex !== -1) {
+      const myRank = myIndex + 1;
+      const myPopulation = formatNumberJapanese(
+        Math.floor(allIdleGames[myIndex].population)
+      );
+      myRankText = `**${myRank}位** └ ${myPopulation} 匹`;
+    }
+
+    return new EmbedBuilder()
+      .setTitle("👑 ニョワミヤ人口ランキング 👑")
+      .setColor("Gold")
+      .setFields(rankingFields)
+      .setFooter({ text: `ページ ${page + 1} / ${totalPages}` })
+      .addFields({ name: "📌 あなたの順位", value: myRankText });
+  };
+
+  const generateButtons = (page) => {
     return new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`upgrade_oven`)
-        .setLabel(`ピザ窯強化(+1) (${ovenCost.toLocaleString()}ピザ)`)
+        .setCustomId("prev_page")
+        .setLabel("◀ 前へ")
         .setStyle(ButtonStyle.Primary)
-        .setDisabled(isDisabled || point.legacy_pizza < ovenCost),
+        .setDisabled(page === 0),
       new ButtonBuilder()
-        .setCustomId(`upgrade_cheese`)
-        .setLabel(
-          `チーズ工場強化(+${config.idle.cheese.effect * 100}%) (${cheeseCost.toLocaleString()}ピザ)`
-        )
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(isDisabled || point.legacy_pizza < cheeseCost),
-      new ButtonBuilder()
-        .setCustomId("extend_buff")
-        .setLabel(
-          nyoboshiCost >= 999999
-            ? "ニョボシは忙しそうだ…"
-            : `ニョボシを雇う (+24h) (${nyoboshiCost.toLocaleString()}ピザ)`
-        )
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji(nyoboshiemoji)
-        .setDisabled(isNyoboshiDisabled)
+        .setCustomId("next_page")
+        .setLabel("次へ ▶")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(page === totalPages - 1)
     );
   };
 
-  //もう一度時間を計算
-  const remainingMs = idleGame.buffExpiresAt
-    ? idleGame.buffExpiresAt.getTime() - now.getTime()
-    : 0;
-  const remainingHours = remainingMs / (1000 * 60 * 60);
-  //24時間あるかないかで変わる
-  let content =
-    "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
-  if (remainingHours >= 24) {
-    content =
-      "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
-  }
-
-  // 最初のメッセージを送信
-  await interaction.editReply({
-    content: content,
-    embeds: [generateEmbed()],
-    components: [generateButtons()],
+  const replyMessage = await interaction.editReply({
+    content: "",
+    embeds: [await generateEmbed(currentPage)],
+    components: [generateButtons(currentPage)],
   });
 
-  const filter = (i) => i.user.id === userId;
-  const collector = initialReply.createMessageComponentCollector({
+  const filter = (i) => i.user.id === interaction.user.id;
+  const collector = replyMessage.createMessageComponentCollector({
     filter,
-    time: 60_000,
+    time: 120_000,
   });
 
   collector.on("collect", async (i) => {
     await i.deferUpdate();
+    if (i.customId === "next_page") currentPage++;
+    else if (i.customId === "prev_page") currentPage--;
 
-    // ★★★ コレクター内では、必ずDBから最新のデータを再取得する ★★★
-    const latestPoint = await Point.findOne({ where: { userId } });
-    const latestIdleGame = await IdleGame.findOne({ where: { userId } });
-
-    let facility, cost, facilityName;
-
-    if (i.customId === "upgrade_oven") {
-      facility = "oven";
-      cost = Math.floor(
-        config.idle.oven.baseCost *
-          Math.pow(config.idle.oven.multiplier, latestIdleGame.pizzaOvenLevel)
-      );
-      facilityName = "ピザ窯";
-    } else if (i.customId === "upgrade_cheese") {
-      // upgrade_cheese
-      facility = "cheese";
-      cost = Math.floor(
-        config.idle.cheese.baseCost *
-          Math.pow(
-            config.idle.cheese.multiplier,
-            latestIdleGame.cheeseFactoryLevel
-          )
-      );
-      facilityName = "チーズ工場";
-    } else if (i.customId === "extend_buff") {
-      //extend_buff
-      facility = "nyobosi";
-      const now = new Date();
-      const remainingMs = latestIdleGame.buffExpiresAt
-        ? latestIdleGame.buffExpiresAt.getTime() - now.getTime()
-        : 0;
-      const remainingHours = remainingMs / (1000 * 60 * 60);
-
-      if (remainingHours > 0 && remainingHours < 24) {
-        cost = 500;
-      } else if (remainingHours >= 24 && remainingHours < 48) {
-        cost = 1000;
-      } else {
-        cost = 1e300; // 絶対通らない
-      }
-      facilityName = "ニョボシ";
-    }
-
-    if (latestPoint.legacy_pizza < cost) {
-      await i.followUp({
-        content: `ピザが足りません！ (必要: ${cost.toLocaleString()} / 所持: ${Math.floor(latestPoint.legacy_pizza).toLocaleString()})`,
-        ephemeral: true,
-      });
-      return; // この場合はコレクターを止めず、続けて操作できるようにする
-    }
-
-    try {
-      await sequelize.transaction(async (t) => {
-        // DB更新は、必ず再取得した最新のオブジェクトに対して行う
-        await latestPoint.decrement("legacy_pizza", {
-          by: cost,
-          transaction: t,
-        });
-        if (facility === "oven") {
-          await latestIdleGame.increment("pizzaOvenLevel", {
-            by: 1,
-            transaction: t,
-          });
-        } else if (facility === "cheese") {
-          //elseから念の為cheeseが必要な様に変更
-          await latestIdleGame.increment("cheeseFactoryLevel", {
-            by: 1,
-            transaction: t,
-          });
-        } else if (facility === "nyobosi") {
-          const now = new Date();
-          const currentBuff =
-            latestIdleGame.buffExpiresAt && latestIdleGame.buffExpiresAt > now
-              ? latestIdleGame.buffExpiresAt
-              : now;
-          latestIdleGame.buffExpiresAt = new Date(
-            currentBuff.getTime() + 24 * 60 * 60 * 1000
-          );
-          await latestIdleGame.save({ transaction: t });
-        }
-      });
-
-      // ★★★ 成功したら、DBから更新された最新の値を、関数のスコープ内にあるオリジナルのDBオブジェクトに再代入する ★★★
-      point.legacy_pizza = latestPoint.legacy_pizza;
-      idleGame.pizzaOvenLevel = latestIdleGame.pizzaOvenLevel;
-      idleGame.cheeseFactoryLevel = latestIdleGame.cheeseFactoryLevel;
-      idleGame.buffExpiresAt = latestIdleGame.buffExpiresAt;
-      idleGame.buffMultiplier = latestIdleGame.buffMultiplier;
-
-      // そして、更新されたオブジェクトを使って、メッセージを再描画する
-      await interaction.editReply({
-        embeds: [generateEmbed()],
-        components: [generateButtons()],
-      });
-
-      const successMsg =
-        facility === "nyobosi"
-          ? `✅ **ニョボシ** を雇い、ブーストを24時間延長しました！`
-          : `✅ **${facilityName}** の強化に成功しました！`;
-
-      await i.followUp({
-        content: successMsg,
-        ephemeral: true,
-      });
-    } catch (error) {
-      console.error("IdleGame Collector Upgrade Error:", error);
-      await i.followUp({
-        content: "❌ アップグレード中にエラーが発生しました。",
-        ephemeral: true,
-      });
-    }
+    await interaction.editReply({
+      embeds: [await generateEmbed(currentPage)],
+      components: [generateButtons(currentPage)],
+    });
   });
 
-  collector.on("end", (collected) => {
-    interaction.editReply({
-      embeds: [generateEmbed(true)],
-      components: [generateButtons(true)],
-    });
+  collector.on("end", async () => {
+    // ★ 改善ポイント2：コレクター終了時のエラー対策 ★
+    try {
+      const disabledRow = new ActionRowBuilder().addComponents(
+        generateButtons(currentPage).components.map((c) => c.setDisabled(true))
+      );
+      await interaction.editReply({ components: [disabledRow] });
+    } catch (error) {
+      // メッセージが削除済みの場合などのエラーを無視する
+      console.warn(
+        "ランキング表示の終了処理中にエラーが発生しました:",
+        error.message
+      );
+    }
   });
 }
 
@@ -507,7 +661,7 @@ export function formatNumberReadable(n) {
  * formatNumberJapanese(12345);         // "1万2345"
  * formatNumberJapanese(123);           // "123"
  */
- function formatNumberJapanese(n) {
+function formatNumberJapanese(n) {
   // 基本的なチェック
   if (typeof n !== "number" || !Number.isFinite(n)) {
     return String(n);
