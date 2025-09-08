@@ -124,12 +124,19 @@ export default async (client) => {
     return;
   }
 
-  //シナリオの定期チェック
-  // 最初に一度だけ即時実行
+//シナリオの定期チェック
+// 最初に一度だけ即時実行
+//　デバッグ中は動かないように塞ぐよ
+if (config.isProduction) {
+  console.log("[TASK] Scenario checker: Performing initial check.");
   checkNewScenarios(client);
   // エクストラカードのチェックも即時実行
   checkAtelierCards(client);
+} else {
+  console.log("[TASK] Scenario checker: Initial check skipped in development mode.");
+}
 
+if (config.isProduction) {
   // シナリオ更新が活発な夜間（22時～翌1時）を含め、更新頻度を最適化したスケジュール
   // 設定時間はconfig参照
   cron.schedule(
@@ -156,6 +163,10 @@ export default async (client) => {
       timezone: "Asia/Tokyo", // 日本時間を指定
     }
   );
+
+  } else {
+  console.log("[TASK] Scenario checker tasks are disabled in development mode.");
+}
   // -----------------------------------------------------------------
   // Mee6レベル同期タスク
   // 最初に一度実行して、データを最新にする
