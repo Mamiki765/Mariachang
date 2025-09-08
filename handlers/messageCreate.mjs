@@ -1,7 +1,5 @@
 //handlers/messageCreate.mjs
-import {
-  EmbedBuilder,
-} from "discord.js";
+import { EmbedBuilder } from "discord.js";
 import fs from "fs";
 
 import config from "../config.mjs";
@@ -25,7 +23,6 @@ import {
 // 250904発言によるピザトークン獲得
 const activeUsersForPizza = new Set();
 export { activeUsersForPizza }; // 他のモジュールで使用するためにエクスポート
-
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応

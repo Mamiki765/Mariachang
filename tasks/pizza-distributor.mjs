@@ -45,12 +45,15 @@ export function startPizzaDistribution() {
 
       // ★★★ ここがRPCの呼び出し！ ★★★
       // 'increment_legacy_pizza_with_bonus' という名前の関数を呼び出す
-      const { error } = await supabase.rpc("increment_legacy_pizza_with_bonus", {
-        // SQL関数で定義した引数名をキーとして、値を渡す
-        user_ids: userIds,
-        min_amount: min,
-        max_amount: max,
-      });
+      const { error } = await supabase.rpc(
+        "increment_legacy_pizza_with_bonus",
+        {
+          // SQL関数で定義した引数名をキーとして、値を渡す
+          user_ids: userIds,
+          min_amount: min,
+          max_amount: max,
+        }
+      );
 
       if (error) {
         // RPCの実行でエラーがあれば、それを投げる

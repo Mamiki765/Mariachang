@@ -13,7 +13,7 @@ import { acornLoginButton } from "../components/buttons.mjs";
 //発言ピザ
 import { startPizzaDistribution } from "../tasks/pizza-distributor.mjs";
 // Mee6レベル同期タスク
-import { syncMee6Levels } from '../tasks/mee6-level-updater.mjs'; 
+import { syncMee6Levels } from "../tasks/mee6-level-updater.mjs";
 // package.jsonからバージョンを取得
 import { readFileSync } from "node:fs";
 // package.json を同期で読み込む (起動時のみ)

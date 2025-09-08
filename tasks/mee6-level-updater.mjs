@@ -1,6 +1,6 @@
-import Mee6LevelsApi from 'mee6-levels-api';
+import Mee6LevelsApi from "mee6-levels-api";
 // Sequelizeではなく、Supabaseクライアントを直接使う
-import { getSupabaseClient } from '../utils/supabaseClient.mjs'; 
+import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 
 const GUILD_ID = process.env.MEE6_GUILD_ID;
 
@@ -16,34 +16,36 @@ export async function syncMee6Levels() {
     console.error("[TASK][Mee6] MEE6_GUILD_IDが.envに設定されていません。");
     return;
   }
-  
+
   console.log("[TASK][Mee6] 全ユーザーのレベル同期を開始します...");
   try {
     // 1. Mee6 APIから全プレイヤーデータを取得
     const allPlayers = await Mee6LevelsApi.getLeaderboard(GUILD_ID);
 
     if (!allPlayers || allPlayers.length === 0) {
-      console.warn("[TASK][Mee6] Mee6からプレイヤーデータを取得できませんでした。");
+      console.warn(
+        "[TASK][Mee6] Mee6からプレイヤーデータを取得できませんでした。"
+      );
       return;
     }
 
     // 2. DBから既存の全レベルデータを取得
     const { data: dbLevels, error: fetchError } = await supabase
-      .from('mee6_levels')
-      .select('userId, level, xpInLevel, totalXp, xpForNextLevel'); // 必要なカラムだけ取得
-    
+      .from("mee6_levels")
+      .select("userId, level, xpInLevel, totalXp, xpForNextLevel"); // 必要なカラムだけ取得
+
     if (fetchError) {
       console.error("[TASK][Mee6] DBからのレベルデータ取得に失敗:", fetchError);
       return; // DBエラー時は中断
     }
 
     // 3. メモリ上で差分比較を行う
-    const dbLevelMap = new Map(dbLevels.map(l => [l.userId, l]));
+    const dbLevelMap = new Map(dbLevels.map((l) => [l.userId, l]));
     const levelsToUpsert = [];
 
     for (const player of allPlayers) {
       const existing = dbLevelMap.get(player.id);
-      
+
       const newData = {
         userId: player.id,
         level: player.level,
@@ -66,15 +68,19 @@ export async function syncMee6Levels() {
 
     // 4. 差分があったデータのみをDBに一括で反映
     if (levelsToUpsert.length > 0) {
-      console.log(`${levelsToUpsert.length}件のユーザーデータをDBに反映します。`);
+      console.log(
+        `${levelsToUpsert.length}件のユーザーデータをDBに反映します。`
+      );
       const { error: upsertError } = await supabase
-        .from('mee6_levels')
+        .from("mee6_levels")
         .upsert(levelsToUpsert); // onConflictはSDKが自動で主キー(userId)を見てくれる
-      
+
       if (upsertError) {
         console.error("[TASK][Mee6] DBへのupsert処理に失敗:", upsertError);
       } else {
-        console.log(`[TASK][Mee6] ${levelsToUpsert.length}人のユーザーデータを正常に同期しました。`);
+        console.log(
+          `[TASK][Mee6] ${levelsToUpsert.length}人のユーザーデータを正常に同期しました。`
+        );
       }
     } else {
       console.log("[TASK][Mee6] レベルの更新はありませんでした。");
@@ -85,8 +91,10 @@ export async function syncMee6Levels() {
       task_name: "mee6-level-updater",
       last_successful_run: new Date().toISOString(),
     });
-
   } catch (error) {
-    console.error("[TASK][Mee6] レベル同期タスク実行中に致命的なエラー:", error);
+    console.error(
+      "[TASK][Mee6] レベル同期タスク実行中に致命的なエラー:",
+      error
+    );
   }
 }

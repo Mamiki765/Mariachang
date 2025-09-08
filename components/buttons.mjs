@@ -148,5 +148,8 @@ export function createLoginResultButtons() {
     .setLabel("雨宿りの通貨について")
     .setStyle(ButtonStyle.Secondary); // 補助的なのでSecondaryが良いでしょう
 
-  return new ActionRowBuilder().addComponents(lostArcadiaButton, currencyInfoButton);
+  return new ActionRowBuilder().addComponents(
+    lostArcadiaButton,
+    currencyInfoButton
+  );
 }
