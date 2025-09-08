@@ -716,6 +716,7 @@ async function handleBalance(interaction) {
     collector.on("end", (collected) => {
       // タイムアウトした場合、またはボタンが押されて stop() された場合に、
       // 元の財布メッセージのボタンを無効化する
+if (!message?.components?.length) return;// undefined対策
       if (message.components.length > 0) {
         const disabledButtons = new ActionRowBuilder();
         message.components[0].components.forEach((button) => {
