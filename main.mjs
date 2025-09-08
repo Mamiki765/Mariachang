@@ -221,7 +221,9 @@ async function startBot() {
     );
   });
 
-  await CommandsRegister();
+  CommandsRegister();
+  //一度打ちっぱなしにする
+  //await CommandsRegister();
   await client.login(process.env.TOKEN);
 }
 
