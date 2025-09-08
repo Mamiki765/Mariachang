@@ -9,6 +9,10 @@ yarn-debug.log
 
 # 環境変数ファイル（消すな）
 .env
+# 環境変数ファイルはすべて無視(これも消すな)
+.env*
+!.env.example
+#.env.exampleは通っていい
 
 # 自動生成されるファイル
 project-structure.txt

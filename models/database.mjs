@@ -1,7 +1,6 @@
 // models/database.mjs
 //同じファイル名があったためmodels/roleplay.mjsからの移行(2025/08/01)
 import { Sequelize, DataTypes } from "sequelize";
-
 // Supabase 接続情報
 const supabaseDatabaseUrl = process.env.DATABASE_URL;
 //console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
