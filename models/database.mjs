@@ -1,28 +1,17 @@
 // models/database.mjs
 //同じファイル名があったためmodels/roleplay.mjsからの移行(2025/08/01)
 import { Sequelize, DataTypes } from "sequelize";
-import { parse } from "pg-connection-string";
 
 // Supabase 接続情報
-const connectionString = process.env.DATABASE_URL;
-// ローカルじゃこれでもダメだったしKoyebでは未テスト、こわすぎる
-// 1. 接続文字列を、各パーツ（ユーザー名、パスワード、ホストなど）に分解
-const dbConfig = parse(connectionString);
-
-// 2. 分解したパーツと、確実なオプションを使ってSequelizeを初期化
-const sequelize = new Sequelize({
+const supabaseDatabaseUrl = process.env.DATABASE_URL;
+//console.log("[DEBUG] DATABASE_URL:", supabaseDatabaseUrl);
+// Sequelize インスタンスの生成
+const sequelize = new Sequelize(supabaseDatabaseUrl, {
   dialect: "postgres",
-  database: dbConfig.database,
-  host: dbConfig.host,
-  port: dbConfig.port,
-  username: dbConfig.user,
-  password: dbConfig.password,
-
   dialectOptions: {
     ssl: {
-      require: true,
-      // ▼▼▼ この設定が、今度こそ絶対に適用されます ▼▼▼
-      rejectUnauthorized: false,
+      require: true, // SSLを要求
+      rejectUnauthorized: false, // 必要に応じて設定
     },
   },
   logging: (msg) => {

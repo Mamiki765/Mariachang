@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "1.18.1",
+  "version": "1.18.2",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -25,7 +25,6 @@
     "mee6-levels-api": "^1.3.1",
     "node-cron": "^4.2.1",
     "pg": "^8.16.3",
-    "pg-connection-string": "^2.9.1",
     "sequelize": "^6.37.7",
     "simple-git": "^3.28.0"
   },
@@ -50,6 +49,6 @@
   "devDependencies": {
     "dotenv": "^17.2.2",
     "prettier": "^3.6.2",
-    "tree-cli": "^0.6.7"
+    "tree-cli": "^0.2.2"
   }
 }
