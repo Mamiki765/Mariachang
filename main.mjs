@@ -2,6 +2,7 @@
 import fs from "fs";
 import path from "path";
 import express from "express";
+import { pathToFileURL } from "url"; //localでもnetでも動く用に
 import {
   Client,
   Collection,
@@ -112,7 +113,7 @@ async function startBot() {
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
       commandPromises.push(
-        import(filePath).then((module) => {
+        import(pathToFileURL(filePath)).then((module) => {
           client.commands.set(module.data.name, module);
         })
       );
@@ -125,7 +126,7 @@ async function startBot() {
     .filter((file) => file.endsWith(".mjs"));
   const handlerPromises = handlerFiles.map((file) => {
     const filePath = path.join(handlersPath, file);
-    return import(filePath).then((module) => {
+    return import(pathToFileURL(filePath)).then((module) => {
       handlers.set(file.slice(0, -4), module);
     });
   });

@@ -17,6 +17,9 @@ project-structure.txt
 .DS_Store
 Thumbs.db
 
+# ローカルファイル
+.vscode/
+
 # Glitch時代の遺物（念のため）
 .data/
 .glitch-assets

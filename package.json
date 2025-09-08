@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "start": "node --trace-warnings main.mjs",
+    "local_start": "node --require dotenv/config --trace-warnings main.mjs",
     "_comment_format": "npm run format:check で整形が必要なファイルを確認し、npm run format で自動整形する",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -23,8 +24,9 @@
     "image-size": "^2.0.2",
     "mee6-levels-api": "^1.3.1",
     "node-cron": "^4.2.1",
-    "pg": "^8.15.6",
-    "sequelize": "^6.37.3",
+    "pg": "^8.16.3",
+    "pg-connection-string": "^2.9.1",
+    "sequelize": "^6.37.7",
     "simple-git": "^3.28.0"
   },
   "engines": {
@@ -46,6 +48,7 @@
     "node"
   ],
   "devDependencies": {
+    "dotenv": "^17.2.2",
     "prettier": "^3.6.2",
     "tree-cli": "^0.6.7"
   }
