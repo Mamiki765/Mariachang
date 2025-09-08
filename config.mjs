@@ -1,7 +1,10 @@
 //config.mjs
+// F5押した時はdevelopmentが入って本番は何も無いのでproductionが入る
+const isProduction = process.env.NODE_ENV === 'production';
 //トークンなど機密事項やタイムゾーンはdotenvで管理すること！
 //import config from '../config.mjs'; などで読み込む
 export default {
+  isProduction,
   botid: process.env.APPLICATION_ID, //このbot自身のID
   administrator: process.env.OWNER_ID, //Bot管理者のID
   privatecategory: [

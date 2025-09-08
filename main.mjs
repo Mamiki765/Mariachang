@@ -77,6 +77,7 @@ const client = new Client({
 
 async function startBot() {
   console.log("[Loader] Loading commands and handlers...");
+  console.log('NODE_ENV:', process.env.NODE_ENV);
   client.commands = new Collection();
   const handlers = new Map();
   // === 将来の改善案 (Node.js v22以降) ===
