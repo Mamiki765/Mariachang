@@ -431,7 +431,7 @@ export default async function handleButtonInteraction(interaction) {
         if (idleResult.buffRemaining) {
           const { hours, minutes } = idleResult.buffRemaining;
           if (hours > 0 || minutes > 0) {
-            Message += ` 🔥**${hours}時間${minutes}分**`;
+            Message += ` 🔥x${idleResult.currentBuffMultiplier} **${hours}時間${minutes}分**`;
           } else {
             Message += ` 🔥ブーストなし /idleで点火できます。`;
           }

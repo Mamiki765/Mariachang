@@ -98,9 +98,9 @@ export async function execute(interaction) {
       .setTitle("ニョワ集めステータス")
       .setColor(isFinal ? "Grey" : "Gold")
       .setDescription(
-        `現在のニョワミヤ人口: **${Math.floor(
+        `現在のニョワミヤ人口: **${formatNumberJapanese(Math.floor(
           idleGame.population
-        ).toLocaleString()} 匹**`
+        ))} 匹**`
       )
       .addFields(
         {
@@ -220,8 +220,9 @@ export async function execute(interaction) {
   //24時間あるかないかで変わる
   let content =
     "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
-  if(remainingHours >= 24){
-    content = "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
+  if (remainingHours >= 24) {
+    content =
+      "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
   }
 
   // 最初のメッセージを送信
@@ -438,6 +439,7 @@ export async function updateUserIdleGame(userId) {
     population: idleGame.population,
     pizzaBonusPercentage: pizzaBonusPercentage,
     buffRemaining,
+    currentBuffMultiplier,
   };
 }
 
@@ -491,4 +493,58 @@ export function formatNumberReadable(n) {
   } else {
     return n.toExponential(2); // 小数点2桁の指数表記
   }
+}
+
+/**
+ * 巨大な数値を、日本の単位（兆、億、万）を使った最も自然な文字列に整形します。
+ * 人間が日常的に読み書きする形式を再現します。
+ * @param {number} n - フォーマットしたい数値。
+ * @returns {string} フォーマットされた文字列。
+ * @example
+ * formatNumberJapanese(1234567890123); // "1兆2345億6789万123"
+ * formatNumberJapanese(100010001);     // "1億1万1"
+ * formatNumberJapanese(100000023);     // "1億23"
+ * formatNumberJapanese(12345);         // "1万2345"
+ * formatNumberJapanese(123);           // "123"
+ */
+ function formatNumberJapanese(n) {
+  // 基本的なチェック
+  if (typeof n !== "number" || !Number.isFinite(n)) {
+    return String(n);
+  }
+  if (n > Number.MAX_SAFE_INTEGER) {
+    return n.toExponential(2);
+  }
+
+  const num = Math.floor(n);
+  if (num === 0) {
+    return "0";
+  }
+
+  // 単位の定義
+  const units = [
+    { value: 1_0000_0000_0000, name: "兆" },
+    { value: 1_0000_0000, name: "億" },
+    { value: 1_0000, name: "万" },
+  ];
+
+  let result = "";
+  let tempNum = num;
+
+  // 大きい単位から処理していく
+  for (const unit of units) {
+    if (tempNum >= unit.value) {
+      const part = Math.floor(tempNum / unit.value);
+      result += part + unit.name; // 例: "1兆" や "2345億" を追加
+      tempNum %= unit.value; // 残りの数値を更新
+    }
+  }
+
+  // 1万未満の最後の端数を追加
+  if (tempNum > 0) {
+    result += tempNum;
+  }
+
+  // 万が一、入力が0などでresultが空だった場合（最初のifで弾かれるが念のため）
+  return result || String(num);
 }
