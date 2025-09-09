@@ -304,26 +304,25 @@ function stripXmlTags(text) {
  * 特殊化を考慮し、「特殊化後名（特殊化前名）」の形式に対応します。
  * @param {Array<object>} skillArray - スキルの配列 (例: character.skills.a)
  * @returns {string} - "スキルA、スキルB（元スキルB）" のような整形済み文字列
- * 250909 アクセルカレイドっぽいやつはIDが4000000以上なので試しに★を付ける
  */
 function formatSkillNames(skillArray) {
+  // スキル配列が存在しない、または空の場合は、何も返さない
   if (!skillArray || skillArray.length === 0) {
     return "";
   }
 
+  // 配列の各スキルを、整形後の名前に変換する
   const formattedNames = skillArray.map((skill) => {
-    // idを数値に変換して判定
-    const isHighId = Number(skill.id) >= 4000000;
-
-    // 特殊化済みかどうかで名前を整形
-    const baseName = skill.specialization_base && skill.specialization_base.name
-      ? `${skill.name}（${skill.specialization_base.name}）`
-      : skill.name;
-
-    // idが高い場合は★を付けて赤字で返す
-    return isHighId ? `\x1b[31m★${baseName}\x1b[0m` : baseName;
+    // 'specialization_base' が存在し、その中に 'name' があれば特殊化済み
+    if (skill.specialization_base && skill.specialization_base.name) {
+      return `${skill.name}（${skill.specialization_base.name}）`;
+    } else {
+      // 特殊化されていなければ、そのままの名前を返す
+      return skill.name;
+    }
   });
 
+  // 変換した名前の配列を、「、」で連結して返す
   return formattedNames.join("、");
 }
 
