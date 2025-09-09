@@ -77,7 +77,7 @@ const client = new Client({
 
 async function startBot() {
   console.log("[Loader] Loading commands and handlers...");
-  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log("NODE_ENV:", process.env.NODE_ENV);
   client.commands = new Collection();
   const handlers = new Map();
   // === 将来の改善案 (Node.js v22以降) ===
@@ -221,8 +221,13 @@ async function startBot() {
     );
   });
 
-  //コマンド登録しないときははずしとこう。。。
-  //await CommandsRegister(); 
+  //コマンド登録はローカルだけで行う。。。
+  if (process.env.NODE_ENV !== "production") {
+    console.log("ローカル環境: スラッシュコマンドを登録します。");
+    await CommandsRegister();
+  } else {
+    console.log("本番環境: スラッシュコマンド登録をスキップします。");
+  }
   await client.login(process.env.TOKEN);
 }
 
