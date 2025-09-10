@@ -346,7 +346,7 @@ async function handleSlots(interaction, slotConfig) {
         .setFields([]) // フィールドをリセット
         .setFooter(null); // フッターをリセット
 
-      const buildDescription = (grid, activeLineCount) => {
+      const buildDescription = (grid, lines) => {
         // ▼▼▼ 参照先を、共通の config.casino に変更 ▼▼▼
         const displayConfig = config.casino.lines_display;
         if (!displayConfig) { // もしコンフィグがなければ、古い表示のままにする
@@ -356,7 +356,7 @@ async function handleSlots(interaction, slotConfig) {
         // ライン番号に対応する絵文字を返す、小さなヘルパー
         const getIndicator = (lineIndex) => {
             // lineIndexがベット数より小さい = ベットされているライン
-            if (lineIndex < activeLineCount) {
+            if (lineIndex < lines) {
                 return displayConfig.active[lineIndex];
             } else {
                 return displayConfig.inactive[lineIndex];
@@ -375,11 +375,11 @@ async function handleSlots(interaction, slotConfig) {
 
         // 全てを結合して返す
         return [
-            `# **${topIndicator}**`,
-            `> **${line2}**`,
-            `> **${line1}**`,
-            `> **${line3}**`,
-            `> **${bottomIndicator}**`,
+            `**${topIndicator}**`,
+            `# **${line2}**`,
+            `# **${line1}**`,
+            `# **${line3}**`,
+            `**${bottomIndicator}**`,
         ].join("\n");
       };
 
