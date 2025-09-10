@@ -389,7 +389,7 @@ async function handleSlots(interaction, slotConfig) {
         [rotateEmoji, rotateEmoji, rotateEmoji],
         [rotateEmoji, rotateEmoji, rotateEmoji],
       ];
-      embed.setDescription(buildDescription(rotatingGrid)); // ヘルパー関数を使ってセット
+      embed.setDescription(buildDescription(rotatingGrid, lines)); // ヘルパー関数を使ってセット
       await interactionContext.editReply({ embeds: [embed], components: [] });
       await sleep(1000);
 
@@ -398,7 +398,7 @@ async function handleSlots(interaction, slotConfig) {
       for (let row = 0; row < 3; row++) {
         rotatingGrid[row][0] = emojiGrid[row][0];
       }
-      embed.setDescription(buildDescription(rotatingGrid));
+      embed.setDescription(buildDescription(rotatingGrid, lines));
       await interactionContext.editReply({ embeds: [embed] });
       await sleep(1000);
 
@@ -423,7 +423,7 @@ async function handleSlots(interaction, slotConfig) {
 
       // isReachがtrueなら5秒、falseなら1秒待つように設定
       const lastReelDelay = isReach ? 5000 : 1000;
-      let description = buildDescription(rotatingGrid);
+      let description = buildDescription(rotatingGrid, lines);
 
       if (isReach) {
         // isReachがtrueの場合、盤面の下にリーチ演出のテキストを追加
@@ -487,7 +487,7 @@ async function handleSlots(interaction, slotConfig) {
 
      // --- 最終結果の表示 ---
       // ▼▼▼ 3つのリールがすべて止まった最終盤面を生成 ▼▼▼
-      const finalDescription = buildDescription(emojiGrid);
+      const finalDescription = buildDescription(emojiGrid, lines);
 
       // ▼▼▼ 当たった役を分かりやすく表示するためのテキストを生成 ▼▼▼
       let prizeText = "ハズレ...";
