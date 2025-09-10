@@ -1906,7 +1906,7 @@ async function handleStats(interaction) {
       }
       embed.addFields({
         name: `🎰 ${config.casino.slot.displayname}`,
-        value: `**プレイ回数:** ${slot.gamesPlayed.toLocaleString()}回  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${slotDetails}`,
+        value: `**プレイ記録:** ${slot.gamesPlayed.toLocaleString()}ライン  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${slotDetails}`,
       });
     }
     // --- スロット2号機の成績 (データがあれば追加) ---
