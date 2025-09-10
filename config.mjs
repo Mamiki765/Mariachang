@@ -155,13 +155,17 @@ export default {
     // スタンプのディレクトリサイズ上限
     directorySizeLimit: 300 * 1024 * 1024, // 300MB
     // スタンプ登録上限数を引き上げるVIPロール
-    vipRoles: isProduction ? [
-      "1038083096618209301", // モデレーターロールのID
-      "1025453404362903622", // イラストレーターロールのID
-    ] : [],//debugは空
+    vipRoles: isProduction
+      ? [
+          "1038083096618209301", // モデレーターロールのID
+          "1025453404362903622", // イラストレーターロールのID
+        ]
+      : [], //debugは空
     vipLimit: 50, // VIPの最大登録数
   },
-  nyowacoin:  isProduction ? "<:nyowacoin:1407422205624844288>" : debugConfig.emoji,
+  nyowacoin: isProduction
+    ? "<:nyowacoin:1407422205624844288>"
+    : debugConfig.emoji,
   casino: {
     //カジノ設定
     //通貨の定義
@@ -169,7 +173,9 @@ export default {
       coin: {
         db_column: "coin", // Pointモデルでのカラム名
         displayName: "ニョワコイン",
-        emoji: isProduction ? "<:nyowacoin:1407422205624844288>" : debugConfig.emoji,
+        emoji: isProduction
+          ? "<:nyowacoin:1407422205624844288>"
+          : debugConfig.emoji,
       },
       // ピザの定義を追加
       legacy_pizza: {
@@ -189,6 +195,34 @@ export default {
         emoji: "💎",
       },
     },
+    lines_display: {
+      // isProduction ? [赤ダイス配列] : [デバッグ絵文字配列] のようにするのがおすすめです
+      active: isProduction ? [
+        // ベットされているライン (赤)
+        "<:red_1:1287340678531125248>", // 1
+        "<:red_2:1287340686798225450>", // 2
+        "<:red_3:1287340693588672543>", // 3
+        "<:red_4:1287340701612245023>", // 4
+        "<:red_5:1287340709090824294>", // 5
+      ] : [debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji],
+      inactive: isProduction ? [
+        // ベットされていないライン (青)
+        "<:blue_1:1287339245895159832>", // 1
+        "<:blue_2:1287339259182972958>", // 2
+        "<:blue_3:1287339268615704576>", // 3 なんかマリアに２個登録されてたから後で直さなきゃな
+        "<:blue_4:1287339301813878805>", // 4
+        "<:blue_5:1287339313184509992>", // 5
+      ] : [debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji],
+      // ラインの順番もここで定義してしまうのが美しいです
+      // lineDefinitionsの配列の順番と対応させます
+      order: {
+        line2: 1, // 上段
+        line1: 0, // 中央
+        line3: 2, // 下段
+        line4: 3, // 右下がり ＼
+        line5: 4, // 右上がり ／
+      },
+    },
     slot: {
       //スロット1号機（ハイリスク）
       displayname: "ニョワミヤスロットマシン(1号機)",
@@ -200,8 +234,12 @@ export default {
         grape: "🍇",
         lemon: "🍋",
         cherry: "🍒",
-        rotate: isProduction ? "<a:nyowamiyarika_down:1265938514462380144>" : debugConfig.emoji, //回転中の絵柄
-        reach: isProduction ? "<a:nyowamiyarika_rainbow:1265941562945441817>" : debugConfig.emoji, //リーチ告知時の絵文字もここに
+        rotate: isProduction
+          ? "<a:nyowamiyarika_down:1265938514462380144>"
+          : debugConfig.emoji, //回転中の絵柄
+        reach: isProduction
+          ? "<a:nyowamiyarika_rainbow:1265941562945441817>"
+          : debugConfig.emoji, //リーチ告知時の絵文字もここに
       },
       reels: [
         [
@@ -254,8 +292,9 @@ export default {
           name: "777",
           payout: 500,
           pattern: ["7", "7", "7"],
-          display:
-            isProduction ? "<:nyowa7:1409958172545912904><:nyowa7:1409958172545912904><:nyowa7:1409958172545912904>" : "なでなでなで",
+          display: isProduction
+            ? "<:nyowa7:1409958172545912904><:nyowa7:1409958172545912904><:nyowa7:1409958172545912904>"
+            : "なでなでなで",
         },
         {
           id: "watermelon",
@@ -300,13 +339,21 @@ export default {
       displayname: "ひめこスロットマシン(2号機)",
       gameName: "slots_easy", //戦績に残すためのタグ
       symbols: {
-        bell: isProduction ? "<:katakana_ko:1265165857445908542>" : debugConfig.emoji,
-        bell2: isProduction ? "<:katakana_ro:1265166237399388242>" : debugConfig.emoji,
+        bell: isProduction
+          ? "<:katakana_ko:1265165857445908542>"
+          : debugConfig.emoji,
+        bell2: isProduction
+          ? "<:katakana_ro:1265166237399388242>"
+          : debugConfig.emoji,
         lemon: "🍋",
         grape: "🍇",
         cherry: "🍒",
-        rotate: isProduction ? "<a:himeko_down:1409986521058246737>": debugConfig.emoji,
-        reach: isProduction ? "<a:toruchan_kokoro2:1265162645330464898>": debugConfig.emoji,
+        rotate: isProduction
+          ? "<a:himeko_down:1409986521058246737>"
+          : debugConfig.emoji,
+        reach: isProduction
+          ? "<a:toruchan_kokoro2:1265162645330464898>"
+          : debugConfig.emoji,
       },
       reels: [
         // R1 (11通り): コ1, レモン2, ぶどう3, チェリー5
@@ -359,8 +406,9 @@ export default {
           name: "ココロー！",
           payout: 38,
           pattern: ["bell", "bell", "bell2"],
-          display:
-            isProduction ? "<:katakana_ko:1265165857445908542><:katakana_ko:1265165857445908542><:katakana_ro:1265166237399388242>" : "ココロー！！！",
+          display: isProduction
+            ? "<:katakana_ko:1265165857445908542><:katakana_ko:1265165857445908542><:katakana_ro:1265166237399388242>"
+            : "ココロー！！！",
         },
         {
           id: "lemon3",
@@ -582,18 +630,19 @@ export default {
       boosterRoleId: isProduction ? "1025744211552776214" : debugConfig.role, // サーバーブースターロールID
       // MEE6のレベル称号によるボーナス
       mee6LevelBonuses: isProduction
-      ? {
-        "1071455632114327663": 100, //Lv10
-        "1071455554163191809": 200, //Lv20
-        "1067982048444293190": 300, //Lv30
-        "1071455668797706240": 400, //Lv40
-        "1071455717082529946": 500, //Lv50
-        "1079135754971791572": 600, //Lv60
-        "1092503623528894494": 700, //Lv70
-        "1092504786978492529": 800, //Lv80
-        "1092505092827127828": 900, //Lv90
-        "1092505190973845614": 1000, //Lv100+
-      }: {},//debugは空
+        ? {
+            "1071455632114327663": 100, //Lv10
+            "1071455554163191809": 200, //Lv20
+            "1067982048444293190": 300, //Lv30
+            "1071455668797706240": 400, //Lv40
+            "1071455717082529946": 500, //Lv50
+            "1079135754971791572": 600, //Lv60
+            "1092503623528894494": 700, //Lv70
+            "1092504786978492529": 800, //Lv80
+            "1092505092827127828": 900, //Lv90
+            "1092505190973845614": 1000, //Lv100+
+          }
+        : {}, //debugは空
     },
     nyowacoin: {
       baseAmount: 1, //基本は１枚

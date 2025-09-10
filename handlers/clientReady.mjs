@@ -126,7 +126,7 @@ export default async (client) => {
 
 //シナリオの定期チェック
 // 最初に一度だけ即時実行
-//　デバッグ中は動かないように塞ぐよ
+//　データベースが共通のためデバッグ中は動かないように塞ぐ（通知は差分なので）
 if (config.isProduction) {
   console.log("[TASK] Scenario checker: Performing initial check.");
   checkNewScenarios(client);
@@ -205,7 +205,8 @@ if (config.isProduction) {
     ],
   });
   // ログイン通知ここまで
-  startPizzaDistribution(); // 発言によるピザトークン付与の定期タスク開始
+  // 発言によるピザトークン付与および10分ごとの放置ゲー人口増加の定期タスク開始
+  startPizzaDistribution(); 
   console.log("[INIT]ピザ配布の定期タスクを開始しました。");
 };
 

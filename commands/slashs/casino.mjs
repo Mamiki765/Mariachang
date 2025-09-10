@@ -67,11 +67,21 @@ export const data = new SlashCommandBuilder()
       .setDescription("【スロット1号機】一攫千金を夢見る最凶のマシン")
       .addIntegerOption((option) =>
         option
-          .setName("bet")
-          .setDescription("賭けるコインの枚数(1-20)")
+          // ▼▼▼ 名前をより明確に ▼▼▼
+          .setName("bet_per_line")
+          .setDescription("1ラインあたりの賭けコイン枚数(1-20)")
           .setRequired(true)
           .setMinValue(1)
           .setMaxValue(20)
+      )
+      // ▼▼▼ ライン数を指定するオプションを追加 ▼▼▼
+      .addIntegerOption((option) =>
+        option
+          .setName("lines")
+          .setDescription("賭けるライン数(1-5)")
+          .setRequired(false) // 必須ではなく、未指定の場合は1として扱う
+          .setMinValue(1)
+          .setMaxValue(5)
       )
   )
   //スロット２号機
@@ -81,11 +91,21 @@ export const data = new SlashCommandBuilder()
       .setDescription("【2号機】当たりやすい安全設計のマシン")
       .addIntegerOption((option) =>
         option
-          .setName("bet")
-          .setDescription("賭けるコインの枚数(1-20)")
+          // ▼▼▼ 名前をより明確に ▼▼▼
+          .setName("bet_per_line")
+          .setDescription("1ラインあたりの賭けコイン枚数(1-20)")
           .setRequired(true)
           .setMinValue(1)
           .setMaxValue(20)
+      )
+      // ▼▼▼ ライン数を指定するオプションを追加 ▼▼▼
+      .addIntegerOption((option) =>
+        option
+          .setName("lines")
+          .setDescription("賭けるライン数(1-5)")
+          .setRequired(false) // 必須ではなく、未指定の場合は1として扱う
+          .setMinValue(1)
+          .setMaxValue(5)
       )
   )
   .addSubcommand((subcommand) =>
@@ -207,7 +227,9 @@ export async function execute(interaction) {
 // ==================================================================
 // --- スロットゲームのメインロジック ---
 async function handleSlots(interaction, slotConfig) {
-  const betAmount = interaction.options.getInteger("bet");
+  const betPerLine = interaction.options.getInteger("bet_per_line");
+  const lines = interaction.options.getInteger("lines") ?? 1; // 指定がなければ1
+  const totalBetAmount = betPerLine * lines; // 合計ベット額
   const userId = interaction.user.id;
 
   // セッション（連続プレイ）ごとの統計
@@ -222,7 +244,6 @@ async function handleSlots(interaction, slotConfig) {
     currentEmbed = null,
     interactionContext
   ) => {
-    let resultSymbols = [];
     let isReach = false;
     let embed = currentEmbed;
     if (isFirstPlay) {
@@ -235,9 +256,9 @@ async function handleSlots(interaction, slotConfig) {
         transaction: t,
       });
 
-      if (!userPoint || userPoint.coin < betAmount) {
+      if (!userPoint || userPoint.coin < totalBetAmount) {
         const message = isFirstPlay
-          ? `コインが足りません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚\n-# /casino balanceでどんぐりやRPをコインに交換できます。`
+          ? `${totalBetAmount}コインを払えません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚\n-# /casino balanceでどんぐりやRPをコインに交換できます。`
           : `コインが足りなくなったため、ゲームを終了します。\n-# /casino balanceでどんぐりやRPをコインに交換できます。`;
 
         // ▼▼▼ ここで、初回かどうかで表示を分岐させる ▼▼▼
@@ -267,98 +288,191 @@ async function handleSlots(interaction, slotConfig) {
       }
 
       // 賭け金を支払う
-      userPoint.coin -= betAmount;
+      userPoint.coin -= totalBetAmount;
 
       // --- スロットの結果を先に決定 ---
-      resultSymbols = [
-        slotConfig.reels[0][
-          Math.floor(Math.random() * slotConfig.reels[0].length)
-        ],
-        slotConfig.reels[1][
-          Math.floor(Math.random() * slotConfig.reels[1].length)
-        ],
-        slotConfig.reels[2][
-          Math.floor(Math.random() * slotConfig.reels[2].length)
-        ],
-      ];
-      // 結果を絵文字に変換
-      const resultEmojis = resultSymbols.map(
-        (s) => slotConfig.symbols[s] || "❓"
+      // ▼▼▼ 3x3のグリッドを生成するロジックに変更 ▼▼▼
+      const resultGrid = []; // まずは空の配列を用意
+
+      // 3つのリール（列）をループで処理
+      for (let col = 0; col < 3; col++) {
+        const reel = slotConfig.reels[col]; // 現在のリール設定を取得
+        // 各リールで3つのシンボルを抽選し、それぞれの行に配置
+        for (let row = 0; row < 3; row++) {
+          const symbol = reel[Math.floor(Math.random() * reel.length)];
+          // resultGrid[row] がまだ存在しなければ、空の配列で初期化
+          if (!resultGrid[row]) {
+            resultGrid[row] = [];
+          }
+          resultGrid[row][col] = symbol; // [行][列] の位置にシンボルを格納
+        }
+      }
+      /*
+        こうすることで、resultGrid は以下の様な形になります
+        [
+          [ "cherry", "lemon", "grape" ], // 1行目
+          [ "grape", "grape", "grape" ], // 2行目 (中央ライン)
+          [ "lemon", "cherry", "7"    ]  // 3行目
+        ]
+      */
+
+      // 結果を表示用に絵文字に変換したグリッドも用意しておくと便利
+      const emojiGrid = resultGrid.map(row =>
+        row.map(symbol => slotConfig.symbols[symbol] || "❓")
       );
       const rotateEmoji = slotConfig.symbols.rotate;
+
+      // ▼▼▼ 5つの有効ラインの定義 ▼▼▼
+      // resultGridから、判定対象となる5パターンのラインを配列として取り出す
+      const lineDefinitions = [
+        // Line 1: 中央ライン
+        [resultGrid[1][0], resultGrid[1][1], resultGrid[1][2]],
+        // Line 2: 上段ライン
+        [resultGrid[0][0], resultGrid[0][1], resultGrid[0][2]],
+        // Line 3: 下段ライン
+        [resultGrid[2][0], resultGrid[2][1], resultGrid[2][2]],
+        // Line 4: 右下がり斜め (＼)
+        [resultGrid[0][0], resultGrid[1][1], resultGrid[2][2]],
+        // Line 5: 右上がり斜め (／)
+        [resultGrid[2][0], resultGrid[1][1], resultGrid[0][2]],
+      ];
+      // ユーザーが賭けたライン数ぶんだけ、ループして役を判定
+      const activeLines = lineDefinitions.slice(0, lines);
 
       // --- アニメーション ---
       embed
         .setColor("#2f3136")
-        .setTitle(`${slotConfig.displayname}`)
+        .setTitle(`${slotConfig.displayname} ${betPerLine}＄${lines}ライン`)
         .setFields([]) // フィールドをリセット
         .setFooter(null); // フッターをリセット
 
-      // 1. 全て回転中
-      embed.setDescription(
-        `# [ ${rotateEmoji} | ${rotateEmoji} | ${rotateEmoji} ]`
-      );
+      const buildDescription = (grid, activeLineCount) => {
+        // ▼▼▼ 参照先を、共通の config.casino に変更 ▼▼▼
+        const displayConfig = config.casino.lines_display;
+        if (!displayConfig) { // もしコンフィグがなければ、古い表示のままにする
+            return grid.map(row => `> **${row.join(" | ")}**`).join("\n");
+        }
+
+        // ライン番号に対応する絵文字を返す、小さなヘルパー
+        const getIndicator = (lineIndex) => {
+            // lineIndexがベット数より小さい = ベットされているライン
+            if (lineIndex < activeLineCount) {
+                return displayConfig.active[lineIndex];
+            } else {
+                return displayConfig.inactive[lineIndex];
+            }
+        };
+
+        const o = displayConfig.order; // orderのショートカット
+
+        // 新しい表示を組み立てる
+        const topIndicator = getIndicator(o.line4);
+        const bottomIndicator = getIndicator(o.line5);
+        
+        const line2 = `${getIndicator(o.line2)} ${grid[0].join("|")}`;
+        const line1 = `${getIndicator(o.line1)} ${grid[1].join("|")}`;
+        const line3 = `${getIndicator(o.line3)} ${grid[2].join("|")}`;
+
+        // 全てを結合して返す
+        return [
+            `# **${topIndicator}**`,
+            `> **${line2}**`,
+            `> **${line1}**`,
+            `> **${line3}**`,
+            `> **${bottomIndicator}**`,
+        ].join("\n");
+      };
+
+      // 1. 全て回転中のグリッドを用意
+      const rotatingGrid = [
+        [rotateEmoji, rotateEmoji, rotateEmoji],
+        [rotateEmoji, rotateEmoji, rotateEmoji],
+        [rotateEmoji, rotateEmoji, rotateEmoji],
+      ];
+      embed.setDescription(buildDescription(rotatingGrid)); // ヘルパー関数を使ってセット
       await interactionContext.editReply({ embeds: [embed], components: [] });
       await sleep(1000);
 
-      // 2. 1番目のリールが停止
-      embed.setDescription(
-        `# [ ${resultEmojis[0]} | ${rotateEmoji} | ${rotateEmoji} ]`
-      );
+      // 2. 1番目のリール（左の列）が停止
+      // rotatingGrid の左の列を、結果(emojiGrid)の左の列で上書きする
+      for (let row = 0; row < 3; row++) {
+        rotatingGrid[row][0] = emojiGrid[row][0];
+      }
+      embed.setDescription(buildDescription(rotatingGrid));
       await interactionContext.editReply({ embeds: [embed] });
       await sleep(1000);
 
-      // 3. 2番目のリールが停止
-      // ▼▼▼ まず、基本となるリールの文字列を生成 ▼▼▼
-      let description = `# [ ${resultEmojis[0]} | ${resultEmojis[1]} | ${rotateEmoji} ]`;
-      // ★ リーチ演出の追加 --- ここから ---
-      let lastReelDelay = 1500; // 通常の待機時間
-      if (resultSymbols[0] != resultSymbols[1]) {
-        //リーチでないなら待たせない
-        lastReelDelay = 1000;
+      // 3. 2番目のリール（真ん中の列）が停止
+      for (let row = 0; row < 3; row++) {
+        rotatingGrid[row][1] = emojiGrid[row][1];
       }
-      isReach =
-        resultSymbols[0] === resultSymbols[1] &&
-        (resultSymbols[0] === "7" ||
-          resultSymbols[0] === "watermelon" ||
-          resultSymbols[0] === "bell");
-      //1号機の７とスイカ、2号機のベル
+
+      // ▼▼▼ リーチ判定と最終リールのアニメーション ▼▼▼
+      // ▼▼▼【変更点】リーチ判定を、賭けている全ラインを対象にするロジックに書き換え ▼▼▼
+      isReach = false; // まずはリーチではない、と仮定する
+      const reachSymbols = ["7", "watermelon", "bell"]; // リーチ対象の絵柄
+
+      for (const line of activeLines) {
+        // line[0] (1列目) と line[1] (2列目) が同じシンボルで、
+        // かつ、それがリーチ対象の絵柄のどれかだったら...
+        if (line[0] === line[1] && reachSymbols.includes(line[0])) {
+          isReach = true; // リーチ成立！
+          break; // 一つでもリーチがあれば演出は確定なので、ループを抜ける
+        }
+      }
+
+      // isReachがtrueなら5秒、falseなら1秒待つように設定
+      const lastReelDelay = isReach ? 5000 : 1000;
+      let description = buildDescription(rotatingGrid);
+
       if (isReach) {
-        lastReelDelay = 3000; // リーチ時の待機時間に延長
+        // isReachがtrueの場合、盤面の下にリーチ演出のテキストを追加
         description += `\n# ${slotConfig.symbols.reach} **リーチ！** ${slotConfig.symbols.reach}`;
       }
-      // ★ リーチ演出の追加 --- ここまで ---
-      // ▼▼▼ 最終的に生成した文字列で、setDescriptionを一度だけ呼ぶ ▼▼▼
+
       embed.setDescription(description);
-
       await interactionContext.editReply({ embeds: [embed] });
-      await sleep(lastReelDelay); // 設定された待機時間だけ待つ
+      await sleep(lastReelDelay); // 設定した時間だけ待つ
 
-      // --- 役の判定とDB更新 ---
-      const prize = getSlotPrize(resultSymbols, slotConfig);
-      const winAmount = betAmount * prize.payout;
-      userPoint.coin += winAmount;
+     // --- 役の判定とDB更新 ---
+      let totalWinAmount = 0; // このスピンでの合計勝利コイン
+      const wonPrizes = [];   // 当たった役をすべて保存しておく配列
 
+
+      for (const lineResult of activeLines) {
+        // ★★★ 既存のgetSlotPrize関数がそのまま使える！ ★★★
+        const prize = getSlotPrize(lineResult, slotConfig);
+        if (prize.payout > 0) {
+          // 1ラインあたりのベット額 × 役の倍率 を合計勝利コインに加算
+          totalWinAmount += betPerLine * prize.payout;
+          // 当たった役の情報を配列に保存しておく
+          wonPrizes.push(prize);
+        }
+      }
+
+      // DBのコインを更新
+      userPoint.coin += totalWinAmount;
+
+      // DBの統計情報を更新
       const [stats] = await CasinoStats.findOrCreate({
         where: { userId, gameName: slotConfig.gameName },
         transaction: t,
       });
-      stats.gamesPlayed = BigInt(stats.gamesPlayed.toString()) + 1n;
-      stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount);
-      stats.totalWin = BigInt(stats.totalWin.toString()) + BigInt(winAmount);
+      // プレイ回数はライン数ぶん加算
+      stats.gamesPlayed = BigInt(stats.gamesPlayed.toString()) + BigInt(lines);
+      // ベット額、勝利額は合計値を加算
+      stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(totalBetAmount);
+      stats.totalWin = BigInt(stats.totalWin.toString()) + BigInt(totalWinAmount);
 
-      // 役が決まったら、ハズレ("none")以外はすべて記録する
-      if (prize.prizeId !== "none") {
-        // 1. gameDataを取得 (なければ空のオブジェクト{})
+      // 役ごとの統計も、当たった役すべてを記録する
+      if (wonPrizes.length > 0) {
         const currentData = stats.gameData || {};
-
-        // 2. "wins_ watermelon" のように、動的にキーを生成
-        const prizeKey = `wins_${prize.prizeId}`;
-
-        // 3. 対応する役のカウンターを+1する
-        currentData[prizeKey] = (currentData[prizeKey] || 0) + 1;
-
-        // 4. 更新したデータをセットし直し、変更を通知する
+        for (const prize of wonPrizes) {
+          if (prize.prizeId !== "none") {
+            const prizeKey = `wins_${prize.prizeId}`;
+            currentData[prizeKey] = (currentData[prizeKey] || 0) + 1;
+          }
+        }
         stats.gameData = currentData;
         stats.changed("gameData", true);
       }
@@ -368,20 +482,40 @@ async function handleSlots(interaction, slotConfig) {
       await t.commit(); // ここでDBへの変更を確定
 
       // セッション情報を更新
-      sessionPlays++;
-      sessionProfit += winAmount - betAmount;
+      sessionPlays++; // 統計に加算する回数はライン数だが、セッションのプレイ回数は1固定
+      sessionProfit += totalWinAmount - totalBetAmount; // 損益を計算
 
-      // --- 最終結果の表示 ---
+     // --- 最終結果の表示 ---
+      // ▼▼▼ 3つのリールがすべて止まった最終盤面を生成 ▼▼▼
+      const finalDescription = buildDescription(emojiGrid);
+
+      // ▼▼▼ 当たった役を分かりやすく表示するためのテキストを生成 ▼▼▼
+      let prizeText = "ハズレ...";
+      if (wonPrizes.length > 0) {
+        // 同じ役が複数当たった場合に「役の名前 x2」のように集計する
+        const prizeSummary = wonPrizes.reduce((acc, prize) => {
+          acc[prize.name] = (acc[prize.name] || 0) + 1;
+          return acc;
+        }, {}); // 例: { "チェリーx2": 2, "レモン": 1 }
+
+        // 集計した結果を元に、表示用のテキストを組み立てる
+        prizeText = Object.entries(prizeSummary)
+          .map(([name, count]) => `${name}${count > 1 ? ` **x${count}**` : ""}`)
+          .join("\n"); // 例: "チェリーx2 **x2**\nレモン"
+      }
+
       embed
-        .setColor(winAmount > 0 ? "#57F287" : "#ED4245")
-        .setDescription(
-          `# [ ${resultEmojis[0]} | ${resultEmojis[1]} | ${resultEmojis[2]} ]`
-        )
+        // ▼▼▼ 合計勝利コインで色を判定 ▼▼▼
+        .setColor(totalWinAmount > 0 ? "#57F287" : "#ED4245")
+        // ▼▼▼ 最終盤面を表示 ▼▼▼
+        .setDescription(finalDescription)
         .setFields(
-          { name: "役", value: prize.prizeName, inline: true },
+          // ▼▼▼ 当たった役のリストを表示 ▼▼▼
+          { name: "役", value: prizeText, inline: true },
           {
             name: "配当",
-            value: `+${winAmount} ${config.nyowacoin}`,
+            // ▼▼▼ 合計勝利コインを表示 ▼▼▼
+            value: `+${totalWinAmount} ${config.nyowacoin}`,
             inline: true,
           },
           {
@@ -397,7 +531,7 @@ async function handleSlots(interaction, slotConfig) {
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("spin_again")
-          .setLabel(`${betAmount}コインで更に回す`)
+          .setLabel(`${totalBetAmount}コインで更に回す`)
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("stop_playing")
@@ -463,9 +597,10 @@ async function handleSlots(interaction, slotConfig) {
       console.error("スロット処理中にエラー:", error);
       console.error(`[Casino Error Log] エラー発生時のスロット出目と状況:`, {
         userId: userId,
-        betAmount: betAmount,
+        betPerLine: betPerLine, // 1ラインあたりのベット
+        lines: lines,           // ライン数
         isReach: isReach,
-        result: resultSymbols,
+        resultGrid: resultGrid, // 最終的な盤面
       });
       await t.rollback();
       // エラー通知の失敗でBotがクラッシュしないよう、さらにtry...catchで囲む
@@ -506,7 +641,7 @@ function getSlotPrize(result, slotConfig) {
       if (isMatch) {
         return {
           prizeId: prize.id,
-          prizeName: prize.name,
+          name: prize.name, // ← prizeName から name に変更
           payout: prize.payout,
         };
       }
@@ -520,7 +655,7 @@ function getSlotPrize(result, slotConfig) {
       if (isMatch) {
         return {
           prizeId: prize.id,
-          prizeName: prize.name,
+          name: prize.name, // ← prizeName から name に変更
           payout: prize.payout,
         };
       }
@@ -532,7 +667,7 @@ function getSlotPrize(result, slotConfig) {
       if (count >= prize.minCount) {
         return {
           prizeId: prize.id,
-          prizeName: prize.name,
+          name: prize.name,
           payout: prize.payout,
         };
       }
@@ -540,10 +675,11 @@ function getSlotPrize(result, slotConfig) {
     */
   }
   // どの役にも当てはまらない場合
-  return { prizeId: "none", prizeName: "ハズレ...", payout: 0 };
+  return { prizeId: "none", name: "ハズレ...", payout: 0 };
 }
-
+//-----------------
 //balance
+//--------------
 async function handleBalance(interaction) {
   const userId = interaction.user.id;
   try {
