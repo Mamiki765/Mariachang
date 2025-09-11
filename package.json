@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -51,6 +51,6 @@
     "cross-env": "^10.0.0",
     "dotenv": "^17.2.2",
     "prettier": "^3.6.2",
-    "tree-cli": "^0.2.2"
+    "tree-cli": "^0.6.7"
   }
 }

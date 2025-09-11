@@ -197,22 +197,38 @@ export default {
     },
     lines_display: {
       // isProduction ? [赤ダイス配列] : [デバッグ絵文字配列] のようにするのがおすすめです
-      active: isProduction ? [
-        // ベットされているライン (赤)
-        "<:red_1:1287340678531125248>", // 1
-        "<:red_2:1287340686798225450>", // 2
-        "<:red_3:1287340693588672543>", // 3
-        "<:red_4:1287340701612245023>", // 4
-        "<:red_5:1287340709090824294>", // 5
-      ] : [debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji],
-      inactive: isProduction ? [
-        // ベットされていないライン (青)
-        "<:blue_1:1287339245895159832>", // 1
-        "<:blue_2:1287339259182972958>", // 2
-        "<:blue_3:1287339268615704576>", // 3 なんかマリアに２個登録されてたから後で直さなきゃな
-        "<:blue_4:1287339301813878805>", // 4
-        "<:blue_5:1287339313184509992>", // 5
-      ] : [debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji,debugConfig.emoji],
+      active: isProduction
+        ? [
+            // ベットされているライン (赤)
+            "<:red_1:1287340678531125248>", // 1
+            "<:red_2:1287340686798225450>", // 2
+            "<:red_3:1287340693588672543>", // 3
+            "<:red_4:1287340701612245023>", // 4
+            "<:red_5:1287340709090824294>", // 5
+          ]
+        : [
+            debugConfig.emoji,
+            debugConfig.emoji,
+            debugConfig.emoji,
+            debugConfig.emoji,
+            debugConfig.emoji,
+          ],
+      inactive: isProduction
+        ? [
+            // ベットされていないライン (青)
+            "<:blue_1:1287339245895159832>", // 1
+            "<:blue_2:1287339259182972958>", // 2
+            "<:blue_3:1287339268615704576>", // 3 なんかマリアに２個登録されてたから後で直さなきゃな
+            "<:blue_4:1287339301813878805>", // 4
+            "<:blue_5:1287339313184509992>", // 5
+          ]
+        : [
+            debugConfig.emoji,
+            debugConfig.emoji,
+            debugConfig.emoji,
+            debugConfig.emoji,
+            debugConfig.emoji,
+          ],
       // ラインの順番もここで定義してしまうのが美しいです
       // lineDefinitionsの配列の順番と対応させます
       order: {
@@ -663,6 +679,15 @@ export default {
       amount: {
         min: 15,
         max: 25,
+      },
+    },
+    booster_coin: {
+      // 1ブーストあたりの基本報酬コイン、1から変える時はsupabaseの関数に引数として渡す用に要改変
+      amount: 1,
+      // 対象となるサーバーIDとブースターロールIDの対応表
+      roles: {
+        "1025416221757276242": "1025744211552776214", // 例: 本館サーバーID: 本館ブースターロールID
+        "1123615363351986226": "1123712258044858370", // 別館
       },
     },
   },

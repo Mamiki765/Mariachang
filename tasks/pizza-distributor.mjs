@@ -38,9 +38,9 @@ export function startPizzaDistribution() {
     activeUsersForPizza.clear();
 
     // console.log(`[RPC] ${userIds.length}人のユーザーにピザを配布します。`);
-
+    // ピザ・コイン双方の処理で使うのでtryの手前に置く
+    const supabase = getSupabaseClient();
     try {
-      const supabase = getSupabaseClient();
       const { min, max } = config.chatBonus.legacy_pizza.amount;
 
       // ★★★ ここがRPCの呼び出し！ ★★★
@@ -63,6 +63,17 @@ export function startPizzaDistribution() {
       //console.log(`[RPC]${userIds.length}人のユーザーへのピザ配布が完了しました。`);
     } catch (error) {
       console.error("[RPC]ピザ配布タスクでエラーが発生しました:", error);
+    }
+    //サーバーブースターに1コインｘ鯖数を配る関数
+    try {
+      const { error } = await supabase.rpc("increment_booster_coin", {
+        user_ids_list: userIds,
+      });
+      if (error) throw error;
+      // ログは大量に出るので、成功時はコメントアウト推奨
+      // console.log(`[RPC] Booster coin distribution completed for ${userIds.length} users.`);
+    } catch (error) {
+      console.error("[RPC] Booster coin distribution task failed:", error);
     }
   });
 }

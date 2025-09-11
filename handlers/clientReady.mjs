@@ -14,6 +14,7 @@ import { acornLoginButton } from "../components/buttons.mjs";
 import { startPizzaDistribution } from "../tasks/pizza-distributor.mjs";
 // Mee6レベル同期タスク
 import { syncMee6Levels } from "../tasks/mee6-level-updater.mjs";
+import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 // package.jsonからバージョンを取得
 import { readFileSync } from "node:fs";
 // package.json を同期で読み込む (起動時のみ)
@@ -132,6 +133,9 @@ if (config.isProduction) {
   checkNewScenarios(client);
   // エクストラカードのチェックも即時実行
   checkAtelierCards(client);
+  // ついでにブースターの垢更新も即座にチェック
+  console.log("[TASK] Booster Sync: Performing initial synchronization.");
+  await synchronizeBoosters(client);
 } else {
   console.log("[TASK] Scenario checker: Initial check skipped in development mode.");
 }
@@ -227,3 +231,56 @@ async function sendDatabaseBackup(client) {
   }
 }
   */
+
+// ★★★ ブースター同期のための関数を定義 ★★★
+async function synchronizeBoosters(client) {
+  console.log('[BOOSTER] Synchronizing booster roles...');
+  try {
+    const supabase = getSupabaseClient();
+    const boosterGuilds = Object.keys(config.chatBonus.booster_coin.roles);
+
+    // まず、管理対象サーバーの既存ブースター情報を一度すべて削除
+    await supabase.from('booster_status').delete().in('guild_id', boosterGuilds);
+
+    let allBoosterData = [];
+
+    for (const guildId of boosterGuilds) {
+      const guild = await client.guilds.fetch(guildId).catch(() => null);
+      if (!guild) {
+        console.warn(`[BOOSTER] Guild ${guildId} not found.`);
+        continue;
+      }
+
+      const roleId = config.chatBonus.booster_coin.roles[guildId];
+      // 念のためロールもfetch
+      const role = await guild.roles.fetch(roleId).catch(() => null);
+      if (!role) {
+        console.warn(`[BOOSTER] Role ${roleId} not found in guild ${guildId}.`);
+        continue;
+      }
+      
+      // 全メンバーを強制的に取得して、キャッシュの不完全さを回避
+      await guild.members.fetch();
+
+      const membersWithRole = guild.members.cache.filter(member => member.roles.cache.has(roleId));
+      
+      const boosterData = membersWithRole.map(member => ({
+        user_id: member.id,
+        guild_id: guild.id,
+      }));
+      
+      allBoosterData.push(...boosterData);
+    }
+
+    if (allBoosterData.length > 0) {
+      const { error } = await supabase.from('booster_status').upsert(allBoosterData);
+      if (error) throw error;
+      console.log(`[BOOSTER] Successfully synchronized ${allBoosterData.length} boosters.`);
+    } else {
+      console.log('[BOOSTER] No boosters found to synchronize.');
+    }
+
+  } catch (error) {
+    console.error('[BOOSTER] Error during booster synchronization:', error);
+  }
+}

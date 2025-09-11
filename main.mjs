@@ -63,6 +63,7 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildWebhooks,
+    GatewayIntentBits.GuildMembers,
   ],
   partials: [
     Partials.User,
@@ -160,6 +161,10 @@ async function startBot() {
     if (user.id == client.user.id || user.bot) return;
     handlers.get("messageReactionAdd").default(reaction, user);
   });
+  client.on("guildMemberUpdate", (oldMember, newMember) =>
+    handlers.get("guildMemberUpdate").default.execute(oldMember, newMember)
+  );
+
   client.on("warn", (info) => console.warn("Discord.js warning:", info));
   client.on("error", async (error) => {
     // Koyeb側のログに、エラーのスタックトレースを詳細に出力する
