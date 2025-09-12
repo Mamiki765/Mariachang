@@ -642,8 +642,11 @@ export default {
         max: 1000, //500x2
       },
       // サーバーブースターによるボーナス
-      boosterBonus: 1000,
-      boosterRoleId: isProduction ? "1025744211552776214" : debugConfig.role, // サーバーブースターロールID
+      boosterBonus: {
+        base: 500, // ブーストしている場合にもらえる基本ボーナス
+        perServer: 500 // 1サーバーごとに追加されるボーナス
+      },
+      boosterRoleId: isProduction ? "1025744211552776214" : debugConfig.role, // (もう使ってないけど念の為残してるサーバーブースターロールID)
       // MEE6のレベル称号によるボーナス
       mee6LevelBonuses: isProduction
         ? {

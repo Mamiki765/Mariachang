@@ -21,6 +21,7 @@ import {
   updateUserIdleGame,
   formatNumberReadable,
 } from "../commands/utils/idle.mjs";
+import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
@@ -366,11 +367,51 @@ export default async function handleButtonInteraction(interaction) {
       }
 
       // 3.サーバーブースター
-      let boosterBonus = 0;
-      if (interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
-        boosterBonus = pizzaConfig.boosterBonus;
+      let boosterBonus = 0; //ブースターでもらえるピザ数
+      let boostCount = null; // ★★★ 初期値を null に変更 ★★★
+
+      try {
+        const supabase = getSupabaseClient();
+        const { count, error } = await supabase
+          .from("booster_status")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", interaction.user.id);
+
+        if (error) {
+          // Supabaseがエラーを返した場合
+          console.error("[LoginBonus] Supabase booster count failed:", error);
+          // boostCount は null のまま
+        } else {
+          // 成功した場合は、取得したcountを代入
+          boostCount = count;
+        }
+      } catch (e) {
+        // 通信自体に失敗した場合
+        console.error("[LoginBonus] Error fetching booster count:", e);
+        // boostCount は null のまま
+      }
+
+      // --- ここからボーナス計算ロジック ---
+
+      // ▼▼▼ Supabase通信が成功した場合 ▼▼▼
+      if (boostCount !== null && boostCount > 0) {
+        const boosterConfig = pizzaConfig.boosterBonus;
+        boosterBonus = boosterConfig.base + (boosterConfig.perServer * boostCount);
+
         pizzaMessages.push(
-          `-# さらにさらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕`
+          `-# さらにサーバーブースターのあなたに感謝を込めて、**${boosterBonus.toLocaleString()}枚** (${boostCount}サーバー分) 追加で焼き上げました🍕`
+        );
+        pizzaBreakdown.push(boosterBonus);
+      } 
+      // ▼▼▼ Supabase通信に失敗した場合のフォールバック処理 ▼▼▼
+      else if (boostCount === null && interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
+        console.warn(`[LoginBonus] Fallback triggered for ${interaction.user.tag}. Using role cache.`);
+        const boosterConfig = pizzaConfig.boosterBonus;
+        // 最低保証として1サーバー分のボーナスを計算
+        boosterBonus = boosterConfig.base + boosterConfig.perServer;
+        
+        pizzaMessages.push(
+          `-# さらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕 (DB接続失敗時の最低保証)`
         );
         pizzaBreakdown.push(boosterBonus);
       }

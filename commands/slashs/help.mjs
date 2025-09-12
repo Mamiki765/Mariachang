@@ -231,7 +231,7 @@ export async function execute(interaction) {
           let fieldValue = cmd.description;
           if (cmd.notes) {
             // notesがあれば、「マリアメモ」として追加
-            fieldValue += `\n📝 **マリアメモ:** ${cmd.notes}`;
+            fieldValue += `\n-# ${cmd.notes}`;
           }
           embed.addFields({ name: cmd.name, value: fieldValue });
         }

@@ -17,6 +17,7 @@ import {
 } from "../../models/database.mjs";
 import { getPizzaBonusMultiplier } from "../utils/idle.mjs";
 import config from "../../config.mjs";
+import { getSupabaseClient } from "../../utils/supabaseClient.mjs";
 
 export const help = {
   category: "slash",
@@ -317,8 +318,8 @@ async function handleSlots(interaction, slotConfig) {
       */
 
       // 結果を表示用に絵文字に変換したグリッドも用意しておくと便利
-      const emojiGrid = resultGrid.map(row =>
-        row.map(symbol => slotConfig.symbols[symbol] || "❓")
+      const emojiGrid = resultGrid.map((row) =>
+        row.map((symbol) => slotConfig.symbols[symbol] || "❓")
       );
       const rotateEmoji = slotConfig.symbols.rotate;
 
@@ -349,18 +350,19 @@ async function handleSlots(interaction, slotConfig) {
       const buildDescription = (grid, lines) => {
         // ▼▼▼ 参照先を、共通の config.casino に変更 ▼▼▼
         const displayConfig = config.casino.lines_display;
-        if (!displayConfig) { // もしコンフィグがなければ、古い表示のままにする
-            return grid.map(row => `> **${row.join(" | ")}**`).join("\n");
+        if (!displayConfig) {
+          // もしコンフィグがなければ、古い表示のままにする
+          return grid.map((row) => `> **${row.join(" | ")}**`).join("\n");
         }
 
         // ライン番号に対応する絵文字を返す、小さなヘルパー
         const getIndicator = (lineIndex) => {
-            // lineIndexがベット数より小さい = ベットされているライン
-            if (lineIndex < lines) {
-                return displayConfig.active[lineIndex];
-            } else {
-                return displayConfig.inactive[lineIndex];
-            }
+          // lineIndexがベット数より小さい = ベットされているライン
+          if (lineIndex < lines) {
+            return displayConfig.active[lineIndex];
+          } else {
+            return displayConfig.inactive[lineIndex];
+          }
         };
 
         const o = displayConfig.order; // orderのショートカット
@@ -368,18 +370,18 @@ async function handleSlots(interaction, slotConfig) {
         // 新しい表示を組み立てる
         const topIndicator = getIndicator(o.line4);
         const bottomIndicator = getIndicator(o.line5);
-        
+
         const line2 = `${getIndicator(o.line2)} ${grid[0].join("|")}`;
         const line1 = `${getIndicator(o.line1)} ${grid[1].join("|")}`;
         const line3 = `${getIndicator(o.line3)} ${grid[2].join("|")}`;
 
         // 全てを結合して返す
         return [
-            `**${topIndicator}**`,
-            `# **${line2}**`,
-            `# **${line1}**`,
-            `# **${line3}**`,
-            `**${bottomIndicator}**`,
+          `**${topIndicator}**`,
+          `# **${line2}**`,
+          `# **${line1}**`,
+          `# **${line3}**`,
+          `**${bottomIndicator}**`,
         ].join("\n");
       };
 
@@ -434,10 +436,9 @@ async function handleSlots(interaction, slotConfig) {
       await interactionContext.editReply({ embeds: [embed] });
       await sleep(lastReelDelay); // 設定した時間だけ待つ
 
-     // --- 役の判定とDB更新 ---
+      // --- 役の判定とDB更新 ---
       let totalWinAmount = 0; // このスピンでの合計勝利コイン
-      const wonPrizes = [];   // 当たった役をすべて保存しておく配列
-
+      const wonPrizes = []; // 当たった役をすべて保存しておく配列
 
       for (const lineResult of activeLines) {
         // ★★★ 既存のgetSlotPrize関数がそのまま使える！ ★★★
@@ -461,8 +462,10 @@ async function handleSlots(interaction, slotConfig) {
       // プレイ回数はライン数ぶん加算
       stats.gamesPlayed = BigInt(stats.gamesPlayed.toString()) + BigInt(lines);
       // ベット額、勝利額は合計値を加算
-      stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(totalBetAmount);
-      stats.totalWin = BigInt(stats.totalWin.toString()) + BigInt(totalWinAmount);
+      stats.totalBet =
+        BigInt(stats.totalBet.toString()) + BigInt(totalBetAmount);
+      stats.totalWin =
+        BigInt(stats.totalWin.toString()) + BigInt(totalWinAmount);
 
       // 役ごとの統計も、当たった役すべてを記録する
       if (wonPrizes.length > 0) {
@@ -485,7 +488,7 @@ async function handleSlots(interaction, slotConfig) {
       sessionPlays++; // 統計に加算する回数はライン数だが、セッションのプレイ回数は1固定
       sessionProfit += totalWinAmount - totalBetAmount; // 損益を計算
 
-     // --- 最終結果の表示 ---
+      // --- 最終結果の表示 ---
       // ▼▼▼ 3つのリールがすべて止まった最終盤面を生成 ▼▼▼
       const finalDescription = buildDescription(emojiGrid, lines);
 
@@ -598,7 +601,7 @@ async function handleSlots(interaction, slotConfig) {
       console.error(`[Casino Error Log] エラー発生時のスロット出目と状況:`, {
         userId: userId,
         betPerLine: betPerLine, // 1ラインあたりのベット
-        lines: lines,           // ライン数
+        lines: lines, // ライン数
         isReach: isReach,
         resultGrid: resultGrid, // 最終的な盤面
       });
@@ -686,6 +689,27 @@ async function handleBalance(interaction) {
     const [user] = await Point.findOrCreate({ where: { userId } });
     // ★★★ 追加: 放置ゲームのデータを取得してボーナス率を確認 ★★★
     const idleGame = await IdleGame.findOne({ where: { userId } });
+    // サーバーブースターボーナス表示用に数を取得
+    let boost_bonus = ""; // まず空の文字列で初期化
+    try {
+      const supabase = getSupabaseClient();
+      const { count, error } = await supabase
+        .from("booster_status")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", interaction.user.id);
+
+      if (error) {
+        // Supabaseがエラーを返した場合 (例: RLSポリシー違反など)
+        console.error("[Balance] Supabase booster count failed:", error);
+      } else if (count > 0) {
+        // 成功し、かつブースト数が1以上の場合
+        boost_bonus = `\nServer Booster(発言時、毎分 +${count}枚)`;
+      }
+    } catch (e) {
+      // 通信自体が失敗した場合
+      console.error("[Balance] Error fetching booster count:", e);
+      // 通信失敗時は、無理に表示せず、エラーログだけ残して処理を続行
+    }
 
     // ★★★ 追加: 表示するボーナス文字列を準備 ★★★
     let bonusText = "";
@@ -718,7 +742,7 @@ async function handleBalance(interaction) {
         },
         {
           name: `${config.nyowacoin} ニョワコイン`,
-          value: `**${user.coin.toLocaleString()}**枚`,
+          value: `**${user.coin.toLocaleString()}**枚${boost_bonus}`,
           inline: false,
         },
         {
