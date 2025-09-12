@@ -226,7 +226,7 @@ export async function execute(interaction) {
           .setCustomId(`upgrade_oven`)
           .setEmoji(config.idle.oven.emoji)
           .setLabel(
-            `+${config.idle.oven.effect}(${ovenCost.toLocaleString()}ピザ)`
+            `+${config.idle.oven.effect} (${ovenCost.toLocaleString()}ピザ)`
           )
           .setStyle(ButtonStyle.Primary)
           .setDisabled(isDisabled || point.legacy_pizza < ovenCost),
@@ -234,7 +234,7 @@ export async function execute(interaction) {
           .setCustomId(`upgrade_cheese`)
           .setEmoji(config.idle.cheese.emoji)
           .setLabel(
-            `+${config.idle.cheese.effect}(${cheeseCost.toLocaleString()}ピザ)`
+            `+${config.idle.cheese.effect} (${cheeseCost.toLocaleString()}ピザ)`
           )
           .setStyle(ButtonStyle.Success)
           .setDisabled(isDisabled || point.legacy_pizza < cheeseCost)
@@ -246,7 +246,7 @@ export async function execute(interaction) {
             .setCustomId(`upgrade_tomato`)
             .setEmoji(config.idle.tomato.emoji)
             .setLabel(
-              `+${config.idle.tomato.effect}(${tomatoCost.toLocaleString()}ピザ)`
+              `+${config.idle.tomato.effect} (${tomatoCost.toLocaleString()}ピザ)`
             )
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(isDisabled || point.legacy_pizza < tomatoCost)
