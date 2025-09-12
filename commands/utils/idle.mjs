@@ -87,9 +87,11 @@ export async function execute(interaction) {
       const cheeseEffect =
         1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
       const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
+      const tomatoEffect =
+        1 + config.idle.tomato.effect * idleGame.tomatoFarmLevel;
       //バフも乗るように
       const productionPerMinute =
-        Math.pow(ovenEffect * cheeseEffect, meatEffect) *
+        Math.pow(ovenEffect * cheeseEffect * tomatoEffect, meatEffect) *
         idleGame.buffMultiplier;
       let pizzaBonusPercentage = 0;
       if (idleGame.population >= 1) {
@@ -125,22 +127,29 @@ export async function execute(interaction) {
         )
         .addFields(
           {
-            name: "ピザ窯",
-            value: `Lv. ${idleGame.pizzaOvenLevel}`,
+            name: `${config.idle.oven.emoji}ピザ窯`,
+            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect.toFixed(0)})`,
             inline: true,
           },
           {
-            name: "チーズ工場",
-            value: `Lv. ${idleGame.cheeseFactoryLevel}`,
+            name: `${config.idle.cheese.emoji}チーズ工場`,
+            value: `Lv. ${idleGame.cheeseFactoryLevel} (${cheeseEffect.toFixed(
+              2
+            )})`,
             inline: true,
           },
           {
-            name: "精肉工場 (Mee6)",
-            value: `Lv. ${meatFactoryLevel}`,
+            name: `${config.idle.tomato.emoji}トマト農場 (要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`,
+            value: `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect.toFixed(2)})`,
             inline: true,
           },
           {
-            name: "ブースト",
+            name: `${config.idle.meat.emoji}精肉工場 (Mee6)`,
+            value: `Lv. ${meatFactoryLevel} (${meatEffect.toFixed(2)})`,
+            inline: true,
+          },
+          {
+            name: "<:nyobosi:1293141862634229811>ブースト",
             value: buffField ? buffField : "ブースト切れ", //ここを見てる時点で24時間あるはずだが念のため
             inline: true,
           },
@@ -148,7 +157,7 @@ export async function execute(interaction) {
             name: "計算式",
             value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(
               2
-            )}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
+            )} × ${tomatoEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
           },
           {
             name: "毎分の増加予測",
@@ -181,6 +190,11 @@ export async function execute(interaction) {
         config.idle.cheese.baseCost *
           Math.pow(config.idle.cheese.multiplier, idleGame.cheeseFactoryLevel)
       );
+      //トマト強化
+      const tomatoCost = Math.floor(
+        config.idle.tomato.baseCost *
+          Math.pow(config.idle.tomato.multiplier, idleGame.tomatoFarmLevel)
+      );
       //ブースト延長
       //ブーストの残り時間を計算 (ミリ秒で)
       const now = new Date();
@@ -207,19 +221,39 @@ export async function execute(interaction) {
         point.legacy_pizza < nyoboshiCost || // ピザが足りない
         nyoboshiCost === 0; // コストが0 (バフが切れているなど)
 
-      return new ActionRowBuilder().addComponents(
+      const facilityRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`upgrade_oven`)
-          .setLabel(`ピザ窯強化(+1) (${ovenCost.toLocaleString()}ピザ)`)
+          .setEmoji(config.idle.oven.emoji)
+          .setLabel(
+            `+${config.idle.oven.effect}(${ovenCost.toLocaleString()}ピザ)`
+          )
           .setStyle(ButtonStyle.Primary)
           .setDisabled(isDisabled || point.legacy_pizza < ovenCost),
         new ButtonBuilder()
           .setCustomId(`upgrade_cheese`)
+          .setEmoji(config.idle.cheese.emoji)
           .setLabel(
-            `チーズ工場強化(+${config.idle.cheese.effect * 100}%) (${cheeseCost.toLocaleString()}ピザ)`
+            `+${config.idle.cheese.effect}(${cheeseCost.toLocaleString()}ピザ)`
           )
           .setStyle(ButtonStyle.Success)
-          .setDisabled(isDisabled || point.legacy_pizza < cheeseCost),
+          .setDisabled(isDisabled || point.legacy_pizza < cheeseCost)
+      );
+      // ★ 人口が条件を満たしていたらトマトボタンを追加
+      if (idleGame.population >= config.idle.tomato.unlockPopulation) {
+        facilityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`upgrade_tomato`)
+            .setEmoji(config.idle.tomato.emoji)
+            .setLabel(
+              `+${config.idle.tomato.effect}(${tomatoCost.toLocaleString()}ピザ)`
+            )
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(isDisabled || point.legacy_pizza < tomatoCost)
+        );
+      }
+      //ブーストボタンを後から追加
+      const boostRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("extend_buff")
           .setLabel(
@@ -227,10 +261,12 @@ export async function execute(interaction) {
               ? "ニョボシは忙しそうだ…"
               : `ニョボシを雇う (+24h) (${nyoboshiCost.toLocaleString()}ピザ)`
           )
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Success)
           .setEmoji(nyoboshiemoji)
           .setDisabled(isNyoboshiDisabled)
       );
+
+      return [facilityRow, boostRow];
     };
 
     //もう一度時間を計算
@@ -241,7 +277,7 @@ export async function execute(interaction) {
     //24時間あるかないかで変わる
     let content =
       "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
-    if (remainingHours >= 24) {
+    if (remainingHours > 24) {
       content =
         "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
     }
@@ -250,7 +286,7 @@ export async function execute(interaction) {
     await interaction.editReply({
       content: content,
       embeds: [generateEmbed()],
-      components: [generateButtons()],
+      components: generateButtons(),
     });
 
     const filter = (i) => i.user.id === userId;
@@ -286,6 +322,16 @@ export async function execute(interaction) {
             )
         );
         facilityName = "チーズ工場";
+      } else if (i.customId === "upgrade_tomato") {
+        facility = "tomato";
+        cost = Math.floor(
+          config.idle.tomato.baseCost *
+            Math.pow(
+              config.idle.tomato.multiplier,
+              latestIdleGame.tomatoFarmLevel
+            )
+        );
+        facilityName = "トマト農場";
       } else if (i.customId === "extend_buff") {
         //extend_buff
         facility = "nyobosi";
@@ -331,6 +377,11 @@ export async function execute(interaction) {
               by: 1,
               transaction: t,
             });
+          } else if (facility === "tomato") {
+            await latestIdleGame.increment("tomatoFarmLevel", {
+              by: 1,
+              transaction: t,
+            });
           } else if (facility === "nyobosi") {
             const now = new Date();
             const currentBuff =
@@ -348,13 +399,14 @@ export async function execute(interaction) {
         point.legacy_pizza = latestPoint.legacy_pizza;
         idleGame.pizzaOvenLevel = latestIdleGame.pizzaOvenLevel;
         idleGame.cheeseFactoryLevel = latestIdleGame.cheeseFactoryLevel;
+        idleGame.tomatoFarmLevel = latestIdleGame.tomatoFarmLevel;
         idleGame.buffExpiresAt = latestIdleGame.buffExpiresAt;
         idleGame.buffMultiplier = latestIdleGame.buffMultiplier;
 
         // そして、更新されたオブジェクトを使って、メッセージを再描画する
         await interaction.editReply({
           embeds: [generateEmbed()],
-          components: [generateButtons()],
+          components: generateButtons(),
         });
 
         const successMsg =
@@ -378,7 +430,7 @@ export async function execute(interaction) {
     collector.on("end", (collected) => {
       interaction.editReply({
         embeds: [generateEmbed(true)],
-        components: [generateButtons(true)],
+        components: generateButtons(true),
       });
     });
   }
@@ -555,15 +607,18 @@ export async function updateUserIdleGame(userId) {
 
   const ovenEffect = idleGame.pizzaOvenLevel; //基礎
   const cheeseEffect =
-    1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel; //乗算
+    1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel; //乗算1
+  const tomatoEffect = 1 + config.idle.tomato.effect * idleGame.tomatoFarmLevel; //乗算2
   const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel; //指数
   let currentBuffMultiplier = 1.0; // ブースト
   if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
     currentBuffMultiplier = idleGame.buffMultiplier;
   }
   // ((基礎*乗算)^指数)*ブースト
+  // 250912乗算にトマト追加
   const productionPerMinute =
-    Math.pow(ovenEffect * cheeseEffect, meatEffect) * currentBuffMultiplier;
+    Math.pow(ovenEffect * cheeseEffect * tomatoEffect, meatEffect) *
+    currentBuffMultiplier;
 
   if (elapsedSeconds > 0) {
     const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;

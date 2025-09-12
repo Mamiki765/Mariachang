@@ -644,7 +644,7 @@ export default {
       // サーバーブースターによるボーナス
       boosterBonus: {
         base: 500, // ブーストしている場合にもらえる基本ボーナス
-        perServer: 500 // 1サーバーごとに追加されるボーナス
+        perServer: 500, // 1サーバーごとに追加されるボーナス
       },
       boosterRoleId: isProduction ? "1025744211552776214" : debugConfig.role, // (もう使ってないけど念の為残してるサーバーブースターロールID)
       // MEE6のレベル称号によるボーナス
@@ -698,16 +698,26 @@ export default {
   idle: {
     // ここを変える時はSQLも変えるように！詳細はidle.mjs
     oven: {
+      emoji: "🍕",
       baseCost: 100, // 基本コスト
       multiplier: 1.08, // レベルで加算される乗数 (気軽に変えると大変！)
       effect: 1, // 1レベルあたりの効果 (+1人/分)
     },
     cheese: {
+      emoji: "🧀",
       baseCost: 500,
       multiplier: 1.15,
       effect: 0.05, // 1レベルあたりの効果 (+5%)
     },
+    tomato: {
+      emoji : "🍅",
+      baseCost: 800,
+      multiplier: 1.12,
+      effect: 0.03, // 1レベルあたりの効果 (+3%)
+      unlockPopulation: 100_0000, // 人口100万で解禁
+    },
     meat: {
+      emoji: "🍖",
       effect: 0.01, // 1レベルあたりの効果 (^1.01)
     },
   },
