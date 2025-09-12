@@ -25,13 +25,12 @@ const sequelize = new Sequelize(supabaseDatabaseUrl, {
  * - task_logs : ロスアカシナリオ一覧新着や、エクストラカード（アトリエカード）新着通知などの実行時間を保管しておくもの
  * 何時のデータか表示したり、1日1回だけ動くプログラムを動かすかの判断基準に使う
  * task_name(text,主キー):タスク名 last_successful_run(timestamptz):エラー無く実行できた時間
- * 
+ *
  * - booster_status : サーバーブースターのロールを持っている人のリスト
  * 「リストに存在する」事そのものがロールを持っている判定になる
  * 複数鯖に対応できるようにしてある（複数のuser_idが存在することとなる）
  * user_id(text,主キー): DiscordのユーザーID guild_id(text,主キー):サーバーのID　boosted_at(timestamptz):ブーストした、あるいはBOTが所持を最後に確認した時間
  */
-
 
 //ボイチャ通知モデル
 const Notification = sequelize.define(
@@ -467,6 +466,11 @@ const IdleGame = sequelize.define(
     },
     cheeseFactoryLevel: {
       //チーズ工場（乗算係数）
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    tomatoFarmLevel: {
+      // トマト農場（乗算係数その２）
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
