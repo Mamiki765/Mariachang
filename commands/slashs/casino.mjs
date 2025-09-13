@@ -343,7 +343,7 @@ async function handleSlots(interaction, slotConfig) {
       // --- アニメーション ---
       embed
         .setColor("#2f3136")
-        .setTitle(`${slotConfig.displayname} ${betPerLine}＄${lines}ライン`)
+        .setTitle(`${slotConfig.displayname} $${betPerLine}`)
         .setFields([]) // フィールドをリセット
         .setFooter(null); // フッターをリセット
 
@@ -1947,7 +1947,7 @@ async function handleStats(interaction) {
       }
       embed.addFields({
         name: `🎰 ${config.casino.slot_lowrisk.displayname}`,
-        value: `**プレイ回数:** ${slot_easy.gamesPlayed.toLocaleString()}回  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${slotEasyDetails}`,
+        value: `**プレイ記録:** ${slot_easy.gamesPlayed.toLocaleString()}ライン  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${slotEasyDetails}`,
       });
     }
 

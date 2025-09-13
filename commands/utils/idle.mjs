@@ -429,28 +429,10 @@ export async function execute(interaction) {
             ? `✅ **ニョボシ** を雇い、ブーストを24時間延長しました！`
             : `✅ **${facilityName}** の強化に成功しました！`;
 
-        try {
-          // 1. followUpでメッセージを送信し、そのメッセージオブジェクトを受け取る
-          const sentMessage = await i.followUp({
-            content: successMsg,
-            flags: 64,
-          });
-
-          // 2. 5秒後 (5000ミリ秒後) に、受け取ったメッセージを削除する予約を入れる
-          setTimeout(async () => {
-            try {
-              // 3. 実際にメッセージを削除する
-              await sentMessage.delete();
-            } catch (error) {
-              // ユーザーが手動でメッセージを消した場合など、
-              // 削除に失敗してもエラーログには出さない (優雅な失敗)
-              // console.warn("Success message could not be deleted:", error.message);
-            }
-          }, 5000); // 5000ミリ秒 = 5秒
-        } catch (error) {
-          // followUp自体が失敗した場合 (非常に稀)
-          console.error("Could not send success follow-up:", error);
-        }
+        await i.followUp({
+          content: successMsg,
+          ephemeral: true,
+        });
       } catch (error) {
         console.error("IdleGame Collector Upgrade Error:", error);
         await i.followUp({
