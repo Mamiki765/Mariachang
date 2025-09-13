@@ -119,7 +119,19 @@ export async function getCharacterSummary(characterId) {
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
+      //経験値プールしてたらレベル概算も出す、なんとなく
+      let levelplus = "";
+      if (character.exp >= character.exp_to_next) {
+        const totalCumulativeXp =
+          getTotalXpForLevel(character.level) + character.exp;
+        const realLevel = calculateRealLevelFromTotalXp(
+          totalCumulativeXp,
+          character.level
+        );
+        levelplus = `(実レベル:${realLevel})`; //ExpやNextExpを出すかはさておき。
+      }
+      //levelplusここまで
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
 
       const displayOrder = [1, 2, 3, 4, 13, 9, 10, 5, 6, 7, 8, 11, 12, 14];
       const targetStatusIds = new Set(displayOrder);
@@ -354,8 +366,19 @@ export async function getCharacterSummaryCompact(characterId) {
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
-
+      //経験値プールしてたらレベル概算も出す、なんとなく
+      let levelplus = "";
+      if (character.exp >= character.exp_to_next) {
+        const totalCumulativeXp =
+          getTotalXpForLevel(character.level) + character.exp;
+        const realLevel = calculateRealLevelFromTotalXp(
+          totalCumulativeXp,
+          character.level
+        );
+        levelplus = `(実レベル:${realLevel})`; //ExpやNextExpを出すかはさておき。
+      }
+      //levelplusここまで
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
       if (character.sub_status && character.sub_status.length > 0) {
         reply += `\`\`\`ansi\nP:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
@@ -522,4 +545,38 @@ function createSkillsAndClassesSection(character) {
 
   // 配列に何も追加されていなければ空文字列を、そうでなければ改行で連結して返す
   return lines.length > 0 ? lines.join("\n") : "";
+}
+
+//ネタ
+/**
+ * レベルnに到達するための「累計」経験値を計算します。 (前回の関数)
+ */
+function getTotalXpForLevel(n) {
+  if (n <= 1) return 0; //1レベルなら0
+  const term1 = 5 * n * (n + 1) * (n - 1);
+  const term2 = 90 * (n - 1) * 3;
+  return Math.round((term1 + term2) / 3);
+}
+/**
+ * 総経験値を受け取り、それが何レベルに相当するかを逆算します。
+ * @param {number} totalXp キャラクターが獲得した累計の総経験値
+ * @param {number} [startLevel=2] 探索を開始するレベル。
+ * @returns {number} レベルキャップがなかった場合の実レベル
+ */
+function calculateRealLevelFromTotalXp(totalXp, startLevel = 2) {
+  if (totalXp < 100) return 1;
+
+  // ★★★ あなたの指摘を反映！ ★★★
+  // startLevelから探索を開始することで、無駄なループを完全に排除する
+  let level = startLevel;
+
+  while (level < 10000) {
+    // 安全装置
+    // 次のレベル (level + 1) になるための累計経験値を超えているか？
+    if (totalXp < getTotalXpForLevel(level + 1)) {
+      // 超えていなければ、現在のレベルが実レベル
+      return level;
+    }
+    level++;
+  }
 }
