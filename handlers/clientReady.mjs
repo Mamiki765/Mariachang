@@ -10,7 +10,7 @@ import { checkAtelierCards } from "../tasks/atelier-checker.mjs"; // エクス�
 import { syncModels } from "../models/database.mjs";
 //ログボボタン
 import { acornLoginButton } from "../components/buttons.mjs";
-//発言ピザ
+//発言チップ
 import { startPizzaDistribution } from "../tasks/pizza-distributor.mjs";
 // Mee6レベル同期タスク
 import { syncMee6Levels } from "../tasks/mee6-level-updater.mjs";
@@ -211,7 +211,7 @@ if (config.isProduction) {
   // ログイン通知ここまで
   // 発言によるピザトークン付与および10分ごとの放置ゲー人口増加の定期タスク開始
   startPizzaDistribution(); 
-  console.log("[INIT]ピザ配布の定期タスクを開始しました。");
+  console.log("[INIT]チップ配布の定期タスクを開始しました。");
 };
 
 /* SUPABASEに移行したのでコメントアウト

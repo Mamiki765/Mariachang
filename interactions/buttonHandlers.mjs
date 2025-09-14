@@ -302,11 +302,11 @@ export default async function handleButtonInteraction(interaction) {
       // 最終的なコイン加算を更新データにセット
       updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
 
-      // レガシーピザ、ランダム基本給＋ロールに応じたボーナス
+      // レガシーピザ(ニョボチップ)、ランダム基本給＋ロールに応じたボーナス
       const pizzaConfig = config.loginBonus.legacy_pizza;
       const pizzaMessages = []; // ピザボーナスの内訳メッセージを格納する配列
       const pizzaBreakdown = []; // 合計計算式のための数値を格納する配列
-
+      const nyoboChip = config.casino.currencies.legacy_pizza;
       // 1.基本給
       const basePizza =
         Math.floor(
@@ -396,20 +396,26 @@ export default async function handleButtonInteraction(interaction) {
       // ▼▼▼ Supabase通信が成功した場合 ▼▼▼
       if (boostCount !== null && boostCount > 0) {
         const boosterConfig = pizzaConfig.boosterBonus;
-        boosterBonus = boosterConfig.base + (boosterConfig.perServer * boostCount);
+        boosterBonus =
+          boosterConfig.base + boosterConfig.perServer * boostCount;
 
         pizzaMessages.push(
           `-# さらにサーバーブースターのあなたに感謝を込めて、**${boosterBonus.toLocaleString()}枚** (${boostCount}サーバー分) 追加で焼き上げました🍕`
         );
         pizzaBreakdown.push(boosterBonus);
-      } 
+      }
       // ▼▼▼ Supabase通信に失敗した場合のフォールバック処理 ▼▼▼
-      else if (boostCount === null && interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)) {
-        console.warn(`[LoginBonus] Fallback triggered for ${interaction.user.tag}. Using role cache.`);
+      else if (
+        boostCount === null &&
+        interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)
+      ) {
+        console.warn(
+          `[LoginBonus] Fallback triggered for ${interaction.user.tag}. Using role cache.`
+        );
         const boosterConfig = pizzaConfig.boosterBonus;
         // 最低保証として1サーバー分のボーナスを計算
         boosterBonus = boosterConfig.base + boosterConfig.perServer;
-        
+
         pizzaMessages.push(
           `-# さらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕 (DB接続失敗時の最低保証)`
         );
@@ -436,20 +442,20 @@ export default async function handleButtonInteraction(interaction) {
         );
 
         pizzaMessages.push(
-          `-# ボーナス **${bonusAmount.toLocaleString()}枚**(**+${idleResult.pizzaBonusPercentage.toFixed(3)}%**)`
+          `-# ${nyoboChip.displayName}に換金します……ボーナス **${bonusAmount.toLocaleString()}枚**(**+${idleResult.pizzaBonusPercentage.toFixed(3)}%**)`
         );
         pizzaBreakdown.push(bonusAmount);
       } else {
         // もし放置ゲームをプレイしていないなら...
         pizzaMessages.push(
-          `【PR】拾ったピザを/放置ゲーム(/idle)で使えるようになりました。🍕`
+          `-# ${nyoboChip.displayName}に換金します……【PR】拾った${nyoboChip.displayName}を/放置ゲーム(/idle)で使えるようになりました。${nyoboChip.emoji}`
         );
       }
 
       // 合計の計算と最終メッセージの構築
       const totalPizza = pizzaBreakdown.reduce((sum, val) => sum + val, 0);
       Message += `\n${pizzaMessages.join("\n")}`; // \n\nで少し間を空ける
-      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚のピザを受け取りました！**`;
+      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚の${nyoboChip.displayName}を受け取りました！**`;
 
       updateData.legacy_pizza = sequelize.literal(
         `legacy_pizza + ${totalPizza}`
@@ -508,7 +514,7 @@ export default async function handleButtonInteraction(interaction) {
 サーバーブースターは発言時に1-2枚貰えます。（本館と別館のどちらかをブーストで+1、両方で+2)
 - **発言レベル(Mee6)**
 発言すると上がるお得意様レベルです。現在のレベル・経験値は \`!rank\` と喋れば確認できます。10レベルごとにロールを付与されたり、レガシーピザのログボが増えたりします。
-- **レガシーピザ**
+- **ニョボチップ**（旧レガシーピザ）
 ログボの受取や雨宿り内で発言をする事で少しずつ手に入るチップです。ルーレットでコインの代わりに賭けたり、放置ゲームで遊ぶのに使えます。
 放置ゲーの進捗で入手量が少しだけ増えます。
 - **RP(Roleplay Point)**

@@ -177,11 +177,13 @@ export default {
           ? "<:nyowacoin:1407422205624844288>"
           : debugConfig.emoji,
       },
-      // ピザの定義を追加
+      // チップの定義を追加
       legacy_pizza: {
         db_column: "legacy_pizza", // Pointモデルでのカラム名
-        displayName: "レガシーピザ",
-        emoji: "🍕",
+        displayName: "ニョボチップ",
+        emoji: isProduction
+          ? "<:nyobochip:1416912717725438013>"
+          : debugConfig.emoji,
       },
       //念の為どんぐりとRPも定義しとく
       acorn: {

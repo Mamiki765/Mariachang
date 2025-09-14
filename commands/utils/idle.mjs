@@ -17,9 +17,9 @@ import config from "../../config.mjs"; // config.jsにゲーム設定を追加�
 export const help = {
   category: "slash",
   description:
-    "放置ゲームを始めます。レガシーピザを消費してピザ窯を強化しニョワミヤを増やしましょう！",
+    "放置ゲームを始めます。ニョボチップを消費してピザ窯を強化しニョワミヤを増やしましょう！",
   notes:
-    "ピザの獲得量が少し増えますが見返りとか元を取るとかは考えないでください。",
+    "チップの獲得量が少し増えますが見返りとか元を取るとかは考えないでください。",
 };
 export const data = new SlashCommandBuilder()
   .setName("idle")
@@ -145,23 +145,22 @@ export async function execute(interaction) {
         .addFields(
           {
             name: `${config.idle.oven.emoji}ピザ窯`,
-            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect.toFixed(0)}) Next.${ovenCost.toLocaleString()}pizza`,
+            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect.toFixed(0)}) Next.${ovenCost.toLocaleString()}chip`,
             inline: true,
           },
           {
             name: `${config.idle.cheese.emoji}チーズ工場`,
             value: `Lv. ${idleGame.cheeseFactoryLevel} (${cheeseEffect.toFixed(
               2
-            )}) Next.${cheeseCost.toLocaleString()}pizza`,
+            )}) Next.${cheeseCost.toLocaleString()}chip`,
             inline: true,
           },
           {
-            name: `${config.idle.tomato.emoji}トマト農場 (要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`,
+            name: `${config.idle.tomato.emoji}トマト農場`,
             value:
-              `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect.toFixed(2)})` +
-              (idleGame.population >= config.idle.tomato.unlockPopulation
-                ? `Next.${tomatoCost.toLocaleString()}pizza`
-                : ``), //未解禁なら出さない
+              idleGame.population >= config.idle.tomato.unlockPopulation
+                ? `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect.toFixed(2)}) Next.${tomatoCost.toLocaleString()}chip`
+                : `(要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`, //未解禁なら出さない
             inline: true,
           },
           {
@@ -185,12 +184,12 @@ export async function execute(interaction) {
             value: `${productionString} 匹/分`,
           },
           {
-            name: "人口ボーナス(ピザ獲得量)",
-            value: `+${pizzaBonusPercentage.toFixed(3)} %`,
+            name: "人口ボーナス(チップ獲得量)",
+            value: `${config.casino.currencies.legacy_pizza.emoji}+${pizzaBonusPercentage.toFixed(3)} %`,
           }
         )
         .setFooter({
-          text: `現在の所持ピザ: ${Math.floor(
+          text: `現在の所持チップ: ${Math.floor(
             point.legacy_pizza
           ).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
         });
@@ -239,7 +238,7 @@ export async function execute(interaction) {
       const isNyoboshiDisabled =
         isDisabled || // 全体的な無効化フラグ
         remainingHours >= 48 || // 残り48時間以上
-        point.legacy_pizza < nyoboshiCost || // ピザが足りない
+        point.legacy_pizza < nyoboshiCost || // チップが足りない
         nyoboshiCost === 0; // コストが0 (バフが切れているなど)
 
       const facilityRow = new ActionRowBuilder().addComponents(
@@ -274,7 +273,7 @@ export async function execute(interaction) {
           .setLabel(
             nyoboshiCost >= 999999
               ? "ニョボシは忙しそうだ…"
-              : `ニョボシを雇う (+24h) (${nyoboshiCost.toLocaleString()}ピザ)`
+              : `ニョボシを雇う (+24h) (${nyoboshiCost.toLocaleString()}枚)`
           )
           .setStyle(ButtonStyle.Success)
           .setEmoji(nyoboshiemoji)
@@ -368,7 +367,7 @@ export async function execute(interaction) {
 
       if (latestPoint.legacy_pizza < cost) {
         await i.followUp({
-          content: `ピザが足りません！ (必要: ${cost.toLocaleString()} / 所持: ${Math.floor(latestPoint.legacy_pizza).toLocaleString()})`,
+          content: `チップが足りません！ (必要: ${cost.toLocaleString()} / 所持: ${Math.floor(latestPoint.legacy_pizza).toLocaleString()})`,
           ephemeral: true,
         });
         return; // この場合はコレクターを止めず、続けて操作できるようにする

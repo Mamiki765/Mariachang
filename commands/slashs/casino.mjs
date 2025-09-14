@@ -45,7 +45,7 @@ export const help = {
     {
       name: "roulette",
       description: "ヨーロピアンスタイルのルーレットで遊びます。",
-      notes: "ニョワコインやレガシーピザを賭けて遊べます。",
+      notes: "ニョワコインやニョボチップを賭けて遊べます。",
     },
     {
       name: "stats",
@@ -154,9 +154,9 @@ export const data = new SlashCommandBuilder()
         (option) =>
           option
             .setName("legacy_pizza")
-            .setDescription("レガシーピザを賭けます（最大10,000枚）")
+            .setDescription("ニョボチップを賭けます（最大10,000枚）")
             .setMinValue(1)
-            .setMaxValue(10000) // レガシーピザの最大ベット額
+            .setMaxValue(10000) // ニョボチップの最大ベット額
       )
   )
   .addSubcommand((subcommand) =>
@@ -724,7 +724,7 @@ async function handleBalance(interaction) {
     const baseRate = 30;
     const multiplier = await getPizzaBonusMultiplier(userId);
     const finalRate = baseRate * multiplier;
-    const buttonLabel = `1コイン -> ${finalRate.toFixed(2)}ピザ`;
+    const buttonLabel = `1コイン -> ${finalRate.toFixed(2)}チップ`;
 
     const embed = new EmbedBuilder()
       .setTitle(`👛 ${interaction.user.username} さんの財布`)
@@ -747,7 +747,7 @@ async function handleBalance(interaction) {
         },
         {
           //コンバートしたときと異なりもう発言で気軽に拾えるので分岐は不要
-          name: "🍕 レガシーピザ",
+          name: `${config.casino.currencies.legacy_pizza.emoji} ニョボチップ`,
           value: `**${user.legacy_pizza.toLocaleString()}**枚${bonusText}`,
           inline: false,
         }
@@ -823,7 +823,7 @@ async function handleBalance(interaction) {
         } else if (i.customId === "exchange_coin_to_pizza_modal") {
           modal
             .setCustomId("exchange_coin_to_pizza_submit")
-            .setTitle("コイン → ピザ");
+            .setTitle("コイン → チップ");
           amountInput.setLabel("両替したいコインの枚数");
           amountInput.setPlaceholder("例: 100");
         }

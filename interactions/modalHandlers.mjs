@@ -275,7 +275,7 @@ export default async function handleModalInteraction(interaction) {
           await user.save({ transaction: t });
           // 4. 返信メッセージを生成
           const bonusAmount = finalPizzaToGet - basePizzaToGet;
-          resultMessage = `${config.nyowacoin}**${amount.toLocaleString()}枚**を 🍕**${finalPizzaToGet.toLocaleString()}枚**に両替しました！(内訳 ${basePizzaToGet}+ボーナス${bonusAmount})`;
+          resultMessage = `${config.nyowacoin}**${amount.toLocaleString()}枚**を ${config.casino.currencies.legacy_pizza.emoji}**${finalPizzaToGet.toLocaleString()}枚**に両替しました！(内訳 ${basePizzaToGet}+ボーナス${bonusAmount})`;
         }
       });
 

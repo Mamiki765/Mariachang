@@ -146,7 +146,8 @@ const Point = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
-    //レガシーピザ（旧UnbelievaBoatのコイン)
+    //ニョボチップ
+    //旧レガシーピザ（旧旧UnbelievaBoatのコイン)
     legacy_pizza: {
       type: DataTypes.INTEGER,
       defaultValue: 0,

@@ -20,7 +20,7 @@ import {
   getCharacterSummary,
   getCharacterSummaryCompact,
 } from "../utils/characterApi.mjs";
-// 250904発言によるピザトークン獲得
+// 250904発言によるピザ(チップ)トークン獲得
 const activeUsersForPizza = new Set();
 export { activeUsersForPizza }; // 他のモジュールで使用するためにエクスポート
 
@@ -40,7 +40,7 @@ const rev2urlPatterns = {
 };
 
 export default async (message) => {
-  // 250904ピザトークンのために、発言者を記録
+  // 250904ピザ(チップ)トークンのために、発言者を記録
   activeUsersForPizza.add(message.author.id);
   //定義系
   //ロスアカステシ詳細表示用正規表現
