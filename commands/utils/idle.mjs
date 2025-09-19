@@ -243,13 +243,13 @@ export async function execute(interaction) {
 
       const facilityRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`upgrade_oven`)
+          .setCustomId(`idle_upgrade_oven`)
           .setEmoji(config.idle.oven.emoji)
           .setLabel(`+${config.idle.oven.effect}`)
           .setStyle(ButtonStyle.Primary)
           .setDisabled(isDisabled || point.legacy_pizza < ovenCost),
         new ButtonBuilder()
-          .setCustomId(`upgrade_cheese`)
+          .setCustomId(`idle_upgrade_cheese`)
           .setEmoji(config.idle.cheese.emoji)
           .setLabel(`+${config.idle.cheese.effect}`)
           .setStyle(ButtonStyle.Success)
@@ -259,7 +259,7 @@ export async function execute(interaction) {
       if (idleGame.population >= config.idle.tomato.unlockPopulation) {
         facilityRow.addComponents(
           new ButtonBuilder()
-            .setCustomId(`upgrade_tomato`)
+            .setCustomId(`idle_upgrade_tomato`)
             .setEmoji(config.idle.tomato.emoji)
             .setLabel(`+${config.idle.tomato.effect}`)
             .setStyle(ButtonStyle.Secondary)
@@ -269,7 +269,7 @@ export async function execute(interaction) {
       //ブーストボタンを後から追加
       const boostRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("extend_buff")
+          .setCustomId("idle_extend_buff")
           .setLabel(
             nyoboshiCost >= 999999
               ? "ニョボシは忙しそうだ…"
@@ -303,7 +303,8 @@ export async function execute(interaction) {
       components: generateButtons(),
     });
 
-    const filter = (i) => i.user.id === userId;
+    const filter = (i) =>
+      i.user.id === userId && i.customId.startsWith("idle_");
     const collector = initialReply.createMessageComponentCollector({
       filter,
       time: 60_000,
@@ -318,14 +319,14 @@ export async function execute(interaction) {
 
       let facility, cost, facilityName;
 
-      if (i.customId === "upgrade_oven") {
+      if (i.customId === "idle_upgrade_oven") {
         facility = "oven";
         cost = Math.floor(
           config.idle.oven.baseCost *
             Math.pow(config.idle.oven.multiplier, latestIdleGame.pizzaOvenLevel)
         );
         facilityName = "ピザ窯";
-      } else if (i.customId === "upgrade_cheese") {
+      } else if (i.customId === "idle_upgrade_cheese") {
         // upgrade_cheese
         facility = "cheese";
         cost = Math.floor(
@@ -336,7 +337,7 @@ export async function execute(interaction) {
             )
         );
         facilityName = "チーズ工場";
-      } else if (i.customId === "upgrade_tomato") {
+      } else if (i.customId === "idle_upgrade_tomato") {
         facility = "tomato";
         cost = Math.floor(
           config.idle.tomato.baseCost *
@@ -346,7 +347,7 @@ export async function execute(interaction) {
             )
         );
         facilityName = "トマト農場";
-      } else if (i.customId === "extend_buff") {
+      } else if (i.customId === "idle_extend_buff") {
         //extend_buff
         facility = "nyobosi";
         const now = new Date();
