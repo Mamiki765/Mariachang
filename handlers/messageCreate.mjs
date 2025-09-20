@@ -284,6 +284,27 @@ export default async (message) => {
       flags: [4096],
       content: "ん!!!（しらけました）",
     });
+  } else if (message.content.match(/^!work$/)) {
+    await message.reply({
+      flags: [4096],
+      content:
+        "コインが欲しいんですにゃ？\n/ログボを受け取る /loginbonusでボタンを出すか8時と22時に雑談でマリアが出すボタンを押してくださいにゃ",
+    });
+  } else if (message.content.match(/^!crime$/)) {
+    await message.reply({
+      flags: [4096],
+      content: "銀行を襲うのは怪盗マリアの仕事にゃ。",
+    });
+  } else if (message.content.match(/^!slut$/)) {
+    await message.reply({
+      flags: [4096],
+      content: "こんな所で脱いでんじゃねえにゃ",
+    });
+  } else if (message.content.match(/^!rob$/)) {
+    await message.reply({
+      flags: [4096],
+      content: "人様のコイン取ろうとするんじゃねえにゃ",
+    });
   }
   //ほったいも
   else if (
