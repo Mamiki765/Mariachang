@@ -6,7 +6,7 @@ import {
 
 import config from "../../config.mjs";
 import { replyfromDM } from "../../components/buttons.mjs";
-import { AdminMemo } from "../../models/database.mjs";
+import { AdminMemo, Point, sequelize } from "../../models/database.mjs";
 import { checkNewScenarios } from "../../tasks/scenario-checker.mjs";
 import { checkAtelierCards } from "../../tasks/atelier-checker.mjs";
 
@@ -220,6 +220,59 @@ export const data = new SlashCommandBuilder()
         ja: "シナリオ手動チェック",
       })
       .setDescription("シナリオの新規・終了チェックを強制的に実行します。")
+  )
+  //通貨配布
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("distribute_currency")
+      .setNameLocalizations({ ja: "通貨配布" })
+      .setDescription("指定した通貨をユーザーに配布します。")
+      .addStringOption((option) =>
+        option
+          .setName("currency_type")
+          .setNameLocalizations({ ja: "種類" })
+          .setDescription("配布する通貨の種類を選択してください。")
+          .setRequired(true)
+          .addChoices(
+            { name: "ニョワコイン", value: "coin" },
+            { name: "RP", value: "point" },
+            { name: "あまやどんぐり", value: "acorn" },
+            { name: "ニョボチップ", value: "legacy_pizza" }
+          )
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName("amount")
+          .setNameLocalizations({ ja: "配布枚数" })
+          .setDescription("配布する枚数を入力してください。")
+          .setRequired(true)
+          .setMinValue(1)
+      )
+      .addStringOption((option) =>
+        option
+          .setName("reason")
+          .setNameLocalizations({ ja: "理由" })
+          .setDescription(
+            "配布の理由を記述してください。通知やログに残ります。"
+          )
+          .setRequired(true)
+      )
+      .addUserOption((option) =>
+        option
+          .setName("user")
+          .setNameLocalizations({ ja: "対象ユーザー" })
+          .setDescription("配布するユーザーを一人指定します。")
+          .setRequired(false)
+      )
+      .addBooleanOption((option) =>
+        option
+          .setName("all")
+          .setNameLocalizations({ ja: "全員に配布" })
+          .setDescription(
+            "サーバーのメンバー全員に配布します。(user指定がある場合、そちらを優先)"
+          )
+          .setRequired(false)
+      )
   );
 
 export async function execute(interaction) {
@@ -593,6 +646,188 @@ export async function execute(interaction) {
           "❌ 手動チェック中にエラーが発生しました。詳細はコンソールログを確認してください。",
         flags: 64, //ephemeral
       });
+    }
+  } else if (subcommand === "distribute_currency") {
+    const currencyType = interaction.options.getString("currency_type");
+    const amount = interaction.options.getInteger("amount");
+    const reason = interaction.options.getString("reason");
+    const targetUser = interaction.options.getUser("user");
+    const distributeToAll = interaction.options.getBoolean("all") || false;
+
+    if (!targetUser && !distributeToAll) {
+      return interaction.reply({
+        content: "配布対象を `user` または `all` で指定してください。",
+        ephemeral: true,
+      });
+    }
+
+    const currencyInfo = config.casino.currencies[currencyType];
+    if (!currencyInfo) {
+      console.error(`不明な通貨タイプ: ${currencyType}`);
+      return interaction.reply({
+        content: "内部エラー: 通貨情報が見つかりません。",
+        ephemeral: true,
+      });
+    }
+
+    // 処理が長引く可能性があるので、応答を保留
+    await interaction.deferReply({ ephemeral: true });
+
+    const transaction = await sequelize.transaction();
+
+    try {
+      // --- 単体ユーザーへの配布 ---
+      if (targetUser) {
+        const fieldsToUpdate = {};
+        fieldsToUpdate[currencyType] = amount;
+        if (currencyType === "point" || currencyType === "acorn") {
+          fieldsToUpdate[`total${currencyType}`] = amount;
+        }
+
+        // ユーザーが存在しない場合も考慮し、findOrCreateを使用
+        const [userPoint, created] = await Point.findOrCreate({
+          where: { userId: targetUser.id },
+          defaults: { userId: targetUser.id },
+          transaction: transaction,
+        });
+
+        // incrementを使用して値を追加
+        await userPoint.increment(fieldsToUpdate, { transaction: transaction });
+
+        // DM通知
+        try {
+          await targetUser.send(
+            `**${interaction.guild.name}**からのお知らせ\n管理者より、アイテムが配布されました。\n\n` +
+              `**理由:** ${reason}\n` +
+              `**アイテム:** ${currencyInfo.displayName} ×${amount}`
+          );
+        } catch (dmError) {
+          await interaction.client.channels.cache
+            .get(config.logch.notification)
+            .send(
+              `<@${targetUser.id}> さんへのDM送信に失敗したため、こちらへ通知します。\n` +
+                `**配布内容:** ${reason}により、${currencyInfo.displayName}を${amount}個配布しました。`
+            );
+        }
+
+        // ログ記録
+        const logEmbed = new EmbedBuilder()
+          .setTitle("通貨配布ログ (個別)")
+          .setColor("#00FF00")
+          .setDescription(`**理由:** ${reason}`)
+          .addFields(
+            {
+              name: "実行者",
+              value: `${interaction.user.tag} (${interaction.user.id})`,
+            },
+            {
+              name: "対象者",
+              value: `${targetUser.tag} (${targetUser.id})`,
+            },
+            { name: "通貨", value: currencyInfo.displayName, inline: true },
+            { name: "枚数", value: `${amount}枚`, inline: true }
+          )
+          .setTimestamp();
+        await interaction.client.channels.cache
+          .get(config.logch.admin)
+          .send({ embeds: [logEmbed] });
+
+        await transaction.commit();
+        await interaction.editReply({
+          content: `${targetUser.username} に ${currencyInfo.displayName} を ${amount} 枚配布しました。`,
+        });
+
+        // --- 全員への配布 ---
+      } else if (distributeToAll) {
+        let members;
+        try {
+          // ★★★ 変更点: members.fetch() を try-catch で囲む ★★★
+          members = await interaction.guild.members.fetch();
+        } catch (fetchError) {
+          console.error("メンバーの取得に失敗:", fetchError);
+          await transaction.rollback();
+          return interaction.editReply({
+            content: "メンバーリストの取得に失敗しました。Discord APIのレートリミットに達した可能性があります。しばらく待ってから再度お試しください。"
+          });
+        }
+        const userIds = members
+          .filter((m) => !m.user.bot)
+          .map((m) => m.user.id);
+
+        if (userIds.length === 0) {
+          await transaction.rollback();
+          return interaction.editReply({
+            content: "配布対象のユーザーが見つかりませんでした。",
+          });
+        }
+
+        const fieldsToUpdate = {
+          [currencyType]: sequelize.literal(`"${currencyType}" + ${amount}`),
+        };
+        if (currencyType === "point" || currencyType === "acorn") {
+          const totalField = `total${currencyType}`;
+          fieldsToUpdate[totalField] = sequelize.literal(
+            `"${totalField}" + ${amount}`
+          );
+        }
+
+        // データベースに存在するユーザーに対してのみ一括で更新
+        await Point.update(fieldsToUpdate, {
+          where: { userId: { [Op.in]: userIds } },
+          transaction,
+        });
+
+        // ログ記録
+        const logEmbed = new EmbedBuilder()
+          .setTitle("通貨配布ログ (全員)")
+          .setColor("#00FF00")
+          .setDescription(`**理由:** ${reason}`)
+          .addFields(
+            {
+              name: "実行者",
+              value: `${interaction.user.tag} (${interaction.user.id})`,
+            },
+            {
+              name: "対象者",
+              value: `サーバーメンバー全員 (${userIds.length}人)`,
+            },
+            { name: "通貨", value: currencyInfo.displayName, inline: true },
+            { name: "枚数", value: `${amount}枚`, inline: true }
+          )
+          .setTimestamp();
+        await interaction.client.channels.cache
+          .get(config.logch.admin)
+          .send({ embeds: [logEmbed] });
+
+        // チャンネルへの一括通知
+        const notificationChannel = interaction.client.channels.cache.get(
+          config.logch.notification
+        );
+        if (notificationChannel) {
+          await notificationChannel.send(
+            `**サーバーメンバー全員へのお知らせ**\n\n` +
+              `管理者より、アイテムが配布されました。\n` +
+              `**理由:** ${reason}\n` +
+              `**アイテム:** ${currencyInfo.displayName} ×${amount}`
+          );
+        }
+
+        await transaction.commit();
+        await interaction.editReply({
+          content: `メンバー全員 (${userIds.length}人) に ${currencyInfo.displayName} を ${amount} 枚配布しました。`,
+        });
+      }
+    } catch (error) {
+      // 念のため、トランザクションがまだアクティブな場合はロールバック
+      if (!transaction.finished) { // ① トランザクションが完了済みかチェック
+        await transaction.rollback();
+      }
+      console.error("通貨配布処理中にエラー:", error);
+      // editReplyが既に使われている可能性を考慮し、followUpでエラー通知
+      await interaction.followUp({ // ② エラー報告に followUp を使用
+        content: "処理中にエラーが発生しました。データベースの操作に失敗した可能性があります。",
+        ephemeral: true,
+      }).catch(() => {});
     }
   }
 }

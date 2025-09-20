@@ -65,6 +65,8 @@ export default {
     admin: isProduction ? "1038840639460229202" : debugConfig.channel,
     //マリアがリプライされたログ
     reply_log: isProduction ? "1263336102622793861" : debugConfig.channel,
+    //コインの配布などの告知ログ
+    notification : isProduction ? "1038860494406160447" : debugConfig.channel,
   },
   timesignalch: isProduction ? "1025416223724404766" : debugConfig.channel, //8,22時報を流すチャンネル
   arenatimech: isProduction ? "1201103311428923452" : debugConfig.channel, //闘技大会時報チャンネル
