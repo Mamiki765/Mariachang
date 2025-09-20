@@ -3,6 +3,7 @@ import {
   EmbedBuilder,
   PermissionsBitField,
 } from "discord.js";
+import { Op } from "sequelize";
 
 import config from "../../config.mjs";
 import { replyfromDM } from "../../components/buttons.mjs";
@@ -657,7 +658,7 @@ export async function execute(interaction) {
     if (!targetUser && !distributeToAll) {
       return interaction.reply({
         content: "配布対象を `user` または `all` で指定してください。",
-        ephemeral: true,
+        flags: 64,
       });
     }
 
@@ -666,12 +667,12 @@ export async function execute(interaction) {
       console.error(`不明な通貨タイプ: ${currencyType}`);
       return interaction.reply({
         content: "内部エラー: 通貨情報が見つかりません。",
-        ephemeral: true,
+        flags: 64,
       });
     }
 
     // 処理が長引く可能性があるので、応答を保留
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     const transaction = await sequelize.transaction();
 
