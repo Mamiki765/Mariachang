@@ -66,7 +66,7 @@ export default {
     //マリアがリプライされたログ
     reply_log: isProduction ? "1263336102622793861" : debugConfig.channel,
     //コインの配布などの告知ログ
-    notification : isProduction ? "1038860494406160447" : debugConfig.channel,
+    notification: isProduction ? "1038860494406160447" : debugConfig.channel,
   },
   timesignalch: isProduction ? "1025416223724404766" : debugConfig.channel, //8,22時報を流すチャンネル
   arenatimech: isProduction ? "1201103311428923452" : debugConfig.channel, //闘技大会時報チャンネル
@@ -714,7 +714,7 @@ export default {
       effect: 0.05, // 1レベルあたりの効果 (+5%)
     },
     tomato: {
-      emoji : "🍅",
+      emoji: "🍅",
       baseCost: 800,
       multiplier: 1.12,
       effect: 0.03, // 1レベルあたりの効果 (+3%)

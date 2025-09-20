@@ -747,7 +747,8 @@ export async function execute(interaction) {
           console.error("メンバーの取得に失敗:", fetchError);
           await transaction.rollback();
           return interaction.editReply({
-            content: "メンバーリストの取得に失敗しました。Discord APIのレートリミットに達した可能性があります。しばらく待ってから再度お試しください。"
+            content:
+              "メンバーリストの取得に失敗しました。Discord APIのレートリミットに達した可能性があります。しばらく待ってから再度お試しください。",
           });
         }
         const userIds = members
@@ -819,15 +820,20 @@ export async function execute(interaction) {
       }
     } catch (error) {
       // 念のため、トランザクションがまだアクティブな場合はロールバック
-      if (!transaction.finished) { // ① トランザクションが完了済みかチェック
+      if (!transaction.finished) {
+        // ① トランザクションが完了済みかチェック
         await transaction.rollback();
       }
       console.error("通貨配布処理中にエラー:", error);
       // editReplyが既に使われている可能性を考慮し、followUpでエラー通知
-      await interaction.followUp({ // ② エラー報告に followUp を使用
-        content: "処理中にエラーが発生しました。データベースの操作に失敗した可能性があります。",
-        ephemeral: true,
-      }).catch(() => {});
+      await interaction
+        .followUp({
+          // ② エラー報告に followUp を使用
+          content:
+            "処理中にエラーが発生しました。データベースの操作に失敗した可能性があります。",
+          ephemeral: true,
+        })
+        .catch(() => {});
     }
   }
 }

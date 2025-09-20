@@ -125,52 +125,55 @@ export default async (client) => {
     return;
   }
 
-//シナリオの定期チェック
-// 最初に一度だけ即時実行
-//　データベースが共通のためデバッグ中は動かないように塞ぐ（通知は差分なので）
-if (config.isProduction) {
-  console.log("[TASK] Scenario checker: Performing initial check.");
-  checkNewScenarios(client);
-  // エクストラカードのチェックも即時実行
-  checkAtelierCards(client);
-  // ついでにブースターの垢更新も即座にチェック
-  console.log("[TASK] Booster Sync: Performing initial synchronization.");
-  await synchronizeBoosters(client);
-} else {
-  console.log("[TASK] Scenario checker: Initial check skipped in development mode.");
-}
-
-if (config.isProduction) {
-  // シナリオ更新が活発な夜間（22時～翌1時）を含め、更新頻度を最適化したスケジュール
-  // 設定時間はconfig参照
-  cron.schedule(
-    config.scenarioChecker.cronSchedule, // configからスケジュールを取得
-    () => {
-      console.log("[TASK] スケジュールされたシナリオチェックを実行します...");
-      checkNewScenarios(client);
-    },
-    {
-      noOverlap: true, //多重実行禁止
-      timezone: "Asia/Tokyo", // 日本時間を指定
-    }
-  );
-  // 8:10にシナリオチェックを実行(あまり好きくないけど上とは45分と10分で違うからcronの都合で仕方ない…)
-  cron.schedule(
-    config.scenarioChecker.cronSchedule2, // configからスケジュールを取得
-    () => {
-      console.log("[TASK] 8:10のシナリオチェックを実行します...");
-      checkNewScenarios(client);
-      checkAtelierCards(client); // 8:10はエクストラカードのチェックも同時に実行
-    },
-    {
-      noOverlap: true, //多重実行禁止
-      timezone: "Asia/Tokyo", // 日本時間を指定
-    }
-  );
-
+  //シナリオの定期チェック
+  // 最初に一度だけ即時実行
+  //　データベースが共通のためデバッグ中は動かないように塞ぐ（通知は差分なので）
+  if (config.isProduction) {
+    console.log("[TASK] Scenario checker: Performing initial check.");
+    checkNewScenarios(client);
+    // エクストラカードのチェックも即時実行
+    checkAtelierCards(client);
+    // ついでにブースターの垢更新も即座にチェック
+    console.log("[TASK] Booster Sync: Performing initial synchronization.");
+    await synchronizeBoosters(client);
   } else {
-  console.log("[TASK] Scenario checker tasks are disabled in development mode.");
-}
+    console.log(
+      "[TASK] Scenario checker: Initial check skipped in development mode."
+    );
+  }
+
+  if (config.isProduction) {
+    // シナリオ更新が活発な夜間（22時～翌1時）を含め、更新頻度を最適化したスケジュール
+    // 設定時間はconfig参照
+    cron.schedule(
+      config.scenarioChecker.cronSchedule, // configからスケジュールを取得
+      () => {
+        console.log("[TASK] スケジュールされたシナリオチェックを実行します...");
+        checkNewScenarios(client);
+      },
+      {
+        noOverlap: true, //多重実行禁止
+        timezone: "Asia/Tokyo", // 日本時間を指定
+      }
+    );
+    // 8:10にシナリオチェックを実行(あまり好きくないけど上とは45分と10分で違うからcronの都合で仕方ない…)
+    cron.schedule(
+      config.scenarioChecker.cronSchedule2, // configからスケジュールを取得
+      () => {
+        console.log("[TASK] 8:10のシナリオチェックを実行します...");
+        checkNewScenarios(client);
+        checkAtelierCards(client); // 8:10はエクストラカードのチェックも同時に実行
+      },
+      {
+        noOverlap: true, //多重実行禁止
+        timezone: "Asia/Tokyo", // 日本時間を指定
+      }
+    );
+  } else {
+    console.log(
+      "[TASK] Scenario checker tasks are disabled in development mode."
+    );
+  }
   // -----------------------------------------------------------------
   // Mee6レベル同期タスク
   // 最初に一度実行して、データを最新にする
@@ -210,7 +213,7 @@ if (config.isProduction) {
   });
   // ログイン通知ここまで
   // 発言によるピザトークン付与および10分ごとの放置ゲー人口増加の定期タスク開始
-  startPizzaDistribution(); 
+  startPizzaDistribution();
   console.log("[INIT]チップ配布の定期タスクを開始しました。");
 };
 
@@ -234,13 +237,16 @@ async function sendDatabaseBackup(client) {
 
 // ★★★ ブースター同期のための関数を定義 ★★★
 async function synchronizeBoosters(client) {
-  console.log('[BOOSTER] Synchronizing booster roles...');
+  console.log("[BOOSTER] Synchronizing booster roles...");
   try {
     const supabase = getSupabaseClient();
     const boosterGuilds = Object.keys(config.chatBonus.booster_coin.roles);
 
     // まず、管理対象サーバーの既存ブースター情報を一度すべて削除
-    await supabase.from('booster_status').delete().in('guild_id', boosterGuilds);
+    await supabase
+      .from("booster_status")
+      .delete()
+      .in("guild_id", boosterGuilds);
 
     let allBoosterData = [];
 
@@ -258,29 +264,34 @@ async function synchronizeBoosters(client) {
         console.warn(`[BOOSTER] Role ${roleId} not found in guild ${guildId}.`);
         continue;
       }
-      
+
       // 全メンバーを強制的に取得して、キャッシュの不完全さを回避
       await guild.members.fetch();
 
-      const membersWithRole = guild.members.cache.filter(member => member.roles.cache.has(roleId));
-      
-      const boosterData = membersWithRole.map(member => ({
+      const membersWithRole = guild.members.cache.filter((member) =>
+        member.roles.cache.has(roleId)
+      );
+
+      const boosterData = membersWithRole.map((member) => ({
         user_id: member.id,
         guild_id: guild.id,
       }));
-      
+
       allBoosterData.push(...boosterData);
     }
 
     if (allBoosterData.length > 0) {
-      const { error } = await supabase.from('booster_status').upsert(allBoosterData);
+      const { error } = await supabase
+        .from("booster_status")
+        .upsert(allBoosterData);
       if (error) throw error;
-      console.log(`[BOOSTER] Successfully synchronized ${allBoosterData.length} boosters.`);
+      console.log(
+        `[BOOSTER] Successfully synchronized ${allBoosterData.length} boosters.`
+      );
     } else {
-      console.log('[BOOSTER] No boosters found to synchronize.');
+      console.log("[BOOSTER] No boosters found to synchronize.");
     }
-
   } catch (error) {
-    console.error('[BOOSTER] Error during booster synchronization:', error);
+    console.error("[BOOSTER] Error during booster synchronization:", error);
   }
 }
