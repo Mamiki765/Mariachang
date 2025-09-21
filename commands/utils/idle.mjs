@@ -13,7 +13,18 @@ import {
   sequelize,
 } from "../../models/database.mjs";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
-
+/**
+ * 具材メモ　(基本*乗算)^指数 *ブースト
+ * 基本施設：ピザ窯
+ * 乗算１：チーズ工場
+ * 乗算２：トマト農場（トマトソース）
+ * 乗算３：マッシュルーム
+ * 乗算４：考え中。これらの具材にアンチョビって合うのか？
+ * 指数施設：精肉工場（サラミ）
+ * ブースト：お手伝い（２４時間ブースト）
+ * 予定１：プレステージでパイナップルが指数や乗数に追加
+ * 予定２：実績などでバジルソースが指数や乗数に追加
+ */
 export const help = {
   category: "slash",
   description:
@@ -135,7 +146,7 @@ export async function execute(interaction) {
       );
 
       const embed = new EmbedBuilder()
-        .setTitle("ニョワ集めステータス")
+        .setTitle("ピザ工場ステータス")
         .setColor(isFinal ? "Grey" : "Gold")
         .setDescription(
           `現在のニョワミヤ人口: **${formatNumberJapanese(

@@ -475,6 +475,16 @@ const IdleGame = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    mushroomFarmLevel: {
+      // マッシュルーム農場（乗算係数その３）
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    anchovyFactoryLevel: {
+      // アンチョビ工場（乗算係数その４）
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     //指数係数である精肉工場のLVはMee6テーブルのLVから持ってくる
     buffMultiplier: {
       //ブースト(最終結果に対する乗算)
