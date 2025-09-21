@@ -366,7 +366,7 @@ const pizzaBonusPercentage = Math.log10(idleGame.population) + 1;//仮の数値�
           new ButtonBuilder()
             .setCustomId(`idle_prestige`)
             .setEmoji(config.idle.prestige.emoji)
-            .setLabel(`プレステージ(未実装)(Power: ${(pizzaBonusPercentage - 1).toFixed(2)}`)
+            .setLabel(`プレステージ(未実装)(Power: ${(pizzaBonusPercentage - 1).toFixed(2)})`)
             .setStyle(ButtonStyle.Danger)
             .setDisabled(true)
         );
