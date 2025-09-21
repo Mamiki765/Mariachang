@@ -17,9 +17,9 @@ import config from "../../config.mjs"; // config.jsにゲーム設定を追加�
  * 具材メモ　(基本*乗算)^指数 *ブースト
  * 基本施設：ピザ窯
  * 乗算１：チーズ工場
- * 乗算２：トマト農場（トマトソース）
- * 乗算３：マッシュルーム
- * 乗算４：考え中。これらの具材にアンチョビって合うのか？
+ * 乗算２：トマト農場（トマトソース）100万
+ * 乗算３：マッシュルーム 1000万
+ * 乗算４：アンチョビ 1億
  * 指数施設：精肉工場（サラミ）
  * ブースト：お手伝い（２４時間ブースト）
  * 予定１：プレステージでパイナップルが指数や乗数に追加
@@ -100,10 +100,20 @@ export async function execute(interaction) {
       const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
       const tomatoEffect =
         1 + config.idle.tomato.effect * idleGame.tomatoFarmLevel;
+      const mushroomEffect =
+        1 + config.idle.mushroom.effect * idleGame.mushroomFarmLevel;
+      const anchovyEffect =
+        1 + config.idle.anchovy.effect * idleGame.anchovyFactoryLevel;
       //バフも乗るように
       const productionPerMinute =
-        Math.pow(ovenEffect * cheeseEffect * tomatoEffect, meatEffect) *
-        idleGame.buffMultiplier;
+        Math.pow(
+          ovenEffect *
+            cheeseEffect *
+            tomatoEffect *
+            mushroomEffect *
+            anchovyEffect,
+          meatEffect
+        ) * idleGame.buffMultiplier;
       let pizzaBonusPercentage = 0;
       if (idleGame.population >= 1) {
         pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
@@ -144,6 +154,14 @@ export async function execute(interaction) {
         config.idle.tomato.baseCost *
           Math.pow(config.idle.tomato.multiplier, idleGame.tomatoFarmLevel)
       );
+      const mushroomCost = Math.floor(
+        config.idle.mushroom.baseCost *
+          Math.pow(config.idle.mushroom.multiplier, idleGame.mushroomFarmLevel)
+      );
+      const anchovyCost = Math.floor(
+        config.idle.anchovy.baseCost *
+          Math.pow(config.idle.anchovy.multiplier, idleGame.anchovyFactoryLevel)
+      );
 
       const embed = new EmbedBuilder()
         .setTitle("ピザ工場ステータス")
@@ -175,6 +193,22 @@ export async function execute(interaction) {
             inline: true,
           },
           {
+            name: `${config.idle.mushroom.emoji}マッシュルーム農場`,
+            value:
+              idleGame.population >= config.idle.mushroom.unlockPopulation
+                ? `Lv. ${idleGame.mushroomFarmLevel} (${mushroomEffect.toFixed(3)}) Next.${mushroomCost.toLocaleString()}chip`
+                : `(要:人口${formatNumberJapanese(config.idle.mushroom.unlockPopulation)})`,
+            inline: true,
+          },
+          {
+            name: `${config.idle.anchovy.emoji}アンチョビ工場`,
+            value:
+              idleGame.population >= config.idle.anchovy.unlockPopulation
+                ? `Lv. ${idleGame.anchovyFactoryLevel} (${anchovyEffect.toFixed(2)}) Next.${anchovyCost.toLocaleString()}chip`
+                : `(要:人口${formatNumberJapanese(config.idle.anchovy.unlockPopulation)})`,
+            inline: true,
+          },
+          {
             name: `${config.idle.meat.emoji}精肉工場 (Mee6)`,
             value: `Lv. ${meatFactoryLevel} (${meatEffect.toFixed(2)})`,
             inline: true,
@@ -188,7 +222,7 @@ export async function execute(interaction) {
             name: "計算式",
             value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(
               2
-            )} × ${tomatoEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
+            )} × ${tomatoEffect.toFixed(2)} × ${mushroomEffect.toFixed(3)} × ${anchovyEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
           },
           {
             name: "毎分の増加予測",
@@ -226,6 +260,15 @@ export async function execute(interaction) {
         config.idle.tomato.baseCost *
           Math.pow(config.idle.tomato.multiplier, idleGame.tomatoFarmLevel)
       );
+      const mushroomCost = Math.floor(
+        config.idle.mushroom.baseCost *
+          Math.pow(config.idle.mushroom.multiplier, idleGame.mushroomFarmLevel)
+      );
+      const anchovyCost = Math.floor(
+        config.idle.anchovy.baseCost *
+          Math.pow(config.idle.anchovy.multiplier, idleGame.anchovyFactoryLevel)
+      );
+
       //ブースト延長
       //ブーストの残り時間を計算 (ミリ秒で)
       const now = new Date();
@@ -275,6 +318,28 @@ export async function execute(interaction) {
             .setLabel(`+${config.idle.tomato.effect}`)
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(isDisabled || point.legacy_pizza < tomatoCost)
+        );
+      }
+      // 人口が条件を満たしていたらマッシュルームボタンを追加
+      if (idleGame.population >= config.idle.mushroom.unlockPopulation) {
+        facilityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`idle_upgrade_mushroom`)
+            .setEmoji(config.idle.mushroom.emoji)
+            .setLabel(`+${config.idle.mushroom.effect}`)
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(isDisabled || point.legacy_pizza < mushroomCost)
+        );
+      }
+      // 人口が条件を満たしていたらアンチョビボタンを追加
+      if (idleGame.population >= config.idle.anchovy.unlockPopulation) {
+        facilityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`idle_upgrade_anchovy`)
+            .setEmoji(config.idle.anchovy.emoji)
+            .setLabel(`+${config.idle.anchovy.effect}`)
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(isDisabled || point.legacy_pizza < anchovyCost)
         );
       }
       //ブーストボタンを後から追加
@@ -358,6 +423,26 @@ export async function execute(interaction) {
             )
         );
         facilityName = "トマト農場";
+      } else if (i.customId === "idle_upgrade_mushroom") {
+        facility = "mushroom";
+        cost = Math.floor(
+          config.idle.mushroom.baseCost *
+            Math.pow(
+              config.idle.mushroom.multiplier,
+              latestIdleGame.mushroomFarmLevel
+            )
+        );
+        facilityName = "マッシュルーム農場";
+      } else if (i.customId === "idle_upgrade_anchovy") {
+        facility = "anchovy";
+        cost = Math.floor(
+          config.idle.anchovy.baseCost *
+            Math.pow(
+              config.idle.anchovy.multiplier,
+              latestIdleGame.anchovyFactoryLevel
+            )
+        );
+        facilityName = "アンチョビ工場(ニボシじゃないよ！)";
       } else if (i.customId === "idle_extend_buff") {
         //extend_buff
         facility = "nyobosi";
@@ -408,6 +493,16 @@ export async function execute(interaction) {
               by: 1,
               transaction: t,
             });
+          } else if (facility === "mushroom") {
+            await latestIdleGame.increment("mushroomFarmLevel", {
+              by: 1,
+              transaction: t,
+            });
+          } else if (facility === "anchovy") {
+            await latestIdleGame.increment("anchovyFactoryLevel", {
+              by: 1,
+              transaction: t,
+            });
           } else if (facility === "nyobosi") {
             const now = new Date();
             const currentBuff =
@@ -426,6 +521,8 @@ export async function execute(interaction) {
         idleGame.pizzaOvenLevel = latestIdleGame.pizzaOvenLevel;
         idleGame.cheeseFactoryLevel = latestIdleGame.cheeseFactoryLevel;
         idleGame.tomatoFarmLevel = latestIdleGame.tomatoFarmLevel;
+        idleGame.mushroomFarmLevel = latestIdleGame.mushroomFarmLevel;
+        idleGame.anchovyFactoryLevel = latestIdleGame.anchovyFactoryLevel;
         idleGame.buffExpiresAt = latestIdleGame.buffExpiresAt;
         idleGame.buffMultiplier = latestIdleGame.buffMultiplier;
 
@@ -635,6 +732,8 @@ export async function updateUserIdleGame(userId) {
   const cheeseEffect =
     1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel; //乗算1
   const tomatoEffect = 1 + config.idle.tomato.effect * idleGame.tomatoFarmLevel; //乗算2
+  const mushroomEffect = 1 + config.idle.mushroom.effect * idleGame.mushroomFarmLevel; //乗数3
+const anchovyEffect = 1 + config.idle.anchovy.effect * idleGame.anchovyFactoryLevel; //乗数4
   const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel; //指数
   let currentBuffMultiplier = 1.0; // ブースト
   if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
@@ -642,8 +741,9 @@ export async function updateUserIdleGame(userId) {
   }
   // ((基礎*乗算)^指数)*ブースト
   // 250912乗算にトマト追加
+  // 250921乗数にアンチョビとキノコ追加
   const productionPerMinute =
-    Math.pow(ovenEffect * cheeseEffect * tomatoEffect, meatEffect) *
+    Math.pow(ovenEffect * cheeseEffect * tomatoEffect* mushroomEffect * anchovyEffect, meatEffect) *
     currentBuffMultiplier;
 
   if (elapsedSeconds > 0) {
