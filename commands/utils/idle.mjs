@@ -361,6 +361,7 @@ export async function execute(interaction) {
         //まだ未実装だが最も高い人口に応じた、施設LVをハイスコアのlog10で加算、log10+1%のコイン加算（つまり現在スコアとハイスコアで2回加算）
         //を予定、面倒だしどっちもlog10+1でいいかも…
         //とりあえず同じ数値になるし仮のボタンはこんな感じで
+const pizzaBonusPercentage = Math.log10(idleGame.population) + 1;//仮の数値を設定
         boostRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_prestige`)
