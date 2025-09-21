@@ -356,6 +356,21 @@ export async function execute(interaction) {
           .setDisabled(isNyoboshiDisabled)
       );
 
+      if (idleGame.population >= config.idle.prestige.unlockPopulation) {
+        //1億でプレステージボタン（未実装なので見た目だけ）
+        //まだ未実装だが最も高い人口に応じた、施設LVをハイスコアのlog10で加算、log10+1%のコイン加算（つまり現在スコアとハイスコアで2回加算）
+        //を予定、面倒だしどっちもlog10+1でいいかも…
+        //とりあえず同じ数値になるし仮のボタンはこんな感じで
+        boostRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`idle_prestige`)
+            .setEmoji(config.idle.prestige.emoji)
+            .setLabel(`リセットする(永続 施設Lv+${(pizzaBonusPercentage - 1).toFixed(2)} チップ+${pizzaBonusPercentage.toFixed(3)}%)(未実装)`)
+            .setStyle(ButtonStyle.Danger)
+            .setDisabled(true)
+        );
+      }
+
       return [facilityRow, boostRow];
     };
 
@@ -732,8 +747,10 @@ export async function updateUserIdleGame(userId) {
   const cheeseEffect =
     1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel; //乗算1
   const tomatoEffect = 1 + config.idle.tomato.effect * idleGame.tomatoFarmLevel; //乗算2
-  const mushroomEffect = 1 + config.idle.mushroom.effect * idleGame.mushroomFarmLevel; //乗数3
-const anchovyEffect = 1 + config.idle.anchovy.effect * idleGame.anchovyFactoryLevel; //乗数4
+  const mushroomEffect =
+    1 + config.idle.mushroom.effect * idleGame.mushroomFarmLevel; //乗数3
+  const anchovyEffect =
+    1 + config.idle.anchovy.effect * idleGame.anchovyFactoryLevel; //乗数4
   const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel; //指数
   let currentBuffMultiplier = 1.0; // ブースト
   if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
@@ -743,8 +760,10 @@ const anchovyEffect = 1 + config.idle.anchovy.effect * idleGame.anchovyFactoryLe
   // 250912乗算にトマト追加
   // 250921乗数にアンチョビとキノコ追加
   const productionPerMinute =
-    Math.pow(ovenEffect * cheeseEffect * tomatoEffect* mushroomEffect * anchovyEffect, meatEffect) *
-    currentBuffMultiplier;
+    Math.pow(
+      ovenEffect * cheeseEffect * tomatoEffect * mushroomEffect * anchovyEffect,
+      meatEffect
+    ) * currentBuffMultiplier;
 
   if (elapsedSeconds > 0) {
     const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;

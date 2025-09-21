@@ -738,5 +738,9 @@ export default {
       emoji: "🍖",
       effect: 0.01, // 1レベルあたりの効果 (^1.01)
     },
+    prestige :{
+      emoji: "🍍",
+      unlockPopulation: 1_0000_0000, // 人口1億で解禁 
+    },
   },
 };
