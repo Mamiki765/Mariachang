@@ -127,6 +127,7 @@ async function getGameParameters() {
  * @returns {string} "(実レベル:XX)" or "(カンストまであとYYY EXP)" or ""
  */
 function createLevelInfoString(character, maxLevel) {
+  const { maxLevel, baseExp } = gameParams;
   // 累計経験値を計算（既存ロジックと同じ）
   const totalCumulativeXp = getTotalXpForLevel(character.level) + character.exp;
 
