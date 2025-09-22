@@ -123,10 +123,11 @@ async function getGameParameters() {
 /**
  * 【NEW】キャラクターのレベル状態に応じた追加情報文字列を生成します。
  * @param {object} character キャラクターオブジェクト
- * @param {number|null} maxLevel 現在の最大レベル
+ * @param {object} gameParams { maxLevel: number|null, baseExp: number|null }
  * @returns {string} "(実レベル:XX)" or "(カンストまであとYYY EXP)" or ""
  */
-function createLevelInfoString(character, maxLevel) {
+function createLevelInfoString(character, gameParams) {
+  // ← ★★★ここを修正しました★★★
   const { maxLevel, baseExp } = gameParams;
   // 累計経験値を計算（既存ロジックと同じ）
   const totalCumulativeXp = getTotalXpForLevel(character.level) + character.exp;
@@ -139,10 +140,13 @@ function createLevelInfoString(character, maxLevel) {
   // --- 分岐ロジック ---
   if (character.level >= maxLevel) {
     // ケース1: キャラクターが既にカンストレベルに到達している場合
-    const realLevel = calculateRealLevelFromTotalXp(totalCumulativeXp, character.level);
+    const realLevel = calculateRealLevelFromTotalXp(
+      totalCumulativeXp,
+      character.level
+    );
     // 実レベルが現在のレベルより高い場合のみ表示
     if (realLevel > character.level) {
-        return `(実レベル:${realLevel})`;
+      return `(実レベル:${realLevel})`;
     }
   } else {
     // ケース2: キャラクターがまだカンストしていない場合
@@ -154,17 +158,17 @@ function createLevelInfoString(character, maxLevel) {
       return `(カンスト可能)`;
     } else {
       // カンストまでに経験値が足りない場合
-     // 基礎経験値が取得できていれば、シナリオ回数に変換
+      // 基礎経験値が取得できていれば、シナリオ回数に変換
       if (baseExp && baseExp > 0) {
         const scenarioCount = ((xpNeeded / baseExp) * 100).toFixed(1); // 小数点第1位まで
-        return `(カンストまであと基礎EXPの${scenarioCount}%)`;
+        return `(Lv.${maxLevel}まで基礎EXPの${scenarioCount}%)`;
       } else {
         // 取得できていなければ、従来のEXP表示にフォールバック
-        return `(カンストまであと${xpNeeded.toLocaleString()} EXP)`;
+        return `(Lv.${maxLevel}まで${xpNeeded.toLocaleString()} EXP)`;
       }
     }
   }
-  
+
   // 上記のいずれにも当てはまらない場合は何も返さない
   return "";
 }
