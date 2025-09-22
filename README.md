@@ -27,6 +27,17 @@
 | `task_name`           | `TEXT`        | タスクの一意な名前 (主キー) |
 | `last_successful_run` | `TIMESTAMPTZ` | タスクが最後に成功した日時  |
 
+### `app_config`
+
+アプリケーション全体で共有する設定値やメタデータを格納するKey-Valueテーブル。
+
+| カラム名 | 型 | 説明 |
+| :--- | :--- | :--- |
+| `key` | `TEXT` | 一意のキー名 (主キー) |
+| `value` | `JSONB` | 設定値 (文字列、数値、JSONオブジェクトなど) |
+| `description` | `TEXT` | この設定が何のためのものかの説明 |
+| `updated_at` | `TIMESTAMPTZ` | 最終更新日時 |
+
 ## ライセンス
 
 このプロジェクトは、MITライセンスの下で公開されています。

@@ -1,5 +1,6 @@
 // utils/characterApi.mjs
 import axios from "axios";
+import { getSupabaseClient } from "./supabaseClient.mjs";
 
 /**
  * 【低レベル関数】（変更なし）
@@ -86,6 +87,88 @@ function getVisualWidth(str) {
 }
 
 /**
+ * 【NEW & UPDATED】Supabaseからゲームの基本パラメータを取得します。
+ * @returns {Promise<{maxLevel: number|null, baseExp: number|null}>}
+ */
+async function getGameParameters() {
+  try {
+    const supabase = getSupabaseClient();
+    // 2つのキーをまとめて取得
+    const { data, error } = await supabase
+      .from("app_config")
+      .select("key, value")
+      .in("key", ["rev2_max_level", "rev2_base_exp"]);
+
+    if (error) {
+      console.error("ゲームパラメータの取得に失敗しました:", error);
+      return { maxLevel: null, baseExp: null };
+    }
+
+    // 取得した配列を { rev2_max_level: 22, rev2_base_exp: 280 } のようなオブジェクトに変換
+    const params = data.reduce((acc, curr) => {
+      acc[curr.key] = curr.value;
+      return acc;
+    }, {});
+
+    return {
+      maxLevel: params.rev2_max_level || null,
+      baseExp: params.rev2_base_exp || null,
+    };
+  } catch (e) {
+    console.error("getGameParameters関数でエラー:", e);
+    return { maxLevel: null, baseExp: null };
+  }
+}
+
+/**
+ * 【NEW】キャラクターのレベル状態に応じた追加情報文字列を生成します。
+ * @param {object} character キャラクターオブジェクト
+ * @param {number|null} maxLevel 現在の最大レベル
+ * @returns {string} "(実レベル:XX)" or "(カンストまであとYYY EXP)" or ""
+ */
+function createLevelInfoString(character, maxLevel) {
+  // 累計経験値を計算（既存ロジックと同じ）
+  const totalCumulativeXp = getTotalXpForLevel(character.level) + character.exp;
+
+  // 最大レベルが取得できなかった場合は何も表示しない
+  if (maxLevel === null) {
+    return "";
+  }
+
+  // --- 分岐ロジック ---
+  if (character.level >= maxLevel) {
+    // ケース1: キャラクターが既にカンストレベルに到達している場合
+    const realLevel = calculateRealLevelFromTotalXp(totalCumulativeXp, character.level);
+    // 実レベルが現在のレベルより高い場合のみ表示
+    if (realLevel > character.level) {
+        return `(実レベル:${realLevel})`;
+    }
+  } else {
+    // ケース2: キャラクターがまだカンストしていない場合
+    const xpForMaxLevel = getTotalXpForLevel(maxLevel);
+    const xpNeeded = xpForMaxLevel - totalCumulativeXp;
+
+    if (xpNeeded <= 0) {
+      // 経験値プールで既にカンストに必要な経験値が溜まっている場合
+      return `(カンスト可能)`;
+    } else {
+      // カンストまでに経験値が足りない場合
+     // 基礎経験値が取得できていれば、シナリオ回数に変換
+      if (baseExp && baseExp > 0) {
+        const scenarioCount = ((xpNeeded / baseExp) * 100).toFixed(1); // 小数点第1位まで
+        return `(カンストまであと基礎EXPの${scenarioCount}%)`;
+      } else {
+        // 取得できていなければ、従来のEXP表示にフォールバック
+        return `(カンストまであと${xpNeeded.toLocaleString()} EXP)`;
+      }
+    }
+  }
+  
+  // 上記のいずれにも当てはまらない場合は何も返さない
+  return "";
+}
+
+/**
  * 【高レベル関数】（PC/EXPC判別ロジックを追加）
  * キャラクター情報を取得し、PCかEXPCかによって整形されたサマリ文字列を返します。
  * @param {string} characterId
@@ -120,16 +203,8 @@ export async function getCharacterSummary(characterId) {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
-      let levelplus = "";
-      if (character.exp >= character.exp_to_next) {
-        const totalCumulativeXp =
-          getTotalXpForLevel(character.level) + character.exp;
-        const realLevel = calculateRealLevelFromTotalXp(
-          totalCumulativeXp,
-          character.level
-        );
-        levelplus = `(実レベル:${realLevel})`; //ExpやNextExpを出すかはさておき。
-      }
+      const gameParams = await getGameParameters();
+      const levelplus = createLevelInfoString(character, gameParams);
       //levelplusここまで
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
 
@@ -367,16 +442,8 @@ export async function getCharacterSummaryCompact(characterId) {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
-      let levelplus = "";
-      if (character.exp >= character.exp_to_next) {
-        const totalCumulativeXp =
-          getTotalXpForLevel(character.level) + character.exp;
-        const realLevel = calculateRealLevelFromTotalXp(
-          totalCumulativeXp,
-          character.level
-        );
-        levelplus = `(実レベル:${realLevel})`; //ExpやNextExpを出すかはさておき。
-      }
+      const gameParams = await getGameParameters();
+      const levelplus = createLevelInfoString(character, gameParams);
       //levelplusここまで
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
       if (character.sub_status && character.sub_status.length > 0) {

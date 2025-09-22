@@ -23,6 +23,7 @@ import config from "../../config.mjs"; // config.jsにゲーム設定を追加�
  * 指数施設：精肉工場（サラミ）
  * ブースト：お手伝い（２４時間ブースト）
  * 予定１：プレステージでパイナップルが指数や乗数に追加
+ * プレステージ力　log₁₀(人口)とかか？
  * 予定２：実績などでバジルソースが指数や乗数に追加
  */
 export const help = {
@@ -361,12 +362,14 @@ export async function execute(interaction) {
         //まだ未実装だが最も高い人口に応じた、施設LVをハイスコアのlog10で加算、log10+1%のコイン加算（つまり現在スコアとハイスコアで2回加算）
         //を予定、面倒だしどっちもlog10+1でいいかも…
         //とりあえず同じ数値になるし仮のボタンはこんな感じで
-const pizzaBonusPercentage = Math.log10(idleGame.population) + 1;//仮の数値を設定
+        const pizzaBonusPercentage = Math.log10(idleGame.population) + 1; //仮の数値を設定
         boostRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_prestige`)
             .setEmoji(config.idle.prestige.emoji)
-            .setLabel(`プレステージ(未実装)(Power: ${(pizzaBonusPercentage - 1).toFixed(2)})`)
+            .setLabel(
+              `プレステージ(未実装)(Power: ${(pizzaBonusPercentage - 1).toFixed(2)})`
+            )
             .setStyle(ButtonStyle.Danger)
             .setDisabled(true)
         );

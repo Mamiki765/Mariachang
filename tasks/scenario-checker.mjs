@@ -75,6 +75,8 @@ export async function checkNewScenarios(client) {
     });
 
     const fetchedScenarios = response.data.data.rev2OpeningList;
+    //今のカンストと経験値も取得
+    const scenarioResources = response.data.data.rev2ScenarioResources;
 
     if (!fetchedScenarios) {
       console.log("APIからシナリオデータを取得できませんでした。");
@@ -146,7 +148,42 @@ export async function checkNewScenarios(client) {
     }
 
     const closedScenarioIds = [...dbIds].filter((id) => !fetchedIds.has(id));
+    //250922カンストや現在の基本経験値を取る
+    const configRecordsToUpsert = [];
+    if (scenarioResources && scenarioResources.length > 0) {
+      // APIから取得した type と DBに保存する key, description のマッピング
+      const keyMap = {
+        "最大レベル": { key: "rev2_max_level", description: "ロスアカの最大キャラクターレベル" },
+        "クレジット基礎値": { key: "rev2_base_credit", description: "ロスアカのシナリオ開始時クレジット基礎値" },
+        "経験値基礎値": { key: "rev2_base_exp", description: "ロスアカのシナリオ開始時経験値基礎値" }
+      };
 
+      for (const resource of scenarioResources) {
+        // マッピングに存在するリソースタイプのみ処理
+        if (keyMap[resource.type]) {
+          const configKey = keyMap[resource.type].key;
+          const configDesc = keyMap[resource.type].description;
+
+          // value文字列から数値部分を正規表現で抽出
+          const match = resource.value.match(/\d+/);
+          let parsedValue = null;
+          if (match) {
+            parsedValue = parseInt(match[0], 10); // 抽出した文字列を整数に変換
+          }
+
+          // 数値が正常にパースできた場合のみ upsert リストに追加
+          if (parsedValue !== null) {
+            configRecordsToUpsert.push({
+              key: configKey,
+              value: parsedValue, // JSONBに数値として保存される
+              description: configDesc
+            });
+          }
+        }
+      }
+    }
+
+    //カンスト関連ここまで
     // 4. 通知とDB操作
     const channel = await client.channels.fetch(config.rev2ch);
 
@@ -164,6 +201,20 @@ export async function checkNewScenarios(client) {
         .upsert(scenariosToUpsert);
       if (upsertError) throw upsertError;
     }
+
+    // ★★★ 経験値・カンストのリソース周りも追加します ★★★
+    if (configRecordsToUpsert.length > 0) {
+      console.log(`${configRecordsToUpsert.length}件のコンフィグ情報をDBに反映します。`);
+      const { error: configUpsertError } = await supabase
+        .from("app_config")
+        .upsert(configRecordsToUpsert);
+      if (configUpsertError) {
+        console.error("コンフィグ情報の更新に失敗しました:", configUpsertError);
+      } else {
+        console.log("コンフィグ情報を正常に更新しました。");
+      }
+    }
+    // ★★★ ここまでが該当箇所です ★★★
 
     // ② 終了シナリオのデータを確保し、DBから一括削除
     let closedScenariosData = []; // 通知で使うための変数を、ifの外で定義
@@ -419,8 +470,8 @@ export async function checkNewScenarios(client) {
     }
 
     // ■ 変更がなかった場合のログ ■
-    if (scenariosToUpsert.length === 0 && closedScenarioIds.length === 0) {
-      console.log("シナリオの更新はありませんでした。");
+    if (scenariosToUpsert.length === 0 && closedScenarioIds.length === 0 && configRecordsToUpsert.length === 0) { // configRecordsToUpsert のチェックも追加
+      console.log("シナリオまたはリソース状況の更新はありませんでした。");
     }
     await supabase.from("task_logs").upsert({
       task_name: "scenario-checker",
