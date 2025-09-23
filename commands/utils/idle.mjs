@@ -448,6 +448,7 @@ export async function execute(interaction) {
         await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
         return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
       } else if (i.customId === "idle_sp_info") {
+        await i.deferUpdate();
         const spExplanation = `### 💡 スキルポイント(SP)の効果
 SPとは、PP(プレステージパワー)を高める事で蓄積するポイントの事です。
 (今後のアップデートで、SPを貯めたり使ったりでさらに強力なアップグレードを解放できるようになる予定です！ネタはないので募集してます。。。)
