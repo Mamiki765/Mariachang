@@ -400,17 +400,16 @@ export async function execute(interaction) {
             .setDisabled(isPrestigeDisabled) // 動的に決定した有効/無効状態を設定
         );
       }
-      //SPの解説ボタン
-      if (idleGame.skillPoints > 0) {
+      //遊び方のボタン
         boostRow.addComponents(
           new ButtonBuilder()
-            .setCustomId("idle_sp_info")
-            .setLabel("SPの効果を見る")
+            .setCustomId("idle_info")
+            .setLabel("遊び方")
             .setStyle(ButtonStyle.Secondary)
             .setEmoji("💡")
-          // SPは常に説明を見れるように、無効化はしない
+            .setDisabled(isDisabled)
         );
-      }
+      
 
       return [facilityRow, boostRow];
     };
@@ -447,12 +446,27 @@ export async function execute(interaction) {
         // プレステージ処理は特別なので、ここで処理して、下の施設強化ロジックには進ませない
         await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
         return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
-      } else if (i.customId === "idle_sp_info") {
-        const spExplanation = `### 💡 スキルポイント(SP)の効果
-SPとは、PP(プレステージパワー)を高める事で蓄積するポイントの事です。
-(今後のアップデートで、SPを貯めたり使ったりでさらに強力なアップグレードを解放できるようになる予定です！ネタはないので募集してます。。。)
-解禁スキル
-- SP1以上: 生産施設が初めから5つ解禁
+//遊び方
+      } else if (i.customId === "idle_info") {
+        await i.deferUpdate();//一旦考え中を入れる
+        const spExplanation = `### ピザ工場の遊び方
+放置ゲーム「ピザ工場」はピザ工場を強化し、チーズピザが好きな雨宿りの珍生物「ニョワミヤ」を集めるゲーム(？)です。
+このゲームを進めるのに必要なものはゲーム内では稼げません。
+雨宿りで発言することで手に入る通貨「ニョボチップ」を使います。
+ニョボチップは毎日のログボでも手に入る他、上位通貨であるニョワコインを消費しても入手できます。
+ピザ工場を強化すると、計算式に基づき10分に1度ニョワミヤ達が集まってきます。
+初めはピザ窯とチーズ工場だけですが、人口が増えるとトマト農場、マッシュルーム農場、アンチョビ工場などの施設が増えて少しずつ早くなっていきます。
+また、発言によりMee6(ルカ)の「お得意様レベル」を上げると精肉（サラミ）工場の指数が若干増えて、更に加速します。
+更に工場を最後に見てから24時間は人口増加が2倍になります（ニョボシを働かせることで72時間まで延長ができます）
+人口が増えるとちょっぴりニョボチップの入手量が増えます。めざせ1億匹！
+### プレステージ
+1億匹に到達すると、パイナップル農場を稼働できます。（プレステージ）
+プレステージすると人口と工場のLvは0になりますが、到達した最高人口に応じたPPとSPを得ることができます。
+- PP:プレステージパワー、工場のLVとニョボチップ獲得%が増える他、一定値貯まると色々解禁される。
+ - PP8:3施設の人口制限解除。
+ - PP9:「施設適当強化」と「スキル」の解禁（未実装）
+- SP:スキルポイント。消費する事で強力なスキルが習得できる。
+(PPとSPスキルはまだまだ未実装です。)
 `;
         await i.followUp({
           content: spExplanation,
