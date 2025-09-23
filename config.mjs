@@ -741,6 +741,7 @@ export default {
     prestige :{
       emoji: "🍍",
       unlockPopulation: 1_0000_0000, // 人口1億で解禁 
+      spBaseDeduction: 7, // 初回SP計算時の基礎控除値
     },
   },
 };

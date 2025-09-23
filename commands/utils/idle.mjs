@@ -123,17 +123,19 @@ export async function execute(interaction) {
 
     // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
     const generateEmbed = (isFinal = false) => {
+      //プレステージボーナス
+      const pp = idleGame.prestigePower || 0; //未定義で0
       // 最新のDBオブジェクトから値を読み出す
-      const ovenEffect = idleGame.pizzaOvenLevel;
+      const ovenEffect = idleGame.pizzaOvenLevel + pp;
       const cheeseEffect =
-        1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel;
-      const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
+        1 + config.idle.cheese.effect * (idleGame.cheeseFactoryLevel + pp);
+      const meatEffect = 1 + config.idle.meat.effect * (meatFactoryLevel + pp);
       const tomatoEffect =
-        1 + config.idle.tomato.effect * idleGame.tomatoFarmLevel;
+        1 + config.idle.tomato.effect * (idleGame.tomatoFarmLevel + pp);
       const mushroomEffect =
-        1 + config.idle.mushroom.effect * idleGame.mushroomFarmLevel;
+        1 + config.idle.mushroom.effect * (idleGame.mushroomFarmLevel + pp);
       const anchovyEffect =
-        1 + config.idle.anchovy.effect * idleGame.anchovyFactoryLevel;
+        1 + config.idle.anchovy.effect * (idleGame.anchovyFactoryLevel + pp);
       //バフも乗るように
       const productionPerMinute =
         Math.pow(
@@ -146,7 +148,7 @@ export async function execute(interaction) {
         ) * idleGame.buffMultiplier;
       let pizzaBonusPercentage = 0;
       if (idleGame.population >= 1) {
-        pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
+        pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp; //チップボーナスにもPP
       }
 
       let productionString;
@@ -168,17 +170,29 @@ export async function execute(interaction) {
         buffField = `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`;
       }
 
+      // EmbedのDescriptionをプレステージ回数に応じて変更する
+      let descriptionText;
+      if (idleGame.prestigeCount > 0) {
+        descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
+          Math.floor(idleGame.population)
+        )} 匹**
+最高人口: ${formatNumberJapanese(
+          Math.floor(idleGame.highestPopulation)
+        )} 匹 PP: **${pp.toFixed(3)}** SP: **${idleGame.skillPoints.toFixed(3)}**
+全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**`;
+      } else {
+        descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
+          Math.floor(idleGame.population)
+        )} 匹**`;
+      }
+
       //コストを表示するために計算する
       const costs = calculateAllCosts(idleGame);
 
       const embed = new EmbedBuilder()
         .setTitle("ピザ工場ステータス")
         .setColor(isFinal ? "Grey" : "Gold")
-        .setDescription(
-          `現在のニョワミヤ人口: **${formatNumberJapanese(
-            Math.floor(idleGame.population)
-          )} 匹**`
-        )
+        .setDescription(descriptionText)
         .addFields(
           {
             name: `${config.idle.oven.emoji}ピザ窯`,
@@ -195,6 +209,7 @@ export async function execute(interaction) {
           {
             name: `${config.idle.tomato.emoji}トマト農場`,
             value:
+              idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.tomato.unlockPopulation
                 ? `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect.toFixed(2)}) Next.${costs.tomato.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`, //未解禁なら出さない
@@ -203,6 +218,7 @@ export async function execute(interaction) {
           {
             name: `${config.idle.mushroom.emoji}マッシュルーム農場`,
             value:
+              idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.mushroom.unlockPopulation
                 ? `Lv. ${idleGame.mushroomFarmLevel} (${mushroomEffect.toFixed(3)}) Next.${costs.mushroom.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.mushroom.unlockPopulation)})`,
@@ -211,6 +227,7 @@ export async function execute(interaction) {
           {
             name: `${config.idle.anchovy.emoji}アンチョビ工場`,
             value:
+              idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.anchovy.unlockPopulation
                 ? `Lv. ${idleGame.anchovyFactoryLevel} (${anchovyEffect.toFixed(2)}) Next.${costs.anchovy.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.anchovy.unlockPopulation)})`,
@@ -228,7 +245,7 @@ export async function execute(interaction) {
           },
           {
             name: "計算式",
-            value: `(${ovenEffect.toFixed(0)} × ${cheeseEffect.toFixed(
+            value: `(${ovenEffect.toFixed(1)} × ${cheeseEffect.toFixed(
               2
             )} × ${tomatoEffect.toFixed(2)} × ${mushroomEffect.toFixed(3)} × ${anchovyEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
           },
@@ -295,8 +312,11 @@ export async function execute(interaction) {
           .setStyle(ButtonStyle.Success)
           .setDisabled(isDisabled || point.legacy_pizza < costs.cheese)
       );
-      // ★ 人口が条件を満たしていたらトマトボタンを追加
-      if (idleGame.population >= config.idle.tomato.unlockPopulation) {
+      // ★ 人口が条件を満たしていたらトマトボタンを追加(以下3つともプレステージ後は無条件)
+      if (
+        idleGame.prestigeCount > 0 ||
+        idleGame.population >= config.idle.tomato.unlockPopulation
+      ) {
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_tomato`)
@@ -307,7 +327,10 @@ export async function execute(interaction) {
         );
       }
       // 人口が条件を満たしていたらマッシュルームボタンを追加
-      if (idleGame.population >= config.idle.mushroom.unlockPopulation) {
+      if (
+        idleGame.prestigeCount > 0 ||
+        idleGame.population >= config.idle.mushroom.unlockPopulation
+      ) {
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_mushroom`)
@@ -318,7 +341,10 @@ export async function execute(interaction) {
         );
       }
       // 人口が条件を満たしていたらアンチョビボタンを追加
-      if (idleGame.population >= config.idle.anchovy.unlockPopulation) {
+      if (
+        idleGame.prestigeCount > 0 ||
+        idleGame.population >= config.idle.anchovy.unlockPopulation
+      ) {
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_anchovy`)
@@ -342,21 +368,47 @@ export async function execute(interaction) {
           .setDisabled(isNyoboshiDisabled)
       );
 
+      // 250923 プレステージボタンの表示ロジック
       if (idleGame.population >= config.idle.prestige.unlockPopulation) {
-        //1億でプレステージボタン（未実装なので見た目だけ）
-        //まだ未実装だが最も高い人口に応じた、施設LVをハイスコアのlog10で加算、log10+1%のコイン加算（つまり現在スコアとハイスコアで2回加算）
-        //を予定、面倒だしどっちもlog10+1でいいかも…
-        //とりあえず同じ数値になるし仮のボタンはこんな感じで
-        const pizzaBonusPercentage = Math.log10(idleGame.population) + 1; //仮の数値を設定
+        // 1. 現在の人口から、プレステージした場合に得られる新しいPPを計算
+        const newPrestigePower = Math.log10(idleGame.population);
+
+        // 2. ボタンを無効化する条件を決定
+        //    - グローバルな無効化フラグ(isDisabled)が立っている
+        //    - または、現在の人口が過去の最高人口を超えていない（PPが減るのを防ぐため）
+        const isPrestigeDisabled =
+          isDisabled || idleGame.population <= idleGame.highestPopulation;
+
+        // 3. プレステージ回数に応じてボタンのラベルを動的に生成
+        let prestigeButtonLabel;
+        if (idleGame.prestigeCount === 0) {
+          // 初回プレステージの場合
+          prestigeButtonLabel = `プレステージ Power: ${newPrestigePower.toFixed(3)}`;
+        } else {
+          // 2回目以降の場合、PPとSPの「増加量」も表示してあげる
+          const powerGain = newPrestigePower - idleGame.prestigePower;
+          prestigeButtonLabel = `プレステージ Power: ${newPrestigePower.toFixed(3)} (PP,SP:+${powerGain.toFixed(3)})`;
+        }
+
+        // 4. ボタンを生成して、boostRowに追加
         boostRow.addComponents(
           new ButtonBuilder()
-            .setCustomId(`idle_prestige`)
+            .setCustomId(`idle_prestige`) // customIdを有効化
             .setEmoji(config.idle.prestige.emoji)
-            .setLabel(
-              `プレステージ(未実装)(Power: ${(pizzaBonusPercentage - 1).toFixed(2)})`
-            )
+            .setLabel(prestigeButtonLabel) // 動的に生成したラベルを設定
             .setStyle(ButtonStyle.Danger)
-            .setDisabled(true)
+            .setDisabled(isPrestigeDisabled) // 動的に決定した有効/無効状態を設定
+        );
+      }
+      //SPの解説ボタン
+      if (idleGame.skillPoints > 0) {
+        boostRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_sp_info")
+            .setLabel("SPの効果を見る")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("💡")
+          // SPは常に説明を見れるように、無効化はしない
         );
       }
 
@@ -391,6 +443,24 @@ export async function execute(interaction) {
     });
 
     collector.on("collect", async (i) => {
+      if (i.customId === "idle_prestige") {
+        // プレステージ処理は特別なので、ここで処理して、下の施設強化ロジックには進ませない
+        await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
+        return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
+      } else if (i.customId === "idle_sp_info") {
+        const spExplanation = `### 💡 スキルポイント(SP)の効果
+SPとは、PP(プレステージパワー)を高める事で蓄積するポイントの事です。
+(今後のアップデートで、SPを貯めたり使ったりでさらに強力なアップグレードを解放できるようになる予定です！ネタはないので募集してます。。。)
+解禁スキル
+- SP1以上: 生産施設が初めから5つ解禁
+`;
+        await i.followUp({
+          content: spExplanation,
+          flags: 64, // 本人にだけ見えるメッセージ
+        });
+        return; // 解説を表示したら、このcollectイベントの処理は終了
+      }
+
       await i.deferUpdate();
 
       // ★★★ コレクター内では、必ずDBから最新のデータを再取得する ★★★
@@ -704,24 +774,27 @@ export async function updateUserIdleGame(userId) {
   if (!idleGame) {
     return null;
   }
+  //プレステージパワーを代入
+  const pp = idleGame.prestigePower || 0;
 
   // --- 既存のオフライン計算ロジックを、ほぼそのまま持ってくる ---
   const mee6Level = await Mee6Level.findOne({ where: { userId } });
-  const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
+  const meatFactoryLevel = (mee6Level ? mee6Level.level : 0) + pp; //ppはこっちで足す
   const now = new Date();
 
   const lastUpdate = idleGame.lastUpdatedAt || now;
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
-  const ovenEffect = idleGame.pizzaOvenLevel; //基礎
+  const ovenEffect = idleGame.pizzaOvenLevel + pp; //基礎
   const cheeseEffect =
-    1 + config.idle.cheese.effect * idleGame.cheeseFactoryLevel; //乗算1
-  const tomatoEffect = 1 + config.idle.tomato.effect * idleGame.tomatoFarmLevel; //乗算2
+    1 + config.idle.cheese.effect * (idleGame.cheeseFactoryLevel + pp); //乗算1
+  const tomatoEffect =
+    1 + config.idle.tomato.effect * (idleGame.tomatoFarmLevel + pp); //乗算2
   const mushroomEffect =
-    1 + config.idle.mushroom.effect * idleGame.mushroomFarmLevel; //乗数3
+    1 + config.idle.mushroom.effect * (idleGame.mushroomFarmLevel + pp); //乗数3
   const anchovyEffect =
-    1 + config.idle.anchovy.effect * idleGame.anchovyFactoryLevel; //乗数4
-  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel; //指数
+    1 + config.idle.anchovy.effect * (idleGame.anchovyFactoryLevel + pp); //乗数4
+  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel; //指数(PP効果は上で計算済み)
   let currentBuffMultiplier = 1.0; // ブースト
   if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
     currentBuffMultiplier = idleGame.buffMultiplier;
@@ -738,16 +811,23 @@ export async function updateUserIdleGame(userId) {
   if (elapsedSeconds > 0) {
     const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
     idleGame.population += addedPopulation;
-    idleGame.lastUpdatedAt = now;
-    await idleGame.save();
   }
 
   // 人口ボーナスを計算
   // log10(人口) + 1 をパーセンテージとして返す 1桁で1% 2桁で2% 3桁で3% ...
   let pizzaBonusPercentage = 0;
   if (idleGame.population >= 1) {
-    pizzaBonusPercentage = Math.log10(idleGame.population) + 1;
+    // プレステージ後は最低でもPP分のボーナスが保証される
+    pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp;
+  } else if (pp > 0) {
+    // 人口が1未満でもPPボーナスは有効
+    pizzaBonusPercentage = 1 + pp;
   }
+  // 計算した最新のボーナス値をDBに保存する
+  // これにより、他の機能（ピザ配りなど）が常に最新のボーナス値を参照できる
+  idleGame.pizzaBonusPercentage = pizzaBonusPercentage;
+  idleGame.lastUpdatedAt = now;
+  await idleGame.save();
 
   // バフ残り時間（ms → 時間・分に変換）を計算
   let buffRemaining = null;
@@ -871,4 +951,138 @@ function formatNumberJapanese(n) {
 
   // 万が一、入力が0などでresultが空だった場合（最初のifで弾かれるが念のため）
   return result || String(num);
+}
+
+/**
+ * プレステージの確認と実行を担当する関数
+ * @param {import("discord.js").ButtonInteraction} interaction - プレステージボタンのインタラクション
+ * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
+ */
+async function handlePrestige(interaction, collector) {
+  // 1. まず、現在のコレクターを止めて、ボタン操作を一旦リセットする
+  collector.stop();
+
+  // 2. 確認用のメッセージとボタンを作成
+  const confirmationRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("prestige_confirm_yes")
+      .setLabel("はい、リセットします")
+      .setStyle(ButtonStyle.Success)
+      .setEmoji("🍍"),
+    new ButtonBuilder()
+      .setCustomId("prestige_confirm_no")
+      .setLabel("いいえ、やめておきます")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  const confirmationMessage = await interaction.reply({
+    content:
+      "# ⚠️パイナップル警報！ \n### **本当にプレステージを実行しますか？**\n精肉工場以外の工場レベルと人口がリセットされます。この操作は取り消せません！",
+    components: [confirmationRow],
+    flags: 64, // 本人にだけ見える確認
+    fetchReply: true, // 送信したメッセージオブジェクトを取得するため
+  });
+
+  try {
+    // 3. ユーザーの応答を待つ (60秒)
+    //    .awaitMessageComponent() は、ボタンが押されるまでここで処理を「待機」します
+    const confirmationInteraction =
+      await confirmationMessage.awaitMessageComponent({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 60_000,
+      });
+
+    // 4. 押されたボタンに応じて処理を分岐
+    if (confirmationInteraction.customId === "prestige_confirm_no") {
+      // 「いいえ」が押された場合
+      await confirmationInteraction.update({
+        content: "プレステージをキャンセルしました。工場は無事です！",
+        components: [], // ボタンを消す
+      });
+      return; // 処理を終了
+    }
+
+    // --- 「はい」が押された場合の処理 ---
+    await confirmationInteraction.deferUpdate(); // 「考え中...」の状態にする
+
+    let currentPopulation;
+
+    // 5. トランザクションを使って、安全にデータベースを更新
+    await sequelize.transaction(async (t) => {
+      // ★★★ 最新のDBデータをトランザクション内で再取得！★★★
+      const latestIdleGame = await IdleGame.findOne({
+        where: { userId: interaction.user.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE, // 他の処理から同時に書き込まれないようにロックする
+      });
+
+      // 念のため、再度プレステージ条件をチェック
+      if (latestIdleGame.population <= latestIdleGame.highestPopulation) {
+        throw new Error(
+          "プレステージの条件を満たしていません（現在の人口が最高人口を超えている必要があります）。"
+        );
+      }
+
+      // 6. 新しいPPとSPを計算
+      currentPopulation = latestIdleGame.population;
+      const newPrestigePower = Math.log10(currentPopulation);
+      let newSkillPoints = latestIdleGame.skillPoints;
+
+      if (latestIdleGame.prestigeCount === 0) {
+        // 初回
+        const deduction = config.idle.prestige.spBaseDeduction; // ← configから値を取得
+        newSkillPoints =
+          newPrestigePower - deduction > 0 ? newPrestigePower - deduction : 0; //マイナスを防ぐ
+      } else {
+        // 2回目以降
+        const powerGain = newPrestigePower - latestIdleGame.prestigePower;
+        newSkillPoints += powerGain;
+      }
+
+      // 7. データベースの値を更新
+      await latestIdleGame.update(
+        {
+          population: 0,
+          pizzaOvenLevel: 0,
+          cheeseFactoryLevel: 0,
+          tomatoFarmLevel: 0,
+          mushroomFarmLevel: 0,
+          anchovyFactoryLevel: 0,
+          prestigeCount: latestIdleGame.prestigeCount + 1,
+          prestigePower: newPrestigePower,
+          skillPoints: newSkillPoints,
+          highestPopulation: currentPopulation, // 今回の人口を最高記録として保存
+          lastUpdatedAt: new Date(), // リセットした日時を記録
+        },
+        { transaction: t }
+      );
+    });
+
+    // 8. 成功メッセージを送信
+    await confirmationInteraction.editReply({
+      content: `●プレステージ
+# なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！
+凄まじい地響きと共に${formatNumberJapanese(currentPopulation)}匹のニョワミヤ達が押し寄せてきます！
+彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！
+狂った様にパイナップルピザを求めたニョワミヤ達によって、今までのピザ工場は藻屑のように吹き飛ばされてしまいました……
+-# そしてなぜか次の工場は強化されました。`,
+      components: [], // ボタンを消す
+    });
+  } catch (error) {
+    // タイムアウト、またはDB更新エラーが起きた場合
+    if (error.message.includes("ransaction")) {
+      // DBエラーの場合
+      console.error("Prestige DB Error:", error);
+      await interaction.editReply({
+        content: "❌ データベースエラーにより、プレステージに失敗しました。",
+        components: [],
+      });
+    } else {
+      // タイムアウトの場合
+      await interaction.editReply({
+        content: "タイムアウトしました。プレステージはキャンセルされました。",
+        components: [],
+      });
+    }
+  }
 }
