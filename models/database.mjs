@@ -485,7 +485,24 @@ const IdleGame = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
-    //指数係数である精肉工場のLVはMee6テーブルのLVから持ってくる
+    //(指数施設である精肉工場のLVはMee6テーブルのLVから持ってくる)
+    //プレステージ
+    prestigeCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0, // プレステージ回数
+    },
+    prestigePower: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0.0, // プレステージパワー(PP)
+    },
+    highestPopulation: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0.0, // プレステージ計算に使った最高人口
+    },
+    skillPoints: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0.0, // スキルポイント(SP)
+    },
     buffMultiplier: {
       //ブースト(最終結果に対する乗算)
       type: DataTypes.DOUBLE,

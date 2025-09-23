@@ -50,6 +50,35 @@ export const data = new SlashCommandBuilder()
       )
   );
 
+// --- 共通化: コスト計算関数 ---
+
+/**
+ * 施設のアップグレードコストを計算する
+ * @param {string} type - 'oven', 'cheese' などの施設名
+ * @param {number} level - 現在の施設レベル
+ * @returns {number} 次のレベルへのアップグレードコスト
+ */
+function calculateFacilityCost(type, level) {
+  const facility = config.idle[type];
+  if (!facility) return Infinity; // 念のため
+  return Math.floor(facility.baseCost * Math.pow(facility.multiplier, level));
+}
+
+/**
+ * 全ての施設のコストを計算し、オブジェクトとして返す
+ * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @returns {object} 各施設のコストが格納されたオブジェクト
+ */
+function calculateAllCosts(idleGame) {
+  return {
+    oven: calculateFacilityCost("oven", idleGame.pizzaOvenLevel),
+    cheese: calculateFacilityCost("cheese", idleGame.cheeseFactoryLevel),
+    tomato: calculateFacilityCost("tomato", idleGame.tomatoFarmLevel),
+    mushroom: calculateFacilityCost("mushroom", idleGame.mushroomFarmLevel),
+    anchovy: calculateFacilityCost("anchovy", idleGame.anchovyFactoryLevel),
+  };
+}
+
 export async function execute(interaction) {
   const rankingChoice = interaction.options.getString("ranking");
   if (rankingChoice === "public" || rankingChoice === "private") {
@@ -139,30 +168,8 @@ export async function execute(interaction) {
         buffField = `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`;
       }
 
-      //コストを表示するために計算する、ボタンが押せるかの計算は下で再計算してるので施設追加時はそっちも更新！
-      //窯強化
-      const ovenCost = Math.floor(
-        config.idle.oven.baseCost *
-          Math.pow(config.idle.oven.multiplier, idleGame.pizzaOvenLevel)
-      );
-      //チーズ強化
-      const cheeseCost = Math.floor(
-        config.idle.cheese.baseCost *
-          Math.pow(config.idle.cheese.multiplier, idleGame.cheeseFactoryLevel)
-      );
-      //トマト強化
-      const tomatoCost = Math.floor(
-        config.idle.tomato.baseCost *
-          Math.pow(config.idle.tomato.multiplier, idleGame.tomatoFarmLevel)
-      );
-      const mushroomCost = Math.floor(
-        config.idle.mushroom.baseCost *
-          Math.pow(config.idle.mushroom.multiplier, idleGame.mushroomFarmLevel)
-      );
-      const anchovyCost = Math.floor(
-        config.idle.anchovy.baseCost *
-          Math.pow(config.idle.anchovy.multiplier, idleGame.anchovyFactoryLevel)
-      );
+      //コストを表示するために計算する
+      const costs = calculateAllCosts(idleGame);
 
       const embed = new EmbedBuilder()
         .setTitle("ピザ工場ステータス")
@@ -175,21 +182,21 @@ export async function execute(interaction) {
         .addFields(
           {
             name: `${config.idle.oven.emoji}ピザ窯`,
-            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect.toFixed(0)}) Next.${ovenCost.toLocaleString()}chip`,
+            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect.toFixed(0)}) Next.${costs.oven.toLocaleString()}chip`,
             inline: true,
           },
           {
             name: `${config.idle.cheese.emoji}チーズ工場`,
             value: `Lv. ${idleGame.cheeseFactoryLevel} (${cheeseEffect.toFixed(
               2
-            )}) Next.${cheeseCost.toLocaleString()}chip`,
+            )}) Next.${costs.cheese.toLocaleString()}chip`,
             inline: true,
           },
           {
             name: `${config.idle.tomato.emoji}トマト農場`,
             value:
               idleGame.population >= config.idle.tomato.unlockPopulation
-                ? `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect.toFixed(2)}) Next.${tomatoCost.toLocaleString()}chip`
+                ? `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect.toFixed(2)}) Next.${costs.tomato.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`, //未解禁なら出さない
             inline: true,
           },
@@ -197,7 +204,7 @@ export async function execute(interaction) {
             name: `${config.idle.mushroom.emoji}マッシュルーム農場`,
             value:
               idleGame.population >= config.idle.mushroom.unlockPopulation
-                ? `Lv. ${idleGame.mushroomFarmLevel} (${mushroomEffect.toFixed(3)}) Next.${mushroomCost.toLocaleString()}chip`
+                ? `Lv. ${idleGame.mushroomFarmLevel} (${mushroomEffect.toFixed(3)}) Next.${costs.mushroom.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.mushroom.unlockPopulation)})`,
             inline: true,
           },
@@ -205,7 +212,7 @@ export async function execute(interaction) {
             name: `${config.idle.anchovy.emoji}アンチョビ工場`,
             value:
               idleGame.population >= config.idle.anchovy.unlockPopulation
-                ? `Lv. ${idleGame.anchovyFactoryLevel} (${anchovyEffect.toFixed(2)}) Next.${anchovyCost.toLocaleString()}chip`
+                ? `Lv. ${idleGame.anchovyFactoryLevel} (${anchovyEffect.toFixed(2)}) Next.${costs.anchovy.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.anchovy.unlockPopulation)})`,
             inline: true,
           },
@@ -246,29 +253,7 @@ export async function execute(interaction) {
     // generateButtons関数：こちらも、最新のDBオブジェクトからコストを計算するようにする
     const generateButtons = (isDisabled = false) => {
       // ボタンを描画するたびに、コストを再計算する
-      //窯強化
-      const ovenCost = Math.floor(
-        config.idle.oven.baseCost *
-          Math.pow(config.idle.oven.multiplier, idleGame.pizzaOvenLevel)
-      );
-      //チーズ強化
-      const cheeseCost = Math.floor(
-        config.idle.cheese.baseCost *
-          Math.pow(config.idle.cheese.multiplier, idleGame.cheeseFactoryLevel)
-      );
-      //トマト強化
-      const tomatoCost = Math.floor(
-        config.idle.tomato.baseCost *
-          Math.pow(config.idle.tomato.multiplier, idleGame.tomatoFarmLevel)
-      );
-      const mushroomCost = Math.floor(
-        config.idle.mushroom.baseCost *
-          Math.pow(config.idle.mushroom.multiplier, idleGame.mushroomFarmLevel)
-      );
-      const anchovyCost = Math.floor(
-        config.idle.anchovy.baseCost *
-          Math.pow(config.idle.anchovy.multiplier, idleGame.anchovyFactoryLevel)
-      );
+      const costs = calculateAllCosts(idleGame);
 
       //ブースト延長
       //ブーストの残り時間を計算 (ミリ秒で)
@@ -302,13 +287,13 @@ export async function execute(interaction) {
           .setEmoji(config.idle.oven.emoji)
           .setLabel(`+${config.idle.oven.effect}`)
           .setStyle(ButtonStyle.Primary)
-          .setDisabled(isDisabled || point.legacy_pizza < ovenCost),
+          .setDisabled(isDisabled || point.legacy_pizza < costs.oven),
         new ButtonBuilder()
           .setCustomId(`idle_upgrade_cheese`)
           .setEmoji(config.idle.cheese.emoji)
           .setLabel(`+${config.idle.cheese.effect}`)
           .setStyle(ButtonStyle.Success)
-          .setDisabled(isDisabled || point.legacy_pizza < cheeseCost)
+          .setDisabled(isDisabled || point.legacy_pizza < costs.cheese)
       );
       // ★ 人口が条件を満たしていたらトマトボタンを追加
       if (idleGame.population >= config.idle.tomato.unlockPopulation) {
@@ -318,7 +303,7 @@ export async function execute(interaction) {
             .setEmoji(config.idle.tomato.emoji)
             .setLabel(`+${config.idle.tomato.effect}`)
             .setStyle(ButtonStyle.Secondary)
-            .setDisabled(isDisabled || point.legacy_pizza < tomatoCost)
+            .setDisabled(isDisabled || point.legacy_pizza < costs.tomato)
         );
       }
       // 人口が条件を満たしていたらマッシュルームボタンを追加
@@ -329,7 +314,7 @@ export async function execute(interaction) {
             .setEmoji(config.idle.mushroom.emoji)
             .setLabel(`+${config.idle.mushroom.effect}`)
             .setStyle(ButtonStyle.Primary)
-            .setDisabled(isDisabled || point.legacy_pizza < mushroomCost)
+            .setDisabled(isDisabled || point.legacy_pizza < costs.mushroom)
         );
       }
       // 人口が条件を満たしていたらアンチョビボタンを追加
@@ -340,7 +325,7 @@ export async function execute(interaction) {
             .setEmoji(config.idle.anchovy.emoji)
             .setLabel(`+${config.idle.anchovy.effect}`)
             .setStyle(ButtonStyle.Success)
-            .setDisabled(isDisabled || point.legacy_pizza < anchovyCost)
+            .setDisabled(isDisabled || point.legacy_pizza < costs.anchovy)
         );
       }
       //ブーストボタンを後から追加
@@ -416,50 +401,31 @@ export async function execute(interaction) {
 
       if (i.customId === "idle_upgrade_oven") {
         facility = "oven";
-        cost = Math.floor(
-          config.idle.oven.baseCost *
-            Math.pow(config.idle.oven.multiplier, latestIdleGame.pizzaOvenLevel)
-        );
+        cost = calculateFacilityCost("oven", latestIdleGame.pizzaOvenLevel);
         facilityName = "ピザ窯";
       } else if (i.customId === "idle_upgrade_cheese") {
-        // upgrade_cheese
         facility = "cheese";
-        cost = Math.floor(
-          config.idle.cheese.baseCost *
-            Math.pow(
-              config.idle.cheese.multiplier,
-              latestIdleGame.cheeseFactoryLevel
-            )
+        cost = calculateFacilityCost(
+          "cheese",
+          latestIdleGame.cheeseFactoryLevel
         );
         facilityName = "チーズ工場";
       } else if (i.customId === "idle_upgrade_tomato") {
         facility = "tomato";
-        cost = Math.floor(
-          config.idle.tomato.baseCost *
-            Math.pow(
-              config.idle.tomato.multiplier,
-              latestIdleGame.tomatoFarmLevel
-            )
-        );
+        cost = calculateFacilityCost("tomato", latestIdleGame.tomatoFarmLevel);
         facilityName = "トマト農場";
       } else if (i.customId === "idle_upgrade_mushroom") {
         facility = "mushroom";
-        cost = Math.floor(
-          config.idle.mushroom.baseCost *
-            Math.pow(
-              config.idle.mushroom.multiplier,
-              latestIdleGame.mushroomFarmLevel
-            )
+        cost = calculateFacilityCost(
+          "mushroom",
+          latestIdleGame.mushroomFarmLevel
         );
         facilityName = "マッシュルーム農場";
       } else if (i.customId === "idle_upgrade_anchovy") {
         facility = "anchovy";
-        cost = Math.floor(
-          config.idle.anchovy.baseCost *
-            Math.pow(
-              config.idle.anchovy.multiplier,
-              latestIdleGame.anchovyFactoryLevel
-            )
+        cost = calculateFacilityCost(
+          "anchovy",
+          latestIdleGame.anchovyFactoryLevel
         );
         facilityName = "アンチョビ工場(ニボシじゃないよ！)";
       } else if (i.customId === "idle_extend_buff") {
