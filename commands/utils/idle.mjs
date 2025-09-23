@@ -178,7 +178,7 @@ export async function execute(interaction) {
         )} 匹**
 最高人口: ${formatNumberJapanese(
           Math.floor(idleGame.highestPopulation)
-        )} 匹 PP: **${pp.toFixed(3)}** SP: **${idleGame.skillPoints.toFixed(3)}**
+        )} 匹 PP: **${pp.toFixed(2)}** SP: **${idleGame.skillPoints.toFixed(2)}**
 全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**`;
       } else {
         descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
@@ -387,7 +387,7 @@ export async function execute(interaction) {
         } else {
           // 2回目以降の場合、PPとSPの「増加量」も表示してあげる
           const powerGain = newPrestigePower - idleGame.prestigePower;
-          prestigeButtonLabel = `プレステージ Power: ${newPrestigePower.toFixed(3)} (PP,SP:+${powerGain.toFixed(3)})`;
+          prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (${powerGain > 0 ? '+' : ''}${powerGain.toFixed(2)})`;
         }
 
         // 4. ボタンを生成して、boostRowに追加
@@ -463,8 +463,8 @@ export async function execute(interaction) {
 1億匹に到達すると、パイナップル農場を稼働できます。（プレステージ）
 プレステージすると人口と工場のLvは0になりますが、到達した最高人口に応じたPPとSPを得ることができます。
 - PP:プレステージパワー、工場のLVとニョボチップ獲得%が増える他、一定値貯まると色々解禁される。
- - PP8:3施設の人口制限解除。
- - PP9:「施設適当強化」と「スキル」の解禁（未実装）
+  - PP8:3施設の人口制限解除。
+  - PP9:「施設適当強化」と「スキル」の解禁（未実装）
 - SP:スキルポイント。消費する事で強力なスキルが習得できる。
 (PPとSPスキルはまだまだ未実装です。)
 `;
