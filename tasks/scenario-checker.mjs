@@ -135,16 +135,29 @@ export async function checkNewScenarios(client) {
       // プレイング日時が変化したら「章更新」とみなし、通知リストに入れる
       let hasChapterUpdate = false;
       if (fetched.type === "ラリー") {
-        // DBの値とAPIの値を両方Dateオブジェクトに変換して比較する
-        // どちらかがnullやundefinedの場合は、正しく比較できないためgetTime()の前にチェックする
-        const existingStartDate = existing.rally_playing_start ? new Date(existing.rally_playing_start) : null;
-        const newStartDate = newData.rally_playing_start ? new Date(newData.rally_playing_start) : null;
-        const existingEndDate = existing.rally_playing_end ? new Date(existing.rally_playing_end) : null;
-        const newEndDate = newData.rally_playing_end ? new Date(newData.rally_playing_end) : null;
+        const existingStartDate = existing.rally_playing_start
+          ? new Date(existing.rally_playing_start)
+          : null;
+        const newStartDate = parseUtcDate(newData.rally_playing_start);
 
-        // getTime()はDateオブジェクトでないと呼び出せないので、nullチェックを行う
-        const startTimeChanged = (!existingStartDate && newStartDate) || (existingStartDate && !newStartDate) || (existingStartDate && newStartDate && existingStartDate.getTime() !== newStartDate.getTime());
-        const endTimeChanged = (!existingEndDate && newEndDate) || (existingEndDate && !newEndDate) || (existingEndDate && newEndDate && existingEndDate.getTime() !== newEndDate.getTime());
+        const existingEndDate = existing.rally_playing_end
+          ? new Date(existing.rally_playing_end)
+          : null;
+        const newEndDate = parseUtcDate(newData.rally_playing_end);
+
+        const startTimeChanged =
+          (!existingStartDate && newStartDate) ||
+          (existingStartDate && !newStartDate) ||
+          (existingStartDate &&
+            newStartDate &&
+            existingStartDate.getTime() !== newStartDate.getTime());
+
+        const endTimeChanged =
+          (!existingEndDate && newEndDate) ||
+          (existingEndDate && !newEndDate) ||
+          (existingEndDate &&
+            newEndDate &&
+            existingEndDate.getTime() !== newEndDate.getTime());
 
         if (startTimeChanged || endTimeChanged) {
           hasChapterUpdate = true;
@@ -170,7 +183,7 @@ export async function checkNewScenarios(client) {
         existing.catchphrase !== newData.catchphrase ||
         JSON.stringify(existing.join_conditions || []) !==
           JSON.stringify(newData.join_conditions || []) ||
-          hasChapterUpdate || //↓２つ
+        hasChapterUpdate || //↓２つ
         //existing.rally_playing_start !== newData.rally_playing_start ||
         //existing.rally_playing_end !== newData.rally_playing_end ||
         existing.rally_member_count !== newData.rally_member_count
@@ -356,8 +369,7 @@ export async function checkNewScenarios(client) {
             }
             const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
             const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
-            const line =
-              titleLine + joinConditionsText + infoLine;
+            const line = titleLine + joinConditionsText + infoLine;
 
             if (
               descriptionText.length + line.length + 2 > charLimit &&
@@ -445,7 +457,8 @@ export async function checkNewScenarios(client) {
             }
             const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
             const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${memberText}|**${statusText}**${specialTimeText}`;
-            const line = titleLine + joinConditionsText + playingPeriodText + infoLine;
+            const line =
+              titleLine + joinConditionsText + playingPeriodText + infoLine;
 
             if (
               descriptionText.length + line.length + 2 > charLimit &&
@@ -613,4 +626,9 @@ export async function checkNewScenarios(client) {
   } catch (error) {
     console.error("シナリオチェック中にエラーが発生しました:", error);
   }
+}
+
+// ヘルパー関数
+function parseUtcDate(str) {
+  return str ? new Date(str + "Z") : null;
 }
