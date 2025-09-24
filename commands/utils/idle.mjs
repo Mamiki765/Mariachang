@@ -369,7 +369,7 @@ export async function execute(interaction) {
           .setDisabled(isNyoboshiDisabled)
       );
       //オート振り
-      if (idleGame.prestigePower >= 9) {
+      if (idleGame.prestigePower >= 8) {
         boostRow.addComponents(
           new ButtonBuilder()
             .setCustomId("idle_auto_allocate")
@@ -474,8 +474,8 @@ export async function execute(interaction) {
 1億匹に到達すると、パイナップル農場を稼働できます。（プレステージ）
 プレステージすると人口と工場のLvは0になりますが、到達した最高人口に応じたPPとSPを得ることができます。
 - PP:プレステージパワー、工場のLVとニョボチップ獲得%が増える他、一定値貯まると色々解禁される。
-  - PP8:3施設の人口制限解除。
-  - PP9:「施設適当強化」、「スキル」の解禁（未実装）
+  - PP8:3施設の人口制限解除。「施設適当強化」解禁
+  - PP9:「スキル」の解禁（未実装）
 - SP:スキルポイント。消費する事で強力なスキルが習得できる。
 (PPとSPスキルはまだまだ未実装です。)
 `;
