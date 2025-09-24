@@ -12,6 +12,7 @@ import {
   Mee6Level,
   sequelize,
 } from "../../models/database.mjs";
+import { Op } from "sequelize";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -367,6 +368,17 @@ export async function execute(interaction) {
           .setEmoji(nyoboshiemoji)
           .setDisabled(isNyoboshiDisabled)
       );
+      //オート振り
+      if (idleGame.prestigePower >= 9) {
+        boostRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_auto_allocate")
+            .setLabel("適当に強化(全チップ)")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("1416912717725438013")
+            .setDisabled(isDisabled)
+        );
+      }
 
       // 250923 プレステージボタンの表示ロジック
       if (idleGame.population >= config.idle.prestige.unlockPopulation) {
@@ -387,7 +399,7 @@ export async function execute(interaction) {
         } else {
           // 2回目以降の場合、PPとSPの「増加量」も表示してあげる
           const powerGain = newPrestigePower - idleGame.prestigePower;
-          prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (${powerGain > 0 ? '+' : ''}${powerGain.toFixed(2)})`;
+          prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (${powerGain > 0 ? "+" : ""}${powerGain.toFixed(2)})`;
         }
 
         // 4. ボタンを生成して、boostRowに追加
@@ -401,15 +413,14 @@ export async function execute(interaction) {
         );
       }
       //遊び方のボタン
-        boostRow.addComponents(
-          new ButtonBuilder()
-            .setCustomId("idle_info")
-            .setLabel("遊び方")
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji("💡")
-            .setDisabled(isDisabled)
-        );
-      
+      boostRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId("idle_info")
+          .setLabel("遊び方")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("💡")
+          .setDisabled(isDisabled)
+      );
 
       return [facilityRow, boostRow];
     };
@@ -446,9 +457,9 @@ export async function execute(interaction) {
         // プレステージ処理は特別なので、ここで処理して、下の施設強化ロジックには進ませない
         await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
         return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
-//遊び方
+        //遊び方
       } else if (i.customId === "idle_info") {
-        await i.deferUpdate();//一旦考え中を入れる
+        await i.deferUpdate(); //一旦考え中を入れる
         const spExplanation = `### ピザ工場の遊び方
 放置ゲーム「ピザ工場」はピザ工場を強化し、チーズピザが好きな雨宿りの珍生物「ニョワミヤ」を集めるゲーム(？)です。
 このゲームを進めるのに必要なものはゲーム内では稼げません。
@@ -464,7 +475,7 @@ export async function execute(interaction) {
 プレステージすると人口と工場のLvは0になりますが、到達した最高人口に応じたPPとSPを得ることができます。
 - PP:プレステージパワー、工場のLVとニョボチップ獲得%が増える他、一定値貯まると色々解禁される。
   - PP8:3施設の人口制限解除。
-  - PP9:「施設適当強化」と「スキル」の解禁（未実装）
+  - PP9:「施設適当強化」、「スキル」の解禁（未実装）
 - SP:スキルポイント。消費する事で強力なスキルが習得できる。
 (PPとSPスキルはまだまだ未実装です。)
 `;
@@ -473,6 +484,82 @@ export async function execute(interaction) {
           flags: 64, // 本人にだけ見えるメッセージ
         });
         return; // 解説を表示したら、このcollectイベントの処理は終了
+        //全自動購入
+      } else if (i.customId === 'idle_auto_allocate') {
+        await i.deferUpdate();
+        // 1. ループの準備
+        const MAX_ITERATIONS = 1000; // 安全装置
+        let iterations = 0;
+        let totalCost = 0;
+        const levelsPurchased = { oven: 0, cheese: 0, tomato: 0, mushroom: 0, anchovy: 0 };
+        
+        // ★★★ DBから最新のデータを取得することが非常に重要！ ★★★
+        const latestPoint = await Point.findOne({ where: { userId } });
+        const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+
+        // 2. ループ処理
+        while (iterations < MAX_ITERATIONS) {
+          const currentChips = latestPoint.legacy_pizza;
+          const costs = calculateAllCosts(latestIdleGame);
+          
+          // 購入可能な施設をフィルタリングし、最も安いものを探す
+          const affordableFacilities = Object.entries(costs)
+            .filter(([name, cost]) => currentChips >= cost)
+            .sort((a, b) => a[1] - b[1]); // コストの昇順でソート
+
+          if (affordableFacilities.length === 0) {
+            // 購入できる施設が何もない
+            break;
+          }
+          
+          const [cheapestFacilityName, cheapestCost] = affordableFacilities[0];
+
+          // 3. 購入処理
+          latestPoint.legacy_pizza -= cheapestCost;
+          totalCost += cheapestCost;
+          levelsPurchased[cheapestFacilityName]++;
+          
+          switch(cheapestFacilityName) {
+              case 'oven': latestIdleGame.pizzaOvenLevel++; break;
+              case 'cheese': latestIdleGame.cheeseFactoryLevel++; break;
+              case 'tomato': latestIdleGame.tomatoFarmLevel++; break;
+              case 'mushroom': latestIdleGame.mushroomFarmLevel++; break;
+              case 'anchovy': latestIdleGame.anchovyFactoryLevel++; break;
+          }
+          
+          iterations++;
+        }
+        
+        // 4. DBへの一括保存
+        await latestPoint.save();
+        await latestIdleGame.save();
+        
+        // ★★★ メインのidleGameオブジェクトにも変更を反映させる ★★★
+        point.legacy_pizza = latestPoint.legacy_pizza;
+        Object.assign(idleGame, latestIdleGame.dataValues);
+
+        // 5. 結果のフィードバック
+        let summaryMessage = `**🤖 自動割り振りが完了しました！**\n- 消費チップ: ${totalCost.toLocaleString()}枚\n`;
+        const purchasedList = Object.entries(levelsPurchased)
+          .filter(([name, count]) => count > 0)
+          .map(([name, count]) => `- ${config.idle[name].emoji}${name}: +${count}レベル`)
+          .join('\n');
+
+        if (purchasedList.length > 0) {
+            summaryMessage += purchasedList;
+        } else {
+            summaryMessage += "購入可能な施設がありませんでした。";
+        }
+
+        await i.followUp({ content: summaryMessage, flags: 64 });
+
+        // 6. Embedとボタンの再描画
+        await interaction.editReply({
+            embeds: [generateEmbed()],
+            components: generateButtons(),
+        });
+        
+        return;
       }
 
       await i.deferUpdate();
@@ -639,9 +726,18 @@ async function executeRankingCommand(interaction, isPrivate) {
     ephemeral: isPrivate,
   });
 
+  // 除外したいユーザーIDを定義
+  const excludedUserId = "1123987861180534826";
+
   const allIdleGames = await IdleGame.findAll({
+    where: {
+      // userIdが、指定したIDと「等しくない(!=)」という条件
+      userId: {
+        [Op.ne]: excludedUserId,
+      },
+    },
     order: [["population", "DESC"]],
-    limit: 100, // サーバー負荷を考慮し、最大100位までとする
+    limit: 100, // DBから取得する時点で除外されるので、100人のランキングが維持される
   });
 
   if (allIdleGames.length === 0) {

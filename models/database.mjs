@@ -503,6 +503,27 @@ const IdleGame = sequelize.define(
       type: DataTypes.DOUBLE,
       defaultValue: 0.0, // スキルポイント(SP)
     },
+    //スキル (infinity前)
+    skillLevel1: {
+      // 燃え上がるピザ工場
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    skillLevel2: {
+      // 加速する時間
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    skillLevel3: {
+      // ニョボシの怒り
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    skillLevel4: {
+      // 【光輝】
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     buffMultiplier: {
       //ブースト(最終結果に対する乗算)
       type: DataTypes.DOUBLE,
