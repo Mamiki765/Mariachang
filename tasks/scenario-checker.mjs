@@ -345,7 +345,7 @@ export async function checkNewScenarios(client) {
             const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
             const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
             const line =
-              titleLine + joinConditionsText + playingPeriodText + infoLine;
+              titleLine + joinConditionsText + infoLine;
 
             if (
               descriptionText.length + line.length + 2 > charLimit &&
@@ -433,7 +433,7 @@ export async function checkNewScenarios(client) {
             }
             const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
             const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${memberText}|**${statusText}**${specialTimeText}`;
-            const line = titleLine + joinConditionsText + infoLine;
+            const line = titleLine + joinConditionsText + playingPeriodText + infoLine;
 
             if (
               descriptionText.length + line.length + 2 > charLimit &&
@@ -480,7 +480,11 @@ export async function checkNewScenarios(client) {
       console.log(
         `${updatedChapterScenariosForNotification.length}件のラリーシナリオで章の更新を発見！`
       );
-      const channel = await client.channels.fetch(config.rev2ch);
+      // channelの取得はDB操作後に移動済みなのでここでは不要
+
+      let descriptionText = "";
+      const embedsToSend = [];
+      const charLimit = 4000;
 
       for (const s of updatedChapterScenariosForNotification) {
         const difficultyEmoji =
@@ -492,15 +496,43 @@ export async function checkNewScenarios(client) {
         const playingPeriodLine = `-# > ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
         const authorLine = `-# 📖${s.creator.penname}${s.creator.type}`;
 
-        const descriptionText =
+        // 1件分のテキストを組み立て
+        const line =
           titleLine + chapterInfoLine + playingPeriodLine + authorLine;
 
-        const embed = new EmbedBuilder()
-          .setColor("Blue") // 更新が分かりやすい色
-          .setTitle(`🔄ラリーシナリオの章更新`)
-          .setDescription(descriptionText)
-          .setTimestamp();
+        // 文字数チェック
+        if (
+          descriptionText.length + line.length + 2 > charLimit &&
+          descriptionText !== ""
+        ) {
+          embedsToSend.push(
+            new EmbedBuilder().setColor("Blue").setDescription(descriptionText)
+          );
+          descriptionText = line; // 新しいEmbedの最初の行にする
+        } else {
+          // 既存のテキストに追記（区切り線を入れる）
+          descriptionText += (descriptionText ? "\n-# \u200b\n" : "") + line;
+        }
+      }
 
+      // ループ後に残ったテキストを最後のEmbedとして追加
+      if (descriptionText !== "") {
+        embedsToSend.push(
+          new EmbedBuilder().setColor("Blue").setDescription(descriptionText)
+        );
+      }
+
+      // 組み立てたEmbedを送信
+      for (let i = 0; i < embedsToSend.length; i++) {
+        const embed = embedsToSend[i];
+        embed.setTitle(
+          `🔄ラリーシナリオの章更新 (${i + 1}/${embedsToSend.length})`
+        );
+        if (i === embedsToSend.length - 1) {
+          embed.setTimestamp().setFooter({
+            text: `${updatedChapterScenariosForNotification.length}件のラリーシナリオの章が更新されました。`,
+          });
+        }
         // 必要ならロールへのメンションを追加
         // const rallyRoleId = "1137548892779597874";
         await channel.send({ embeds: [embed] });
