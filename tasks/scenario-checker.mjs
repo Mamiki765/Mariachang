@@ -59,7 +59,7 @@ export async function checkNewScenarios(client) {
         },
       },
       query:
-        "query OpeningList($input: Rev2ScenarioSearchInput!) {\n  rev2OpeningList(input: $input) {\n    ...ScenarioSummary\n    __typename\n  }\n  rev2ScenarioResources {\n    type\n    value\n    __typename\n  }\n}\n\nfragment ScenarioSummary on Rev2ScenarioSummary {\n  id\n  icon_url\n  source_name\n  title\n  catchphrase\n  creator {\n    id\n    penname\n    image_icon_url\n    type\n    __typename\n  }\n  state\n  type\n  is_light\n  time\n  time_type\n  discussion_days\n  current_chapter\n  difficulty\n  current_member_count\n  max_member_count\n  action_type\n  can_use_ex_playing\n  can_use_ticket\n  can_support\n  max_reserver_count_by_player\n  join_conditions\n  reserve_category {\n    ...ScenarioReserveCategory\n    __typename\n  }\n  joining_type\n  join_cost\n  join_cost_type\n  my_priority\n  __typename\n}\n\nfragment ScenarioReserveCategory on Rev2ScenarioReserveCategory {\n  id\n  name\n  description\n  max_joinable\n  rp_penalty\n  penalty_start\n  __typename\n}",
+        "query OpeningList($input: Rev2ScenarioSearchInput!) {\n  rev2OpeningList(input: $input) {\n    ...ScenarioSummary\n    __typename\n  }\n  rev2ScenarioResources {\n    type\n    value\n    __typename\n  }\n}\n\nfragment ScenarioSummary on Rev2ScenarioSummary {\n  id\n  icon_url\n  source_name\n  title\n  catchphrase\n  creator {\n    id\n    penname\n    image_icon_url\n    type\n    __typename\n  }\n  state\n  type\n  is_light\n  time\n  time_type\n  discussion_days\n  current_chapter\n  difficulty\n  current_member_count\n  rally_member_count\n  max_member_count\n  action_type\n  can_use_ex_playing\n  can_use_ticket\n  can_support\n  max_reserver_count_by_player\n  join_conditions\n  reserve_category {\n    ...ScenarioReserveCategory\n    __typename\n  }\n  joining_type\n  join_cost\n  join_cost_type\n  my_priority\n  rally_playing_start\n  rally_playing_end\n  __typename\n}\n\nfragment ScenarioReserveCategory on Rev2ScenarioReserveCategory {\n  id\n  name\n  description\n  max_joinable\n  rp_penalty\n  penalty_start\n  __typename\n}",
     };
 
     // curlの -H に相当するヘッダー
@@ -96,6 +96,7 @@ export async function checkNewScenarios(client) {
     // 3. 差分を比較し、「新規」「更新」「終了」を特定
     const scenariosToUpsert = [];
     const newScenariosForNotification = []; // 通知用の新規シナリオリスト
+    const updatedChapterScenariosForNotification = []; // ラリープレイング期間通知用
 
     for (const fetched of fetchedScenarios) {
       const existing = dbScenarioMap.get(fetched.id);
@@ -109,6 +110,7 @@ export async function checkNewScenarios(client) {
         // ★★★ ここから3行を追加 ★★★
         difficulty: fetched.difficulty,
         current_members: fetched.current_member_count,
+        rally_member_count: fetched.rally_member_count,
         // max_member_countはnullのことがあるので、適宜参照時に処理をする
         max_members: fetched.max_member_count,
         // ここに他の保存したいデータを追加　database.mjsのモデルに合わせてください
@@ -118,6 +120,8 @@ export async function checkNewScenarios(client) {
         time_type: fetched.time_type,
         catchphrase: fetched.catchphrase || null,
         join_conditions: fetched.join_conditions || null,
+        rally_playing_start: fetched.rally_playing_start || null,
+        rally_playing_end: fetched.rally_playing_end || null,
       };
 
       if (!existing) {
@@ -125,6 +129,19 @@ export async function checkNewScenarios(client) {
         scenariosToUpsert.push(newData);
         newScenariosForNotification.push(fetched); // 通知用リストにも追加
         continue;
+      }
+
+      //ラリー章の場合
+      // プレイング日時が変化したら「章更新」とみなし、通知リストに入れる
+      const hasChapterUpdate =
+        fetched.type === "ラリー" &&
+        (new Date(existing.rally_playing_start).getTime() !==
+          new Date(newData.rally_playing_start).getTime() ||
+          new Date(existing.rally_playing_end).getTime() !==
+            new Date(newData.rally_playing_end).getTime());
+
+      if (hasChapterUpdate) {
+        updatedChapterScenariosForNotification.push(fetched); // 章更新通知リストに追加
       }
 
       if (
@@ -141,7 +158,10 @@ export async function checkNewScenarios(client) {
         existing.time_type !== newData.time_type ||
         existing.catchphrase !== newData.catchphrase ||
         JSON.stringify(existing.join_conditions || []) !==
-          JSON.stringify(newData.join_conditions || [])
+          JSON.stringify(newData.join_conditions || []) ||
+        existing.rally_playing_start !== newData.rally_playing_start ||
+        existing.rally_playing_end !== newData.rally_playing_end ||
+        existing.rally_member_count !== newData.rally_member_count
       ) {
         scenariosToUpsert.push(newData);
       }
@@ -153,9 +173,18 @@ export async function checkNewScenarios(client) {
     if (scenarioResources && scenarioResources.length > 0) {
       // APIから取得した type と DBに保存する key, description のマッピング
       const keyMap = {
-        "最大レベル": { key: "rev2_max_level", description: "ロスアカの最大キャラクターレベル" },
-        "クレジット基礎値": { key: "rev2_base_credit", description: "ロスアカのシナリオ開始時クレジット基礎値" },
-        "経験値基礎値": { key: "rev2_base_exp", description: "ロスアカのシナリオ開始時経験値基礎値" }
+        最大レベル: {
+          key: "rev2_max_level",
+          description: "ロスアカの最大キャラクターレベル",
+        },
+        クレジット基礎値: {
+          key: "rev2_base_credit",
+          description: "ロスアカのシナリオ開始時クレジット基礎値",
+        },
+        経験値基礎値: {
+          key: "rev2_base_exp",
+          description: "ロスアカのシナリオ開始時経験値基礎値",
+        },
       };
 
       for (const resource of scenarioResources) {
@@ -176,7 +205,7 @@ export async function checkNewScenarios(client) {
             configRecordsToUpsert.push({
               key: configKey,
               value: parsedValue, // JSONBに数値として保存される
-              description: configDesc
+              description: configDesc,
             });
           }
         }
@@ -204,7 +233,9 @@ export async function checkNewScenarios(client) {
 
     // ★★★ 経験値・カンストのリソース周りも追加します ★★★
     if (configRecordsToUpsert.length > 0) {
-      console.log(`${configRecordsToUpsert.length}件のコンフィグ情報をDBに反映します。`);
+      console.log(
+        `${configRecordsToUpsert.length}件のコンフィグ情報をDBに反映します。`
+      );
       const { error: configUpsertError } = await supabase
         .from("app_config")
         .upsert(configRecordsToUpsert);
@@ -239,6 +270,13 @@ export async function checkNewScenarios(client) {
     // ■■■ 通知処理セクション ■■■
     // ユーザー体験を考慮し、「新規」→「終了」の順番で通知します。
 
+    const formatDateTime = (isoString) => {
+      if (!isoString) return "未設定";
+      const date = new Date(isoString);
+      // 例: 2025/09/24 10:30
+      return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+    };
+
     // ① 新規シナリオの通知
     if (newScenariosForNotification.length > 0) {
       console.log(
@@ -262,11 +300,13 @@ export async function checkNewScenarios(client) {
         };
 
         // 【新戦略】レイドと一般シナリオを分離する
-        const raidScenarios = scenariosToAnnounce.filter(
-          (s) => s.type === "レイド"
+        //レイドEX も増えたので後で増やさないとなあ分岐（レイドと一括で）
+        const raidTypes = ["レイド", "レイドEX"]; // レイド系タイプを配列で管理
+        const raidScenarios = scenariosToAnnounce.filter((s) =>
+          raidTypes.includes(s.type)
         );
         const normalScenarios = scenariosToAnnounce.filter(
-          (s) => s.type !== "レイド"
+          (s) => !raidTypes.includes(s.type)
         );
 
         // ■■■ レイド専用通知 ■■■
@@ -305,7 +345,7 @@ export async function checkNewScenarios(client) {
             const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
             const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
             const line =
-              titleLine + catchphraseText + joinConditionsText + infoLine;
+              titleLine + joinConditionsText + playingPeriodText + infoLine;
 
             if (
               descriptionText.length + line.length + 2 > charLimit &&
@@ -367,8 +407,20 @@ export async function checkNewScenarios(client) {
               s.source_name && s.source_name.trim() !== ""
                 ? `<${s.source_name}> `
                 : "";
-            const maxMemberText =
-              s.max_member_count === null ? "∞" : s.max_member_count;
+            let memberText;
+            let playingPeriodText = ""; // プレイング期間用の変数
+
+            if (s.type === "ラリー") {
+              // ラリーの場合: 現在参加中 / 既返却済
+              memberText = `${s.current_member_count}/${s.rally_member_count}人`;
+              // プレイング期間を整形して追加
+              playingPeriodText = `-# > **プレイング期間:** ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
+            } else {
+              // それ以外の場合: 現在 / 最大
+              const maxMemberText =
+                s.max_member_count === null ? "∞" : s.max_member_count;
+              memberText = `${s.current_member_count}/${maxMemberText}人`;
+            }
             const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
             const specialTimeText =
               (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
@@ -380,7 +432,7 @@ export async function checkNewScenarios(client) {
               joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
             }
             const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
-            const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+            const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${memberText}|**${statusText}**${specialTimeText}`;
             const line = titleLine + joinConditionsText + infoLine;
 
             if (
@@ -423,7 +475,37 @@ export async function checkNewScenarios(client) {
       }
       // ▲▲▲ 新規シナリオ通知ロジックここまで ▲▲▲
     }
+    //  ラリー章更新シナリオの通知
+    if (updatedChapterScenariosForNotification.length > 0) {
+      console.log(
+        `${updatedChapterScenariosForNotification.length}件のラリーシナリオで章の更新を発見！`
+      );
+      const channel = await client.channels.fetch(config.rev2ch);
 
+      for (const s of updatedChapterScenariosForNotification) {
+        const difficultyEmoji =
+          config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+          config.scenarioChecker.difficultyEmojis.DEFAULT;
+
+        const titleLine = `${difficultyEmoji}${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
+        const chapterInfoLine = `-# > **次の章のプレイング期間が公開されました！**\n`;
+        const playingPeriodLine = `-# > ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
+        const authorLine = `-# 📖${s.creator.penname}${s.creator.type}`;
+
+        const descriptionText =
+          titleLine + chapterInfoLine + playingPeriodLine + authorLine;
+
+        const embed = new EmbedBuilder()
+          .setColor("Blue") // 更新が分かりやすい色
+          .setTitle(`🔄ラリーシナリオの章更新`)
+          .setDescription(descriptionText)
+          .setTimestamp();
+
+        // 必要ならロールへのメンションを追加
+        // const rallyRoleId = "1137548892779597874";
+        await channel.send({ embeds: [embed] });
+      }
+    }
     // ② 終了シナリオの通知
     if (closedScenarioIds.length > 0) {
       let descriptionText = "";
@@ -470,7 +552,12 @@ export async function checkNewScenarios(client) {
     }
 
     // ■ 変更がなかった場合のログ ■
-    if (scenariosToUpsert.length === 0 && closedScenarioIds.length === 0 && configRecordsToUpsert.length === 0) { // configRecordsToUpsert のチェックも追加
+    if (
+      scenariosToUpsert.length === 0 &&
+      closedScenarioIds.length === 0 &&
+      configRecordsToUpsert.length === 0
+    ) {
+      // configRecordsToUpsert のチェックも追加
       console.log("シナリオまたはリソース状況の更新はありませんでした。");
     }
     await supabase.from("task_logs").upsert({

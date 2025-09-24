@@ -300,6 +300,19 @@ const Scenario = sequelize.define(
       type: DataTypes.ARRAY(DataTypes.STRING), // 文字列の配列型として定義
       allowNull: true, // データがない場合もあるのでnullを許可
     },
+    //ラリー
+    rally_playing_start: {
+      type: DataTypes.DATE, // 日付/時刻型が適切です
+      allowNull: true,
+    },
+    rally_playing_end: {
+      type: DataTypes.DATE, // 日付/時刻型が適切です
+      allowNull: true,
+    },
+    rally_member_count: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,
