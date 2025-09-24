@@ -133,12 +133,23 @@ export async function checkNewScenarios(client) {
 
       //ラリー章の場合
       // プレイング日時が変化したら「章更新」とみなし、通知リストに入れる
-      const hasChapterUpdate =
-        fetched.type === "ラリー" &&
-        (new Date(existing.rally_playing_start).getTime() !==
-          new Date(newData.rally_playing_start).getTime() ||
-          new Date(existing.rally_playing_end).getTime() !==
-            new Date(newData.rally_playing_end).getTime());
+      let hasChapterUpdate = false;
+      if (fetched.type === "ラリー") {
+        // DBの値とAPIの値を両方Dateオブジェクトに変換して比較する
+        // どちらかがnullやundefinedの場合は、正しく比較できないためgetTime()の前にチェックする
+        const existingStartDate = existing.rally_playing_start ? new Date(existing.rally_playing_start) : null;
+        const newStartDate = newData.rally_playing_start ? new Date(newData.rally_playing_start) : null;
+        const existingEndDate = existing.rally_playing_end ? new Date(existing.rally_playing_end) : null;
+        const newEndDate = newData.rally_playing_end ? new Date(newData.rally_playing_end) : null;
+
+        // getTime()はDateオブジェクトでないと呼び出せないので、nullチェックを行う
+        const startTimeChanged = (!existingStartDate && newStartDate) || (existingStartDate && !newStartDate) || (existingStartDate && newStartDate && existingStartDate.getTime() !== newStartDate.getTime());
+        const endTimeChanged = (!existingEndDate && newEndDate) || (existingEndDate && !newEndDate) || (existingEndDate && newEndDate && existingEndDate.getTime() !== newEndDate.getTime());
+
+        if (startTimeChanged || endTimeChanged) {
+          hasChapterUpdate = true;
+        }
+      }
 
       if (hasChapterUpdate) {
         updatedChapterScenariosForNotification.push(fetched); // 章更新通知リストに追加
@@ -159,8 +170,9 @@ export async function checkNewScenarios(client) {
         existing.catchphrase !== newData.catchphrase ||
         JSON.stringify(existing.join_conditions || []) !==
           JSON.stringify(newData.join_conditions || []) ||
-        existing.rally_playing_start !== newData.rally_playing_start ||
-        existing.rally_playing_end !== newData.rally_playing_end ||
+          hasChapterUpdate || //↓２つ
+        //existing.rally_playing_start !== newData.rally_playing_start ||
+        //existing.rally_playing_end !== newData.rally_playing_end ||
         existing.rally_member_count !== newData.rally_member_count
       ) {
         scenariosToUpsert.push(newData);

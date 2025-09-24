@@ -167,8 +167,28 @@ export async function execute(interaction) {
         s.source_name && s.source_name.trim() !== ""
           ? `<${s.source_name}> `
           : "";
-      const maxMemberText =
-        s.max_members === null || s.max_members === -1 ? "∞" : s.max_members;
+      let memberText;
+      let playingPeriodText = ""; // プレイング期間用の変数
+
+      if (s.type === "ラリー") {
+        // ラリーの場合: 現在参加中 / 既返却済
+        // DBには rally_member_count カラムが追加されている前提
+        memberText = `${s.current_members}/${s.rally_member_count || 0}人`;
+
+        // プレイング期間を整形して追加
+        // DBには rally_playing_start と rally_playing_end カラムが追加されている前提
+        const formatDateTime = (isoString) => {
+          if (!isoString) return "未設定";
+          const date = new Date(isoString);
+          return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+        };
+        playingPeriodText = `-# > **プレイング期間:** ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
+      } else {
+        // それ以外の場合: 現在 / 最大
+        const maxMemberText =
+          s.max_members === null || s.max_members === -1 ? "∞" : s.max_members;
+        memberText = `${s.current_members}/${maxMemberText}人`;
+      }
       const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
       const specialTimeText =
         s.time_type === "予約抽選" || s.time_type === "予約開始" //22:15でも表示する
@@ -190,10 +210,15 @@ export async function execute(interaction) {
 
       // 各パーツを定義します
       const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
-      const infoLine = `-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${s.current_members}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
+      const infoLine = `-# 📖${s.creator_penname}|${s.type}|${s.difficulty}|${memberText}|**${statusText}**${specialTimeText}`;
 
       // すべてのパーツを結合して、最終的な表示を組み立てます
-      const line = titleLine + catchphraseText + joinConditionsText + infoLine;
+      const line =
+        titleLine +
+        catchphraseText +
+        joinConditionsText +
+        playingPeriodText +
+        infoLine;
 
       if (
         descriptionText.length + line.length + 2 > charLimit &&
