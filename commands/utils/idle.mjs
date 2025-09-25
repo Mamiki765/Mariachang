@@ -1235,7 +1235,7 @@ async function handlePrestige(interaction, collector) {
       .setStyle(ButtonStyle.Danger)
   );
 
-  const confirmationMessage = await interaction.reply({
+  const confirmationMessage = await interaction.followUp({
     content:
       "# ⚠️パイナップル警報！ \n### **本当にプレステージを実行しますか？**\n精肉工場以外の工場レベルと人口がリセットされます。この操作は取り消せません！",
     components: [confirmationRow],
