@@ -380,6 +380,18 @@ export async function execute(interaction) {
         );
       }
 
+      //SP使用
+      if (idleGame.prestigePower >= 9) {
+        boostRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_show_skills") // スキル画面に切り替えるID
+            .setLabel("SPを使用")
+            .setStyle(ButtonStyle.Success)
+            .setEmoji("✨")
+            .setDisabled(isDisabled)
+        );
+      }
+
       // 250923 プレステージボタンの表示ロジック
       if (idleGame.population >= config.idle.prestige.unlockPopulation) {
         // 1. 現在の人口から、プレステージした場合に得られる新しいPPを計算
@@ -453,13 +465,89 @@ export async function execute(interaction) {
     });
 
     collector.on("collect", async (i) => {
-      if (i.customId === "idle_prestige") {
+      await i.deferUpdate();
+
+      // ★★★ どのボタンが押されても、まず最新のDB情報を取得する ★★★
+      const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+      if (!latestIdleGame) return; // 万が一データがなかったら終了
+
+      // --- 1. スキル画面への切り替え ---
+      if (i.customId === "idle_show_skills") {
+        await interaction.editReply({
+          content: " ", // contentを空にするとメッセージがスッキリします
+          embeds: [generateSkillEmbed(latestIdleGame)],
+          components: generateSkillButtons(latestIdleGame),
+        });
+        return; // 画面を切り替えたので、この回の処理は終了
+      }
+
+      // --- 2. 工場画面への切り替え ---
+      if (i.customId === "idle_show_factory") {
+        // 工場画面を描画するには、Point と Mee6Level の情報も必要なので再取得します
+        const latestPoint = await Point.findOne({ where: { userId } });
+        const mee6Level = await Mee6Level.findOne({ where: { userId } });
+        const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
+
+        // ★重要★ 再描画する際は、必ず最新のDBオブジェクトを渡してあげる
+        // (こうしないと、古い情報でUIが描画されてしまう)
+        // ※generateEmbed/Buttonsがグローバル変数に依存しないように改修すると、より安全です
+        point.legacy_pizza = latestPoint.legacy_pizza;
+        Object.assign(idleGame, latestIdleGame.dataValues);
+
+        await interaction.editReply({
+          content:
+            "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！", // 元のメッセージに戻す
+          embeds: [generateEmbed()],
+          components: generateButtons(),
+        });
+        return;
+      }
+
+      // --- 3. スキル強化の処理 ---
+      if (i.customId.startsWith("idle_upgrade_skill_")) {
+        const skillNum = i.customId.split("_").pop(); // "1", "2", "3", "4"
+        const skillLevelKey = `skillLevel${skillNum}`;
+
+        const currentLevel = latestIdleGame[skillLevelKey];
+        const cost = Math.pow(2, currentLevel);
+
+        if (latestIdleGame.skillPoints < cost) {
+          await i.followUp({ content: "SPが足りません！", ephemeral: true });
+          return; // SPが足りないだけなので、コレクターは続行
+        }
+
+        // トランザクションで安全に更新
+        try {
+          await sequelize.transaction(async (t) => {
+            // 注意: increment/decrementは使えないので、手動で計算してsaveする
+            latestIdleGame.skillPoints -= cost;
+            latestIdleGame[skillLevelKey] += 1;
+            await latestIdleGame.save({ transaction: t });
+          });
+
+          // 成功したら、更新後の情報でスキル画面を再描画
+          await interaction.editReply({
+            embeds: [generateSkillEmbed(latestIdleGame)],
+            components: generateSkillButtons(latestIdleGame),
+          });
+          await i.followUp({
+            content: `✅ スキル #${skillNum} を強化しました！`,
+            ephemeral: true,
+          });
+        } catch (error) {
+          console.error("Skill Upgrade Error:", error);
+          await i.followUp({
+            content: "❌ スキル強化中にエラーが発生しました。",
+            ephemeral: true,
+          });
+        }
+        return; // スキル強化処理はここで終わり
+      } else if (i.customId === "idle_prestige") {
         // プレステージ処理は特別なので、ここで処理して、下の施設強化ロジックには進ませない
         await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
         return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
         //遊び方
       } else if (i.customId === "idle_info") {
-        await i.deferUpdate(); //一旦考え中を入れる
         const spExplanation = `### ピザ工場の遊び方
 放置ゲーム「ピザ工場」はピザ工場を強化し、チーズピザが好きな雨宿りの珍生物「ニョワミヤ」を集めるゲーム(？)です。
 このゲームを進めるのに必要なものはゲーム内では稼げません。
@@ -485,14 +573,19 @@ export async function execute(interaction) {
         });
         return; // 解説を表示したら、このcollectイベントの処理は終了
         //全自動購入
-      } else if (i.customId === 'idle_auto_allocate') {
-        await i.deferUpdate();
+      } else if (i.customId === "idle_auto_allocate") {
         // 1. ループの準備
         const MAX_ITERATIONS = 1000; // 安全装置
         let iterations = 0;
         let totalCost = 0;
-        const levelsPurchased = { oven: 0, cheese: 0, tomato: 0, mushroom: 0, anchovy: 0 };
-        
+        const levelsPurchased = {
+          oven: 0,
+          cheese: 0,
+          tomato: 0,
+          mushroom: 0,
+          anchovy: 0,
+        };
+
         // ★★★ DBから最新のデータを取得することが非常に重要！ ★★★
         const latestPoint = await Point.findOne({ where: { userId } });
         const latestIdleGame = await IdleGame.findOne({ where: { userId } });
@@ -501,7 +594,7 @@ export async function execute(interaction) {
         while (iterations < MAX_ITERATIONS) {
           const currentChips = latestPoint.legacy_pizza;
           const costs = calculateAllCosts(latestIdleGame);
-          
+
           // 購入可能な施設をフィルタリングし、最も安いものを探す
           const affordableFacilities = Object.entries(costs)
             .filter(([name, cost]) => currentChips >= cost)
@@ -511,29 +604,39 @@ export async function execute(interaction) {
             // 購入できる施設が何もない
             break;
           }
-          
+
           const [cheapestFacilityName, cheapestCost] = affordableFacilities[0];
 
           // 3. 購入処理
           latestPoint.legacy_pizza -= cheapestCost;
           totalCost += cheapestCost;
           levelsPurchased[cheapestFacilityName]++;
-          
-          switch(cheapestFacilityName) {
-              case 'oven': latestIdleGame.pizzaOvenLevel++; break;
-              case 'cheese': latestIdleGame.cheeseFactoryLevel++; break;
-              case 'tomato': latestIdleGame.tomatoFarmLevel++; break;
-              case 'mushroom': latestIdleGame.mushroomFarmLevel++; break;
-              case 'anchovy': latestIdleGame.anchovyFactoryLevel++; break;
+
+          switch (cheapestFacilityName) {
+            case "oven":
+              latestIdleGame.pizzaOvenLevel++;
+              break;
+            case "cheese":
+              latestIdleGame.cheeseFactoryLevel++;
+              break;
+            case "tomato":
+              latestIdleGame.tomatoFarmLevel++;
+              break;
+            case "mushroom":
+              latestIdleGame.mushroomFarmLevel++;
+              break;
+            case "anchovy":
+              latestIdleGame.anchovyFactoryLevel++;
+              break;
           }
-          
+
           iterations++;
         }
-        
+
         // 4. DBへの一括保存
         await latestPoint.save();
         await latestIdleGame.save();
-        
+
         // ★★★ メインのidleGameオブジェクトにも変更を反映させる ★★★
         point.legacy_pizza = latestPoint.legacy_pizza;
         Object.assign(idleGame, latestIdleGame.dataValues);
@@ -542,31 +645,32 @@ export async function execute(interaction) {
         let summaryMessage = `**🤖 自動割り振りが完了しました！**\n- 消費チップ: ${totalCost.toLocaleString()}枚\n`;
         const purchasedList = Object.entries(levelsPurchased)
           .filter(([name, count]) => count > 0)
-          .map(([name, count]) => `- ${config.idle[name].emoji}${name}: +${count}レベル`)
-          .join('\n');
+          .map(
+            ([name, count]) =>
+              `- ${config.idle[name].emoji}${name}: +${count}レベル`
+          )
+          .join("\n");
 
         if (purchasedList.length > 0) {
-            summaryMessage += purchasedList;
+          summaryMessage += purchasedList;
         } else {
-            summaryMessage += "購入可能な施設がありませんでした。";
+          summaryMessage += "購入可能な施設がありませんでした。";
         }
 
         await i.followUp({ content: summaryMessage, flags: 64 });
 
         // 6. Embedとボタンの再描画
         await interaction.editReply({
-            embeds: [generateEmbed()],
-            components: generateButtons(),
+          embeds: [generateEmbed()],
+          components: generateButtons(),
         });
-        
+
         return;
       }
 
-      await i.deferUpdate();
-
       // ★★★ コレクター内では、必ずDBから最新のデータを再取得する ★★★
       const latestPoint = await Point.findOne({ where: { userId } });
-      const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+      //const latestIdleGame = await IdleGame.findOne({ where: { userId } });
 
       let facility, cost, facilityName;
 
@@ -1195,4 +1299,107 @@ async function handlePrestige(interaction, collector) {
       });
     }
   }
+}
+
+/**
+ * スキル強化画面のEmbedを生成する
+ * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @returns {EmbedBuilder}
+ */
+function generateSkillEmbed(idleGame) {
+  const skillLevels = {
+    s1: idleGame.skillLevel1 || 0,
+    s2: idleGame.skillLevel2 || 0,
+    s3: idleGame.skillLevel3 || 0,
+    s4: idleGame.skillLevel4 || 0,
+  };
+
+  const costs = {
+    s1: Math.pow(2, skillLevels.s1),
+    s2: Math.pow(2, skillLevels.s2),
+    s3: Math.pow(2, skillLevels.s3),
+    s4: Math.pow(2, skillLevels.s4),
+  };
+
+  const effects = {
+    // 光輝の効果を先に計算
+    radianceMultiplier: 1 + skillLevels.s4 * 0.1,
+  };
+
+  return new EmbedBuilder()
+    .setTitle("✨ スキル強化 ✨")
+    .setColor("Purple")
+    .setDescription(`現在の所持SP: **${idleGame.skillPoints.toFixed(2)}**`)
+    .addFields(
+      {
+        name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
+        value: `精肉工場以外の効果 **x${(1 + skillLevels.s1) * effects.radianceMultiplier}** → **x${(1 + skillLevels.s1 + 1) * effects.radianceMultiplier}**  (コスト: ${costs.s1} SP)`,
+      },
+      {
+        name: `#2 加速する時間 x${skillLevels.s2}`,
+        value: `ニョワミヤが増えるスピード **x${(1 + skillLevels.s2) * effects.radianceMultiplier}** → **x${(1 + skillLevels.s2 + 1) * effects.radianceMultiplier}** (コスト: ${costs.s2} SP)`,
+      },
+      {
+        name: `#3 ニョボシの怒り x${skillLevels.s3}`,
+        value: `ニョボチップ収量 **x${(1 + skillLevels.s3) * effects.radianceMultiplier}** → **x${(1 + skillLevels.s3 + 1) * effects.radianceMultiplier}**(コスト: ${costs.s3} SP)`,
+      },
+      {
+        name: `#4 【光輝10】 x${skillLevels.s4}`,
+        value: `スキル#1~3の効果 **x${effects.radianceMultiplier.toFixed(1)}** → **x${(effects.radianceMultiplier + 0.1).toFixed(1)}**(コスト: ${costs.s4} SP)`,
+      }
+    );
+}
+
+/**
+ * スキル強化画面のボタンを生成する
+ * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @returns {ActionRowBuilder[]}
+ */
+function generateSkillButtons(idleGame) {
+  // スキルレベルとコストをここで一括計算
+  const skillLevels = {
+    s1: idleGame.skillLevel1 || 0,
+    s2: idleGame.skillLevel2 || 0,
+    s3: idleGame.skillLevel3 || 0,
+    s4: idleGame.skillLevel4 || 0,
+  };
+  const costs = {
+    s1: Math.pow(2, skillLevels.s1),
+    s2: Math.pow(2, skillLevels.s2),
+    s3: Math.pow(2, skillLevels.s3),
+    s4: Math.pow(2, skillLevels.s4),
+  };
+
+  const skillRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_upgrade_skill_1")
+      .setLabel("#1強化")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(idleGame.skillPoints < costs.s1),
+    new ButtonBuilder()
+      .setCustomId("idle_upgrade_skill_2")
+      .setLabel("#2強化")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(idleGame.skillPoints < costs.s2),
+    new ButtonBuilder()
+      .setCustomId("idle_upgrade_skill_3")
+      .setLabel("#3強化")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(idleGame.skillPoints < costs.s3),
+    new ButtonBuilder()
+      .setCustomId("idle_upgrade_skill_4")
+      .setLabel("#4強化")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(idleGame.skillPoints < costs.s4)
+  );
+
+  const utilityRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_show_factory") // 工場画面に戻るためのID
+      .setLabel("工場画面に戻る")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🏭")
+  );
+
+  return [skillRow, utilityRow];
 }
