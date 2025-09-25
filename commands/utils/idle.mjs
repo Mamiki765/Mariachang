@@ -126,17 +126,34 @@ export async function execute(interaction) {
     const generateEmbed = (isFinal = false) => {
       //プレステージボーナス
       const pp = idleGame.prestigePower || 0; //未定義で0
+      // スキル効果
+      const skillLevels = {
+        s1: idleGame.skillLevel1 || 0,
+        s2: idleGame.skillLevel2 || 0,
+        s3: idleGame.skillLevel3 || 0,
+        s4: idleGame.skillLevel4 || 0,
+      };
+
+      const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
+      const skill1Effect = (1 + skillLevels.s1) * radianceMultiplier;
+      const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
+      const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
       // 最新のDBオブジェクトから値を読み出す
-      const ovenEffect = idleGame.pizzaOvenLevel + pp;
+      //スキル1は表示ではこちらにかける
+      const ovenEffect = (idleGame.pizzaOvenLevel + pp) * skill1Effect;
       const cheeseEffect =
-        1 + config.idle.cheese.effect * (idleGame.cheeseFactoryLevel + pp);
+        (1 + config.idle.cheese.effect * (idleGame.cheeseFactoryLevel + pp)) *
+        skill1Effect;
       const meatEffect = 1 + config.idle.meat.effect * (meatFactoryLevel + pp);
       const tomatoEffect =
-        1 + config.idle.tomato.effect * (idleGame.tomatoFarmLevel + pp);
+        (1 + config.idle.tomato.effect * (idleGame.tomatoFarmLevel + pp)) *
+        skill1Effect;
       const mushroomEffect =
-        1 + config.idle.mushroom.effect * (idleGame.mushroomFarmLevel + pp);
+        (1 + config.idle.mushroom.effect * (idleGame.mushroomFarmLevel + pp)) *
+        skill1Effect;
       const anchovyEffect =
-        1 + config.idle.anchovy.effect * (idleGame.anchovyFactoryLevel + pp);
+        (1 + config.idle.anchovy.effect * (idleGame.anchovyFactoryLevel + pp)) *
+        skill1Effect;
       //バフも乗るように
       const productionPerMinute =
         Math.pow(
@@ -146,11 +163,20 @@ export async function execute(interaction) {
             mushroomEffect *
             anchovyEffect,
           meatEffect
-        ) * idleGame.buffMultiplier;
+        ) *
+        idleGame.buffMultiplier *
+        skill2Effect; //スキル2
+      //スキル2表記用
+      const skill2EffectDisplay =
+        skill2Effect > 1 ? `× ${skill2Effect.toFixed(1)}` : "";
       let pizzaBonusPercentage = 0;
       if (idleGame.population >= 1) {
         pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp; //チップボーナスにもPP
+      } else if (pp > 0) {
+        pizzaBonusPercentage = pp; //プレステージ直後に0になる不具合の修正
       }
+      // スキル3の効果を適用
+      pizzaBonusPercentage = (100 + pizzaBonusPercentage) * skill3Effect - 100;
 
       let productionString;
       if (productionPerMinute >= 100) {
@@ -240,7 +266,7 @@ export async function execute(interaction) {
             inline: true,
           },
           {
-            name: "<:nyobosi:1293141862634229811>ブースト",
+            name: "🔥ブースト",
             value: buffField ? buffField : "ブースト切れ", //ここを見てる時点で24時間あるはずだが念のため
             inline: true,
           },
@@ -248,7 +274,7 @@ export async function execute(interaction) {
             name: "計算式",
             value: `(${ovenEffect.toFixed(1)} × ${cheeseEffect.toFixed(
               2
-            )} × ${tomatoEffect.toFixed(2)} × ${mushroomEffect.toFixed(3)} × ${anchovyEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}`,
+            )} × ${tomatoEffect.toFixed(2)} × ${mushroomEffect.toFixed(3)} × ${anchovyEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}${skill2EffectDisplay}`,
           },
           {
             name: "毎分の増加予測",
@@ -378,10 +404,7 @@ export async function execute(interaction) {
             .setEmoji("1416912717725438013")
             .setDisabled(isDisabled)
         );
-      }
-
-      //SP使用
-      if (idleGame.prestigePower >= 9) {
+      //SP強化
         boostRow.addComponents(
           new ButtonBuilder()
             .setCustomId("idle_show_skills") // スキル画面に切り替えるID
@@ -991,6 +1014,19 @@ export async function updateUserIdleGame(userId) {
   //プレステージパワーを代入
   const pp = idleGame.prestigePower || 0;
 
+  // スキル効果の計算
+  const skillLevels = {
+    s1: idleGame.skillLevel1 || 0,
+    s2: idleGame.skillLevel2 || 0,
+    s3: idleGame.skillLevel3 || 0,
+    s4: idleGame.skillLevel4 || 0,
+  };
+  //#4は#1~3強化なので以下の様に
+  const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
+  const skill1Effect = (1 + skillLevels.s1) * radianceMultiplier;
+  const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
+  const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
+
   // --- 既存のオフライン計算ロジックを、ほぼそのまま持ってくる ---
   const mee6Level = await Mee6Level.findOne({ where: { userId } });
   const meatFactoryLevel = (mee6Level ? mee6Level.level : 0) + pp; //ppはこっちで足す
@@ -1016,11 +1052,19 @@ export async function updateUserIdleGame(userId) {
   // ((基礎*乗算)^指数)*ブースト
   // 250912乗算にトマト追加
   // 250921乗数にアンチョビとキノコ追加
+  // 250925プレステージスキル#1 #2追加 #1効果^5を掛ける事で５施設N倍を再現
   const productionPerMinute =
     Math.pow(
-      ovenEffect * cheeseEffect * tomatoEffect * mushroomEffect * anchovyEffect,
+      ovenEffect *
+        cheeseEffect *
+        tomatoEffect *
+        mushroomEffect *
+        anchovyEffect *
+        Math.pow(skill1Effect, 5),
       meatEffect
-    ) * currentBuffMultiplier;
+    ) *
+    currentBuffMultiplier *
+    skill2Effect;
 
   if (elapsedSeconds > 0) {
     const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
@@ -1035,8 +1079,10 @@ export async function updateUserIdleGame(userId) {
     pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp;
   } else if (pp > 0) {
     // 人口が1未満でもPPボーナスは有効
-    pizzaBonusPercentage = 1 + pp;
+    pizzaBonusPercentage = pp; //250925何故かpp+1になってたのでppに修正(0ならPP分だけ)
   }
+  //スキル#3効果計算
+  pizzaBonusPercentage = (100 + pizzaBonusPercentage) * skill3Effect - 100;
   // 計算した最新のボーナス値をDBに保存する
   // これにより、他の機能（ピザ配りなど）が常に最新のボーナス値を参照できる
   idleGame.pizzaBonusPercentage = pizzaBonusPercentage;
@@ -1329,7 +1375,7 @@ function generateSkillEmbed(idleGame) {
   return new EmbedBuilder()
     .setTitle("✨ スキル強化 ✨")
     .setColor("Purple")
-    .setDescription(`現在の所持SP: **${idleGame.skillPoints.toFixed(2)}**`)
+    .setDescription(`現在の所持SP: **${idleGame.skillPoints.toFixed(2)}**\n(初回は#1強化を強く推奨します)`)
     .addFields(
       {
         name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
