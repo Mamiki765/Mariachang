@@ -103,18 +103,46 @@ export async function execute(interaction) {
     await updateUserIdleGame(userId);
     // ★★★ ピザ窯覗きバフ処理 ★★★
     const now = new Date();
-    if (!idleGame.buffExpiresAt || idleGame.buffExpiresAt < now) {
-      // バフなし or 切れていた場合 → 新しく24hバフ付与
-      idleGame.buffMultiplier = 2.0;
-      idleGame.buffExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      await idleGame.save();
-    } else {
-      // バフ中 → 残りが24h未満ならリセット
-      const remaining = idleGame.buffExpiresAt - now;
-      if (remaining < 24 * 60 * 60 * 1000) {
-        idleGame.buffExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        await idleGame.save();
+    let needsSave = false; // DBに保存する必要があるかを記録するフラグ
+
+    // --- ステップ1：倍率の決定 ---
+    // まず、現在の状態に基づいた「あるべき倍率」を計算する
+    let correctMultiplier = 2.0;
+    if (idleGame.prestigeCount === 0 && idleGame.population <= 1000000) {
+      correctMultiplier = 3.0;
+    } else if (idleGame.prestigeCount === 0) {
+      correctMultiplier = 2.5;
+    }
+
+    // もし、DBに保存されている倍率と「あるべき倍率」が違ったら、更新する
+    if (idleGame.buffMultiplier !== correctMultiplier) {
+      idleGame.buffMultiplier = correctMultiplier;
+      needsSave = true; // 変更があったので保存フラグを立てる
+    }
+
+    // --- ステップ2：時間の決定 ---
+    // バフが切れているか、残り24時間を切っているか
+    if (
+      !idleGame.buffExpiresAt ||
+      idleGame.buffExpiresAt < now ||
+      idleGame.buffExpiresAt - now < 24 * 60 * 60 * 1000
+    ) {
+      // 新しい有効期限を設定する
+      const newExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      // もし、DBに保存されている有効期限と違ったら、更新する
+      // (初回付与や時間リセットの場合、必ずこの条件に合致する)
+      if (idleGame.buffExpiresAt?.getTime() !== newExpiresAt.getTime()) {
+        idleGame.buffExpiresAt = newExpiresAt;
+        needsSave = true; // 変更があったので保存フラグを立てる
       }
+    }
+    // (残り24時間以上の場合は、何もしない)
+
+    // --- ステップ3：保存の実行 ---
+    // もし、倍率か時間のどちらかに変更があった場合のみ、DBに保存する
+    if (needsSave) {
+      await idleGame.save();
     }
     //Mee6レベル取得
     const mee6Level = await Mee6Level.findOne({ where: { userId } });
@@ -404,7 +432,7 @@ export async function execute(interaction) {
             .setEmoji("1416912717725438013")
             .setDisabled(isDisabled)
         );
-      //SP強化
+        //SP強化
         boostRow.addComponents(
           new ButtonBuilder()
             .setCustomId("idle_show_skills") // スキル画面に切り替えるID
@@ -569,6 +597,10 @@ export async function execute(interaction) {
         // プレステージ処理は特別なので、ここで処理して、下の施設強化ロジックには進ませない
         await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
         return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
+      } else if (i.customId === "idle_skill_reset") {
+        // スキルリセット
+        await handleSkillReset(i, collector);
+        return;
         //遊び方
       } else if (i.customId === "idle_info") {
         const spExplanation = `### ピザ工場の遊び方
@@ -585,10 +617,9 @@ export async function execute(interaction) {
 1億匹に到達すると、パイナップル農場を稼働できます。（プレステージ）
 プレステージすると人口と工場のLvは0になりますが、到達した最高人口に応じたPPとSPを得ることができます。
 - PP:プレステージパワー、工場のLVとニョボチップ獲得%が増える他、一定値貯まると色々解禁される。
-  - PP8:3施設の人口制限解除。「施設適当強化」解禁
-  - PP9:「スキル」の解禁（未実装）
+  - PP8:3施設の人口制限解除。「施設適当強化」「スキル」解禁
+  （PPのマイルストーンはまだまだ未実装です）
 - SP:スキルポイント。消費する事で強力なスキルが習得できる。
-(PPとSPスキルはまだまだ未実装です。)
 `;
         await i.followUp({
           content: spExplanation,
@@ -1375,7 +1406,9 @@ function generateSkillEmbed(idleGame) {
   return new EmbedBuilder()
     .setTitle("✨ スキル強化 ✨")
     .setColor("Purple")
-    .setDescription(`現在の所持SP: **${idleGame.skillPoints.toFixed(2)}**\n(初回は#1強化を強く推奨します)`)
+    .setDescription(
+      `現在の所持SP: **${idleGame.skillPoints.toFixed(2)}**\n(初回は#1強化を強く推奨します)`
+    )
     .addFields(
       {
         name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
@@ -1436,7 +1469,20 @@ function generateSkillButtons(idleGame) {
       .setCustomId("idle_upgrade_skill_4")
       .setLabel("#4強化")
       .setStyle(ButtonStyle.Primary)
-      .setDisabled(idleGame.skillPoints < costs.s4)
+      .setDisabled(idleGame.skillPoints < costs.s4),
+    new ButtonBuilder()
+      .setCustomId("idle_skill_reset") // 新しいID
+      .setLabel("スキルリセット")
+      .setStyle(ButtonStyle.Danger) // 危険な操作なので赤色に
+      .setEmoji("🔄")
+      // SPが1以上、または何かしらのスキルが振られていないと押せないようにする
+      .setDisabled(
+        idleGame.skillPoints < 1 &&
+          idleGame.skillLevel1 === 0 &&
+          idleGame.skillLevel2 === 0 &&
+          idleGame.skillLevel3 === 0 &&
+          idleGame.skillLevel4 === 0
+      )
   );
 
   const utilityRow = new ActionRowBuilder().addComponents(
@@ -1448,4 +1494,116 @@ function generateSkillButtons(idleGame) {
   );
 
   return [skillRow, utilityRow];
+}
+
+/**
+ * スキルレベルから、そのスキルに費やされた合計SPを計算する
+ * (2^0 + 2^1 + ... + 2^(レベル-1)) = 2^レベル - 1
+ * @param {number} level - スキルの現在のレベル
+ * @returns {number} 消費された合計SP
+ */
+function calculateSpentSP(level) {
+  if (level <= 0) return 0;
+  return Math.pow(2, level) - 1;
+}
+
+/**
+ * スキルと工場のリセットを担当する関数
+ * @param {import("discord.js").ButtonInteraction} interaction - リセットボタンのインタラクション
+ * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
+ */
+async function handleSkillReset(interaction, collector) {
+  // 1. コレクターを止めて、ボタン操作をリセット
+  collector.stop();
+
+  // 2. 確認メッセージを作成
+  const confirmationRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("skill_reset_confirm_yes")
+      .setLabel("はい、リセットします")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId("skill_reset_confirm_no")
+      .setLabel("いいえ、やめておきます")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  // ★★★ .followUp() を使うのが重要！ ★★★
+  const confirmationMessage = await interaction.followUp({
+    content:
+      "### ⚠️ **本当にスキルをリセットしますか？**\n消費したSPは全て返還されますが、精肉工場以外の工場レベルと人口も含めて**全てリセット**されます。この操作は取り消せません！",
+    components: [confirmationRow],
+    flags: 64,
+    fetchReply: true,
+  });
+
+  try {
+    // 3. ユーザーの応答を待つ
+    const confirmationInteraction =
+      await confirmationMessage.awaitMessageComponent({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 60_000,
+      });
+
+    if (confirmationInteraction.customId === "skill_reset_confirm_no") {
+      await confirmationInteraction.update({
+        content: "スキルリセットをキャンセルしました。",
+        components: [],
+      });
+      return;
+    }
+
+    // --- 「はい」が押された場合 ---
+    await confirmationInteraction.deferUpdate();
+
+    let refundedSP = 0;
+
+    // 4. トランザクションで安全にデータベースを更新
+    await sequelize.transaction(async (t) => {
+      const latestIdleGame = await IdleGame.findOne({
+        where: { userId: interaction.user.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      // 5. 返還するSPを計算
+      const spent1 = calculateSpentSP(latestIdleGame.skillLevel1);
+      const spent2 = calculateSpentSP(latestIdleGame.skillLevel2);
+      const spent3 = calculateSpentSP(latestIdleGame.skillLevel3);
+      const spent4 = calculateSpentSP(latestIdleGame.skillLevel4);
+      const totalRefundSP = spent1 + spent2 + spent3 + spent4;
+      refundedSP = totalRefundSP; // メッセージ表示用に保存
+
+      // 6. データベースの値を更新
+      await latestIdleGame.update(
+        {
+          population: 0,
+          pizzaOvenLevel: 0,
+          cheeseFactoryLevel: 0,
+          tomatoFarmLevel: 0,
+          mushroomFarmLevel: 0,
+          anchovyFactoryLevel: 0,
+          skillLevel1: 0,
+          skillLevel2: 0,
+          skillLevel3: 0,
+          skillLevel4: 0,
+          skillPoints: latestIdleGame.skillPoints + totalRefundSP,
+          lastUpdatedAt: new Date(),
+        },
+        { transaction: t }
+      );
+    });
+
+    // 7. 成功メッセージを送信
+    await confirmationInteraction.editReply({
+      content: `🔄 **スキルと工場をリセットしました！**\n**${refundedSP.toFixed(2)} SP** が返還されました。`,
+      components: [],
+    });
+  } catch (error) {
+    // タイムアウトなどのエラー処理
+    await interaction.editReply({
+      content: "タイムアウトしました。リセットはキャンセルされました。",
+      components: [],
+    });
+  }
 }
