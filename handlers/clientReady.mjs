@@ -8,6 +8,8 @@ import { checkNewScenarios } from "../tasks/scenario-checker.mjs"; // シナリ�
 import { checkAtelierCards } from "../tasks/atelier-checker.mjs"; // エクストラカードのチェック
 // データベースの同期
 import { syncModels } from "../models/database.mjs";
+//実績
+import { initializeAchievementSystem } from "../utils/achievements.mjs";
 //ログボボタン
 import { acornLoginButton } from "../components/buttons.mjs";
 //発言チップ
@@ -116,6 +118,7 @@ export default async (client) => {
     console.log(
       "[DB]Database synchronized successfully. Proceeding with tasks."
     );
+    initializeAchievementSystem();
   } catch (error) {
     console.error(
       "[FATAL ERROR][DB]CRITICAL: Database sync failed on startup. Halting scheduled tasks.",

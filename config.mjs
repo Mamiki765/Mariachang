@@ -722,27 +722,44 @@ export default {
       unlockPopulation: 100_0000, // 人口100万で解禁
     },
     mushroom: {
-    emoji: "🍄",
-    baseCost: 1000,       // 初期コスト
-    multiplier: 1.115,    // コスト成長率
-    effect: 0.025,        // 1レベルあたりの効果 (+2.5%)
-    unlockPopulation: 1000_0000, // 人口1000万で解禁 
-  },
-  anchovy: {
-    emoji: "🐟",
-    baseCost: 1500,       // 初期コスト
-    multiplier: 1.11,     // コスト成長率
-    effect: 0.02,         // 1レベルあたりの効果 (+2%)
-    unlockPopulation: 1_0000_0000, // 人口1億で解禁 
-  },
+      emoji: "🍄",
+      baseCost: 1000, // 初期コスト
+      multiplier: 1.115, // コスト成長率
+      effect: 0.025, // 1レベルあたりの効果 (+2.5%)
+      unlockPopulation: 1000_0000, // 人口1000万で解禁
+    },
+    anchovy: {
+      emoji: "🐟",
+      baseCost: 1500, // 初期コスト
+      multiplier: 1.11, // コスト成長率
+      effect: 0.02, // 1レベルあたりの効果 (+2%)
+      unlockPopulation: 1_0000_0000, // 人口1億で解禁
+    },
     meat: {
       emoji: "🍖",
       effect: 0.01, // 1レベルあたりの効果 (^1.01)
     },
-    prestige :{
+    prestige: {
       emoji: "🍍",
-      unlockPopulation: 1_0000_0000, // 人口1億で解禁 
+      unlockPopulation: 1_0000_0000, // 人口1億で解禁
       spBaseDeduction: 7, // 初回SP計算時の基礎控除値
     },
+    achievements: [
+      {
+        id: 0,
+        name: "ようこそピザ工場へ！",
+        description: "初めてピザ工場を訪れ、自分の工場を設立した。",
+        effect: "取得した実績数に応じ、全ての施設を強化。", // 実績そのものが1つにつきoven~anchovy+1% meat+0.01効果なので実績0で出る様に見せる
+        reward: {}
+      },
+      // 今後、ここに実績をどんどん追加していきます
+      // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）", reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
+    ],
   },
+    achievementNotification: {
+    // 'public', 'dm', 'none' から選択
+    mode: 'public', 
+    // modeが 'public' の場合に通知を送るチャンネルID
+    channelId: isProduction ? "1421521075337953321" : debugConfig.channel,
+  }
 };

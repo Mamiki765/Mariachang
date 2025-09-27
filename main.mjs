@@ -13,6 +13,7 @@ import {
 import CommandsRegister from "./regist-commands.mjs";
 import config from "./config.mjs";
 import { closeDatabase } from "./models/database.mjs";
+import { shutdownAchievementSystem } from "./utils/achievements.mjs";
 
 // クラッシュ時にログを残す
 process.on("uncaughtException", (error, origin) => {
@@ -269,6 +270,13 @@ async function gracefulShutdown(signal) {
     console.log("[Shutdown] Discord client destroyed.");
   } catch (err) {
     console.error("[Shutdown] Error destroying Discord client:", err);
+  }
+
+  //2.5 . 実績機能を最後に更新（250927追加）
+  try {
+    await shutdownAchievementSystem();
+  } catch (err) {
+    console.error("[Shutdown] Error shutting down achievement system:", err);
   }
 
   // 3. データベース接続を閉じる

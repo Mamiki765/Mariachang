@@ -553,6 +553,12 @@ const IdleGame = sequelize.define(
       allowNull: false,
       defaultValue: 0, // デフォルト値は0%
     },
+    //実績
+    achievements: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: { unlocked: [], progress: {} }, // 初期値
+    },
     // 最後に資源計算を反映した時刻
     lastUpdatedAt: {
       type: DataTypes.DATE,

@@ -14,6 +14,7 @@ import {
 } from "../../models/database.mjs";
 import { Op } from "sequelize";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
+import { tryUnlockAchievement } from "../../utils/achievements.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
  * 基本施設：ピザ窯
@@ -101,6 +102,8 @@ export async function execute(interaction) {
     });
     //オフライン計算
     await updateUserIdleGame(userId);
+    //実績0解除
+    await tryUnlockAchievement(userId, 0);
     // ★★★ ピザ窯覗きバフ処理 ★★★
     const now = new Date();
     let needsSave = false; // DBに保存する必要があるかを記録するフラグ
@@ -152,6 +155,12 @@ export async function execute(interaction) {
 
     // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
     const generateEmbed = (isFinal = false) => {
+      // 実績数を取得（データがないユーザーのために安全に）
+      const achievementCount = idleGame.achievements?.unlocked?.length || 0;
+      // 実績による乗算ボーナス (1実績あたり+1%)
+      const achievementMultiplier = 1.0 + achievementCount * 0.01;
+      // 実績による指数ボーナス (1実績あたりLv+1)
+      const achievementExponentBonus = achievementCount;
       //プレステージボーナス
       const pp = idleGame.prestigePower || 0; //未定義で0
       // スキル効果
@@ -163,7 +172,8 @@ export async function execute(interaction) {
       };
 
       const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
-      const skill1Effect = (1 + skillLevels.s1) * radianceMultiplier;
+      const skill1Effect =
+        (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier; //実績補正
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
       const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
       // 最新のDBオブジェクトから値を読み出す
@@ -172,7 +182,10 @@ export async function execute(interaction) {
       const cheeseEffect =
         (1 + config.idle.cheese.effect * (idleGame.cheeseFactoryLevel + pp)) *
         skill1Effect;
-      const meatEffect = 1 + config.idle.meat.effect * (meatFactoryLevel + pp);
+      const meatEffect =
+        1 +
+        config.idle.meat.effect *
+          (meatFactoryLevel + pp + achievementExponentBonus); //実績補正
       const tomatoEffect =
         (1 + config.idle.tomato.effect * (idleGame.tomatoFarmLevel + pp)) *
         skill1Effect;
@@ -1045,6 +1058,11 @@ export async function updateUserIdleGame(userId) {
   //プレステージパワーを代入
   const pp = idleGame.prestigePower || 0;
 
+  //実績を代入
+  const achievementCount = idleGame.achievements?.unlocked?.length || 0;
+  const achievementMultiplier = 1.0 + achievementCount * 0.01;
+  const achievementExponentBonus = achievementCount;
+
   // スキル効果の計算
   const skillLevels = {
     s1: idleGame.skillLevel1 || 0,
@@ -1054,13 +1072,13 @@ export async function updateUserIdleGame(userId) {
   };
   //#4は#1~3強化なので以下の様に
   const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
-  const skill1Effect = (1 + skillLevels.s1) * radianceMultiplier;
+  const skill1Effect = (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier;//実績も乗せる
   const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
   const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
 
   // --- 既存のオフライン計算ロジックを、ほぼそのまま持ってくる ---
   const mee6Level = await Mee6Level.findOne({ where: { userId } });
-  const meatFactoryLevel = (mee6Level ? mee6Level.level : 0) + pp; //ppはこっちで足す
+  const meatFactoryLevel = (mee6Level ? mee6Level.level : 0) + pp + achievementExponentBonus; //ppはこっちで足す、実績も！
   const now = new Date();
 
   const lastUpdate = idleGame.lastUpdatedAt || now;
