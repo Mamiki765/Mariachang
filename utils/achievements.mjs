@@ -1,87 +1,54 @@
 // utils/achievements.mjs
+
 import { IdleGame } from "../models/database.mjs";
 import config from "../config.mjs";
 import { EmbedBuilder } from "discord.js";
 
-// --- モジュール内変数 (外部から直接アクセスさせない) ---
+/**
+ * @summary 実績を解除し、まとめて通知する万能関数。
+ * @description 指定されたIDの実績解除を試みます。新しく解除された実績があった場合、
+ *              configの設定に基づいて通知を送信します。
+ *              レート制限を防ぐため、一度に複数の実績が解除されても通知は1回にまとめられます。
+ *              内部でキャッシュ管理されており、一定時間ごとにDBにまとめて保存されます。
+ * @param {Client} client - Discordのクライアントオブジェクト。
+ * @param {string} userId - 実績を解除するユーザーのID。
+ * @param {...number} achievementIds - 解除を試みる実績のID。単独でも複数でも渡せます。
+ * @example
+ * // 単独の実績IDを渡す場合
+ * await unlockAchievements(client, userId, 1);
+ *
+ * // 複数の実績IDを配列で渡す場合 (スプレッド構文 ... を使う)
+ * const ids = [3, 4, 5];
+ * await unlockAchievements(client, userId, ...ids);
+ */
+
+
+// --- モジュール内変数 ---
 const achievementCache = new Map();
 const dirtyUsers = new Set();
 let saveIntervalId = null;
 
-// ★★★ ここから新しい通知関数を追加 ★★★
-/**
- * ユーザーに実績解除を通知する
- * @param {Client} client - Discordクライアント
- * @param {string} userId - ユーザーID
- * @param {object} achievement - 解除した実績オブジェクト
- */
-async function notifyUserAchievement(client, userId, achievement) {
-  const { mode, channelId } = config.achievementNotification;
-  if (mode === 'none') return; // 通知しない設定なら何もしない
-
-  const embed = new EmbedBuilder()
-    .setColor("Gold")
-    .setTitle("🎉 実績解除！")
-    .setDescription(`<@${userId}> が新しい実績を達成しました！`)
-    .addFields(
-        { name: achievement.name, value: `> ${achievement.description}` }
-    )
-    .setFooter({text: "効果は1分後に反映されます。"})
-    .setTimestamp();
-
-  if (mode === 'public') {
-    try {
-      const channel = await client.channels.fetch(channelId);
-      if (channel?.isTextBased()) {
-        await channel.send({ content: `<@${userId}>`, embeds: [embed] });
-      }
-    } catch (error) {
-      console.error(`[Achievement] 公開通知の送信に失敗しました (Channel: ${channelId})`, error);
-    }
-  } else if (mode === 'dm') {
-    try {
-      const user = await client.users.fetch(userId);
-      await user.send({ embeds: [embed] });
-    } catch (error) {
-      // ユーザーがDMを拒否している場合など
-      console.error(`[Achievement] DM通知の送信に失敗しました (User: ${userId})`, error);
-    }
-  }
-}
-
 // --- 内部関数 ---
 
-/**
- * キャッシュにユーザーの実績データがなければDBから読み込む
- */
 async function loadUserAchievements(userId) {
   if (achievementCache.has(userId)) {
     return achievementCache.get(userId);
   }
-
   const idleGame = await IdleGame.findOne({ where: { userId }, attributes: ['achievements', 'userId'] });
   if (!idleGame) return null;
-
-  const achievements = idleGame.achievements;
-  achievementCache.set(userId, achievements);
-  return achievements;
+  achievementCache.set(userId, idleGame.achievements);
+  return idleGame.achievements;
 }
 
-/**
- * 未保存のユーザーデータをDBに一括で保存する
- */
 async function saveDirtyUsers() {
   if (dirtyUsers.size === 0) return;
-
   const usersToSave = [...dirtyUsers];
   dirtyUsers.clear();
   console.log(`[AchievementCache] ${usersToSave.length}件のユーザー実績データをDBに保存します...`);
-
   try {
     await Promise.all(usersToSave.map(async (userId) => {
       if (!achievementCache.has(userId)) return;
-      const achievements = achievementCache.get(userId);
-      await IdleGame.update({ achievements }, { where: { userId } });
+      await IdleGame.update({ achievements: achievementCache.get(userId) }, { where: { userId } });
     }));
     console.log(`[AchievementCache] 保存が完了しました。`);
   } catch (error) {
@@ -90,20 +57,32 @@ async function saveDirtyUsers() {
   }
 }
 
+/**
+ * 【内部用】実績解除とキャッシュ更新だけを行う
+ * @returns {Promise<object|null>} 新しく解除した場合、実績オブジェクトを返す
+ */
+async function _tryUnlockAchievement(userId, achievementId) {
+  const achievements = await loadUserAchievements(userId);
+  if (!achievements || achievements.unlocked.includes(achievementId)) return null;
+
+  const achievement = config.idle.achievements.find(a => a.id === achievementId);
+  if (!achievement) return null;
+
+  achievements.unlocked.push(achievementId);
+  dirtyUsers.add(userId);
+  console.log(`[Achievement] ${userId} が「${achievement.name}」を解除！`);
+  return achievement;
+}
+
+
 // --- 公開するインターフェース ---
 
-/**
- * 実績キャッシュシステムの初期化
- */
 export function initializeAchievementSystem() {
   if (saveIntervalId) clearInterval(saveIntervalId);
   saveIntervalId = setInterval(saveDirtyUsers, 60_000);
   console.log('[AchievementCache] 実績キャッシュシステムが初期化されました。');
 }
 
-/**
- * アプリケーション終了時に呼ばれるべき関数
- */
 export async function shutdownAchievementSystem() {
   console.log('[AchievementCache] シャットダウン処理を開始します...');
   clearInterval(saveIntervalId);
@@ -112,28 +91,64 @@ export async function shutdownAchievementSystem() {
 }
 
 /**
- * 特定の実績を解除しようと試みる
- * ★ client を第一引数に追加する
- * @param {Client} client - Discordクライアント
- * @param {string} userId - ユーザーID
- * @param {number} achievementId - 実績ID
- * @returns {Promise<object|null>}
+ * 【外部から呼ぶ本命】実績を解除し、まとめて通知する
+ * @param {Client} client
+ * @param {string} userId
+ * @param {...number} achievementIds - 解除したい実績IDをカンマ区切りで好きなだけ渡せる
  */
-export async function tryUnlockAchievement(client, userId, achievementId) { // ★ ここ！
-  const achievements = await loadUserAchievements(userId);
-  if (!achievements) return null;
+export async function unlockAchievements(client, userId, ...achievementIds) {
+  const newlyUnlocked = [];
+  for (const id of achievementIds) {
+    const unlocked = await _tryUnlockAchievement(userId, id);
+    if (unlocked) {
+      newlyUnlocked.push(unlocked);
+    }
+  }
 
-  if (achievements.unlocked.includes(achievementId)) return null;
+  if (newlyUnlocked.length === 0) return;
 
-  const achievement = config.idle.achievements.find(a => a.id === achievementId);
-  if (!achievement) return null;
+  // --- 通知処理 ---
+  const { mode, channelId } = config.achievementNotification;
+  if (mode === 'none') return;
 
-  achievements.unlocked.push(achievementId);
-  dirtyUsers.add(userId);
+  let embed;
+  if (newlyUnlocked.length === 1) {
+    const ach = newlyUnlocked[0];
+    embed = new EmbedBuilder()
+      .setColor("Gold")
+      .setTitle("🎉 実績解除！")
+      .setDescription(`<@${userId}> が新しい実績を達成しました！`)
+      .addFields({ 
+          name: ach.name, 
+          value: `> ${ach.description}${ach.effect ? `\n\n__${ach.effect}__` : ''}`
+      })
+      .setFooter({text: "効果は1分後に反映されます。"})
+      .setTimestamp();
+  } else {
+    embed = new EmbedBuilder()
+      .setColor("Gold")
+      .setTitle("🎉 複数の実績を同時に達成！")
+      .setDescription(`<@${userId}> が **${newlyUnlocked.length}個** の実績をまとめて達成しました！`)
+      .addFields(
+        newlyUnlocked.map(ach => ({
+          name: `✅ ${ach.name}`,
+          value: `> ${ach.description}${ach.effect ? `\n\n__${ach.effect}__` : ''}`
+        }))
+      )
+      .setFooter({text: "効果は1分後に反映されます。"})
+      .setTimestamp();
+  }
 
-  console.log(`[Achievement] ${userId} が実績「${achievement.name}」を解除！ (次回のバッチで保存されます)`);
-  
-  await notifyUserAchievement(client, userId, achievement); 
-  
-  return achievement;
+  const content = `<@${userId}>`;
+  if (mode === 'public') {
+    try {
+      const channel = await client.channels.fetch(channelId);
+      await channel.send({ content, embeds: [embed] });
+    } catch (error) { console.error(`[Achievement] 公開通知(バッチ)の送信に失敗`, error); }
+  } else if (mode === 'dm') {
+    try {
+      const user = await client.users.fetch(userId);
+      await user.send({ embeds: [embed] });
+    } catch (error) { console.error(`[Achievement] DM通知(バッチ)の送信に失敗`, error); }
+  }
 }

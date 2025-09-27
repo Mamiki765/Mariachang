@@ -14,7 +14,7 @@ import {
 } from "../../models/database.mjs";
 import { Op } from "sequelize";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
-import { tryUnlockAchievement } from "../../utils/achievements.mjs";
+import { unlockAchievements } from "../../utils/achievements.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
  * 基本施設：ピザ窯
@@ -102,8 +102,28 @@ export async function execute(interaction) {
     });
     //オフライン計算
     await updateUserIdleGame(userId);
-    //実績0解除
-    await tryUnlockAchievement(interaction.client, userId, 0);
+    //--------------
+    //人口系実績
+    //--------------
+    const populationChecks = [
+      { id: 0, condition: true }, // 「ようこそ」は常にチェック
+      { id: 3, condition: idleGame.population >= 100 },
+      { id: 5, condition: idleGame.population >= 10000 },
+      { id: 6, condition: idleGame.population >= 1000000 },
+      { id: 8, condition: idleGame.population >= 10000000 },
+      { id: 10, condition: idleGame.population >= 100000000 },
+      { id: 19, condition: idleGame.population >= 1e9 }, // 10億
+      { id: 20, condition: idleGame.population >= 1e10 }, // 100億
+      { id: 21, condition: idleGame.population >= 1e14 }, // 100兆
+      { id: 22, condition: idleGame.population >= 9007199254740991 }, // Number.MAX_SAFE_INTEGER
+      // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
+    ];
+    const idsToCheck = populationChecks
+      .filter((p) => p.condition)
+      .map((p) => p.id);
+    await unlockAchievements(interaction.client, userId, ...idsToCheck);
+    //人口系実績ここまで
+
     // ★★★ ピザ窯覗きバフ処理 ★★★
     const now = new Date();
     let needsSave = false; // DBに保存する必要があるかを記録するフラグ
@@ -246,8 +266,8 @@ export async function execute(interaction) {
         )} 匹**
 最高人口: ${formatNumberJapanese(
           Math.floor(idleGame.highestPopulation)
-        )} 匹 PP: **${pp.toFixed(2)}** SP: **${idleGame.skillPoints.toFixed(2)}**
-全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**`;
+        )} 匹 \nPP: **${pp.toFixed(2)}** SP: **${idleGame.skillPoints.toFixed(2)}**
+全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}** #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4}`;
       } else {
         descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
           Math.floor(idleGame.population)
@@ -588,7 +608,21 @@ export async function execute(interaction) {
             latestIdleGame[skillLevelKey] += 1;
             await latestIdleGame.save({ transaction: t });
           });
-
+          // ▼▼▼ ここにスキル強化実績を追加 ▼▼▼
+          switch (skillNum) {
+            case "1":
+              await unlockAchievements(interaction.client, userId, 13);
+              break;
+            case "2":
+              await unlockAchievements(interaction.client, userId, 18);
+              break;
+            case "3":
+              await unlockAchievements(interaction.client, userId, 17);
+              break;
+            case "4":
+              await unlockAchievements(interaction.client, userId, 16);
+              break;
+          }
           // 成功したら、更新後の情報でスキル画面を再描画
           await interaction.editReply({
             embeds: [generateSkillEmbed(latestIdleGame)],
@@ -725,7 +759,7 @@ export async function execute(interaction) {
         }
 
         await i.followUp({ content: summaryMessage, flags: 64 });
-
+        await unlockAchievements(interaction.client, userId, 14);
         // 6. Embedとボタンの再描画
         await interaction.editReply({
           embeds: [generateEmbed()],
@@ -868,6 +902,20 @@ export async function execute(interaction) {
           content: successMsg,
           ephemeral: true,
         });
+        //施設強化系実績
+        if (facility === "oven") {
+          await unlockAchievements(interaction.client, userId, 1);
+        } else if (facility === "cheese") {
+          await unlockAchievements(interaction.client, userId, 2);
+        } else if (facility === "tomato") {
+          await unlockAchievements(interaction.client, userId, 7);
+        } else if (facility === "mushroom") {
+          await unlockAchievements(interaction.client, userId, 9);
+        } else if (facility === "anchovy") {
+          await unlockAchievements(interaction.client, userId, 12);
+        } else if (facility === "nyobosi") {
+          await unlockAchievements(interaction.client, userId, 4);
+        }
       } catch (error) {
         console.error("IdleGame Collector Upgrade Error:", error);
         await i.followUp({
@@ -1072,13 +1120,15 @@ export async function updateUserIdleGame(userId) {
   };
   //#4は#1~3強化なので以下の様に
   const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
-  const skill1Effect = (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier;//実績も乗せる
+  const skill1Effect =
+    (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier; //実績も乗せる
   const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
   const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
 
   // --- 既存のオフライン計算ロジックを、ほぼそのまま持ってくる ---
   const mee6Level = await Mee6Level.findOne({ where: { userId } });
-  const meatFactoryLevel = (mee6Level ? mee6Level.level : 0) + pp + achievementExponentBonus; //ppはこっちで足す、実績も！
+  const meatFactoryLevel =
+    (mee6Level ? mee6Level.level : 0) + pp + achievementExponentBonus; //ppはこっちで足す、実績も！
   const now = new Date();
 
   const lastUpdate = idleGame.lastUpdatedAt || now;
@@ -1366,7 +1416,8 @@ async function handlePrestige(interaction, collector) {
         { transaction: t }
       );
     });
-
+    // ▼▼▼ ここにプレステージ実績のチェックを追加 ▼▼▼
+    await unlockAchievements(interaction.client, interaction.user.id, 11); // ID:11
     // 8. 成功メッセージを送信
     await confirmationInteraction.editReply({
       content: `●プレステージ
@@ -1611,6 +1662,9 @@ async function handleSkillReset(interaction, collector) {
         { transaction: t }
       );
     });
+
+    //スキルリセット実績
+    await unlockAchievements(interaction.client, interaction.user.id, 15);
 
     // 7. 成功メッセージを送信
     await confirmationInteraction.editReply({

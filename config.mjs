@@ -744,22 +744,163 @@ export default {
       unlockPopulation: 1_0000_0000, // 人口1億で解禁
       spBaseDeduction: 7, // 初回SP計算時の基礎控除値
     },
+    //実績　utils\achievements.mjs
+    // 実績一覧は unlockAchievements(client, userId, ID) で解除可能です。
+    // 複数解除する場合はスプレッド構文でまとめて渡せます。
+    // 例: unlockAchievements(client, userId, ...[0,1,2])
     achievements: [
       {
         id: 0,
         name: "ようこそピザ工場へ！",
         description: "初めてピザ工場を訪れ、自分の工場を設立した。",
         effect: "取得した実績数に応じ、全ての施設を強化。", // 実績そのものが1つにつきoven~anchovy+1% meat+0.01効果なので実績0で出る様に見せる
-        reward: {}
+        reward: {},
+      },
+      {
+        id: 1,
+        name: "ピザ窯に火をつける",
+        description: "ピザ窯(oven)を強化",
+        reward: {},
+      },
+      {
+        id: 2,
+        name: "ニョワミヤはチーズが大好き",
+        description: "チーズ工場(cheese)を強化",
+        reward: {},
+      },
+      {
+        id: 3,
+        name: "100匹ニョワミヤ",
+        description: "ニョワミヤの数が100に到達",
+        reward: {},
+      },
+      {
+        id: 4,
+        name: "ニョワミヤ監督官",
+        description: "ニョボシを雇用し、ログインブーストを延長する",
+        reward: {},
+      },
+      {
+        id: 5,
+        name: "ニョワミヤはどんどん増える",
+        description: "ニョワミヤの数が1万に到達",
+        reward: {},
+      },
+      {
+        id: 6,
+        name: "新しい工場",
+        description: "ニョワミヤの数が100万に到達",
+        effect: "トマト農場を解禁",
+        reward: {},
+      },
+      {
+        id: 7,
+        name: "ピザといえば…",
+        description: "トマト農場を強化し、トマトソースを作る",
+        reward: {},
+      },
+      {
+        id: 8,
+        name: "プレステージまでの長い道のり",
+        description: "ニョワミヤの数が1000万に到達",
+        effect: "マッシュルーム農場を解禁",
+        reward: {},
+      },
+      {
+        id: 9,
+        name: "香り高いキノコ",
+        description: "マッシュルーム農場を強化し、ピザをもっと美味しくする",
+        reward: {},
+      },
+      {
+        id: 10,
+        name: "Let's Prestige!",
+        description: "ニョワミヤの数が1億に到達",
+        effect: "プレステージとアンチョビ工場を解禁",
+        reward: {},
+      },
+      {
+        id: 11,
+        name: "パイナップルパワー",
+        description: "プレステージを実行した",
+        effect: "PP/SP/自動強化が解禁、全工場の人口制限削除",
+        reward: {},
+      },
+      {
+        id: 12,
+        name: "本当に美味しいの？",
+        description: "アンチョビ工場を強化した",
+        reward: {},
+      },
+      {
+        id: 13,
+        name: "嗚呼麗しきインフレよ",
+        description: "#1スキルを取得した",
+        reward: {},
+      },
+      {
+        id: 14,
+        name: "便利な時代になりました",
+        description: "適当強化を使用してみた",
+        reward: {},
+      },
+      {
+        id: 15,
+        name: "間違えた？それとも金策？",
+        description: "スキルリセットを使用する",
+        reward: {},
+      },
+      {
+        id: 16,
+        name: "『光輝状態の対象は#1~#3スキルの効果量が+X%される。』",
+        description: "#4スキルを取得する",
+        reward: {},
+      },
+      {
+        id: 17,
+        name: "ニョボチップがニョワコインに両替できない理由",
+        description: "#3スキルを取得する",
+        reward: {},
+      },
+      {
+        id: 18,
+        name: "走れニョワミヤ",
+        description: "#2スキルを取得する",
+        reward: {},
+      },
+      {
+        id: 19,
+        name: "100億までいっちゃう？それとも…",
+        description: "ニョワミヤの人口が10億に到達する",
+        reward: {},
+      },
+      {
+        id: 20,
+        name: "これでLV2スキルが取れる",
+        description: "ニョワミヤの人口が100億に到達する",
+        reward: {},
+      },
+      {
+        id: 21,
+        name: "もうニョワミヤは止まらない",
+        description: "ニョワミヤの人口が100兆に到達する",
+        reward: {},
+      },
+      {
+        id: 22,
+        name: "あーあ、壊れちゃった。",
+        description: "ニョワミヤの人口が9007兆1992億5474万0991に到達する",
+        effect: "ニョワミヤ人口を指数表記に切り替えます",
+        reward: {},
       },
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）", reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],
   },
-    achievementNotification: {
+  achievementNotification: {
     // 'public', 'dm', 'none' から選択
-    mode: 'public', 
+    mode: "public",
     // modeが 'public' の場合に通知を送るチャンネルID
     channelId: isProduction ? "1421521075337953321" : debugConfig.channel,
-  }
+  },
 };
