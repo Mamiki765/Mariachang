@@ -22,6 +22,7 @@ function getNextScenarioCheckTime() {
     const schedules = [
       config.scenarioChecker.cronSchedule,
       config.scenarioChecker.cronSchedule2,
+      config.scenarioChecker.cronSchedule3,
     ];
 
     // 2. 各スケジュールの「次の実行時刻」を計算し、Dateオブジェクトの配列にする

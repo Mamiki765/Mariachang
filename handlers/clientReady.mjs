@@ -169,6 +169,18 @@ export default async (client) => {
         timezone: "Asia/Tokyo", // 日本時間を指定
       }
     );
+    // ラリーの期間だけ1時間に１回
+    cron.schedule(
+      config.scenarioChecker.cronSchedule3, // configからスケジュールを取得
+      () => {
+        console.log("[TASK] スケジュールされたシナリオチェックを実行します...（増加分）");
+        checkNewScenarios(client);
+      },
+      {
+        noOverlap: true, //多重実行禁止
+        timezone: "Asia/Tokyo", // 日本時間を指定
+      }
+    );
   } else {
     console.log(
       "[TASK] Scenario checker tasks are disabled in development mode."
