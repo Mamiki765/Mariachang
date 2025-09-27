@@ -924,6 +924,12 @@ export default {
         description: "累計で100個のあまやどんぐりを手に入れた。",
         reward: {},
       },
+      {
+        id: 28,
+        name: "全部取れるの？これ",
+        description: "実績画面を見てみた",
+        reward: {},
+      },
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）", reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],
