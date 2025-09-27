@@ -97,6 +97,7 @@ export async function checkNewScenarios(client) {
     const scenariosToUpsert = [];
     const newScenariosForNotification = []; // 通知用の新規シナリオリスト
     const updatedChapterScenariosForNotification = []; // ラリープレイング期間通知用
+    const replayReturnedScenariosForNotification = []; // リプレイ返却通知用
 
     for (const fetched of fetchedScenarios) {
       const existing = dbScenarioMap.get(fetched.id);
@@ -166,6 +167,23 @@ export async function checkNewScenarios(client) {
 
       if (hasChapterUpdate) {
         updatedChapterScenariosForNotification.push(fetched); // 章更新通知リストに追加
+      }
+
+      //ラリー返却
+      let hasReplayReturned = false;
+      if (fetched.type === "ラリー") {
+        // DBに記録されている数と、APIから取得した新しい数を比較
+        const oldCount = existing.rally_member_count || 0;
+        const newCount = newData.rally_member_count || 0;
+        
+        // 返却済人数が増えていたら「返却あり」と判断
+        if (newCount > oldCount) {
+          hasReplayReturned = true;
+        }
+      }
+
+      if (hasReplayReturned) {
+        replayReturnedScenariosForNotification.push(fetched); // リプレイ返却通知リストに追加
       }
 
       if (
@@ -517,7 +535,7 @@ export async function checkNewScenarios(client) {
           config.scenarioChecker.difficultyEmojis.DEFAULT;
 
         const titleLine = `${difficultyEmoji}${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
-        const chapterInfoLine = `-# > **次の章のプレイング期間が公開されました！**\n`;
+        const chapterInfoLine = `-# > **ラリーのプレイング期間が更新されました！**\n`;
         const playingPeriodLine = `-# > ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
         const authorLine = `-# 📖${s.creator.penname}${s.creator.type}`;
 
@@ -551,7 +569,7 @@ export async function checkNewScenarios(client) {
       for (let i = 0; i < embedsToSend.length; i++) {
         const embed = embedsToSend[i];
         embed.setTitle(
-          `🔄ラリーシナリオの章更新 (${i + 1}/${embedsToSend.length})`
+          `🔄ラリーシナリオのプレイング期間更新 (${i + 1}/${embedsToSend.length})`
         );
         if (i === embedsToSend.length - 1) {
           embed.setTimestamp().setFooter({
@@ -563,6 +581,61 @@ export async function checkNewScenarios(client) {
         await channel.send({ embeds: [embed] });
       }
     }
+ //  リプレイ返却シナリオの通知
+    if (replayReturnedScenariosForNotification.length > 0) {
+      console.log(
+        `${replayReturnedScenariosForNotification.length}件のラリーシナリオでリプレイ返却を発見！`
+      );
+
+      let descriptionText = "";
+      const embedsToSend = [];
+      const charLimit = 4000;
+
+      for (const s of replayReturnedScenariosForNotification) {
+        const difficultyEmoji =
+          config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+          config.scenarioChecker.difficultyEmojis.DEFAULT;
+
+        const titleLine = `${difficultyEmoji}${s.source_name ? `<${s.source_name}> ` : ""}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
+        const replayInfoLine = `-# > **リプレイが返却されました！**\n`;
+        const memberStatusLine = `-# > **参加状況:** ${s.current_member_count}人参加中 / ${s.rally_member_count}人返却済\n`;
+        const authorLine = `-# 📖${s.creator.penname}${s.creator.type}`;
+
+        const line = titleLine + replayInfoLine + memberStatusLine + authorLine;
+
+        if (
+          descriptionText.length + line.length + 2 > charLimit &&
+          descriptionText !== ""
+        ) {
+          embedsToSend.push(
+            new EmbedBuilder().setColor("Purple").setDescription(descriptionText)
+          );
+          descriptionText = line;
+        } else {
+          descriptionText += (descriptionText ? "\n-# \u200b\n" : "") + line;
+        }
+      }
+
+      if (descriptionText !== "") {
+        embedsToSend.push(
+          new EmbedBuilder().setColor("Purple").setDescription(descriptionText)
+        );
+      }
+
+      for (let i = 0; i < embedsToSend.length; i++) {
+        const embed = embedsToSend[i];
+        embed.setTitle(
+          `📢ラリーシナリオのリプレイ返却 (${i + 1}/${embedsToSend.length})`
+        );
+        if (i === embedsToSend.length - 1) {
+          embed.setTimestamp().setFooter({
+            text: `${replayReturnedScenariosForNotification.length}件のラリーシナリオでリプレイが返却されました。`,
+          });
+        }
+        await channel.send({ embeds: [embed] });
+      }
+    }
+
     // ② 終了シナリオの通知
     if (closedScenarioIds.length > 0) {
       let descriptionText = "";
