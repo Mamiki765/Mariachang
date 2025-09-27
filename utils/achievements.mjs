@@ -33,7 +33,7 @@ async function notifyUserAchievement(client, userId, achievement) {
     try {
       const channel = await client.channels.fetch(channelId);
       if (channel?.isTextBased()) {
-        await channel.send({ embeds: [embed] });
+        await channel.send({ content: `<@${userId}>`, embeds: [embed] });
       }
     } catch (error) {
       console.error(`[Achievement] 公開通知の送信に失敗しました (Channel: ${channelId})`, error);
