@@ -113,11 +113,13 @@ export async function shutdownAchievementSystem() {
 
 /**
  * 特定の実績を解除しようと試みる
+ * ★ client を第一引数に追加する
+ * @param {Client} client - Discordクライアント
  * @param {string} userId - ユーザーID
  * @param {number} achievementId - 実績ID
- * @returns {Promise<object|null>} 新しく実績を解除した場合は実績オブジェクト、それ以外はnull
+ * @returns {Promise<object|null>}
  */
-export async function tryUnlockAchievement(userId, achievementId) {
+export async function tryUnlockAchievement(client, userId, achievementId) { // ★ ここ！
   const achievements = await loadUserAchievements(userId);
   if (!achievements) return null;
 
@@ -130,6 +132,8 @@ export async function tryUnlockAchievement(userId, achievementId) {
   dirtyUsers.add(userId);
 
   console.log(`[Achievement] ${userId} が実績「${achievement.name}」を解除！ (次回のバッチで保存されます)`);
-  await notifyUserAchievement(client, userId, achievement);
+  
+  await notifyUserAchievement(client, userId, achievement); 
+  
   return achievement;
 }

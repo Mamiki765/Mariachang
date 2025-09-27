@@ -103,7 +103,7 @@ export async function execute(interaction) {
     //オフライン計算
     await updateUserIdleGame(userId);
     //実績0解除
-    await tryUnlockAchievement(userId, 0);
+    await tryUnlockAchievement(interaction.client, userId, 0);
     // ★★★ ピザ窯覗きバフ処理 ★★★
     const now = new Date();
     let needsSave = false; // DBに保存する必要があるかを記録するフラグ
