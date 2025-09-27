@@ -131,7 +131,7 @@ export async function unlockAchievements(client, userId, ...achievementIds) {
       .setDescription(`<@${userId}> が新しい実績を達成しました！`)
       .addFields({
         name: ach.name,
-        value: `> ${ach.description}${ach.effect ? `\n\n__${ach.effect}__` : ""}`,
+        value: `${ach.description}${ach.effect ? `\n__${ach.effect}__` : ""}`,
       })
       .setFooter({ text: "効果は1分後に反映されます。" })
       .setTimestamp();
@@ -145,7 +145,7 @@ export async function unlockAchievements(client, userId, ...achievementIds) {
       .addFields(
         newlyUnlocked.map((ach) => ({
           name: `✅ ${ach.name}`,
-          value: `> ${ach.description}${ach.effect ? `\n\n__${ach.effect}__` : ""}`,
+          value: `${ach.description}${ach.effect ? `\n__${ach.effect}__` : ""}`,
         }))
       )
       .setFooter({ text: "効果は1分後に反映されます。" })

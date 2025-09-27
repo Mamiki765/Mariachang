@@ -465,6 +465,18 @@ export default async function handleButtonInteraction(interaction) {
       await pointEntry.update(updateData);
       // update()は更新内容を返さないため、reload()で最新の状態を取得します。
       const updatedPointEntry = await pointEntry.reload();
+
+      // どんぐり数実績
+      const acornChecks = [
+        { id: 23, condition: updatedPointEntry.totalacorn >= 1 },
+        { id: 24, condition: updatedPointEntry.totalacorn >= 10 },
+        { id: 25, condition: updatedPointEntry.totalacorn >= 30 },
+        { id: 26, condition: updatedPointEntry.totalacorn >= 50 },
+        { id: 27, condition: updatedPointEntry.totalacorn >= 100 },
+      ];
+      const idsToCheck = acornChecks.filter(p => p.condition).map(p => p.id);
+      await unlockAchievements(interaction.client, interaction.user.id, ...idsToCheck);
+      
       // 7. ユーザーに成功を報告するメッセージを作成
       // 区切り線
       Message += `\n--------------------`;

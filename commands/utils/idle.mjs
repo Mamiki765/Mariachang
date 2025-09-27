@@ -270,8 +270,8 @@ export async function execute(interaction) {
         )} 匹**
 最高人口: ${formatNumberJapanese(
           Math.floor(idleGame.highestPopulation)
-        )} 匹 \nPP: **${pp.toFixed(2)}** SP: **${idleGame.skillPoints.toFixed(2)}**
-全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}** #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4}`;
+        )} 匹 \nPP: **${pp.toFixed(2)}** SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4}
+全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**`;
       } else {
         descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
           Math.floor(idleGame.population)
