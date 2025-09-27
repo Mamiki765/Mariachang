@@ -11,6 +11,7 @@ import {
   IdleGame,
   Mee6Level,
   sequelize,
+  UserAchievement,
 } from "../../models/database.mjs";
 import { Op } from "sequelize";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
@@ -100,6 +101,8 @@ export async function execute(interaction) {
     const [idleGame, createdIdle] = await IdleGame.findOrCreate({
       where: { userId },
     });
+    const [userAchievement, createdAchievement] =
+      await UserAchievement.findOrCreate({ where: { userId } });
     //オフライン計算
     await updateUserIdleGame(userId);
     //--------------
@@ -176,7 +179,8 @@ export async function execute(interaction) {
     // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
     const generateEmbed = (isFinal = false) => {
       // 実績数を取得（データがないユーザーのために安全に）
-      const achievementCount = idleGame.achievements?.unlocked?.length || 0;
+      const achievementCount =
+        userAchievement.achievements?.unlocked?.length || 0;
       // 実績による乗算ボーナス (1実績あたり+1%)
       const achievementMultiplier = 1.0 + achievementCount * 0.01;
       // 実績による指数ボーナス (1実績あたりLv+1)
@@ -1107,7 +1111,9 @@ export async function updateUserIdleGame(userId) {
   const pp = idleGame.prestigePower || 0;
 
   //実績を代入
-  const achievementCount = idleGame.achievements?.unlocked?.length || 0;
+  //UserAchievement から実績数を取得する
+  const userAchievement = await UserAchievement.findOne({ where: { userId } });
+  const achievementCount = userAchievement?.achievements?.unlocked?.length || 0;
   const achievementMultiplier = 1.0 + achievementCount * 0.01;
   const achievementExponentBonus = achievementCount;
 

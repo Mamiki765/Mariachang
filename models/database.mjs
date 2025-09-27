@@ -553,12 +553,6 @@ const IdleGame = sequelize.define(
       allowNull: false,
       defaultValue: 0, // デフォルト値は0%
     },
-    //実績
-    achievements: {
-      type: DataTypes.JSONB,
-      allowNull: false,
-      defaultValue: { unlocked: [], progress: {} }, // 初期値
-    },
     // 最後に資源計算を反映した時刻
     lastUpdatedAt: {
       type: DataTypes.DATE,
@@ -569,6 +563,27 @@ const IdleGame = sequelize.define(
   {
     tableName: "idle_games",
     timestamps: false,
+  }
+);
+
+// ユーザー実績モデル
+const UserAchievement = sequelize.define(
+  "UserAchievement",
+  {
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      primaryKey: true,
+    },
+    achievements: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: { unlocked: [], progress: {} },
+    },
+  },
+  {
+    tableName: "user_achievements",
+    timestamps: true, // いつ初めて実績を取ったかなどを記録できる
   }
 );
 
@@ -587,6 +602,7 @@ async function syncModels() {
     await Sticker.sync({ alter: true }); // スタンプモデルの同期
     await CasinoStats.sync({ alter: true });
     await Mee6Level.sync({ alter: true });
+    await UserAchievement.sync({ alter: true });
     await IdleGame.sync({ alter: true });
     console.log("All models were synchronized successfully.");
   } catch (error) {
@@ -622,6 +638,7 @@ export {
   Scenario, // シナリオモデルをエクスポート
   Sticker, // スタンプモデルをエクスポート
   Mee6Level,
+  UserAchievement,
   CasinoStats,
   IdleGame,
 };
