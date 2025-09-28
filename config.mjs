@@ -1065,6 +1065,14 @@ export default {
         description: "ルーレットで玉が０に入ってしまった",
         reward: {},
       },
+      /*
+      {
+        id: 50,
+        name: "ありがとね。",
+        description: "/kampaを使う",
+        reward: {},
+      },
+      */
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],
