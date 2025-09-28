@@ -248,6 +248,8 @@ export default {
       //スロット1号機（ハイリスク）
       displayname: "ニョワミヤスロットマシン(1号機)",
       gameName: "slots", //戦績に残すためのタグ
+      playAchievementId: 38, // ロマン主義
+      reachAchievementId: 43, // 手に汗握る？
       symbols: {
         //絵柄
         7: isProduction ? "<:nyowa7:1409958172545912904>" : debugConfig.emoji,
@@ -316,6 +318,7 @@ export default {
           display: isProduction
             ? "<:nyowa7:1409958172545912904><:nyowa7:1409958172545912904><:nyowa7:1409958172545912904>"
             : "なでなでなで",
+          achievementId: 41, // 500倍！！！
         },
         {
           id: "watermelon",
@@ -323,6 +326,7 @@ export default {
           payout: 100,
           pattern: ["watermelon", "watermelon", "watermelon"],
           display: "🍉🍉🍉",
+          achievementId: 40, // 100倍！
         },
         {
           id: "grape",
@@ -359,6 +363,8 @@ export default {
       //スロット2号機（ローリスク）
       displayname: "ひめこスロットマシン(2号機)",
       gameName: "slots_easy", //戦績に残すためのタグ
+      playAchievementId: 39, // 安全主義
+      reachAchievementId: 43, // 手に汗握る？ (同じ実績IDを共有)
       symbols: {
         bell: isProduction
           ? "<:katakana_ko:1265165857445908542>"
@@ -430,6 +436,7 @@ export default {
           display: isProduction
             ? "<:katakana_ko:1265165857445908542><:katakana_ko:1265165857445908542><:katakana_ro:1265166237399388242>"
             : "ココロー！！！",
+          achievementId: 42, // ココローー！！
         },
         {
           id: "lemon3",
@@ -984,6 +991,48 @@ export default {
         id: 37,
         name: "ロールプレイ大好き！",
         description: "500回ロールプレイ機能を使った",
+        reward: {},
+      },
+      {
+        id: 38,
+        name: "ロマン主義",
+        description: "スロット1号機を回してみた",
+        reward: {},
+      },
+      {
+        id: 39,
+        name: "安全主義",
+        description: "スロット2号機を回してみた",
+        reward: {},
+      },
+      {
+        id: 40,
+        name: "100倍！",
+        description: "スロット1号機で、スイカを当てた",
+        reward: {},
+      },
+      {
+        id: 41,
+        name: "500倍！！！",
+        description: "スロット1号機で、ニョワセブンを当てた",
+        reward: {},
+      },
+      {
+        id: 42,
+        name: "ココローー！！",
+        description: "スロット2号機で、ココロを揃えた（？）",
+        reward: {},
+      },
+      {
+        id: 43,
+        name: "手に汗握る？",
+        description: "スロットで、リーチ演出を見た",
+        reward: {},
+      },
+      {
+        id: 44,
+        name: "なんと無茶な！",
+        description: "スロットで、20枚5ライン賭けをした",
         reward: {},
       },
       // 今後、ここに実績をどんどん追加していきます

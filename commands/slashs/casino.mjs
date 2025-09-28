@@ -18,6 +18,7 @@ import {
 import { getPizzaBonusMultiplier } from "../utils/idle.mjs";
 import config from "../../config.mjs";
 import { getSupabaseClient } from "../../utils/supabaseClient.mjs";
+import { unlockAchievements } from "../../utils/achievements.mjs";
 
 export const help = {
   category: "slash",
@@ -245,10 +246,19 @@ async function handleSlots(interaction, slotConfig) {
     currentEmbed = null,
     interactionContext
   ) => {
+    const client = interactionContext.client;
     let isReach = false;
     let embed = currentEmbed;
     if (isFirstPlay) {
       embed = new EmbedBuilder();
+      // スロットを初めて回した実績
+      if (slotConfig.playAchievementId) {
+        await unlockAchievements(client, userId, slotConfig.playAchievementId);
+      }
+      // 20枚x5ライン賭けの実績
+      if (betPerLine === 20 && lines === 5) {
+        await unlockAchievements(client, userId, 44);
+      }
     }
     const t = await sequelize.transaction();
     try {
@@ -430,6 +440,14 @@ async function handleSlots(interaction, slotConfig) {
       if (isReach) {
         // isReachがtrueの場合、盤面の下にリーチ演出のテキストを追加
         description += `\n# ${slotConfig.symbols.reach} **リーチ！** ${slotConfig.symbols.reach}`;
+        //リーチ実績の解除
+        if (slotConfig.reachAchievementId) {
+          await unlockAchievements(
+            client,
+            userId,
+            slotConfig.reachAchievementId
+          );
+        }
       }
 
       embed.setDescription(description);
@@ -471,9 +489,12 @@ async function handleSlots(interaction, slotConfig) {
       if (wonPrizes.length > 0) {
         const currentData = stats.gameData || {};
         for (const prize of wonPrizes) {
-          if (prize.prizeId !== "none") {
-            const prizeKey = `wins_${prize.prizeId}`;
+          if (prize.id !== "none") {
+            const prizeKey = `wins_${prize.id}`;
             currentData[prizeKey] = (currentData[prizeKey] || 0) + 1;
+            if (prize.achievementId) {
+              await unlockAchievements(client, userId, prize.achievementId);
+            }
           }
         }
         stats.gameData = currentData;
@@ -627,14 +648,13 @@ async function handleSlots(interaction, slotConfig) {
 }
 
 /**
- * スロットの結果から役を判定し、役の情報を返します。
- * @param {string[]} result - スロットのリール結果
+ * スロットの結果から役を判定し、役の情報オブジェクトを返します。
+ * @param {string[]} result - スロットのリール結果 (例: ["cherry", "cherry", "lemon"])
  * @param {object} slotConfig - 使用するスロットの設定オブジェクト
- * @returns {{ prizeId: string, prizeName: string, payout: number }} 役の情報オブジェクト
+ * @returns {object} 役の情報オブジェクト。ハズレの場合は { id: "none", name: "ハズレ...", payout: 0 } を返す。
  */
-// ▼▼▼ 第2引数でslotConfigを受け取るように変更 ▼▼▼
 function getSlotPrize(result, slotConfig) {
-  // 高配当（配列の上の方）から順にチェック
+  // 高配当（payouts配列の上の方）から順にチェック
   for (const prize of slotConfig.payouts) {
     // 3つ揃いのパターンをチェック
     if (prize.pattern) {
@@ -642,11 +662,8 @@ function getSlotPrize(result, slotConfig) {
         (symbol, index) => symbol === prize.pattern[index]
       );
       if (isMatch) {
-        return {
-          prizeId: prize.id,
-          name: prize.name, // ← prizeName から name に変更
-          payout: prize.payout,
-        };
+        // マッチしたprizeオブジェクト（役の定義そのもの）を返す
+        return prize;
       }
     }
     // 左揃えのパターンをチェック (例: チェリーx2)
@@ -656,29 +673,13 @@ function getSlotPrize(result, slotConfig) {
       const isMatch = targetSlice.every((s) => s === prize.symbol);
 
       if (isMatch) {
-        return {
-          prizeId: prize.id,
-          name: prize.name, // ← prizeName から name に変更
-          payout: prize.payout,
-        };
+        // こちらも同様に、マッチしたprizeオブジェクトを返す
+        return prize;
       }
     }
-    /*
-    // 特定シンボルの数でチェック (今は未使用)
-    else if (prize.minCount && prize.symbol) {
-      const count = result.filter((s) => s === prize.symbol).length;
-      if (count >= prize.minCount) {
-        return {
-          prizeId: prize.id,
-          name: prize.name,
-          payout: prize.payout,
-        };
-      }
-    }
-    */
   }
-  // どの役にも当てはまらない場合
-  return { prizeId: "none", name: "ハズレ...", payout: 0 };
+  // どの役にも当てはまらない場合、ハズレを示すオブジェクトを返す
+  return { id: "none", name: "ハズレ...", payout: 0 };
 }
 //-----------------
 //balance
