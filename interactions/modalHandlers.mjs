@@ -11,6 +11,7 @@ import {
   replyfromDM,
   createRpDeleteRequestButton,
 } from "../components/buttons.mjs";
+import { unlockAchievements } from "../utils/achievements.mjs";
 //RP機能周りimport
 import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
 import { Character, Icon, sequelize, Point } from "../models/database.mjs";
@@ -235,6 +236,9 @@ export default async function handleModalInteraction(interaction) {
       // sequelize.transactionの外でメッセージを組み立てる準備
       let resultMessage = "";
 
+      // ★★★ 実績解除の判定に使うフラグを準備 ★★★
+      let isCoinToPizzaExchange = false;
+
       await sequelize.transaction(async (t) => {
         const [user] = await Point.findOrCreate({
           where: { userId: interaction.user.id },
@@ -276,8 +280,18 @@ export default async function handleModalInteraction(interaction) {
           // 4. 返信メッセージを生成
           const bonusAmount = finalPizzaToGet - basePizzaToGet;
           resultMessage = `${config.nyowacoin}**${amount.toLocaleString()}枚**を ${config.casino.currencies.legacy_pizza.emoji}**${finalPizzaToGet.toLocaleString()}枚**に両替しました！(内訳 ${basePizzaToGet}+ボーナス${bonusAmount})`;
+          isCoinToPizzaExchange = true; //コイン->ピザを検知（20コイン両替実績用）
         }
       });
+
+      // ★★★ トランザクション成功後に実績解除処理を実行 ★★★
+
+      // #45: 両替機能を使った (すべての両替で共通)
+      await unlockAchievements(interaction.client, interaction.user.id, 45);
+      // #46: ぴったり20コインをチップにした
+      if (isCoinToPizzaExchange && amount === 20) {
+        await unlockAchievements(interaction.client, interaction.user.id, 46);
+      }
 
       // トランザクションが成功した後で、最終的なメッセージを返信する
       await interaction.reply({

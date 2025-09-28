@@ -1514,6 +1514,7 @@ async function handleDealerTurnAndSettle(
         payout = playerHand.bet;
         resultText = "プッシュ (両者BJ)";
       } else if (playerHasBJ) {
+        await unlockAchievements(interaction.client, userId, 47); // ID:47 21!
         payout = playerHand.bet * (1 + bjConfig.rules.blackjack_payout);
         resultText = "ブラックジャック！";
       } else if (dealerHasBJ) {
@@ -1572,6 +1573,7 @@ async function handleDealerTurnAndSettle(
         totalPayout += bonusPayout;
         bonusMessage = `\n\n「2連続でブラックジャックとは恐れいるにゃ…マリアは約束は守るにゃ、もってけドロボーにゃ！」\n+${bonusPayout}コイン！`;
         delete persistentData.last_bj_info;
+        await unlockAchievements(interaction.client, userId, 48); // 実績ID:48 42!!!
       } else {
         // ★★★ 初回BJ！ ★★★
         bonusMessage = `\n\n「へえ、運がいいのにゃあ。でももう一回それができるかにゃあ？ できたらご褒美にゃよ\n ……だからって掛け金変えたらダメだからにゃ？」`;
@@ -1730,6 +1732,11 @@ async function handleRoulette(interaction) {
 
     const winningNumber = Math.floor(Math.random() * 37);
     const winningColor = rouletteConfig.pockets[winningNumber];
+
+    //0に入った実績49
+    if (winningNumber === 0) {
+      await unlockAchievements(interaction.client, userId, 49); // ID:49 いただきですにゃー♪
+    }
 
     let isWin = false;
     if (winningNumber > 0) {

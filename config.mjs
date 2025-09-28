@@ -1035,6 +1035,36 @@ export default {
         description: "スロットで、20枚5ライン賭けをした",
         reward: {},
       },
+      {
+        id: 45,
+        name: "コイーン",
+        description: "両替を使う",
+        reward: {},
+      },
+      {
+        id: 46,
+        name: "ご所望はピザ工場ですかにゃ？",
+        description: "両替で、ぴったり1RP分をニョボチップにする", //(20コイン)
+        reward: {},
+      },
+      {
+        id: 47,
+        name: "21!",
+        description: "ブラックジャックを決める",
+        reward: {},
+      },
+      {
+        id: 48,
+        name: "42!!!",
+        description: "ブラックジャックを2連続で決めてボーナスを手に入れる",
+        reward: {},
+      },
+      {
+        id: 49,
+        name: "いただきですにゃー♪",
+        description: "ルーレットで玉が０に入ってしまった",
+        reward: {},
+      },
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],
