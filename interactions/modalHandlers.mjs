@@ -201,7 +201,7 @@ export default async function handleModalInteraction(interaction) {
         message,
         nocredit
       );
-      await updatePoints(interaction.user.id);
+      await updatePoints(interaction.user.id, interaction.client);
 
       const deleteRequestButtonRow = createRpDeleteRequestButton(
         postedMessage.id,
