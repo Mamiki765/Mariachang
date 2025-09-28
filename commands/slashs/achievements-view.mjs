@@ -44,6 +44,7 @@ export async function execute(interaction) {
   // DBからユーザーの解除済み実績IDを取得（なければ []）
   const userAchievement = await UserAchievement.findOne({ where: { userId } });
   const unlockedIds = userAchievement?.achievements?.unlocked || [];
+  const progressData = userAchievement?.achievements?.progress || {}; // progressデータを取得
   const allAchievements = config.idle.achievements;
 
   // ページング設定
@@ -62,11 +63,30 @@ export async function execute(interaction) {
       .setTitle(`"${displayName}" の実績 (${unlockedIds.length} / ${allAchievements.length})`)
       .setDescription(`それは放置ゲームにおいて全てのMultを${unlockedIds.length}%強化し、Mee6レベルを${unlockedIds.length}Lv高いものとして扱う。`)
       .addFields(
+        // ★★★ 表示ロジックを修正 ★★★
         currentAchievements.map((ach) => {
           const isUnlocked = unlockedIds.includes(ach.id);
+          const currentProgress = progressData[ach.id]; // 該当実績の進捗を取得
+
+          let displayName = ach.name;
+          let displayValue = `${ach.description}${ach.effect ? `\n__${ach.effect}__` : ''}`;
+
+          if (isUnlocked) {
+            displayName = `✅ ${ach.name}`;
+            displayValue = `**${displayValue}**`;
+          } else if (currentProgress !== undefined && ach.goal) {
+            // 進捗中かつ目標値(goal)が設定されている実績
+            displayName = `🔄 ${ach.name} (${currentProgress.toLocaleString()} / ${ach.goal.toLocaleString()})`;
+            displayValue = `*(${displayValue})*`; // 未解除なのでイタリック体
+          } else {
+            // 未着手
+            displayName = `🔒 ${ach.name}`;
+            displayValue = `*(${displayValue})*`; // 未解除なのでイタリック体
+          }
+
           return {
-            name: isUnlocked ? `✅ ${ach.name}` : `🔒 ${ach.name}`,
-            value: `${isUnlocked ? `**${ach.description}**` : `*(${ach.description})*`}${ach.effect ? `\n__${ach.effect}__` : ''}`
+            name: displayName,
+            value: displayValue,
           };
         })
       )

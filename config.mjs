@@ -956,6 +956,36 @@ export default {
         description: "あなたはドミノを崩しました！",
         reward: {},
       },
+      {
+        id: 33,
+        name: "仮面舞踏会",
+        description: "1回ロールプレイ機能を使った",
+        reward: {},
+      },
+      {
+        id: 34,
+        name: "そろそろ使い方にも慣れてきた？",
+        description: "20回ロールプレイ機能を使った",
+        reward: {},
+      },
+      {
+        id: 35,
+        name: "キャラも表情もコロコロ変わる",
+        description: "100回ロールプレイ機能を使った",
+        reward: {},
+      },
+      {
+        id: 36,
+        name: "そろそろ自分を見失ってきた…",
+        description: "250回ロールプレイ機能を使った",
+        reward: {},
+      },
+      {
+        id: 37,
+        name: "ロールプレイ大好き！",
+        description: "500回ロールプレイ機能を使った",
+        reward: {},
+      },
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],

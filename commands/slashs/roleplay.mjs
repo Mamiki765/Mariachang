@@ -14,6 +14,7 @@ import { createRpDeleteRequestButton } from "../../components/buttons.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
+import { unlockAchievements } from "../../utils/achievements.mjs";
 
 export const help = {
   category: "slash",
@@ -758,7 +759,7 @@ export async function execute(interaction) {
         );
 
         // ★★★ 同じように、ポイント更新と削除ボタンを追加 ★★★
-        await updatePoints(interaction.user.id);
+        await updatePoints(interaction.user.id, interaction.client);
 
         const deleteRequestButtonRow = createRpDeleteRequestButton(
           postedMessage.id,
@@ -990,37 +991,36 @@ function dataslot(id, slot) {
 }
 
 //発言するたびにポイント+1
-export async function updatePoints(userId) {
+export async function updatePoints(userId, client) {
   try {
-    // ユーザーのポイントデータを取得
-    const pointEntry = await Point.findOne({
-      where: {
-        userId: userId,
-      },
+    const [pointEntry, created] = await Point.findOrCreate({
+      where: { userId: userId },
+      defaults: { point: 0, totalpoint: 0 },
     });
 
-    if (pointEntry) {
-      // ポイントデータが存在する場合、ポイントを更新
-      await Point.update(
-        {
-          point: pointEntry.point + 1,
-          totalpoint: pointEntry.totalpoint + 1,
-        },
-        {
-          where: {
-            userId: userId,
-          },
-        }
-      );
-    } else {
-      // ポイントデータが存在しない場合、新規作成
-      await Point.create({
-        userId: userId,
-        point: 1,
-        totalpoint: 1,
-      });
+    //incrementの返り値（更新後のインスタンス）を受け取る
+    const updatedPointEntry = await pointEntry.increment(['point', 'totalpoint']);
+
+    // 更新後のインスタンスから最新の totalpoint を取得する
+    const totalPoints = updatedPointEntry.totalpoint;
+
+    const achievementsToCheck = [
+      { id: 33, goal: 1 },
+      { id: 34, goal: 20 },
+      { id: 35, goal: 100 },
+      { id: 36, goal: 250 },
+      { id: 37, goal: 500 },
+    ];
+
+    const idsToUnlock = achievementsToCheck
+      .filter(ach => totalPoints >= ach.goal)
+      .map(ach => ach.id);
+
+    if (idsToUnlock.length > 0) {
+      await unlockAchievements(client, userId, ...idsToUnlock);
     }
+
   } catch (error) {
-    console.error("ポイントの更新に失敗しました:", error);
+    console.error("ポイントの更新または実績解除処理に失敗しました:", error);
   }
 }
