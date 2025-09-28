@@ -3,6 +3,7 @@ import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { DominoLog, CurrentDomino, sequelize } from "../../models/database.mjs"; // あなたのデータベース設定からDominoLogとCurrentDominoモデルをインポート
 import config from "../../config.mjs";
 import { safeDelete } from "../../utils/messageutil.mjs";
+import { unlockAchievements, updateAchievementProgress } from "../../utils/achievements.mjs";
 
 export const help = {
   category: "slash",
@@ -160,6 +161,8 @@ export async function dominoeffect(message, client, id, username, dpname) {
         currentDomino.attemptNumber
       }回目の開催は終わり、${escapeDiscordText(username)}の名が刻まれました。`,
     });
+
+    await unlockAchievements(client, id, 32);//ドミノを崩した実績
 
     // 新しいドミノの履歴を DominoLog に保存
     try {
@@ -319,6 +322,16 @@ export async function dominoeffect(message, client, id, username, dpname) {
         where: {},
       }
     );
+    //実績
+    // 実績ID 29: ドミノ (1回並べた)
+    await unlockAchievements(client, id, 29);
+
+    // 実績ID 30: ドミノドミノドミノ (100回) の進捗を更新
+    await updateAchievementProgress(client, id, 30);
+
+    // 実績ID 31: ドミノドミノドミノドミノドミノドミノ (1000回) の進捗を更新
+    await updateAchievementProgress(client, id, 31);
+
     //5秒後に消える奴
     if (message.channel.id !== config.dominoch) {
       const replyMessage = await message.reply({

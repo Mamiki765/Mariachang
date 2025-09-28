@@ -169,3 +169,54 @@ export async function unlockAchievements(client, userId, ...achievementIds) {
     }
   }
 }
+
+/**
+ * 実績の進捗を更新し、条件を満たしたら実績を解除する
+ * @param {Client} client
+ * @param {string} userId
+ * @param {number} achievementId - 進捗を更新したい実績のID
+ * @param {number} increment - 今回加算する進捗量 (デフォルトは1)
+ */
+export async function updateAchievementProgress(
+  client,
+  userId,
+  achievementId,
+  increment = 1
+) {
+  const achievements = await loadUserAchievements(userId);
+
+  // configから実績定義を取得
+  const achievementDef = config.idle.achievements.find(
+    (a) => a.id === achievementId
+  );
+
+  // 実績定義がない、目標値がない、または既に解除済みなら何もしない
+  if (
+    !achievementDef ||
+    !achievementDef.goal ||
+    achievements.unlocked.includes(achievementId)
+  ) {
+    return;
+  }
+
+  // progressオブジェクトがなければ初期化
+  if (!achievements.progress) {
+    achievements.progress = {};
+  }
+
+  const currentProgress = achievements.progress[achievementId] || 0;
+  const newProgress = currentProgress + increment;
+
+  if (newProgress >= achievementDef.goal) {
+    // 目標達成！ unlockAchievementsに処理を任せる
+    await unlockAchievements(client, userId, achievementId);
+    // 達成後は不要なのでprogressから削除
+    delete achievements.progress[achievementId];
+  } else {
+    // まだ途中なら進捗を保存
+    achievements.progress[achievementId] = newProgress;
+  }
+
+  // 変更があったので保存対象にする
+  dirtyUsers.add(userId);
+}
