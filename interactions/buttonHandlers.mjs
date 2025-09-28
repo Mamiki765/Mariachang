@@ -15,6 +15,7 @@ import {
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
 import { safeDelete } from "../utils/messageutil.mjs";
+import { unlockAchievements } from "../utils/achievements.mjs";
 import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 // 放置ゲームの人口を更新する関数をインポート
 import {
