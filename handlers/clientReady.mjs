@@ -30,12 +30,16 @@ export default async (client) => {
   //node-cron '秒（省略可） 分 時 日 月 曜日'
   // 8時と22時に時報、送信先読み込み
   const timechannel = await client.channels.fetch(config.timesignalch);
+  const morningImageUrl =
+    "https://cdn.discordapp.com/attachments/1261485824378142760/1421894692391358607/image.png?ex=68dab220&is=68d960a0&hm=4e7367625ea405cb6e3e58f79cd0bbc3e085155ab03721cf9867acf5eac012bf&";
+  const nightImageUrl =
+    "https://cdn.discordapp.com/attachments/1261485824378142760/1421894775795089448/image.png?ex=68dab234&is=68d960b4&hm=e607ae645534b086ae44e8c4438f6434f33afff37521c460dcf36c7f65f92bd4&";
   //8時
   cron.schedule(
     "0 8 * * *",
     async () => {
       await timechannel.send({
-        content: "朝の8時をお知らせしますにゃ。",
+        content: `朝の8時をお知らせしますにゃ[。](${morningImageUrl})`,
         components: [acornLoginButton],
       });
       /*SUPABASEに移行したのでコメントアウト　
@@ -54,7 +58,7 @@ export default async (client) => {
     "0 22 * * *",
     async () => {
       await timechannel.send({
-        content: "夜の22時をお知らせしますにゃ。",
+        content: `夜の22時をお知らせしますにゃ[。](${nightImageUrl})`,
         components: [acornLoginButton],
       });
     },
@@ -176,7 +180,9 @@ export default async (client) => {
     cron.schedule(
       config.scenarioChecker.cronSchedule3, // configからスケジュールを取得
       () => {
-        console.log("[TASK] スケジュールされたシナリオチェックを実行します...（増加分）");
+        console.log(
+          "[TASK] スケジュールされたシナリオチェックを実行します...（増加分）"
+        );
         checkNewScenarios(client);
       },
       {
