@@ -242,15 +242,8 @@ export async function execute(interaction) {
       }
       // スキル3の効果を適用
       pizzaBonusPercentage = (100 + pizzaBonusPercentage) * skill3Effect - 100;
-
-      let productionString;
-      if (productionPerMinute >= 100) {
-        // 100以上の場合は、小数点を切り捨ててカンマ区切りにする
-        productionString = Math.floor(productionPerMinute).toLocaleString();
-      } else {
-        // 100未満の場合は、小数点以下2桁で表示する
-        productionString = productionPerMinute.toFixed(2);
-      }
+      //生産速度を関数にかけてフォーマット
+      const productionString = formatProductionRate(productionPerMinute);
 
       // ★ バフ残り時間計算
       let buffField = null;
@@ -1264,6 +1257,27 @@ export function formatNumberReadable(n) {
   }
 }
 
+// 新しい万能フォーマット関数
+function formatProductionRate(n) {
+  // --- ガード節：無効な値は早期に弾く ---
+  if (typeof n !== "number" || !isFinite(n)) {
+    return "計算中...";
+  }
+
+  // --- 条件分岐 ---
+  if (n < 100) {
+    // 100未満: 小数点以下2桁で表示 (元のロジック)
+    return n.toFixed(2);
+  } else if (n < 1_000_000_000_000_000) {
+    // 1000兆未満
+    // 100以上、1000兆未満: カンマ区切り (読みやすさの上限)
+    return Math.floor(n).toLocaleString();
+  } else {
+    // 1000兆以上: 指数表記 (0の壁を回避)
+    return n.toExponential(2);
+  }
+}
+
 /**
  * 巨大な数値を、日本の単位（兆、億、万）を使った最も自然な文字列に整形します。
  * 人間が日常的に読み書きする形式を再現します。
@@ -1282,7 +1296,7 @@ function formatNumberJapanese(n) {
     return String(n);
   }
   if (n > Number.MAX_SAFE_INTEGER) {
-    return n.toExponential(2);
+    return n.toExponential(4);
   }
 
   const num = Math.floor(n);
