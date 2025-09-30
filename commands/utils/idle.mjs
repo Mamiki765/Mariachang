@@ -263,12 +263,13 @@ export async function execute(interaction) {
         )} 匹**
 最高人口: ${formatNumberJapanese(
           Math.floor(idleGame.highestPopulation)
-        )} 匹 \nPP: **${pp.toFixed(2)}** SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4}
-全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**`;
+        )} 匹 \nPP: **${pp.toFixed(2)}** 全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**
+SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4}
+🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
       } else {
         descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
           Math.floor(idleGame.population)
-        )} 匹**`;
+        )} 匹**\n 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
       }
 
       //コストを表示するために計算する
@@ -356,7 +357,7 @@ export async function execute(interaction) {
     const generateButtons = (isDisabled = false) => {
       // ボタンを描画するたびに、コストを再計算する
       const costs = calculateAllCosts(idleGame);
-
+      const components = [];
       //ブースト延長
       //ブーストの残り時間を計算 (ミリ秒で)
       const now = new Date();
@@ -382,6 +383,19 @@ export async function execute(interaction) {
         remainingHours >= 48 || // 残り48時間以上
         point.legacy_pizza < nyoboshiCost || // チップが足りない
         nyoboshiCost === 0; // コストが0 (バフが切れているなど)
+
+    if (idleGame.prestigePower >= 8) {
+        const autoAllocateRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId("idle_auto_allocate")
+                .setLabel("適当に強化(全チップ)")
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji("1416912717725438013")
+                .setDisabled(isDisabled)
+        );
+        // 条件を満たした場合のみ、この行をcomponents配列に追加します
+        components.push(autoAllocateRow);
+    }
 
       const facilityRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -439,6 +453,8 @@ export async function execute(interaction) {
             .setDisabled(isDisabled || point.legacy_pizza < costs.anchovy)
         );
       }
+      components.push(facilityRow);
+
       //ブーストボタンを後から追加
       const boostRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -454,14 +470,6 @@ export async function execute(interaction) {
       );
       //オート振り
       if (idleGame.prestigePower >= 8) {
-        boostRow.addComponents(
-          new ButtonBuilder()
-            .setCustomId("idle_auto_allocate")
-            .setLabel("適当に強化(全チップ)")
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji("1416912717725438013")
-            .setDisabled(isDisabled)
-        );
         //SP強化
         boostRow.addComponents(
           new ButtonBuilder()
@@ -514,8 +522,11 @@ export async function execute(interaction) {
           .setEmoji("💡")
           .setDisabled(isDisabled)
       );
-
-      return [facilityRow, boostRow];
+    if (boostRow.components.length > 0) {
+        components.push(boostRow);
+    }
+      //3行のボタンを返信
+      return components;
     };
 
     //もう一度時間を計算
