@@ -6,6 +6,7 @@ import { safeDelete } from "../../utils/messageutil.mjs";
 import {
   unlockAchievements,
   updateAchievementProgress,
+  unlockHiddenAchievements,
 } from "../../utils/achievements.mjs";
 
 export const help = {
@@ -169,17 +170,17 @@ export async function dominoeffect(message, client, id, username, dpname) {
       await unlockAchievements(client, id, 32); //ドミノを崩した実績
 
       // 新しいドミノの履歴を DominoLog に保存
-        await DominoLog.create(
-          {
-            attemptNumber: currentDomino.attemptNumber,
-            totalCount: currentDomino.totalCount,
-            playerCount: currentDomino.totalPlayers,
-            loserName: username,
-          },
-          { transaction: t }
-        );
+      await DominoLog.create(
+        {
+          attemptNumber: currentDomino.attemptNumber,
+          totalCount: currentDomino.totalCount,
+          playerCount: currentDomino.totalPlayers,
+          loserName: username,
+        },
+        { transaction: t }
+      );
 
-        console.log("DominoLog created successfully.");
+      console.log("DominoLog created successfully.");
 
       if (currentDomino.totalCount === 0) {
         await dominochannel.send({
@@ -286,6 +287,10 @@ export async function dominoeffect(message, client, id, username, dpname) {
 
       // 実績ID 31: ドミノドミノドミノドミノドミノドミノ (1000回) の進捗を更新
       await updateAchievementProgress(client, id, 31);
+
+      if (randomNum === 79) { // 実績ID: i7 「79」
+        await unlockHiddenAchievements(client, id, 7); 
+      }
 
       //5秒後に消える奴
       if (message.channel.id !== config.dominoch) {

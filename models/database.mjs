@@ -578,7 +578,7 @@ const UserAchievement = sequelize.define(
     achievements: {
       type: DataTypes.JSONB,
       allowNull: false,
-      defaultValue: { unlocked: [], progress: {} },
+      defaultValue: { unlocked: [], progress: {}, hidden_unlocked: [] },
     },
   },
   {

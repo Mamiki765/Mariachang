@@ -23,6 +23,7 @@ import {
 // 250904発言によるピザ(チップ)トークン獲得
 const activeUsersForPizza = new Set();
 export { activeUsersForPizza }; // 他のモジュールで使用するためにエクスポート
+import { unlockHiddenAchievements } from "../utils/achievements.mjs";
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
@@ -218,6 +219,10 @@ export default async (message) => {
       flags: [4096], //@silent
       content: "https://rev1.reversion.jp/character/detail/" + message.content,
     });
+    if (message.content === "p3x001254") {
+      // 実績ID: i2
+      await unlockHiddenAchievements(message.client, message.author.id, 2);
+    }
   }
   //第六
   else if (message.content.match(/^f[0-9][0-9][0-9][0-9][0-9]$/)) {

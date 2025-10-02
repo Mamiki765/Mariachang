@@ -1,3 +1,4 @@
+//commands\slashs\suyasuya.mjs
 import {
   SlashCommandBuilder,
   EmbedBuilder,
@@ -6,6 +7,7 @@ import {
   ButtonStyle,
 } from "discord.js";
 import { selftimeout_check } from "../../components/buttons.mjs";
+import { unlockHiddenAchievements } from "../../utils/achievements.mjs";
 
 export const help = {
   category: "slash",
@@ -51,6 +53,16 @@ export async function timeout_confirm(interaction, minutes) {
     const sleaptime = 60 * 1000 * minutes;
     const timestamp = Math.floor(Date.now() / 1000);
     const waketimestamp = Math.floor((Date.now() + sleaptime) / 1000);
+    // 分数をチェックします
+    //本当は下の.timeout後にやるべきですが、私が取れなくなります←
+    const numericMinutes = parseInt(minutes, 10);
+    if (numericMinutes === 1) {
+      // 実績ID: i3 
+      await unlockHiddenAchievements(interaction.client, interaction.user.id, 3);
+    } else if (numericMinutes === 720) {
+      // 実績ID: i4 
+      await unlockHiddenAchievements(interaction.client, interaction.user.id, 4);
+    }
     await interaction.member.timeout(
       sleaptime,
       "/suyasuyaによるセルフタイムアウト"

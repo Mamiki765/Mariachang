@@ -5,6 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
+import { unlockHiddenAchievements } from "../../utils/achievements.mjs";
 
 export const help = {
   category: "slash",
@@ -46,4 +47,6 @@ export async function execute(interaction) {
       ),
     ],
   });
+  //実績i1
+   await unlockHiddenAchievements(interaction.client, interaction.user.id, 1);
 }

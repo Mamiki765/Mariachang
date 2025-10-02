@@ -35,8 +35,22 @@ async function loadUserAchievements(userId) {
     where: { userId },
   });
   if (!userAchievement) return null;
-  achievementCache.set(userId, userAchievement.achievements);
-  return userAchievement.achievements;
+
+  const achievements = userAchievement.achievements;
+
+  // 互換性確保のために念の為なければ作る
+  if (!achievements.unlocked) {
+    achievements.unlocked = [];
+  }
+  if (!achievements.progress) {
+    achievements.progress = {};
+  }
+  // hidden_unlockedはあとから増えたからなおさら
+  if (!achievements.hidden_unlocked) {
+    achievements.hidden_unlocked = [];
+  }
+  achievementCache.set(userId, achievements);
+  return achievements;
 }
 
 async function saveDirtyUsers() {
@@ -219,4 +233,86 @@ export async function updateAchievementProgress(
 
   // 変更があったので保存対象にする
   dirtyUsers.add(userId);
+}
+
+/**
+ * 【内部用】隠し実績の解除とキャッシュ更新
+ * @returns {Promise<object|null>} 新しく解除した場合、隠し実績オブジェクトを返す
+ */
+async function _tryUnlockHiddenAchievement(userId, achievementId) {
+  // 共通のloadUserAchievementsを呼ぶだけでOK
+  const achievements = await loadUserAchievements(userId);
+  // 既に解除済みかチェックする配列を hidden_unlocked に変更
+  if (!achievements || achievements.hidden_unlocked.includes(achievementId))
+    return null;
+
+  // 参照する実績リストを config.idle.hidden_achievements に変更
+  const achievement = config.idle.hidden_achievements.find(
+    (a) => a.id === achievementId
+  );
+  if (!achievement) return null;
+
+  // 保存先の配列を hidden_unlocked に変更
+  achievements.hidden_unlocked.push(achievementId);
+  dirtyUsers.add(userId); // 変更があったので保存対象にする
+  console.log(`[Achievement] ${userId} が隠し実績「${achievement.name}」を解除！`);
+  return achievement;
+}
+
+/**
+ * 【外部から呼ぶ隠し実績版】隠し実績を解除し、本人にのみDMで通知する
+ * @param {Client} client
+ * @param {string} userId
+ * @param {...number} hiddenAchievementIds - 解除したい隠し実績ID
+ */
+export async function unlockHiddenAchievements(client, userId, ...hiddenAchievementIds) {
+  const newlyUnlocked = [];
+  for (const id of hiddenAchievementIds) {
+    // 内部関数を隠し実績用に変更
+    const unlocked = await _tryUnlockHiddenAchievement(userId, id);
+    if (unlocked) {
+      newlyUnlocked.push(unlocked);
+    }
+  }
+
+  if (newlyUnlocked.length === 0) return;
+
+  // --- 通知処理 ---
+  // 隠し実績はネタバレ防止のため、本人にのみDMで通知するのが望ましいです。
+  
+  let embed;
+  if (newlyUnlocked.length === 1) {
+    const ach = newlyUnlocked[0];
+    embed = new EmbedBuilder()
+      .setColor("DarkPurple") // 色を少し変えて特別感を演出
+      .setTitle(" SECRET ACHIEVEMENT UNLOCKED ")
+      .setDescription(`あなたは隠し実績を見つけた`)
+      .addFields({
+        name: `??? -> ${ach.name}`, // 解除前後の名前がわかる演出
+        value: ach.description,
+      })
+      .setTimestamp();
+  } else {
+    embed = new EmbedBuilder()
+      .setColor("DarkPurple")
+      .setTitle(" MULTIPLE SECRET ACHIEVEMENTS UNLOCKED ")
+      .setDescription(
+        `あなたは **${newlyUnlocked.length}個** もの秘密を同時に解き明かした`
+      )
+      .addFields(
+        newlyUnlocked.map((ach) => ({
+          name: `✅ ${ach.name}`,
+          value: ach.description,
+        }))
+      )
+      .setTimestamp();
+  }
+
+  try {
+    const user = await client.users.fetch(userId);
+    await user.send({ embeds: [embed] });
+  } catch (error) {
+    // DMが送れなくてもエラーで止まらないようにする
+    console.error(`[Achievement] 隠し実績のDM通知に失敗`, error);
+  }
 }

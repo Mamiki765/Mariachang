@@ -15,7 +15,10 @@ import {
 } from "../../models/database.mjs";
 import { Op } from "sequelize";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
-import { unlockAchievements } from "../../utils/achievements.mjs";
+import {
+  unlockAchievements,
+  unlockHiddenAchievements,
+} from "../../utils/achievements.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
  * 基本施設：ピザ窯
@@ -384,18 +387,18 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
         point.legacy_pizza < nyoboshiCost || // チップが足りない
         nyoboshiCost === 0; // コストが0 (バフが切れているなど)
 
-    if (idleGame.prestigePower >= 8) {
+      if (idleGame.prestigePower >= 8) {
         const autoAllocateRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId("idle_auto_allocate")
-                .setLabel("適当に強化(全チップ)")
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji("1416912717725438013")
-                .setDisabled(isDisabled)
+          new ButtonBuilder()
+            .setCustomId("idle_auto_allocate")
+            .setLabel("適当に強化(全チップ)")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("1416912717725438013")
+            .setDisabled(isDisabled)
         );
         // 条件を満たした場合のみ、この行をcomponents配列に追加します
         components.push(autoAllocateRow);
-    }
+      }
 
       const facilityRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -522,9 +525,9 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
           .setEmoji("💡")
           .setDisabled(isDisabled)
       );
-    if (boostRow.components.length > 0) {
+      if (boostRow.components.length > 0) {
         components.push(boostRow);
-    }
+      }
       //3行のボタンを返信
       return components;
     };
@@ -923,6 +926,42 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
           await unlockAchievements(interaction.client, userId, 12);
         } else if (facility === "nyobosi") {
           await unlockAchievements(interaction.client, userId, 4);
+        }
+        // i5条件: 強化した施設が 'oven' や 'nyobosi' 以外で、かつ強化前の 'oven' レベルが 0 だった場合
+        if (
+          facility !== "oven" &&
+          facility !== "nyobosi" &&
+          latestIdleGame.pizzaOvenLevel === 0
+        ) {
+          await unlockHiddenAchievements(
+            interaction.client,
+            interaction.user.id,
+            5 //実績i5
+          );
+        }
+        // i6条件 5つの施設のレベルが逆さまになる
+                // 5つの施設のレベルを定数に入れておくと、コードが読みやすくなります
+        const {
+          pizzaOvenLevel: oven,
+          cheeseFactoryLevel: cheese,
+          tomatoFarmLevel: tomato,
+          mushroomFarmLevel: mushroom,
+          anchovyFactoryLevel: anchovy,
+        } = latestIdleGame;
+
+        // 条件: a > m > t > c > o
+        if (
+          anchovy > mushroom &&
+          mushroom > tomato &&
+          tomato > cheese &&
+          cheese > oven
+        ) {
+          // この条件を満たした場合、実績を解除
+          await unlockHiddenAchievements(
+            interaction.client,
+            interaction.user.id,
+            6 // 実績ID: i6
+          );
         }
       } catch (error) {
         console.error("IdleGame Collector Upgrade Error:", error);

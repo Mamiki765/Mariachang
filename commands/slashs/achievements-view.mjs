@@ -1,5 +1,4 @@
 // commands/slashs/achievements-view.mjs
-
 import {
   SlashCommandBuilder,
   EmbedBuilder,
@@ -9,17 +8,18 @@ import {
 } from "discord.js";
 import { UserAchievement } from "../../models/database.mjs";
 import config from "../../config.mjs";
-import { unlockAchievements } from "../../utils/achievements.mjs";
+import {
+  unlockAchievements,
+  unlockHiddenAchievements,
+} from "../../utils/achievements.mjs";
 
-// --- 骨格①：コマンドの説明 ---
 export const help = {
   category: "slash",
   description: "自分または指定したユーザーの実績達成状況を確認します。",
 };
 
-// --- 骨格②：コマンドの定義 ---
 export const data = new SlashCommandBuilder()
-  .setName("achievements-view") // ファイル名と合わせるのがおすすめです
+  .setName("achievements-view")
   .setNameLocalizations({ ja: "実績" })
   .setDescription("実績の達成状況を確認します。")
   .addUserOption((option) =>
@@ -28,83 +28,121 @@ export const data = new SlashCommandBuilder()
       .setNameLocalizations({ ja: "ユーザー" })
       .setDescription("他のユーザーの実績を確認します。")
       .setRequired(false)
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("hide")
+      .setNameLocalizations({ ja: "隠す" })
+      .setDescription("実行結果を自分だけに表示しますか？（デフォルト: はい）")
+      .setRequired(false)
   );
 
-// --- 骨格③：コマンド実行時の入り口 ---
 export async function execute(interaction) {
+  // --- 1. 初期設定とデータ取得 ---
   await unlockAchievements(interaction.client, interaction.user.id, 28);
+
   const targetUser = interaction.options.getUser("user") || interaction.user;
   const userId = targetUser.id;
+  const isEphemeral = interaction.options.getBoolean("hide") ?? true;
 
-  // ギルド内ならニックネーム優先、なければ username
   const displayName =
     interaction.guild?.members.cache.get(userId)?.displayName ||
     targetUser.username;
 
-  // DBからユーザーの解除済み実績IDを取得（なければ []）
+  // データベースから実績データを取得
   const userAchievement = await UserAchievement.findOne({ where: { userId } });
-  const unlockedIds = userAchievement?.achievements?.unlocked || [];
-  const progressData = userAchievement?.achievements?.progress || {}; // progressデータを取得
-  const allAchievements = config.idle.achievements;
+  const achievementsData = userAchievement?.achievements || {
+    unlocked: [],
+    progress: {},
+    hidden_unlocked: [],
+  };
 
-  const itemsPerPage = 10;
-  const totalPages = Math.ceil(allAchievements.length / itemsPerPage);
+  // 表示状態を管理する変数
   let currentPage = 0;
+  let isHiddenMode = false;
 
-  // ページング設定
-  const generateEmbed = (page) => {
+  // --- 2. 表示コンポーネントを生成する関数 ---
+
+  // Embedを生成する関数
+  const generateEmbed = (page, isHidden) => {
+    const sourceAchievements = isHidden
+      ? config.idle.hidden_achievements
+      : config.idle.achievements;
+    const unlockedIds = isHidden
+      ? (achievementsData.hidden_unlocked ?? [])
+      : (achievementsData.unlocked ?? []);
+    const progressData = achievementsData.progress ?? {};
+
+    const itemsPerPage = 10;
+    const totalPages = Math.ceil(sourceAchievements.length / itemsPerPage);
     const start = page * itemsPerPage;
     const end = start + itemsPerPage;
-    const currentAchievements = allAchievements.slice(start, end);
+    const currentAchievements = sourceAchievements.slice(start, end);
 
-    // --- 1. ヘッダーとなる説明文を動的に生成 ---
     const unlockedCount = unlockedIds.length;
-    const headerString = `それは放置ゲームにおいて全てのMultを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;
+    let title, headerString;
 
-    // --- 2. 表示する実績リストを文字列として組み立てる ---
+    if (isHidden) {
+      title = `"${displayName}" の秘密の実績 (${unlockedCount} / ${sourceAchievements.length})`;
+      headerString = "薄れゆく達成感。";
+    } else {
+      title = `"${displayName}" の実績 (${unlockedCount} / ${sourceAchievements.length})`;
+      headerString = `それは放置ゲームにおいて全てのMultを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;
+    }
+
     const achievementListString = currentAchievements
       .map((ach) => {
-        // 実績番号を ID + 1 で生成
         const achievementNumber = String(ach.id + 1).padStart(3, "0");
-
         const isUnlocked = unlockedIds.includes(ach.id);
-        const currentProgress = progressData[ach.id];
-        const displayValue = `-# ${ach.description}${ach.effect ? `\n-# __${ach.effect}__` : ''}`;
-        let statusIcon;
-        let nameAndProgress = ach.name;
+
+        let statusIcon, nameAndProgress, displayValue;
 
         if (isUnlocked) {
           statusIcon = "✅";
-        } else if (currentProgress !== undefined && ach.goal) {
-          statusIcon = "🔄";
-          nameAndProgress += ` (${currentProgress.toLocaleString()} / ${ach.goal.toLocaleString()})`;
+          nameAndProgress = ach.name;
+          displayValue = `-# ${ach.description}`;
+          if (isHidden) {
+            displayValue = `-# *ヒント: ${ach.hint}*\n` + displayValue;
+          }
+          if (!isHidden && ach.effect) {
+            displayValue += `\n-# __${ach.effect}__`;
+          }
         } else {
           statusIcon = "🔒";
+          if (isHidden) {
+            nameAndProgress = "？？？？？";
+            displayValue = `-# *ヒント: ${ach.hint}*`;
+          } else {
+            nameAndProgress = ach.name;
+            const currentProgress = progressData[ach.id];
+            if (currentProgress !== undefined && ach.goal) {
+              statusIcon = "🔄";
+              nameAndProgress += ` (${currentProgress.toLocaleString()} / ${ach.goal.toLocaleString()})`;
+            }
+            displayValue = `-# ${ach.description}${ach.effect ? `\n-# __${ach.effect}__` : ""}`;
+          }
         }
-
         return `**#${achievementNumber} ${statusIcon} ${nameAndProgress}**\n${displayValue}`;
       })
       .join("\n");
 
-    // --- 3. ヘッダーと実績リストを結合 ---
     const fullDescription = `${headerString}\n\n${achievementListString}`;
 
-    // --- 4. Embedを生成 ---
-    return (
-      new EmbedBuilder()
-        .setColor("Gold")
-        .setTitle(
-          `"${displayName}" の実績 (${unlockedCount} / ${allAchievements.length})`
-        )
-        // 結合した最終的な説明文をセット
-        .setDescription(fullDescription)
-        .setFooter({ text: `ページ ${page + 1} / ${totalPages}` })
-    );
+    return new EmbedBuilder()
+      .setColor(isHidden ? "DarkPurple" : "Gold")
+      .setTitle(title)
+      .setDescription(fullDescription)
+      .setFooter({ text: `ページ ${page + 1} / ${totalPages}` });
   };
 
-  // ボタン生成関数
-  const generateButtons = (page) =>
-    new ActionRowBuilder().addComponents(
+  // ボタンを生成する関数
+  const generateButtons = (page, isHidden) => {
+    const sourceAchievements = isHidden
+      ? config.idle.hidden_achievements
+      : config.idle.achievements;
+    const totalPages = Math.ceil(sourceAchievements.length / 10);
+
+    const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("prev_page")
         .setLabel("◀")
@@ -117,37 +155,80 @@ export async function execute(interaction) {
         .setDisabled(page >= totalPages - 1)
     );
 
-  // 最初のメッセージ送信
+    if (isEphemeral) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId("toggle_view")
+          .setEmoji(isHidden ? "📖" : "🗑️")
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+    return row;
+  };
+
+  // --- 3. メッセージの送信とインタラクションの待受 ---
+
   const message = await interaction.reply({
-    embeds: [generateEmbed(currentPage)],
-    components: [generateButtons(currentPage)],
+    embeds: [generateEmbed(currentPage, isHiddenMode)],
+    components: [generateButtons(currentPage, isHiddenMode)],
+    ephemeral: isEphemeral,
     fetchReply: true,
   });
 
-  // ボタン操作用コレクター
+  // 公開メッセージの場合は、コレクターをセットアップせずに処理を終了
+  //if (!isEphemeral) return;
+
   const collector = message.createMessageComponentCollector({
-    filter: (i) => i.user.id === interaction.user.id || i.user.id === userId,
+    filter: (i) => i.user.id === interaction.user.id,
     time: 120_000,
   });
 
   collector.on("collect", async (i) => {
-    if (i.customId === "prev_page" && currentPage > 0) {
-      currentPage--;
-    } else if (i.customId === "next_page" && currentPage < totalPages - 1) {
-      currentPage++;
+    try {
+      if (i.customId === "prev_page") {
+        if (currentPage > 0) currentPage--;
+      } else if (i.customId === "next_page") {
+        const source = isHiddenMode
+          ? config.idle.hidden_achievements
+          : config.idle.achievements;
+        const totalPages = Math.ceil(source.length / 10);
+        if (currentPage < totalPages - 1) currentPage++;
+      } else if (i.customId === "toggle_view") {
+        isHiddenMode = !isHiddenMode;
+        currentPage = 0;
+
+        if (isHiddenMode) {
+          await unlockHiddenAchievements(
+            interaction.client,
+            interaction.user.id,
+            0
+          );
+        }
+      }
+
+      await i.update({
+        embeds: [generateEmbed(currentPage, isHiddenMode)],
+        components: [generateButtons(currentPage, isHiddenMode)],
+      });
+    } catch (error) {
+      console.error("実績表示の更新中にエラーが発生しました:", error);
     }
-    await i.update({
-      embeds: [generateEmbed(currentPage)],
-      components: [generateButtons(currentPage)],
-    });
   });
 
   collector.on("end", async () => {
-    const disabledButtons = generateButtons(currentPage).components.map((c) =>
-      c.setDisabled(true)
-    );
-    await interaction.editReply({
-      components: [new ActionRowBuilder().addComponents(disabledButtons)],
-    });
+    try {
+      const finalComponents = generateButtons(
+        currentPage,
+        isHiddenMode
+      ).components.map((c) => c.setDisabled(true));
+      await interaction.editReply({
+        components: [new ActionRowBuilder().addComponents(finalComponents)],
+      });
+    } catch (error) {
+      // ユーザーがメッセージを削除した場合など、編集に失敗することがあるためエラーを握りつぶす
+      console.log(
+        "実績表示のボタン無効化に失敗しました (メッセージが削除された可能性があります)"
+      );
+    }
   });
 }
