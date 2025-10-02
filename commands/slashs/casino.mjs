@@ -18,7 +18,10 @@ import {
 import { getPizzaBonusMultiplier } from "../utils/idle.mjs";
 import config from "../../config.mjs";
 import { getSupabaseClient } from "../../utils/supabaseClient.mjs";
-import { unlockAchievements } from "../../utils/achievements.mjs";
+import {
+  unlockAchievements,
+  unlockHiddenAchievements,
+} from "../../utils/achievements.mjs";
 
 export const help = {
   category: "slash",
@@ -504,6 +507,12 @@ async function handleSlots(interaction, slotConfig) {
       await userPoint.save({ transaction: t });
       await stats.save({ transaction: t });
       await t.commit(); // ここでDBへの変更を確定
+
+      //実績i9 「J-A-C-K-P-O-T」
+      // totalWinAmount (このスピンでの合計勝利コイン) が10000以上かチェック
+      if (totalWinAmount >= 10000) {
+        await unlockHiddenAchievements(client, userId, 9);
+      }
 
       // セッション情報を更新
       sessionPlays++; // 統計に加算する回数はライン数だが、セッションのプレイ回数は1固定

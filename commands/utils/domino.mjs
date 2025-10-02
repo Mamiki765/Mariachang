@@ -1,5 +1,5 @@
 // commands\utils\domino.mjs
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder,ChannelType } from "discord.js";
 import { DominoLog, CurrentDomino, sequelize } from "../../models/database.mjs"; // あなたのデータベース設定からDominoLogとCurrentDominoモデルをインポート
 import config from "../../config.mjs";
 import { safeDelete } from "../../utils/messageutil.mjs";
@@ -292,6 +292,9 @@ export async function dominoeffect(message, client, id, username, dpname) {
         await unlockHiddenAchievements(client, id, 7); 
       }
 
+      if (message.channel?.type === ChannelType.DM) {
+          await unlockHiddenAchievements(client, id, 8); //実績i8
+        }
       //5秒後に消える奴
       if (message.channel.id !== config.dominoch) {
         const replyMessage = await message.reply({
