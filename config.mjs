@@ -495,7 +495,7 @@ export default {
       },
       betting: {
         min: 2,
-        max: 40,
+        max: 100,
         increment: 2, // 2枚単位
       },
     },
