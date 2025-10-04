@@ -1149,4 +1149,22 @@ export default {
     // modeが 'public' の場合に通知を送るチャンネルID
     channelId: isProduction ? "1421521075337953321" : debugConfig.channel,
   },
+  rssWatcher: {
+    // 監視したいタスクを配列で管理
+    tasks: [
+      {
+        name: "ロスアカラプ箱交換希望", // タスクの名前
+        enabled: true, // このタスクを有効にするか
+        rssUrl: "https://nitter.privacyredirect.com/search/rss?f=tweets&q=%23%E3%83%AD%E3%82%B9%E3%82%A2%E3%82%AB%E3%83%A9%E3%83%97%E7®%B1%E4%BA%A4%E6%8F%9B%E5%B8%8C%E6%9C%9B&e-nativeretweets=on",
+        channelId: isProduction ?  "1263577939396526091" : debugConfig.channel,
+      },
+    ],
+    // チェックする頻度（Cron形式: これは10分ごと）
+    cronSchedule: "*/10 * * * *",
+    // ▼▼▼ セーフティネット設定を追加 ▼▼▼
+    // 1回のチェックで処理する最大投稿数 (スパムや予期せぬ大量投稿からチャンネルを守る)
+    maxPostsPerCheck: 15,
+    // 1投稿ごとの送信間隔（ミリ秒）。APIレート制限を避ける
+    postDelay: 1500, // 1.5秒
+  },
 };

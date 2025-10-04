@@ -123,7 +123,9 @@ export default async (client) => {
     console.log(
       "[DB]Database synchronized successfully. Proceeding with tasks."
     );
+    //実績とRSSの初期化
     initializeAchievementSystem();
+    initializeRssWatcher(client); 
   } catch (error) {
     console.error(
       "[FATAL ERROR][DB]CRITICAL: Database sync failed on startup. Halting scheduled tasks.",
