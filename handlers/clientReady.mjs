@@ -19,6 +19,8 @@ import { syncMee6Levels } from "../tasks/mee6-level-updater.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 // package.jsonからバージョンを取得
 import { readFileSync } from "node:fs";
+//RSSチェッカー
+import { initializeRssWatcher } from "../tasks/rss-watcher.mjs";
 // package.json を同期で読み込む (起動時のみ)
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8")
