@@ -19,6 +19,16 @@ import {
   unlockAchievements,
   unlockHiddenAchievements,
 } from "../../utils/achievements.mjs";
+
+//idlegame関数群
+import {
+  calculateFacilityCost,
+  calculateAllCosts,
+  updateUserIdleGame,
+  formatProductionRate,
+  formatNumberJapanese,
+  calculateSpentSP // handleSkillResetで使うので追加
+} from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
  * 基本施設：ピザ窯
@@ -56,34 +66,6 @@ export const data = new SlashCommandBuilder()
       )
   );
 
-// --- 共通化: コスト計算関数 ---
-
-/**
- * 施設のアップグレードコストを計算する
- * @param {string} type - 'oven', 'cheese' などの施設名
- * @param {number} level - 現在の施設レベル
- * @returns {number} 次のレベルへのアップグレードコスト
- */
-function calculateFacilityCost(type, level) {
-  const facility = config.idle[type];
-  if (!facility) return Infinity; // 念のため
-  return Math.floor(facility.baseCost * Math.pow(facility.multiplier, level));
-}
-
-/**
- * 全ての施設のコストを計算し、オブジェクトとして返す
- * @param {object} idleGame - IdleGameモデルのインスタンス
- * @returns {object} 各施設のコストが格納されたオブジェクト
- */
-function calculateAllCosts(idleGame) {
-  return {
-    oven: calculateFacilityCost("oven", idleGame.pizzaOvenLevel),
-    cheese: calculateFacilityCost("cheese", idleGame.cheeseFactoryLevel),
-    tomato: calculateFacilityCost("tomato", idleGame.tomatoFarmLevel),
-    mushroom: calculateFacilityCost("mushroom", idleGame.mushroomFarmLevel),
-    anchovy: calculateFacilityCost("anchovy", idleGame.anchovyFactoryLevel),
-  };
-}
 
 export async function execute(interaction) {
   const rankingChoice = interaction.options.getString("ranking");
@@ -1136,265 +1118,6 @@ async function executeRankingCommand(interaction, isPrivate) {
   });
 }
 
-/**
- *  * ==========================================================================================
- * ★★★ 将来の自分へ: 計算式に関する超重要メモ ★★★
- *
- * この updateUserIdleGame 関数内の人口計算ロジックは、
- * SupabaseのSQL関数 `update_all_idle_games_and_bonuses` 内でも、
- * 全く同じ計算式でSQLとして再現されています。
- *
- * (SQL関数は、tasks/pizza-distributor.mjsから10分毎に呼び出され、
- * 全ユーザーの人口を一括で更新するために使われています)
- *
- * そのため、将来ここで計算式を変更する場合 (例: 施設の補正数値をconfigで変える、新しい施設を追加する) は、
- * 必ずSupabaseにある `update_all_idle_games_and_bonuses` 関数も
- * 同じロジックになるよう修正してください！
- *
- * ==========================================================================================
- *
- * 特定ユーザーの放置ゲームデータを更新し、最新の人口を返す関数
- * @param {string} userId - DiscordのユーザーID
- * @returns {Promise<object|null>} 成功した場合は { population, pizzaBonusPercentage }、データがなければ null
- */
-export async function updateUserIdleGame(userId) {
-  // IdleGameテーブルにユーザーデータがあるか確認
-  const idleGame = await IdleGame.findOne({ where: { userId } });
-  // データがなければ、何もせず null を返す
-  if (!idleGame) {
-    return null;
-  }
-  //プレステージパワーを代入
-  const pp = idleGame.prestigePower || 0;
-
-  //実績を代入
-  //UserAchievement から実績数を取得する
-  const userAchievement = await UserAchievement.findOne({ where: { userId } });
-  const achievementCount = userAchievement?.achievements?.unlocked?.length || 0;
-  const achievementMultiplier = 1.0 + achievementCount * 0.01;
-  const achievementExponentBonus = achievementCount;
-
-  // スキル効果の計算
-  const skillLevels = {
-    s1: idleGame.skillLevel1 || 0,
-    s2: idleGame.skillLevel2 || 0,
-    s3: idleGame.skillLevel3 || 0,
-    s4: idleGame.skillLevel4 || 0,
-  };
-  //#4は#1~3強化なので以下の様に
-  const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
-  const skill1Effect =
-    (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier; //実績も乗せる
-  const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
-  const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
-
-  // --- 既存のオフライン計算ロジックを、ほぼそのまま持ってくる ---
-  const mee6Level = await Mee6Level.findOne({ where: { userId } });
-  const meatFactoryLevel =
-    (mee6Level ? mee6Level.level : 0) + pp + achievementExponentBonus; //ppはこっちで足す、実績も！
-  const now = new Date();
-
-  const lastUpdate = idleGame.lastUpdatedAt || now;
-  const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
-
-  const ovenEffect = idleGame.pizzaOvenLevel + pp; //基礎
-  const cheeseEffect =
-    1 + config.idle.cheese.effect * (idleGame.cheeseFactoryLevel + pp); //乗算1
-  const tomatoEffect =
-    1 + config.idle.tomato.effect * (idleGame.tomatoFarmLevel + pp); //乗算2
-  const mushroomEffect =
-    1 + config.idle.mushroom.effect * (idleGame.mushroomFarmLevel + pp); //乗数3
-  const anchovyEffect =
-    1 + config.idle.anchovy.effect * (idleGame.anchovyFactoryLevel + pp); //乗数4
-  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel; //指数(PP効果は上で計算済み)
-  let currentBuffMultiplier = 1.0; // ブースト
-  if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
-    currentBuffMultiplier = idleGame.buffMultiplier;
-  }
-  // ((基礎*乗算)^指数)*ブースト
-  // 250912乗算にトマト追加
-  // 250921乗数にアンチョビとキノコ追加
-  // 250925プレステージスキル#1 #2追加 #1効果^5を掛ける事で５施設N倍を再現
-  const productionPerMinute =
-    Math.pow(
-      ovenEffect *
-        cheeseEffect *
-        tomatoEffect *
-        mushroomEffect *
-        anchovyEffect *
-        Math.pow(skill1Effect, 5),
-      meatEffect
-    ) *
-    currentBuffMultiplier *
-    skill2Effect;
-
-  if (elapsedSeconds > 0) {
-    const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
-    idleGame.population += addedPopulation;
-  }
-
-  // 人口ボーナスを計算
-  // log10(人口) + 1 をパーセンテージとして返す 1桁で1% 2桁で2% 3桁で3% ...
-  let pizzaBonusPercentage = 0;
-  if (idleGame.population >= 1) {
-    // プレステージ後は最低でもPP分のボーナスが保証される
-    pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp;
-  } else if (pp > 0) {
-    // 人口が1未満でもPPボーナスは有効
-    pizzaBonusPercentage = pp; //250925何故かpp+1になってたのでppに修正(0ならPP分だけ)
-  }
-  //スキル#3効果計算
-  pizzaBonusPercentage = (100 + pizzaBonusPercentage) * skill3Effect - 100;
-  // 計算した最新のボーナス値をDBに保存する
-  // これにより、他の機能（ピザ配りなど）が常に最新のボーナス値を参照できる
-  idleGame.pizzaBonusPercentage = pizzaBonusPercentage;
-  idleGame.lastUpdatedAt = now;
-  await idleGame.save();
-
-  // バフ残り時間（ms → 時間・分に変換）を計算
-  let buffRemaining = null;
-  if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
-    const ms = idleGame.buffExpiresAt - now;
-    const hours = Math.floor(ms / (1000 * 60 * 60));
-    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    buffRemaining = { hours, minutes };
-  }
-
-  // 最新の人口と、計算したボーナスをオブジェクトとして返す
-  return {
-    population: idleGame.population,
-    pizzaBonusPercentage: pizzaBonusPercentage,
-    buffRemaining,
-    currentBuffMultiplier,
-  };
-}
-
-//--------------------------
-//ピザボーナスのいろいろ
-//--------------------------
-/**
- * ユーザーIDから、現在のピザボーナス倍率を取得する関数 (例: 8.2% -> 1.082)
- * @param {string} userId - DiscordのユーザーID
- * @returns {Promise<number>} ボーナス倍率。ボーナスがない場合は 1.0
- */
-export async function getPizzaBonusMultiplier(userId) {
-  const idleGame = await IdleGame.findOne({ where: { userId } });
-  if (!idleGame || idleGame.pizzaBonusPercentage <= 0) {
-    return 1.0; // ボーナスなし
-  }
-  return 1 + idleGame.pizzaBonusPercentage / 100.0;
-}
-
-/**
- * ★★★ 万能ピザボーナス適用関数（リファクタリング版）★★★
- * 与えられたベース量にボーナスを適用し、「整数」で返す。
- */
-export async function applyPizzaBonus(userId, baseAmount) {
-  // 1. 新しい関数で倍率を取得
-  const multiplier = await getPizzaBonusMultiplier(userId);
-  // 2. 計算して、切り捨てて返す
-  return Math.floor(baseAmount * multiplier);
-}
-
-//人口とかの丸め　ログボとか短くするよう
-/**
- * 大きな数を見やすく整形
- * 0〜99,999 → そのまま
- * 10万~9,999,999 →　●●.●●万
- * 1000万〜9999億 → ●億●万
- * 1兆以上 → 指数表記
- */
-export function formatNumberReadable(n) {
-  if (n <= 99999) {
-    return n.toString();
-  } else if (n < 1000_0000) {
-    // 1000万未満
-    const man = n / 10000;
-    return `${man.toFixed(2)}万`;
-  } else if (n < 1_0000_0000_0000) {
-    // 1兆未満
-    const oku = Math.floor(n / 100000000);
-    const man = Math.floor((n % 100000000) / 10000);
-    return `${oku > 0 ? oku + "億" : ""}${man > 0 ? man + "万" : ""}`;
-  } else {
-    return n.toExponential(2); // 小数点2桁の指数表記
-  }
-}
-
-// 新しい万能フォーマット関数
-function formatProductionRate(n) {
-  // --- ガード節：無効な値は早期に弾く ---
-  if (typeof n !== "number" || !isFinite(n)) {
-    return "計算中...";
-  }
-
-  // --- 条件分岐 ---
-  if (n < 100) {
-    // 100未満: 小数点以下2桁で表示 (元のロジック)
-    return n.toFixed(2);
-  } else if (n < 1_000_000_000_000_000) {
-    // 1000兆未満
-    // 100以上、1000兆未満: カンマ区切り (読みやすさの上限)
-    return Math.floor(n).toLocaleString();
-  } else {
-    // 1000兆以上: 指数表記 (0の壁を回避)
-    return n.toExponential(2);
-  }
-}
-
-/**
- * 巨大な数値を、日本の単位（兆、億、万）を使った最も自然な文字列に整形します。
- * 人間が日常的に読み書きする形式を再現します。
- * @param {number} n - フォーマットしたい数値。
- * @returns {string} フォーマットされた文字列。
- * @example
- * formatNumberJapanese(1234567890123); // "1兆2345億6789万123"
- * formatNumberJapanese(100010001);     // "1億1万1"
- * formatNumberJapanese(100000023);     // "1億23"
- * formatNumberJapanese(12345);         // "1万2345"
- * formatNumberJapanese(123);           // "123"
- */
-function formatNumberJapanese(n) {
-  // 基本的なチェック
-  if (typeof n !== "number" || !Number.isFinite(n)) {
-    return String(n);
-  }
-  if (n > Number.MAX_SAFE_INTEGER) {
-    return n.toExponential(4);
-  }
-
-  const num = Math.floor(n);
-  if (num === 0) {
-    return "0";
-  }
-
-  // 単位の定義
-  const units = [
-    { value: 1_0000_0000_0000, name: "兆" },
-    { value: 1_0000_0000, name: "億" },
-    { value: 1_0000, name: "万" },
-  ];
-
-  let result = "";
-  let tempNum = num;
-
-  // 大きい単位から処理していく
-  for (const unit of units) {
-    if (tempNum >= unit.value) {
-      const part = Math.floor(tempNum / unit.value);
-      result += part + unit.name; // 例: "1兆" や "2345億" を追加
-      tempNum %= unit.value; // 残りの数値を更新
-    }
-  }
-
-  // 1万未満の最後の端数を追加
-  if (tempNum > 0) {
-    result += tempNum;
-  }
-
-  // 万が一、入力が0などでresultが空だった場合（最初のifで弾かれるが念のため）
-  return result || String(num);
-}
 
 /**
  * プレステージの確認と実行を担当する関数
@@ -1649,16 +1372,6 @@ function generateSkillButtons(idleGame) {
   return [skillRow, utilityRow];
 }
 
-/**
- * スキルレベルから、そのスキルに費やされた合計SPを計算する
- * (2^0 + 2^1 + ... + 2^(レベル-1)) = 2^レベル - 1
- * @param {number} level - スキルの現在のレベル
- * @returns {number} 消費された合計SP
- */
-function calculateSpentSP(level) {
-  if (level <= 0) return 0;
-  return Math.pow(2, level) - 1;
-}
 
 /**
  * スキルと工場のリセットを担当する関数

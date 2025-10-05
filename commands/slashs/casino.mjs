@@ -15,7 +15,7 @@ import {
   sequelize,
   IdleGame,
 } from "../../models/database.mjs";
-import { getPizzaBonusMultiplier } from "../utils/idle.mjs";
+import { getPizzaBonusMultiplier } from "../../utils/idle-game-calculator.mjs";
 import config from "../../config.mjs";
 import { getSupabaseClient } from "../../utils/supabaseClient.mjs";
 import {

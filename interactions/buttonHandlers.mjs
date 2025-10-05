@@ -21,7 +21,7 @@ import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 import {
   updateUserIdleGame,
   formatNumberReadable,
-} from "../commands/utils/idle.mjs";
+} from "../utils/idle-game-calculator.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
 

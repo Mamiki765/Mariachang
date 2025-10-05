@@ -17,7 +17,7 @@ import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
 import { Character, Icon, sequelize, Point } from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 //RP周りここまで
-import { applyPizzaBonus } from "../commands/utils/idle.mjs";
+import { applyPizzaBonus } from "../utils/idle-game-calculator.mjs";
 //コイン→ピザ交換
 
 export default async function handleModalInteraction(interaction) {

@@ -2,6 +2,7 @@
 import fs from "fs";
 import path from "path";
 import { REST, Routes } from "discord.js";
+import config from "./config.mjs";
 /* =================================================================
  * === コマンド登録システムver2の取扱説明書 ===
  * =================================================================
@@ -59,6 +60,7 @@ import { REST, Routes } from "discord.js";
 // グローバルコマンドとギルドコマンドを格納する、二つの空のリストを用意
 const guildCommands = [];
 const globalCommands = [];
+const debugCommands = []; // ← デバッグ用リストを追加
 
 // 'commands' フォルダ配下の全てのサブフォルダを動的に探索します
 const foldersPath = path.join(process.cwd(), "commands");
@@ -91,6 +93,9 @@ export default async () => {
         // 'scope' が未定義の場合は、デフォルトでグローバルコマンドとして扱います
         if (module.scope === "guild") {
           guildCommands.push(module.data.toJSON());
+        } else if (module.scope === "debug") {
+          // 新しい'debug'スコープの処理
+          debugCommands.push(module.data.toJSON());
         } else {
           globalCommands.push(module.data.toJSON());
         }
@@ -138,6 +143,45 @@ export default async () => {
         );
         console.log(
           "[SUCCESS] 全ての指定サーバーへのギルドコマンド登録が完了しました。"
+        );
+      }
+    }
+
+    // === デバッグコマンドの登録処理 ===
+    if (debugCommands.length > 0) {
+      // isProductionがfalse (つまり開発環境) の場合のみ登録する
+      if (!config.isProduction) {
+        if (!process.env.GUILD_IDS) {
+          console.error(
+            "[ERROR] デバッグコマンドが存在しますが、.envにGUILD_IDSが設定されていません。登録をスキップします。"
+          );
+        } else {
+          const guildIds = process.env.GUILD_IDS.split(",").map((id) =>
+            id.trim()
+          );
+          console.log(
+            `[INIT] [DEV MODE] ${debugCommands.length}個のデバッグコマンドを、${guildIds.length}個のサーバーに登録します...`
+          );
+
+          await Promise.all(
+            guildIds.map((guildId) =>
+              rest.put(
+                Routes.applicationGuildCommands(
+                  process.env.APPLICATION_ID,
+                  guildId
+                ),
+                { body: debugCommands } // ★ここをdebugCommandsにする
+              )
+            )
+          );
+          console.log(
+            "[SUCCESS] [DEV MODE] 全ての指定サーバーへのデバッグコマンド登録が完了しました。"
+          );
+        }
+      } else {
+        // 本番環境の場合は、登録せずにメッセージだけ表示する
+        console.log(
+          `[INFO] [PROD MODE] ${debugCommands.length}個のデバッグコマンドは本番環境のため登録をスキップしました。`
         );
       }
     }
