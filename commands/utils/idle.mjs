@@ -30,6 +30,7 @@ import {
   calculateSpentSP, // handleSkillResetで使うので追加
   calculatePotentialTP,
   calculateFactoryEffects,
+  calculateDiscountMultiplier,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -132,13 +133,16 @@ export async function execute(interaction) {
     }
     // ▼▼▼ #7の効果を計算して加算 ▼▼▼
     const skill7Level = idleGame.skillLevel7 || 0;
-    const spentChips = BigInt(idleGame.chipsSpentThisInfinity || '0');
+    const spentChips = BigInt(idleGame.chipsSpentThisInfinity || "0");
     // log10(0) にならないようにガード
     if (skill7Level > 0 && spentChips > 0) {
-        // BigIntは直接Math.log10できないので、文字列に変換してから数値にする
-        const spentChipsNum = Number(spentChips.toString());
-        const skill7Bonus = Math.log10(spentChipsNum) * skill7Level * config.idle.tp_skills.skill7.effectMultiplier;
-        correctMultiplier += skill7Bonus;
+      // BigIntは直接Math.log10できないので、文字列に変換してから数値にする
+      const spentChipsNum = Number(spentChips.toString());
+      const skill7Bonus =
+        Math.log10(spentChipsNum) *
+        skill7Level *
+        config.idle.tp_skills.skill7.effectMultiplier;
+      correctMultiplier += skill7Bonus;
     }
 
     //実績コンプ系で倍率強化
@@ -293,7 +297,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         .setColor(isFinal ? "Grey" : "Gold")
         .setDescription(descriptionText)
         .addFields(
-         {
+          {
             name: `${config.idle.oven.emoji}ピザ窯`,
             value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect_display.toFixed(0)}) Next.${costs.oven.toLocaleString()}chip`,
             inline: true,
@@ -614,56 +618,103 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
 
       // --- 3. スキル強化の処理 ---
       if (i.customId.startsWith("idle_upgrade_skill_")) {
-        const skillNum = i.customId.split("_").pop(); // "1", "2", "3", "4"
+        const skillNum = parseInt(i.customId.split("_").pop(), 10);
         const skillLevelKey = `skillLevel${skillNum}`;
 
-        const currentLevel = latestIdleGame[skillLevelKey];
-        const cost = Math.pow(2, currentLevel);
+        // ===================================
+        //  SPスキル (スキル#1～#4) の処理
+        // ===================================
+        if (skillNum >= 1 && skillNum <= 4) {
+          const currentLevel = latestIdleGame[skillLevelKey] || 0;
+          const cost = Math.pow(2, currentLevel);
 
-        if (latestIdleGame.skillPoints < cost) {
-          await i.followUp({ content: "SPが足りません！", ephemeral: true });
-          return; // SPが足りないだけなので、コレクターは続行
-        }
-
-        // トランザクションで安全に更新
-        try {
-          await sequelize.transaction(async (t) => {
-            // 注意: increment/decrementは使えないので、手動で計算してsaveする
-            latestIdleGame.skillPoints -= cost;
-            latestIdleGame[skillLevelKey] += 1;
-            await latestIdleGame.save({ transaction: t });
-          });
-          // ▼▼▼ ここにスキル強化実績を追加 ▼▼▼
-          switch (skillNum) {
-            case "1":
-              await unlockAchievements(interaction.client, userId, 13);
-              break;
-            case "2":
-              await unlockAchievements(interaction.client, userId, 18);
-              break;
-            case "3":
-              await unlockAchievements(interaction.client, userId, 17);
-              break;
-            case "4":
-              await unlockAchievements(interaction.client, userId, 16);
-              break;
+          if (latestIdleGame.skillPoints < cost) {
+            await i.followUp({ content: "SPが足りません！", ephemeral: true });
+            return; // 処理を中断
           }
-          // 成功したら、更新後の情報でスキル画面を再描画
-          await interaction.editReply({
-            embeds: [generateSkillEmbed(latestIdleGame)],
-            components: generateSkillButtons(latestIdleGame),
-          });
-          await i.followUp({
-            content: `✅ スキル #${skillNum} を強化しました！`,
-            ephemeral: true,
-          });
-        } catch (error) {
-          console.error("Skill Upgrade Error:", error);
-          await i.followUp({
-            content: "❌ スキル強化中にエラーが発生しました。",
-            ephemeral: true,
-          });
+
+          try {
+            await sequelize.transaction(async (t) => {
+              latestIdleGame.skillPoints -= cost;
+              latestIdleGame[skillLevelKey] += 1;
+              await latestIdleGame.save({ transaction: t });
+            });
+
+            // 実績解除
+            switch (skillNum) {
+              case 1:
+                await unlockAchievements(interaction.client, userId, 13);
+                break;
+              case 2:
+                await unlockAchievements(interaction.client, userId, 18);
+                break;
+              case 3:
+                await unlockAchievements(interaction.client, userId, 17);
+                break;
+              case 4:
+                await unlockAchievements(interaction.client, userId, 16);
+                break;
+            }
+
+            // UIを更新してフィードバック
+            await interaction.editReply({
+              embeds: [generateSkillEmbed(latestIdleGame)],
+              components: generateSkillButtons(latestIdleGame),
+            });
+            await i.followUp({
+              content: `✅ SPスキル #${skillNum} を強化しました！`,
+              ephemeral: true,
+            });
+          } catch (error) {
+            console.error("SP Skill Upgrade Error:", error);
+            await i.followUp({
+              content: "❌ SPスキル強化中にエラーが発生しました。",
+              ephemeral: true,
+            });
+          }
         }
+
+        // ===================================
+        //  TPスキル (スキル#5～#8) の処理
+        // ===================================
+        else if (skillNum >= 5 && skillNum <= 8) {
+          const skillKey = `skill${skillNum}`;
+          const currentLevel = latestIdleGame[skillLevelKey] || 0;
+          const skillConfig = config.idle.tp_skills[skillKey];
+          const cost =
+            skillConfig.baseCost *
+            Math.pow(skillConfig.costMultiplier, currentLevel);
+
+          if (latestIdleGame.transcendencePoints < cost) {
+            await i.followUp({ content: "TPが足りません！", ephemeral: true });
+            return; // 処理を中断
+          }
+
+          try {
+            await sequelize.transaction(async (t) => {
+              latestIdleGame.transcendencePoints -= cost;
+              latestIdleGame[skillLevelKey] += 1;
+              await latestIdleGame.save({ transaction: t });
+            });
+
+            // UIを更新してフィードバック
+            await interaction.editReply({
+              embeds: [generateSkillEmbed(latestIdleGame)],
+              components: generateSkillButtons(latestIdleGame),
+            });
+            await i.followUp({
+              content: `✅ TPスキル #${skillNum} を強化しました！`,
+              ephemeral: true,
+            });
+          } catch (error) {
+            console.error("TP Skill Upgrade Error:", error);
+            await i.followUp({
+              content: "❌ TPスキル強化中にエラーが発生しました。",
+              ephemeral: true,
+            });
+          }
+        }
+
         return; // スキル強化処理はここで終わり
       } else if (i.customId === "idle_prestige") {
         // プレステージ処理は特別なので、ここで処理して、下の施設強化ロジックには進ませない
@@ -716,7 +767,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         // ★★★ DBから最新のデータを取得することが非常に重要！ ★★★
         const latestPoint = await Point.findOne({ where: { userId } });
         const latestIdleGame = await IdleGame.findOne({ where: { userId } });
-        let currentSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || '0');
+        let currentSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || "0");
 
         // 2. ループ処理
         while (iterations < MAX_ITERATIONS) {
@@ -762,7 +813,9 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         }
 
         //#7用に使用チップを加算
-        latestIdleGame.chipsSpentThisInfinity = (currentSpent + BigInt(totalCost)).toString();
+        latestIdleGame.chipsSpentThisInfinity = (
+          currentSpent + BigInt(totalCost)
+        ).toString();
         // 4. DBへの一括保存
         await latestPoint.save();
         await latestIdleGame.save();
@@ -1334,7 +1387,6 @@ ${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
   } catch (error) {
     console.error("Prestige Error:", error); // エラー内容はコンソールに出力
 
-    // ▼▼▼ GPTの指摘を反映した、より安全なエラーハンドリング ▼▼▼
     if (confirmationInteraction) {
       // ボタン操作後のエラー (DBエラーなど)
       await confirmationInteraction.editReply({
@@ -1376,11 +1428,34 @@ function generateSkillEmbed(idleGame) {
     radianceMultiplier: 1 + skillLevels.s4 * 0.1,
   };
 
-  return new EmbedBuilder()
+  // --- TPスキル計算 (新規) ---
+  const tp_levels = {
+    s5: idleGame.skillLevel5 || 0,
+    s6: idleGame.skillLevel6 || 0,
+    s7: idleGame.skillLevel7 || 0,
+    s8: idleGame.skillLevel8 || 0,
+  };
+  const tp_configs = config.idle.tp_skills;
+  const tp_costs = {
+    s5:
+      tp_configs.skill5.baseCost *
+      Math.pow(tp_configs.skill5.costMultiplier, tp_levels.s5),
+    s6:
+      tp_configs.skill6.baseCost *
+      Math.pow(tp_configs.skill6.costMultiplier, tp_levels.s6),
+    s7:
+      tp_configs.skill7.baseCost *
+      Math.pow(tp_configs.skill7.costMultiplier, tp_levels.s7),
+    s8:
+      tp_configs.skill8.baseCost *
+      Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
+  };
+
+  const embed = new EmbedBuilder()
     .setTitle("✨ スキル強化 ✨")
     .setColor("Purple")
     .setDescription(
-      `現在の所持SP: **${idleGame.skillPoints.toFixed(2)}**\n(初回は#1強化を強く推奨します)`
+      `SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.toFixed(2)}**\n(初回は#1強化を強く推奨します)`
     )
     .addFields(
       {
@@ -1400,6 +1475,37 @@ function generateSkillEmbed(idleGame) {
         value: `スキル#1~3の効果 **x${effects.radianceMultiplier.toFixed(1)}** → **x${(effects.radianceMultiplier + 0.1).toFixed(1)}**(コスト: ${costs.s4} SP)`,
       }
     );
+  if (idleGame.prestigePower >= 16 || idleGame.highestPopulation >= 1e16) {
+    const currentDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6);
+    const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
+    // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
+    const spentChips = BigInt(idleGame.chipsSpentThisInfinity || "0");
+    // BigIntは直接フォーマット関数に渡せないので、一度Number型に変換する
+    const spentChipsFormatted = formatNumberJapanese(
+      Number(spentChips.toString())
+    );
+    embed.addFields(
+      { name: "---TPスキル---", value: "\u200B" },
+      {
+        name: `#5 熱々ポテト x${tp_levels.s5}`,
+        value: `${tp_configs.skill5.description} コスト: ${tp_costs.s5.toFixed(1)} TP`,
+      },
+      {
+        name: `#6 スパイシーコーラ x${tp_levels.s6}`,
+        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${tp_costs.s6.toFixed(1)} TP`,
+      },
+      {
+        name: `#7 山盛りのチキンナゲット x${tp_levels.s7}`,
+        value: `${tp_configs.skill7.description}(**${spentChipsFormatted}枚**) コスト: ${tp_costs.s7.toFixed(1)} TP`,
+      },
+      {
+        name: `#8 至高の天ぷら x${tp_levels.s8}`, // TenPura
+        value: `${tp_configs.skill8.description} コスト: ${tp_costs.s8.toFixed(1)} TP`,
+      }
+    );
+  }
+
+  return embed;
 }
 
 /**
@@ -1420,6 +1526,27 @@ function generateSkillButtons(idleGame) {
     s2: Math.pow(2, skillLevels.s2),
     s3: Math.pow(2, skillLevels.s3),
     s4: Math.pow(2, skillLevels.s4),
+  };
+  const tp_levels = {
+    s5: idleGame.skillLevel5 || 0,
+    s6: idleGame.skillLevel6 || 0,
+    s7: idleGame.skillLevel7 || 0,
+    s8: idleGame.skillLevel8 || 0,
+  };
+  const tp_configs = config.idle.tp_skills;
+  const tp_costs = {
+    s5:
+      tp_configs.skill5.baseCost *
+      Math.pow(tp_configs.skill5.costMultiplier, tp_levels.s5),
+    s6:
+      tp_configs.skill6.baseCost *
+      Math.pow(tp_configs.skill6.costMultiplier, tp_levels.s6),
+    s7:
+      tp_configs.skill7.baseCost *
+      Math.pow(tp_configs.skill7.costMultiplier, tp_levels.s7),
+    s8:
+      tp_configs.skill8.baseCost *
+      Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
   };
 
   const skillRow = new ActionRowBuilder().addComponents(
@@ -1457,6 +1584,33 @@ function generateSkillButtons(idleGame) {
           idleGame.skillLevel4 === 0
       )
   );
+  const components = [skillRow];
+
+  if (idleGame.prestigePower >= 16 || idleGame.highestPopulation >= 1e16) {
+    const tpSkillRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("idle_upgrade_skill_5")
+        .setLabel("#5強化 (TP)")
+        .setStyle(ButtonStyle.Success) // TPスキルは緑色に
+        .setDisabled(idleGame.transcendencePoints < tp_costs.s5),
+      new ButtonBuilder()
+        .setCustomId("idle_upgrade_skill_6")
+        .setLabel("#6強化 (TP)")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(idleGame.transcendencePoints < tp_costs.s6),
+      new ButtonBuilder()
+        .setCustomId("idle_upgrade_skill_7")
+        .setLabel("#7強化 (TP)")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(idleGame.transcendencePoints < tp_costs.s7),
+      new ButtonBuilder()
+        .setCustomId("idle_upgrade_skill_8")
+        .setLabel("#8強化 (TP)")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(idleGame.transcendencePoints < tp_costs.s8)
+    );
+    components.push(tpSkillRow);
+  }
 
   const utilityRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -1465,8 +1619,9 @@ function generateSkillButtons(idleGame) {
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("🏭")
   );
+  components.push(utilityRow);
 
-  return [skillRow, utilityRow];
+  return components;
 }
 
 /**

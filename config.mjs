@@ -753,30 +753,30 @@ export default {
     },
     tp_skills: {
       skill5: {
-        baseCost: 5,
+        baseCost: 1,
         costMultiplier: 1.5,
         effect: 0.01,// 効果は計算式に直接組み込むので、ここでは説明だけ
-        description: "工場レベル効果を基礎レベルごとに+1%する",
+        description: "5つの工場レベル効果をそれぞれの基礎レベルごとに+1%する",
       },
       skill6: {
-        baseCost: 15,
+        baseCost: 10,
         costMultiplier: 2,
         effectBase: 0.97, // 割引の基礎乗数
         softCapThreshold: 0.9, // 90%
         softCapDivisor: 2, // 超過分を割る数
-        description: "工場強化コストを割引する",
+        description: "工場強化コストを3%割引する",
       },
       skill7: {
-        baseCost: 20,
+        baseCost: 10,
         costMultiplier: 1.8,
         effectMultiplier: 0.05, // log10(消費チップ)に乗算する値
-        description: "ラン中の消費チップに応じてブースト倍率を加算する",
+        description: "累計消費チップに応じてブースト倍率を加算する",
       },
       skill8: {
         baseCost: 40,
         costMultiplier: 3,
         effectMultiplier: 1.0, // TP獲得量をレベルごとに+100%
-        description: "TP獲得量を増加させる",
+        description: "TP獲得量を+100%増加させる",
       },
     },
     //実績　utils\achievements.mjs
