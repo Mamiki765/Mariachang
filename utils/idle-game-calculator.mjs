@@ -33,22 +33,43 @@ export function calculateFactoryEffects(idleGame, pp) {
   const s5_config = config.idle.tp_skills.skill5;
   const baseLevelBonusPerLevel = s5_level * s5_config.effect;
 
+  // --- ピザ窯 ---
   const oven_base_lv = idleGame.pizzaOvenLevel || 0;
-  const ovenFinalEffect =
-    (oven_base_lv + pp) * (1 + baseLevelBonusPerLevel * oven_base_lv);
+  const ovenFinalEffect = (oven_base_lv + pp) * (1 + baseLevelBonusPerLevel * oven_base_lv);
 
-  const factories = ["cheese", "tomato", "mushroom", "anchovy"];
-  const results = { oven: ovenFinalEffect };
+  // --- チーズ工場 ---
+  const cheese_base_lv = idleGame.cheeseFactoryLevel || 0;
+  const cheese_base_effect = config.idle.cheese.effect;
+  // 1. まず、スキル#5で「基本効果」そのものを強化する
+  const cheese_boosted_effect = cheese_base_effect * (1 + baseLevelBonusPerLevel * cheese_base_lv);
+  // 2. その強化された効果を使って、最終的な効果を計算する
+  const cheeseFinalEffect = 1 + cheese_boosted_effect * (cheese_base_lv + pp);
+  
+  // --- トマト農場 ---
+  const tomato_base_lv = idleGame.tomatoFarmLevel || 0;
+  const tomato_base_effect = config.idle.tomato.effect;
+  const tomato_boosted_effect = tomato_base_effect * (1 + baseLevelBonusPerLevel * tomato_base_lv);
+  const tomatoFinalEffect = 1 + tomato_boosted_effect * (tomato_base_lv + pp);
+  
+  // --- マッシュルーム農場 ---
+  const mushroom_base_lv = idleGame.mushroomFarmLevel || 0;
+  const mushroom_base_effect = config.idle.mushroom.effect;
+  const mushroom_boosted_effect = mushroom_base_effect * (1 + baseLevelBonusPerLevel * mushroom_base_lv);
+  const mushroomFinalEffect = 1 + mushroom_boosted_effect * (mushroom_base_lv + pp);
 
-  for (const key of factories) {
-    const base_lv = idleGame[`${key}FactoryLevel`] || 0;
-    const base_effect = config.idle[key].effect;
-    const effectPart = base_effect * (base_lv + pp);
-    const modPart = effectPart * (1 + baseLevelBonusPerLevel * base_lv);
-    results[key] = 1 + modPart;
-  }
+  // --- アンチョビ工場 ---
+  const anchovy_base_lv = idleGame.anchovyFactoryLevel || 0;
+  const anchovy_base_effect = config.idle.anchovy.effect;
+  const anchovy_boosted_effect = anchovy_base_effect * (1 + baseLevelBonusPerLevel * anchovy_base_lv);
+  const anchovyFinalEffect = 1 + anchovy_boosted_effect * (anchovy_base_lv + pp);
 
-  return results;
+  return {
+    oven: ovenFinalEffect,
+    cheese: cheeseFinalEffect,
+    tomato: tomatoFinalEffect,
+    mushroom: mushroomFinalEffect,
+    anchovy: anchovyFinalEffect,
+  };
 }
 
 
