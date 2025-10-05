@@ -537,6 +537,31 @@ const IdleGame = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    // TP（超越ポイント）スキル(infinity前)
+        transcendencePoints: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0.0,
+    },
+    skillLevel5: {
+      // TPスキル #5
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    skillLevel6: {
+      // TPスキル #6
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    skillLevel7: {
+      // TPスキル #7
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    skillLevel8: {
+      // TPスキル #8
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     buffMultiplier: {
       //ブースト(最終結果に対する乗算)
       type: DataTypes.DOUBLE,

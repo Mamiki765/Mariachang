@@ -261,3 +261,17 @@ export function calculateSpentSP(level) {
   if (level <= 0) return 0;
   return Math.pow(2, level) - 1;
 }
+
+/**
+ * TP獲得量を計算する
+ * @param {number} population - 現在の人口
+ * @returns {number} 獲得できるTPの量
+ */
+export function calculatePotentialTP(population) {
+  // 閾値(1e16)に達していない場合は0を返す
+  if (population < 1e16) {
+    return 0;
+  }
+  // 計算式本体
+  return Math.pow(Math.log10(population) - 15, 2.5);
+}

@@ -27,7 +27,8 @@ import {
   updateUserIdleGame,
   formatProductionRate,
   formatNumberJapanese,
-  calculateSpentSP // handleSkillResetで使うので追加
+  calculateSpentSP, // handleSkillResetで使うので追加
+  calculatePotentialTP,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -66,7 +67,6 @@ export const data = new SlashCommandBuilder()
       )
   );
 
-
 export async function execute(interaction) {
   const rankingChoice = interaction.options.getString("ranking");
   if (rankingChoice === "public" || rankingChoice === "private") {
@@ -104,6 +104,11 @@ export async function execute(interaction) {
       { id: 20, condition: idleGame.population >= 1e10 }, // 100億
       { id: 21, condition: idleGame.population >= 1e14 }, // 100兆
       { id: 22, condition: idleGame.population >= 9007199254740991 }, // Number.MAX_SAFE_INTEGER
+      {
+        id: 51,
+        condition:
+          idleGame.population >= 1e16 || idleGame.highestPopulation >= 1e16,
+      },
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks
@@ -481,35 +486,41 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
       }
 
       // 250923 プレステージボタンの表示ロジック
-      if (idleGame.population >= config.idle.prestige.unlockPopulation) {
-        // 1. 現在の人口から、プレステージした場合に得られる新しいPPを計算
+      // ▼▼▼ この if文全体を置き換える ▼▼▼
+      if (
+        idleGame.population > idleGame.highestPopulation &&
+        idleGame.population >= config.idle.prestige.unlockPopulation
+      ) {
+        // --- ケース1: PP/SPが手に入る通常のプレステージ ---
         const newPrestigePower = Math.log10(idleGame.population);
+        const powerGain = newPrestigePower - idleGame.prestigePower;
+        const prestigeButtonLabel =
+          idleGame.prestigeCount === 0
+            ? `プレステージ Power: ${newPrestigePower.toFixed(3)}`
+            : `Prestige Power: ${newPrestigePower.toFixed(2)} (+${powerGain.toFixed(2)})`;
 
-        // 2. ボタンを無効化する条件を決定
-        //    - グローバルな無効化フラグ(isDisabled)が立っている
-        //    - または、現在の人口が過去の最高人口を超えていない（PPが減るのを防ぐため）
-        const isPrestigeDisabled =
-          isDisabled || idleGame.population <= idleGame.highestPopulation;
-
-        // 3. プレステージ回数に応じてボタンのラベルを動的に生成
-        let prestigeButtonLabel;
-        if (idleGame.prestigeCount === 0) {
-          // 初回プレステージの場合
-          prestigeButtonLabel = `プレステージ Power: ${newPrestigePower.toFixed(3)}`;
-        } else {
-          // 2回目以降の場合、PPとSPの「増加量」も表示してあげる
-          const powerGain = newPrestigePower - idleGame.prestigePower;
-          prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (${powerGain > 0 ? "+" : ""}${powerGain.toFixed(2)})`;
-        }
-
-        // 4. ボタンを生成して、boostRowに追加
         boostRow.addComponents(
           new ButtonBuilder()
-            .setCustomId(`idle_prestige`) // customIdを有効化
+            .setCustomId(`idle_prestige`)
             .setEmoji(config.idle.prestige.emoji)
-            .setLabel(prestigeButtonLabel) // 動的に生成したラベルを設定
-            .setStyle(ButtonStyle.Danger)
-            .setDisabled(isPrestigeDisabled) // 動的に決定した有効/無効状態を設定
+            .setLabel(prestigeButtonLabel)
+            .setStyle(ButtonStyle.Danger) // フルリセットなので危険な色
+            .setDisabled(isDisabled)
+        );
+      } else if (
+        idleGame.population < idleGame.highestPopulation &&
+        idleGame.population >= 1e16
+      ) {
+        // --- ケース2: TPが手に入る新しいプレステージ ---
+        const potentialTP = Math.pow(Math.log10(idleGame.population) - 15, 2.5);
+
+        boostRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`idle_prestige`) // 同じIDでOK
+            .setEmoji("🍤") // 天ぷらなのでエビフライ！
+            .setLabel(`TP獲得リセット (+${potentialTP.toFixed(2)} TP)`)
+            .setStyle(ButtonStyle.Success) // 報酬がもらえるのでポジティブな色
+            .setDisabled(isDisabled)
         );
       }
       //遊び方のボタン
@@ -672,8 +683,9 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
 プレステージすると人口と工場のLvは0になりますが、到達した最高人口に応じたPPとSPを得ることができます。
 - PP:プレステージパワー、工場のLVとニョボチップ獲得%が増える他、一定値貯まると色々解禁される。
   - PP8:3施設の人口制限解除。「施設適当強化」「スキル」解禁
-  （PPのマイルストーンはまだまだ未実装です）
+  - PP16:TP解禁、最高人口未満のプレステージ解禁
 - SP:スキルポイント。消費する事で強力なスキルが習得できる。
+- TP:超越スキルポイント。プレステージ時の人口に応じて獲得。
 `;
         await i.followUp({
           content: spExplanation,
@@ -1118,7 +1130,6 @@ async function executeRankingCommand(interaction, isPrivate) {
   });
 }
 
-
 /**
  * プレステージの確認と実行を担当する関数
  * @param {import("discord.js").ButtonInteraction} interaction - プレステージボタンのインタラクション
@@ -1172,81 +1183,125 @@ async function handlePrestige(interaction, collector) {
     await confirmationInteraction.deferUpdate(); // 「考え中...」の状態にする
 
     let currentPopulation;
-
+    let prestigeResult = {};
     // 5. トランザクションを使って、安全にデータベースを更新
     await sequelize.transaction(async (t) => {
-      // ★★★ 最新のDBデータをトランザクション内で再取得！★★★
       const latestIdleGame = await IdleGame.findOne({
         where: { userId: interaction.user.id },
         transaction: t,
-        lock: t.LOCK.UPDATE, // 他の処理から同時に書き込まれないようにロックする
+        lock: t.LOCK.UPDATE,
       });
 
-      // 念のため、再度プレステージ条件をチェック
-      if (latestIdleGame.population <= latestIdleGame.highestPopulation) {
-        throw new Error(
-          "プレステージの条件を満たしていません（現在の人口が最高人口を超えている必要があります）。"
-        );
-      }
-
-      // 6. 新しいPPとSPを計算
       currentPopulation = latestIdleGame.population;
-      const newPrestigePower = Math.log10(currentPopulation);
-      let newSkillPoints = latestIdleGame.skillPoints;
 
-      if (latestIdleGame.prestigeCount === 0) {
-        // 初回
-        const deduction = config.idle.prestige.spBaseDeduction; // ← configから値を取得
-        newSkillPoints =
-          newPrestigePower - deduction > 0 ? newPrestigePower - deduction : 0; //マイナスを防ぐ
+      // ▼▼▼ ここから分岐ロジック ▼▼▼
+      if (currentPopulation > latestIdleGame.highestPopulation) {
+        // --- PP/SPプレステージ (既存のロジック) ---
+        if (currentPopulation <= config.idle.prestige.unlockPopulation) {
+          throw new Error("プレステージの最低人口条件を満たしていません。");
+        }
+
+        const newPrestigePower = Math.log10(currentPopulation);
+        let newSkillPoints = latestIdleGame.skillPoints;
+
+        if (latestIdleGame.prestigeCount === 0) {
+          const deduction = config.idle.prestige.spBaseDeduction;
+          newSkillPoints = Math.max(0, newPrestigePower - deduction);
+        } else {
+          const powerGain = newPrestigePower - latestIdleGame.prestigePower;
+          newSkillPoints += powerGain;
+        }
+
+        const gainedTP = calculatePotentialTP(currentPopulation);
+
+        await latestIdleGame.update(
+          {
+            population: 0,
+            pizzaOvenLevel: 0,
+            cheeseFactoryLevel: 0,
+            tomatoFarmLevel: 0,
+            mushroomFarmLevel: 0,
+            anchovyFactoryLevel: 0,
+            prestigeCount: latestIdleGame.prestigeCount + 1,
+            prestigePower: newPrestigePower,
+            skillPoints: newSkillPoints,
+            highestPopulation: currentPopulation, // 最高記録を更新
+            transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
+            lastUpdatedAt: new Date(),
+          },
+          { transaction: t }
+        );
+
+        // プレステージ実績
+        await unlockAchievements(interaction.client, interaction.user.id, 11);
+        prestigeResult = {
+          type: "PP_SP",
+          population: currentPopulation,
+        };
+      } else if (currentPopulation >= 1e16) {
+        // --- TPプレステージ (新しいロジック) ---
+        const gainedTP = calculatePotentialTP(currentPopulation);
+
+        await latestIdleGame.update(
+          {
+            population: 0,
+            pizzaOvenLevel: 0,
+            cheeseFactoryLevel: 0,
+            tomatoFarmLevel: 0,
+            mushroomFarmLevel: 0,
+            anchovyFactoryLevel: 0,
+            transcendencePoints: latestIdleGame.transcendencePoints + gainedTP, // TPを加算
+            // PP, SP, highestPopulation は更新しない！
+            lastUpdatedAt: new Date(),
+          },
+          { transaction: t }
+        );
+        prestigeResult = {
+          type: "TP_ONLY",
+          population: currentPopulation,
+          gainedTP: gainedTP,
+        };
       } else {
-        // 2回目以降
-        const powerGain = newPrestigePower - latestIdleGame.prestigePower;
-        newSkillPoints += powerGain;
+        // どちらの条件も満たさない場合 (ボタン表示ロジックのおかげで通常はありえない)
+        throw new Error("プレステージの条件を満たしていません。");
       }
-
-      // 7. データベースの値を更新
-      await latestIdleGame.update(
-        {
-          population: 0,
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          prestigeCount: latestIdleGame.prestigeCount + 1,
-          prestigePower: newPrestigePower,
-          skillPoints: newSkillPoints,
-          highestPopulation: currentPopulation, // 今回の人口を最高記録として保存
-          lastUpdatedAt: new Date(), // リセットした日時を記録
-        },
-        { transaction: t }
-      );
     });
-    // ▼▼▼ ここにプレステージ実績のチェックを追加 ▼▼▼
-    await unlockAchievements(interaction.client, interaction.user.id, 11); // ID:11
-    // 8. 成功メッセージを送信
-    await confirmationInteraction.editReply({
-      content: `●プレステージ
+
+    // 6. トランザクション成功後、結果に応じてメッセージを送信
+    if (prestigeResult.type === "PP_SP") {
+      await confirmationInteraction.editReply({
+        content: `●プレステージ
 # なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！
-凄まじい地響きと共に${formatNumberJapanese(currentPopulation)}匹のニョワミヤ達が押し寄せてきます！
+凄まじい地響きと共に${formatNumberJapanese(prestigeResult.population)}匹のニョワミヤ達が押し寄せてきます！
 彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！
 狂った様にパイナップルピザを求めたニョワミヤ達によって、今までのピザ工場は藻屑のように吹き飛ばされてしまいました……
 -# そしてなぜか次の工場は強化されました。`,
-      components: [], // ボタンを消す
-    });
+        components: [], // ボタンを消す
+      });
+    } else if (prestigeResult.type === "TP_ONLY") {
+      await confirmationInteraction.editReply({
+        content: `●TPプレステージ
+# そうだ、サイドメニュー作ろう。
+あなた達は${formatNumberJapanese(currentPopulation)}匹のニョワミヤ達と一緒にサイドメニューを作ることにしました。
+美味しそうなポテトやナゲット、そして何故か天ぷらの数々が揚がっていきます・　・　・　・　・　・。
+-# 何故か終わる頃には工場は蜃気楼のように消えてしまっていました。
+${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
+        components: [], // ボタンを消す
+      });
+    }
   } catch (error) {
-    // タイムアウト、またはDB更新エラーが起きた場合
-    if (error.message.includes("ransaction")) {
-      // DBエラーの場合
-      console.error("Prestige DB Error:", error);
-      await interaction.editReply({
+    console.error("Prestige Error:", error); // エラー内容はコンソールに出力
+
+    // ▼▼▼ GPTの指摘を反映した、より安全なエラーハンドリング ▼▼▼
+    if (confirmationInteraction) {
+      // ボタン操作後のエラー (DBエラーなど)
+      await confirmationInteraction.editReply({
         content: "❌ データベースエラーにより、プレステージに失敗しました。",
         components: [],
       });
     } else {
-      // タイムアウトの場合
-      await interaction.editReply({
+      // タイムアウトエラー
+      await confirmationMessage.edit({
         content: "タイムアウトしました。プレステージはキャンセルされました。",
         components: [],
       });
@@ -1371,7 +1426,6 @@ function generateSkillButtons(idleGame) {
 
   return [skillRow, utilityRow];
 }
-
 
 /**
  * スキルと工場のリセットを担当する関数
