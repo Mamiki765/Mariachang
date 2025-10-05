@@ -538,7 +538,7 @@ const IdleGame = sequelize.define(
       defaultValue: 0,
     },
     // TP（超越ポイント）スキル(infinity前)
-        transcendencePoints: {
+    transcendencePoints: {
       type: DataTypes.DOUBLE,
       defaultValue: 0.0,
     },
@@ -555,6 +555,10 @@ const IdleGame = sequelize.define(
     skillLevel7: {
       // TPスキル #7
       type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    chipsSpentThisInfinity: {
+      type: DataTypes.BIGINT, // チップは大きな値になるのでBIGINT
       defaultValue: 0,
     },
     skillLevel8: {

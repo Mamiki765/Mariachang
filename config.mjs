@@ -751,6 +751,34 @@ export default {
       unlockPopulation: 1_0000_0000, // 人口1億で解禁
       spBaseDeduction: 7, // 初回SP計算時の基礎控除値
     },
+    tp_skills: {
+      skill5: {
+        baseCost: 5,
+        costMultiplier: 1.5,
+        effect: 0.01,// 効果は計算式に直接組み込むので、ここでは説明だけ
+        description: "工場レベル効果を基礎レベルごとに+1%する",
+      },
+      skill6: {
+        baseCost: 15,
+        costMultiplier: 2,
+        effectBase: 0.97, // 割引の基礎乗数
+        softCapThreshold: 0.9, // 90%
+        softCapDivisor: 2, // 超過分を割る数
+        description: "工場強化コストを割引する",
+      },
+      skill7: {
+        baseCost: 20,
+        costMultiplier: 1.8,
+        effectMultiplier: 0.05, // log10(消費チップ)に乗算する値
+        description: "ラン中の消費チップに応じてブースト倍率を加算する",
+      },
+      skill8: {
+        baseCost: 40,
+        costMultiplier: 3,
+        effectMultiplier: 1.0, // TP獲得量をレベルごとに+100%
+        description: "TP獲得量を増加させる",
+      },
+    },
     //実績　utils\achievements.mjs
     // 実績一覧は unlockAchievements(client, userId, ID) で解除可能です。
     // 複数解除する場合はスプレッド構文でまとめて渡せます。
@@ -1069,7 +1097,8 @@ export default {
       {
         id: 50,
         name: "★あなたは神谷マリアを遊び尽くした",
-        description: "【プラチナトロフィー】1~50番のうち、累積どんぐり数以外の実績を集める。",
+        description:
+          "【プラチナトロフィー】1~50番のうち、累積どんぐり数以外の実績を集める。",
         effect: "それは放置ゲームにおいて、ブースト倍率を1.5倍に強化する。",
         reward: {},
       },
@@ -1077,7 +1106,8 @@ export default {
         id: 51,
         name: "サイドメニューの力",
         description: "ニョワミヤの数が1京(1e16)に到達",
-        effect: "人口1京(1e16)以上、プレステージでTPを獲得。最高人口未満でのプレステージが可能になる。",//PP≧16(最高人口1e16)or現在人口1京
+        effect:
+          "人口1京(1e16)以上、プレステージでTPを獲得。最高人口未満でのプレステージが可能になる。", //PP≧16(最高人口1e16)or現在人口1京
         reward: {},
       },
       // 今後、ここに実績をどんどん追加していきます

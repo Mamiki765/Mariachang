@@ -125,9 +125,8 @@ export default async (client) => {
     console.log(
       "[DB]Database synchronized successfully. Proceeding with tasks."
     );
-    //実績とRSSの初期化
+    //実績の初期化
     initializeAchievementSystem();
-    initializeRssWatcher(client); 
   } catch (error) {
     console.error(
       "[FATAL ERROR][DB]CRITICAL: Database sync failed on startup. Halting scheduled tasks.",
@@ -148,6 +147,8 @@ export default async (client) => {
     // ついでにブースターの垢更新も即座にチェック
     console.log("[TASK] Booster Sync: Performing initial synchronization.");
     await synchronizeBoosters(client);
+    //ついでにRSSもチェック
+    initializeRssWatcher(client); 
   } else {
     console.log(
       "[TASK] Scenario checker: Initial check skipped in development mode."

@@ -29,6 +29,7 @@ import {
   formatNumberJapanese,
   calculateSpentSP, // handleSkillResetで使うので追加
   calculatePotentialTP,
+  calculateFactoryEffects,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -129,6 +130,17 @@ export async function execute(interaction) {
     } else if (idleGame.prestigeCount === 0) {
       correctMultiplier = 2.5;
     }
+    // ▼▼▼ #7の効果を計算して加算 ▼▼▼
+    const skill7Level = idleGame.skillLevel7 || 0;
+    const spentChips = BigInt(idleGame.chipsSpentThisInfinity || '0');
+    // log10(0) にならないようにガード
+    if (skill7Level > 0 && spentChips > 0) {
+        // BigIntは直接Math.log10できないので、文字列に変換してから数値にする
+        const spentChipsNum = Number(spentChips.toString());
+        const skill7Bonus = Math.log10(spentChipsNum) * skill7Level * config.idle.tp_skills.skill7.effectMultiplier;
+        correctMultiplier += skill7Bonus;
+    }
+
     //実績コンプ系で倍率強化
     // --- まず、実績の解除状況をSetとして準備 ---
     const unlockedSet = new Set(userAchievement.achievements?.unlocked || []);
@@ -205,32 +217,29 @@ export async function execute(interaction) {
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
       const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
       // 最新のDBオブジェクトから値を読み出す
-      //スキル1は表示ではこちらにかける
-      const ovenEffect = (idleGame.pizzaOvenLevel + pp) * skill1Effect;
-      const cheeseEffect =
-        (1 + config.idle.cheese.effect * (idleGame.cheeseFactoryLevel + pp)) *
-        skill1Effect;
+      // ★★★ 1. 新しい関数で、スキル#5を適用した「素の効果」を計算 ★★★
+      const factoryEffects = calculateFactoryEffects(idleGame, pp);
+
+      // ★★★ 2. 表示用に、スキル#1の効果を乗算 ★★★
+      const ovenEffect_display = factoryEffects.oven * skill1Effect;
+      const cheeseEffect_display = factoryEffects.cheese * skill1Effect;
+      const tomatoEffect_display = factoryEffects.tomato * skill1Effect;
+      const mushroomEffect_display = factoryEffects.mushroom * skill1Effect;
+      const anchovyEffect_display = factoryEffects.anchovy * skill1Effect;
+      //サラミ
       const meatEffect =
         1 +
         config.idle.meat.effect *
           (meatFactoryLevel + pp + achievementExponentBonus); //実績補正
-      const tomatoEffect =
-        (1 + config.idle.tomato.effect * (idleGame.tomatoFarmLevel + pp)) *
-        skill1Effect;
-      const mushroomEffect =
-        (1 + config.idle.mushroom.effect * (idleGame.mushroomFarmLevel + pp)) *
-        skill1Effect;
-      const anchovyEffect =
-        (1 + config.idle.anchovy.effect * (idleGame.anchovyFactoryLevel + pp)) *
-        skill1Effect;
       //バフも乗るように
       const productionPerMinute =
         Math.pow(
-          ovenEffect *
-            cheeseEffect *
-            tomatoEffect *
-            mushroomEffect *
-            anchovyEffect,
+          factoryEffects.oven *
+            factoryEffects.cheese *
+            factoryEffects.tomato *
+            factoryEffects.mushroom *
+            factoryEffects.anchovy *
+            Math.pow(skill1Effect, 5),
           meatEffect
         ) *
         idleGame.buffMultiplier *
@@ -268,7 +277,7 @@ export async function execute(interaction) {
 最高人口: ${formatNumberJapanese(
           Math.floor(idleGame.highestPopulation)
         )} 匹 \nPP: **${pp.toFixed(2)}** 全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**
-SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4}
+SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.toFixed(2)}** #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4} / #5:${idleGame.skillLevel5} #6:${idleGame.skillLevel6} #7:${idleGame.skillLevel7} #8:${idleGame.skillLevel8}
 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
       } else {
         descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
@@ -284,16 +293,14 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
         .setColor(isFinal ? "Grey" : "Gold")
         .setDescription(descriptionText)
         .addFields(
-          {
+         {
             name: `${config.idle.oven.emoji}ピザ窯`,
-            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect.toFixed(0)}) Next.${costs.oven.toLocaleString()}chip`,
+            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect_display.toFixed(0)}) Next.${costs.oven.toLocaleString()}chip`,
             inline: true,
           },
           {
             name: `${config.idle.cheese.emoji}チーズ工場`,
-            value: `Lv. ${idleGame.cheeseFactoryLevel} (${cheeseEffect.toFixed(
-              2
-            )}) Next.${costs.cheese.toLocaleString()}chip`,
+            value: `Lv. ${idleGame.cheeseFactoryLevel} (${cheeseEffect_display.toFixed(2)}) Next.${costs.cheese.toLocaleString()}chip`,
             inline: true,
           },
           {
@@ -301,8 +308,8 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
             value:
               idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.tomato.unlockPopulation
-                ? `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect.toFixed(2)}) Next.${costs.tomato.toLocaleString()}chip`
-                : `(要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`, //未解禁なら出さない
+                ? `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect_display.toFixed(2)}) Next.${costs.tomato.toLocaleString()}chip`
+                : `(要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`,
             inline: true,
           },
           {
@@ -310,7 +317,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
             value:
               idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.mushroom.unlockPopulation
-                ? `Lv. ${idleGame.mushroomFarmLevel} (${mushroomEffect.toFixed(3)}) Next.${costs.mushroom.toLocaleString()}chip`
+                ? `Lv. ${idleGame.mushroomFarmLevel} (${mushroomEffect_display.toFixed(3)}) Next.${costs.mushroom.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.mushroom.unlockPopulation)})`,
             inline: true,
           },
@@ -319,7 +326,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
             value:
               idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.anchovy.unlockPopulation
-                ? `Lv. ${idleGame.anchovyFactoryLevel} (${anchovyEffect.toFixed(2)}) Next.${costs.anchovy.toLocaleString()}chip`
+                ? `Lv. ${idleGame.anchovyFactoryLevel} (${anchovyEffect_display.toFixed(2)}) Next.${costs.anchovy.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.anchovy.unlockPopulation)})`,
             inline: true,
           },
@@ -335,9 +342,9 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
           },
           {
             name: "計算式",
-            value: `(${ovenEffect.toFixed(1)} × ${cheeseEffect.toFixed(
+            value: `(${ovenEffect_display.toFixed(1)} × ${cheeseEffect_display.toFixed(
               2
-            )} × ${tomatoEffect.toFixed(2)} × ${mushroomEffect.toFixed(3)} × ${anchovyEffect.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}${skill2EffectDisplay}`,
+            )} × ${tomatoEffect_display.toFixed(2)} × ${mushroomEffect_display.toFixed(3)} × ${anchovyEffect_display.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}${skill2EffectDisplay}`,
           },
           {
             name: "毎分の増加予測",
@@ -709,6 +716,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
         // ★★★ DBから最新のデータを取得することが非常に重要！ ★★★
         const latestPoint = await Point.findOne({ where: { userId } });
         const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+        let currentSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || '0');
 
         // 2. ループ処理
         while (iterations < MAX_ITERATIONS) {
@@ -753,6 +761,8 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
           iterations++;
         }
 
+        //#7用に使用チップを加算
+        latestIdleGame.chipsSpentThisInfinity = (currentSpent + BigInt(totalCost)).toString();
         // 4. DBへの一括保存
         await latestPoint.save();
         await latestIdleGame.save();
@@ -793,34 +803,46 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
       //const latestIdleGame = await IdleGame.findOne({ where: { userId } });
 
       let facility, cost, facilityName;
+      const skillLevel6 = latestIdleGame.skillLevel6 || 0;
 
       if (i.customId === "idle_upgrade_oven") {
         facility = "oven";
-        cost = calculateFacilityCost("oven", latestIdleGame.pizzaOvenLevel);
+        cost = calculateFacilityCost(
+          "oven",
+          latestIdleGame.pizzaOvenLevel,
+          skillLevel6
+        );
         facilityName = "ピザ窯";
       } else if (i.customId === "idle_upgrade_cheese") {
         facility = "cheese";
         cost = calculateFacilityCost(
           "cheese",
-          latestIdleGame.cheeseFactoryLevel
+          latestIdleGame.cheeseFactoryLevel,
+          skillLevel6
         );
         facilityName = "チーズ工場";
       } else if (i.customId === "idle_upgrade_tomato") {
         facility = "tomato";
-        cost = calculateFacilityCost("tomato", latestIdleGame.tomatoFarmLevel);
+        cost = calculateFacilityCost(
+          "tomato",
+          latestIdleGame.tomatoFarmLevel,
+          skillLevel6
+        );
         facilityName = "トマト農場";
       } else if (i.customId === "idle_upgrade_mushroom") {
         facility = "mushroom";
         cost = calculateFacilityCost(
           "mushroom",
-          latestIdleGame.mushroomFarmLevel
+          latestIdleGame.mushroomFarmLevel,
+          skillLevel6
         );
         facilityName = "マッシュルーム農場";
       } else if (i.customId === "idle_upgrade_anchovy") {
         facility = "anchovy";
         cost = calculateFacilityCost(
           "anchovy",
-          latestIdleGame.anchovyFactoryLevel
+          latestIdleGame.anchovyFactoryLevel,
+          skillLevel6
         );
         facilityName = "アンチョビ工場(ニボシじゃないよ！)";
       } else if (i.customId === "idle_extend_buff") {
@@ -853,10 +875,19 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
       try {
         await sequelize.transaction(async (t) => {
           // DB更新は、必ず再取得した最新のオブジェクトに対して行う
+          // チップを減らす
           await latestPoint.decrement("legacy_pizza", {
             by: cost,
             transaction: t,
           });
+
+          // S7用BIGINTに加算する処理
+          const currentSpent = BigInt(
+            latestIdleGame.chipsSpentThisInfinity || "0"
+          );
+          latestIdleGame.chipsSpentThisInfinity = (
+            currentSpent + BigInt(cost)
+          ).toString();
           if (facility === "oven") {
             await latestIdleGame.increment("pizzaOvenLevel", {
               by: 1,
@@ -1212,7 +1243,12 @@ async function handlePrestige(interaction, collector) {
           newSkillPoints += powerGain;
         }
 
-        const gainedTP = calculatePotentialTP(currentPopulation);
+        const skill8Multiplier =
+          1 +
+          (latestIdleGame.skillLevel8 || 0) *
+            config.idle.tp_skills.skill8.effectMultiplier;
+        const gainedTP =
+          calculatePotentialTP(currentPopulation) * skill8Multiplier;
 
         await latestIdleGame.update(
           {
@@ -1237,10 +1273,16 @@ async function handlePrestige(interaction, collector) {
         prestigeResult = {
           type: "PP_SP",
           population: currentPopulation,
+          gainedTP: gainedTP,
         };
       } else if (currentPopulation >= 1e16) {
         // --- TPプレステージ (新しいロジック) ---
-        const gainedTP = calculatePotentialTP(currentPopulation);
+        const skill8Multiplier =
+          1 +
+          (latestIdleGame.skillLevel8 || 0) *
+            config.idle.tp_skills.skill8.effectMultiplier;
+        const gainedTP =
+          calculatePotentialTP(currentPopulation) * skill8Multiplier;
 
         await latestIdleGame.update(
           {
