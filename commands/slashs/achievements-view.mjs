@@ -57,6 +57,45 @@ export async function execute(interaction) {
     hidden_unlocked: [],
   };
 
+  //251005 実績コンプリート系
+  // --- 実績50「あなたは神谷マリアを遊び尽くした」のチェック ---
+  const unlockedSet = new Set(achievementsData.unlocked);
+  // まだ実績50を解除していない場合のみ、チェックを実行
+  if (!unlockedSet.has(50)) {
+    const requiredAchievements = Array.from({ length: 50 }, (_, i) => i); // 0から49までの配列
+    const excludedAchievements = [23, 24, 25, 26, 27]; // どんぐり実績
+    
+    // 必須実績リストから、除外対象を除いたもの
+    const finalRequired = requiredAchievements.filter(id => !excludedAchievements.includes(id));
+    
+    // 必須実績のすべてが、解除済み実績の中に含まれているかチェック
+    const isPlatinumUnlocked = finalRequired.every(id => unlockedSet.has(id));
+
+    if (isPlatinumUnlocked) {
+      await unlockAchievements(interaction.client, userId, 50);
+      // 新しく解除したので、ローカルのデータも更新しておく
+      unlockedSet.add(50);
+      achievementsData.unlocked.push(50);
+    }
+  }
+
+  // --- 隠し実績10「そこに山があるから」のチェック ---
+  const hiddenUnlockedSet = new Set(achievementsData.hidden_unlocked);
+  // まだ隠し実績10を解除していない場合のみ、チェックを実行
+  if (!hiddenUnlockedSet.has(10)) {
+    const requiredHidden = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    
+    // 必須の隠し実績がすべて含まれているかチェック
+    const isHiddenMasterUnlocked = requiredHidden.every(id => hiddenUnlockedSet.has(id));
+
+    if (isHiddenMasterUnlocked) {
+      await unlockHiddenAchievements(interaction.client, userId, 10);
+      // ローカルのデータも更新
+      hiddenUnlockedSet.add(10);
+      achievementsData.hidden_unlocked.push(10);
+    }
+  }
+
   // 表示状態を管理する変数
   let currentPage = 0;
   let isHiddenMode = false;
@@ -84,7 +123,11 @@ export async function execute(interaction) {
 
     if (isHidden) {
       title = `"${displayName}" の秘密の実績 (${unlockedCount} / ${sourceAchievements.length})`;
-      headerString = "薄れゆく達成感。";
+      if (hiddenUnlockedSet.has(10)) {
+        headerString = "それは放置ゲームにおいて、ブースト倍率を1.1倍に強化する。";
+      } else {
+        headerString = "薄れゆく達成感。";
+      }
     } else {
       title = `"${displayName}" の実績 (${unlockedCount} / ${sourceAchievements.length})`;
       headerString = `それは放置ゲームにおいて全てのMultを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;

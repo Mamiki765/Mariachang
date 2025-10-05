@@ -142,6 +142,20 @@ export async function execute(interaction) {
     } else if (idleGame.prestigeCount === 0) {
       correctMultiplier = 2.5;
     }
+    //実績コンプ系で倍率強化
+    // --- まず、実績の解除状況をSetとして準備 ---
+    const unlockedSet = new Set(userAchievement.achievements?.unlocked || []);
+    const hiddenUnlockedSet = new Set(
+      userAchievement.achievements?.hidden_unlocked || []
+    );
+    // 実績50「あなたは神谷マリアを遊び尽くした」の効果
+    if (unlockedSet.has(50)) {
+      correctMultiplier *= 1.5;
+    }
+    // 隠し実績10「そこに山があるから」の効果
+    if (hiddenUnlockedSet.has(10)) {
+      correctMultiplier *= 1.1;
+    }
 
     // もし、DBに保存されている倍率と「あるべき倍率」が違ったら、更新する
     if (idleGame.buffMultiplier !== correctMultiplier) {
@@ -940,7 +954,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}**  #1:${idleGame.skillLevel1} #2:${idle
           );
         }
         // i6条件 5つの施設のレベルが逆さまになる
-                // 5つの施設のレベルを定数に入れておくと、コードが読みやすくなります
+        // 5つの施設のレベルを定数に入れておくと、コードが読みやすくなります
         const {
           pizzaOvenLevel: oven,
           cheeseFactoryLevel: cheese,

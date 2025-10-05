@@ -966,31 +966,32 @@ export default {
       {
         id: 33,
         name: "仮面舞踏会",
-        description: "1回ロールプレイ機能を使った",
+        description: "初めてロールプレイ機能を使い、1RPを入手した",
         reward: {},
+        effect: "そのトークンは20コインで売却できる",
       },
       {
         id: 34,
         name: "そろそろ使い方にも慣れてきた？",
-        description: "20回ロールプレイ機能を使った",
+        description: "ロールプレイ機能で20RPを入手した",
         reward: {},
       },
       {
         id: 35,
         name: "キャラも表情もコロコロ変わる",
-        description: "100回ロールプレイ機能を使った",
+        description: "ロールプレイ機能で100RPを入手した",
         reward: {},
       },
       {
         id: 36,
         name: "そろそろ自分を見失ってきた…",
-        description: "250回ロールプレイ機能を使った",
+        description: "ロールプレイ機能で250RPを入手した",
         reward: {},
       },
       {
         id: 37,
         name: "ロールプレイ大好き！",
-        description: "500回ロールプレイ機能を使った",
+        description: "ロールプレイ機能で500RPを入手した",
         reward: {},
       },
       {
@@ -1065,14 +1066,13 @@ export default {
         description: "ルーレットで玉が０に入ってしまった",
         reward: {},
       },
-      /*
       {
         id: 50,
-        name: "ありがとね。",
-        description: "/kampaを使う",
+        name: "★あなたは神谷マリアを遊び尽くした",
+        description: "【プラチナトロフィー】1~50番のうち、累積どんぐり数以外の実績を集める。",
+        effect: "それは放置ゲームにおいて、ブースト倍率を1.5倍に強化する。",
         reward: {},
       },
-      */
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],
@@ -1140,6 +1140,12 @@ export default {
         hint: "キミは最凶のギャンブラー",
         description: "スロットで10000コイン以上の当選金を獲得する",
       },
+      {
+        id: 10,
+        name: "そこに山があるから",
+        hint: "まさか、この実績を一つ一つ取っているわけではないと思うが、-# もしそうならばそれは実績コンプの呪いにかかっており、一生解けぬ。",
+        description: "i1～10を全て取得した状態で、実績画面を開く。", //ピザ窯ブースト1.1倍
+      },
       // ... 他の隠し実績 ...
     ],
   },
@@ -1155,8 +1161,9 @@ export default {
       {
         name: "ロスアカラプ箱交換希望", // タスクの名前
         enabled: true, // このタスクを有効にするか
-        rssUrl: "https://nitter.privacyredirect.com/search/rss?f=tweets&q=%23%E3%83%AD%E3%82%B9%E3%82%A2%E3%82%AB%E3%83%A9%E3%83%97%E7®%B1%E4%BA%A4%E6%8F%9B%E5%B8%8C%E6%9C%9B&e-nativeretweets=on",
-        channelId: isProduction ?  "1263577939396526091" : debugConfig.channel,
+        rssUrl:
+          "https://nitter.privacyredirect.com/search/rss?f=tweets&q=%23%E3%83%AD%E3%82%B9%E3%82%A2%E3%82%AB%E3%83%A9%E3%83%97%E7®%B1%E4%BA%A4%E6%8F%9B%E5%B8%8C%E6%9C%9B&e-nativeretweets=on",
+        channelId: isProduction ? "1263577939396526091" : debugConfig.channel,
       },
     ],
     // チェックする頻度（Cron形式: これは10分ごと）
