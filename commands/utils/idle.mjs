@@ -505,10 +505,18 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         // --- ケース1: PP/SPが手に入る通常のプレステージ ---
         const newPrestigePower = Math.log10(idleGame.population);
         const powerGain = newPrestigePower - idleGame.prestigePower;
-        const prestigeButtonLabel =
-          idleGame.prestigeCount === 0
-            ? `プレステージ Power: ${newPrestigePower.toFixed(3)}`
-            : `Prestige Power: ${newPrestigePower.toFixed(2)} (+${powerGain.toFixed(2)})`;
+        let prestigeButtonLabel;
+        if (idleGame.prestigeCount === 0) {
+          // 条件1: prestigeCountが0の場合
+          prestigeButtonLabel = `プレステージ Power: ${newPrestigePower.toFixed(3)}`;
+        } else if (idleGame.population < 1e16) {
+          // 条件2: populationが1e16未満の場合
+          prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (+${powerGain.toFixed(2)})`;
+        } else {
+          // 条件3: それ以外 (populationが1e16以上) の場合
+          const potentialTP = calculatePotentialTP(idleGame.population); // 先に計算しておくとスッキリします
+          prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
+        }
 
         boostRow.addComponents(
           new ButtonBuilder()
@@ -1553,22 +1561,22 @@ function generateSkillButtons(idleGame) {
   const skillRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_1")
-      .setLabel("#1強化")
+      .setLabel("#1強化(SP)")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s1),
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_2")
-      .setLabel("#2強化")
+      .setLabel("#2強化(SP)")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s2),
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_3")
-      .setLabel("#3強化")
+      .setLabel("#3強化(SP)")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s3),
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_4")
-      .setLabel("#4強化")
+      .setLabel("#4強化(SP)")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s4),
     new ButtonBuilder()
@@ -1591,22 +1599,22 @@ function generateSkillButtons(idleGame) {
     const tpSkillRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_5")
-        .setLabel("#5強化 (TP)")
+        .setLabel("#5強化(TP)")
         .setStyle(ButtonStyle.Success) // TPスキルは緑色に
         .setDisabled(idleGame.transcendencePoints < tp_costs.s5),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_6")
-        .setLabel("#6強化 (TP)")
+        .setLabel("#6強化(TP)")
         .setStyle(ButtonStyle.Success)
         .setDisabled(idleGame.transcendencePoints < tp_costs.s6),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_7")
-        .setLabel("#7強化 (TP)")
+        .setLabel("#7強化(TP)")
         .setStyle(ButtonStyle.Success)
         .setDisabled(idleGame.transcendencePoints < tp_costs.s7),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_8")
-        .setLabel("#8強化 (TP)")
+        .setLabel("#8強化(TP)")
         .setStyle(ButtonStyle.Success)
         .setDisabled(idleGame.transcendencePoints < tp_costs.s8)
     );
