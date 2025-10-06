@@ -67,6 +67,19 @@ export const data = new SlashCommandBuilder()
         { name: "ランキング表示（非公開）", value: "private" },
         { name: "表示しない", value: "none" } // あるいは、ephemeral: trueを外した簡易的な自分の工場を見せるオプション
       )
+  )
+  .addStringOption((option) =>
+    option
+      .setName("view")
+      .setNameLocalizations({ ja: "開始画面" })
+      .setDescription(
+        "最初に表示する画面を選択します。（スマホでボタンが欠ける時用）"
+      )
+      .setRequired(false)
+      .addChoices(
+        { name: "工場画面 (デフォルト)", value: "factory" },
+        { name: "スキル画面", value: "skill" }
+      )
   );
 
 export async function execute(interaction) {
@@ -558,25 +571,50 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
       return components;
     };
 
-    //もう一度時間を計算
-    const remainingMs = idleGame.buffExpiresAt
-      ? idleGame.buffExpiresAt.getTime() - now.getTime()
-      : 0;
-    const remainingHours = remainingMs / (1000 * 60 * 60);
-    //24時間あるかないかで変わる
-    let content =
-      "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
-    if (remainingHours > 24) {
-      content =
-        "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
+    // 1. ユーザーが選択した "開始画面" オプションを取得します
+    const viewChoice = interaction.options.getString("view");
+
+    // 2. もしユーザーが「スキル画面」を選択した場合
+    if (viewChoice === "skill") {
+      // 3. ただし、プレステージをしていない場合は表示できないのでチェック
+      if (idleGame.prestigePower < 8) {
+        // PP8未満はスキルがそもそもないのでこの条件がより正確
+        // エラーメッセージを本人にだけ送り、処理はこのまま下の「工場画面の表示」へ流す
+        await interaction.followUp({
+          content:
+            "⚠️ スキル画面はプレステージパワー(PP)が8以上で解放されます。代わりに工場画面を表示します。",
+          ephemeral: true,
+        });
+      } else {
+        // 4. 条件を満たしていれば、スキル画面を最初に表示する
+        await interaction.editReply({
+          content: " ", // メッセージは空にする
+          embeds: [generateSkillEmbed(idleGame)],
+          components: generateSkillButtons(idleGame),
+        });
+      }
     }
 
-    // 最初のメッセージを送信
-    await interaction.editReply({
-      content: content,
-      embeds: [generateEmbed()],
-      components: generateButtons(),
-    });
+    // 5. デフォルト（オプション未指定）の場合、またはスキル画面表示の条件を満たさなかった場合
+    if (viewChoice !== "skill" || idleGame.prestigePower < 8) {
+      // 6. 従来どおり、工場画面を表示する（ここのコードは以前と同じです）
+      const remainingMs = idleGame.buffExpiresAt
+        ? idleGame.buffExpiresAt.getTime() - new Date().getTime()
+        : 0;
+      const remainingHours = remainingMs / (1000 * 60 * 60);
+      let content =
+        "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
+      if (remainingHours > 24) {
+        content =
+          "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
+      }
+
+      await interaction.editReply({
+        content: content,
+        embeds: [generateEmbed()],
+        components: generateButtons(),
+      });
+    }
 
     const filter = (i) =>
       i.user.id === userId && i.customId.startsWith("idle_");
@@ -1460,12 +1498,21 @@ function generateSkillEmbed(idleGame) {
       Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
   };
 
+  let descriptionText = `SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.toFixed(2)}**`;
+
+  // TPをまだ獲得したことがない場合のみ、初心者向けメッセージを追加
+  if (idleGame.transcendencePoints === 0) {
+    descriptionText += "\n(初回は#1強化を強く推奨します)";
+  }
+
+  // ボタンが欠ける問題に関する案内を常に追加する
+  // 引用(>)を使うと、他のテキストと区別しやすくなります。
+  descriptionText += `\n> スマホ等でボタンが欠ける場合、\`/放置ゲーム 開始画面:スキル画面\`をお試しください。`;
+
   const embed = new EmbedBuilder()
     .setTitle("✨ スキル強化 ✨")
     .setColor("Purple")
-    .setDescription(
-      `SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.toFixed(2)}**\n(初回は#1強化を強く推奨します)`
-    )
+    .setDescription(descriptionText) 
     .addFields(
       {
         name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
@@ -1561,27 +1608,27 @@ function generateSkillButtons(idleGame) {
   const skillRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_1")
-      .setLabel("#1強化(SP)")
+      .setLabel("#1強化")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s1),
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_2")
-      .setLabel("#2強化(SP)")
+      .setLabel("#2強化")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s2),
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_3")
-      .setLabel("#3強化(SP)")
+      .setLabel("#3強化")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s3),
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_4")
-      .setLabel("#4強化(SP)")
+      .setLabel("#4強化")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(idleGame.skillPoints < costs.s4),
     new ButtonBuilder()
       .setCustomId("idle_skill_reset") // 新しいID
-      .setLabel("スキルリセット")
+      .setLabel("SPリセット")
       .setStyle(ButtonStyle.Danger) // 危険な操作なので赤色に
       .setEmoji("🔄")
       // SPが1以上、または何かしらのスキルが振られていないと押せないようにする
