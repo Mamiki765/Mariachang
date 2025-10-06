@@ -152,6 +152,10 @@ const Point = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    lastRpDate: {
+      type: DataTypes.DATE,
+      allowNull: true, // まだ一度もRPを受け取っていないユーザーはnullになるようにします
+    },
   },
   {
     tableName: "points",

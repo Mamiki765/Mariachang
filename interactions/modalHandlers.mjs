@@ -201,15 +201,26 @@ export default async function handleModalInteraction(interaction) {
         message,
         nocredit
       );
-      await updatePoints(interaction.user.id, interaction.client);
+      const rewardResult = await updatePoints(interaction.user.id, interaction.client);
 
       const deleteRequestButtonRow = createRpDeleteRequestButton(
         postedMessage.id,
         interaction.user.id
       );
-
+      let replyMessage = "送信しました。";
+      if (rewardResult) {
+          if (rewardResult.rewardType === 'rp') {
+              // 実際の絵文字IDなどに合わせて変更してください
+              replyMessage += `\n💎 **RP**を1獲得しました！`;
+          } else if (rewardResult.rewardType === 'pizza') {
+            const bonusText = rewardResult.bonusAmount > 0 
+                ? `(内訳: 基本${rewardResult.baseAmount.toLocaleString()}枚 + ボーナス${rewardResult.bonusAmount.toLocaleString()}枚)` 
+                : '';
+            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**を**${rewardResult.amount.toLocaleString()}**枚獲得しました。${bonusText}`;
+          }
+      }
       await interaction.editReply({
-        content: `送信しました。`,
+        content: replyMessage,
         components: [deleteRequestButtonRow], // ★★★ これを使う ★★★
       });
     } catch (error) {

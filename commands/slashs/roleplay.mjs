@@ -15,6 +15,7 @@ import { Character, Icon, Point } from "../../models/database.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 import { unlockAchievements } from "../../utils/achievements.mjs";
+import { applyPizzaBonus } from "../../utils/idle-game-calculator.mjs";
 
 export const help = {
   category: "slash",
@@ -759,15 +760,28 @@ export async function execute(interaction) {
         );
 
         // ★★★ 同じように、ポイント更新と削除ボタンを追加 ★★★
-        await updatePoints(interaction.user.id, interaction.client);
+        const rewardResult = await updatePoints(
+          interaction.user.id,
+          interaction.client
+        );
 
         const deleteRequestButtonRow = createRpDeleteRequestButton(
           postedMessage.id,
           interaction.user.id
         );
-
+        let replyMessage = "送信しました。";
+        if (rewardResult) {
+          if (rewardResult.rewardType === "rp") {
+            replyMessage += `\n💎 **RP**を1獲得しました！`;
+          } else if (rewardResult.rewardType === "pizza") {
+            const bonusText = rewardResult.bonusAmount > 0 
+                ? `(内訳: 基本${rewardResult.baseAmount.toLocaleString()}枚 + ボーナス${rewardResult.bonusAmount.toLocaleString()}枚)` 
+                : '';
+            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**を**${rewardResult.amount.toLocaleString()}**枚獲得しました。${bonusText}`;
+          }
+        }
         await interaction.editReply({
-          content: `送信しました。`,
+          content: replyMessage,
           components: [deleteRequestButtonRow], // ★★★ これを使う ★★★
         });
       } catch (error) {
@@ -993,34 +1007,68 @@ function dataslot(id, slot) {
 //発言するたびにポイント+1
 export async function updatePoints(userId, client) {
   try {
+    const now = new Date();
+    const cooldownSeconds = 60;
+    const basePizzaAmount = 600;
     const [pointEntry, created] = await Point.findOrCreate({
       where: { userId: userId },
       defaults: { point: 0, totalpoint: 0 },
     });
+    const lastRpDate = pointEntry.lastRpDate;
+    // 前回の実行からの経過時間を計算します。初回の場合はInfinity（無限大）とします。
+    const secondsSinceLastRp = lastRpDate
+      ? (now.getTime() - lastRpDate.getTime()) / 1000
+      : Infinity;
 
-    //incrementの返り値（更新後のインスタンス）を受け取る
-    const updatedPointEntry = await pointEntry.increment(['point', 'totalpoint']);
+    if (secondsSinceLastRp >= cooldownSeconds) {
+      // --- クールダウンが終了している、または初回の場合：RPを付与 ---
+      //incrementの返り値（更新後のインスタンス）を受け取る
+      const updatedPointEntry = await pointEntry.increment([
+        "point",
+        "totalpoint",
+      ]);
+      // RPを獲得した「今」の時刻をデータベースに保存します。
+      await pointEntry.update({ lastRpDate: now });
+      // 更新後のインスタンスから最新の totalpoint を取得する
+      const totalPoints = updatedPointEntry.totalpoint;
 
-    // 更新後のインスタンスから最新の totalpoint を取得する
-    const totalPoints = updatedPointEntry.totalpoint;
+      const achievementsToCheck = [
+        { id: 33, goal: 1 },
+        { id: 34, goal: 20 },
+        { id: 35, goal: 100 },
+        { id: 36, goal: 250 },
+        { id: 37, goal: 500 },
+      ];
 
-    const achievementsToCheck = [
-      { id: 33, goal: 1 },
-      { id: 34, goal: 20 },
-      { id: 35, goal: 100 },
-      { id: 36, goal: 250 },
-      { id: 37, goal: 500 },
-    ];
+      const idsToUnlock = achievementsToCheck
+        .filter((ach) => totalPoints >= ach.goal)
+        .map((ach) => ach.id);
 
-    const idsToUnlock = achievementsToCheck
-      .filter(ach => totalPoints >= ach.goal)
-      .map(ach => ach.id);
+      if (idsToUnlock.length > 0) {
+        await unlockAchievements(client, userId, ...idsToUnlock);
+      }
+      return { rewardType: "rp", amount: 1 };
+    } else {
+      // --- クールダウン中の場合：ニョボチップを付与 ---
+      // 1. 放置ゲームのボーナスを適用して、最終的なピザの枚数を計算します。
+      const finalPizzaAmount = await applyPizzaBonus(userId, basePizzaAmount);
 
-    if (idsToUnlock.length > 0) {
-      await unlockAchievements(client, userId, ...idsToUnlock);
+      // 2. 計算された最終的な枚数をデータベースに加算します。
+      await pointEntry.increment("legacy_pizza", { by: finalPizzaAmount });
+
+      const remainingCooldown = Math.ceil(cooldownSeconds - secondsSinceLastRp);
+
+      // 3. ユーザーへのフィードバックで詳細を表示できるよう、内訳も返します。
+      return {
+        rewardType: "pizza",
+        amount: finalPizzaAmount,
+        baseAmount: basePizzaAmount,
+        bonusAmount: finalPizzaAmount - basePizzaAmount,
+        cooldown: remainingCooldown,
+      };
     }
-
   } catch (error) {
     console.error("ポイントの更新または実績解除処理に失敗しました:", error);
+    return null;
   }
 }
