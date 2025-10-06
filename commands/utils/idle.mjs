@@ -106,7 +106,7 @@ export async function execute(interaction) {
     //オフライン計算
     await updateUserIdleGame(userId);
     //--------------
-    //人口系実績
+    //人口系実績など、起動時に取れるもの
     //--------------
     const populationChecks = [
       { id: 0, condition: true }, // 「ようこそ」は常にチェック
@@ -124,8 +124,21 @@ export async function execute(interaction) {
         condition:
           idleGame.population >= 1e16 || idleGame.highestPopulation >= 1e16,
       },
-      {id: 52, condition: idleGame.skillLevel8 >= 1}, //s8実績もここに
-      {id: 56, condition: idleGame.population >= 6.692e+30}, //infinity^0.10
+      { id: 52, condition: idleGame.skillLevel8 >= 1 }, //s8実績もここに
+      { id: 56, condition: idleGame.population >= 6.692e30 }, //infinity^0.10
+      //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
+      {
+        id: 57,
+        condition: BigInt(idleGame.chipsSpentThisInfinity || "0") >= 100000,
+      },
+      {
+        id: 58,
+        condition: BigInt(idleGame.chipsSpentThisInfinity || "0") >= 1000000,
+      },
+      {
+        id: 59,
+        condition: BigInt(idleGame.chipsSpentThisInfinity || "0") >= 10000000,
+      },
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks
@@ -1514,7 +1527,7 @@ function generateSkillEmbed(idleGame) {
   const embed = new EmbedBuilder()
     .setTitle("✨ スキル強化 ✨")
     .setColor("Purple")
-    .setDescription(descriptionText) 
+    .setDescription(descriptionText)
     .addFields(
       {
         name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
