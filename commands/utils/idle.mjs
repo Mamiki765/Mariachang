@@ -269,7 +269,7 @@ export async function execute(interaction) {
         const ms = idleGame.buffExpiresAt - new Date();
         hours = Math.floor(ms / (1000 * 60 * 60));
         const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        buffField = `**${idleGame.buffMultiplier}倍** 残り **${hours}時間${minutes}分**`;
+        buffField = `**${idleGame.buffMultiplier.toFixed(2)}倍** 残り **${hours}時間${minutes}分**`;
       }
 
       // EmbedのDescriptionをプレステージ回数に応じて変更する

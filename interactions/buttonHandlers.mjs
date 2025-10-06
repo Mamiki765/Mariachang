@@ -212,6 +212,7 @@ export default async function handleButtonInteraction(interaction) {
     // --- ここから下は、あまやどんぐりのログインボーナス処理 ---
   } else if (interaction.customId === "claim_acorn_login_bonus") {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const [pointEntry, created] = await Point.findOrCreate({
         where: { userId: interaction.user.id },
       });
@@ -252,14 +253,14 @@ export default async function handleButtonInteraction(interaction) {
                   (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
                 );
                 const multiplier = idleGame.buffMultiplier || 1;
-                boostMessage = `🔥x${multiplier} **${hours}時間${minutes}分**`;
+                boostMessage = `🔥x${multiplier.toFixed(1)} **${hours}時間${minutes}分**`;
               }
             } else {
               // idleGameはあるがブーストを一度も点火していない人向けの案内
               boostMessage = "🔥ブーストなし /idleで点火できます。";
             }
           }
-          return interaction.reply({
+          return interaction.editReply({
             content:
               `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n` +
               `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
@@ -268,7 +269,6 @@ export default async function handleButtonInteraction(interaction) {
               `<:nyowamiyarika:1264010111970574408>: ${formatNumberReadable(population)}匹 ${boostMessage}\n` +
               `ロスアカのどんぐりもお忘れなく……`,
             components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
-            ephemeral: true,
           });
         }
       }
@@ -491,7 +491,7 @@ export default async function handleButtonInteraction(interaction) {
         if (idleResult.buffRemaining) {
           const { hours, minutes } = idleResult.buffRemaining;
           if (hours > 0 || minutes > 0) {
-            Message += ` 🔥x${idleResult.currentBuffMultiplier} **${hours}時間${minutes}分**`;
+            Message += ` 🔥x${idleResult.currentBuffMultiplier.toFixed(1)} **${hours}時間${minutes}分**`;
           } else {
             Message += ` 🔥ブーストなし /idleで点火できます。`;
           }
@@ -502,14 +502,13 @@ export default async function handleButtonInteraction(interaction) {
       }
       Message += `\nロスアカのどんぐりもお忘れなく……`;
       // 8. ユーザーに返信
-      return interaction.reply({
+      return interaction.editReply({
         content: Message,
         components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
-        flags: 64, //ephemeralは古い書き方なのでこちらを使用
       });
     } catch (error) {
       console.error("ログインボーナスの処理中にエラーが発生しました:", error);
-      return interaction.reply({
+      return interaction.editReply({
         content: "エラーが発生しました。どんぐりを拾えなかったようです…。",
         ephemeral: true,
       });
