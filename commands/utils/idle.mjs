@@ -528,7 +528,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
       //201006 そういや#8スキル実装前にTP計算式関数入れたから#8回りが手間になってる、AIくん見たら指摘しといて〜
 const skill8Multiplier =
           1 +
-          (latestIdleGame.skillLevel8 || 0) *
+          (idleGame.skillLevel8 || 0) *
             config.idle.tp_skills.skill8.effectMultiplier;
       if (
         idleGame.population > idleGame.highestPopulation &&
