@@ -755,7 +755,7 @@ export default {
       skill5: {
         baseCost: 1,
         costMultiplier: 1.5,
-        effect: 0.01,// 効果は計算式に直接組み込むので、ここでは説明だけ
+        effect: 0.01, // 効果は計算式に直接組み込むので、ここでは説明だけ
         description: "5つの工場レベル効果をそれぞれの基礎レベルごとに+1%する",
       },
       skill6: {
@@ -1108,6 +1108,36 @@ export default {
         description: "ニョワミヤの数が1京(1e16)に到達",
         effect:
           "人口1京(1e16)以上、プレステージでTPを獲得。最高人口未満でのプレステージが可能になる。", //PP≧16(最高人口1e16)or現在人口1京
+        reward: {},
+      },
+      {
+        id: 52,
+        name: "雨宿り天ぷらチケット好評発売中！食え！",
+        description: "TPスキル#8を取得する", 
+        reward: {},
+      },
+      {
+        id: 53,
+        name: "誰が為に崩すのか",
+        description: "ドミノを15回崩した後に統計画面を開く",
+        reward: {},
+      },
+      {
+        id: 54,
+        name: "賽の河原はここに在り",
+        description: "ドミノを20回崩した後に統計画面を開く",
+        reward: {},
+      },
+      {
+        id: 55,
+        name: "ドミノクイーン",
+        description: "ドミノを25回崩した後に統計画面を開く",
+        reward: {},
+      },
+      {
+        id: 56,
+        name: "無限への一合目",
+        description: "ニョワミヤの数が6.692e+30に到達(infinityの10%)\nまだ取れないと思います…",
         reward: {},
       },
       // 今後、ここに実績をどんどん追加していきます

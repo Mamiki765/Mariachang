@@ -124,6 +124,8 @@ export async function execute(interaction) {
         condition:
           idleGame.population >= 1e16 || idleGame.highestPopulation >= 1e16,
       },
+      {id: 52, condition: idleGame.skillLevel8 >= 1}, //s8実績もここに
+      {id: 56, condition: idleGame.population >= 6.692e+30}, //infinity^0.10
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks

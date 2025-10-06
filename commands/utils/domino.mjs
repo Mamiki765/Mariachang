@@ -1,5 +1,5 @@
 // commands\utils\domino.mjs
-import { SlashCommandBuilder, EmbedBuilder,ChannelType } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ChannelType } from "discord.js";
 import { DominoLog, CurrentDomino, sequelize } from "../../models/database.mjs"; // あなたのデータベース設定からDominoLogとCurrentDominoモデルをインポート
 import config from "../../config.mjs";
 import { safeDelete } from "../../utils/messageutil.mjs";
@@ -35,22 +35,19 @@ export async function execute(interaction) {
   const indexOption = interaction.options.getInteger("index") || null;
 
   if (indexOption === null) {
-    // 統計データの取得 (DominoLog から集計)
+    // --- 従来の統計データ取得（ここは変更なし） ---
     const totalDominoCount = (await DominoLog.sum("totalCount")) || 0;
     const totalPlayerCount = (await DominoLog.sum("playerCount")) || 0;
     const zeroCount = await DominoLog.count({ where: { totalCount: 0 } });
-
-    // 最高記録の取得 (DominoLog から取得)
     const highestRecordLog = await DominoLog.findOne({
       order: [["totalCount", "DESC"]],
     });
     const highestRecord = highestRecordLog?.totalCount || 0;
     const highestRecordHolderLog = await DominoLog.findOne({
       where: { totalCount: highestRecord },
-      order: [["createdAt", "DESC"]], // 最新の記録保持者を取得
+      order: [["createdAt", "DESC"]],
     });
     const highestRecordHolder = highestRecordHolderLog?.loserName || "不明";
-
     const currentDomino = await CurrentDomino.findOne();
     if (!currentDomino) {
       await CurrentDomino.create({
@@ -59,14 +56,10 @@ export async function execute(interaction) {
         totalPlayers: 0,
       });
     }
-    //ドミノの枚数と並べた回数の合計
-    // 直近5回の履歴 (DominoLog から取得)
     const recentHistories = await DominoLog.findAll({
       order: [["attemptNumber", "DESC"]],
       limit: 5,
     });
-
-    // 崩した人ランキング (DominoLog から集計)
     const loserCounts = await DominoLog.findAll({
       attributes: [
         "loserName",
@@ -78,31 +71,71 @@ export async function execute(interaction) {
       raw: true,
     });
 
-    let response = `現在のドミノ:第${currentDomino?.attemptNumber || 1}回 ${
-      currentDomino?.totalPlayers || 0
-    }人 ${
-      currentDomino?.totalCount || 0
-    }枚\n-# 最高記録：${highestRecord}枚 崩した人:${escapeDiscordText(
-      highestRecordHolder
-    )}\n-# 総ドミノ:${new Intl.NumberFormat("ja-JP").format(
-      totalDominoCount
-    )}枚　総人数:${new Intl.NumberFormat("ja-JP").format(
-      totalPlayerCount
-    )}人　虚無崩し(0枚):${zeroCount}回\n`;
-
+    // --- 統計情報のメッセージ構築（ここもほぼ同じ） ---
+    let response = `現在のドミノ:第${currentDomino?.attemptNumber || 1}回 ${currentDomino?.totalPlayers || 0}人 ${currentDomino?.totalCount || 0}枚\n-# 最高記録：${highestRecord}枚 崩した人:${escapeDiscordText(highestRecordHolder)}\n-# 総ドミノ:${new Intl.NumberFormat("ja-JP").format(totalDominoCount)}枚　総人数:${new Intl.NumberFormat("ja-JP").format(totalPlayerCount)}人　虚無崩し(0枚):${zeroCount}回\n`;
     response += "★直近5回のドミノゲームの履歴★\n";
-    recentHistories.forEach((log, index) => {
-      response += `-# 第${log.attemptNumber}回:${log.totalCount}枚 ${
-        log.playerCount
-      }人 崩した人:${escapeDiscordText(log.loserName)}\n`;
+    recentHistories.forEach((log) => {
+      response += `-# 第${log.attemptNumber}回:${log.totalCount}枚 ${log.playerCount}人 崩した人:${escapeDiscordText(log.loserName)}\n`;
     });
-
     response += "★崩した人上位10位★\n";
     loserCounts.forEach((loser, index) => {
-      response += `-# ${index + 1}位: ${escapeDiscordText(loser.loserName)} (${
-        loser.count
-      }回)\n`;
+      response += `-# ${index + 1}位: ${escapeDiscordText(loser.loserName)} (${loser.count}回)\n`;
     });
+
+    // ▼▼▼ ここからが自分の順位を表示する追加ロジック ▼▼▼
+
+  const myUsername = interaction.user.username;
+  let myCollapseCount = 0; // ★1. letで変数を宣言し、0で初期化
+  let myRankText = "";
+
+  // 2. 自分がTOP10に入っているかチェック
+  const myTop10Data = loserCounts.find(loser => loser.loserName === myUsername);
+
+  if (myTop10Data) {
+    // 3a. TOP10に入っていた場合、そのデータから回数を取得
+    myCollapseCount = myTop10Data.count;
+    // この場合、自分の順位は既に表示されているので myRankText は空のまま
+  } else {
+    // 3b. TOP10に入っていなかった場合、DBに問い合わせる
+    myCollapseCount = await DominoLog.count({ where: { loserName: myUsername } });
+
+    if (myCollapseCount > 0) {
+      const allLosersRanked = await DominoLog.findAll({
+        attributes: ["loserName"], // 順位の特定に必要なのは名前だけなので軽量化
+        group: ["loserName"],
+        order: [[sequelize.fn("COUNT", sequelize.col("loserName")), "DESC"]],
+        raw: true,
+      });
+      
+      const myRankIndex = allLosersRanked.findIndex(loser => loser.loserName === myUsername);
+      const myRank = myRankIndex + 1;
+
+      myRankText = `\n★あなたの記録★\n-# ${myRank}位: ${escapeDiscordText(myUsername)} (${myCollapseCount}回)`;
+    } else {
+      myRankText = `\n★あなたの記録★\n-# あなたはまだドミノを崩したことがありません。`;
+    }
+  }
+
+  // 4. 最後に自分の順位情報をresponseに追加
+  response += myRankText;
+
+  // ▼▼▼ ここからが実績解除ロジック ▼▼▼
+  // myCollapseCount は必ず正しい回数が入っているので、ここで安心して使える
+    const dominoChecks = [
+      { id: 53, condition: myCollapseCount >= 15 },
+      { id: 54, condition: myCollapseCount >= 20 },
+      { id: 55, condition: myCollapseCount >= 25 },
+    ];
+
+    const idsToUnlock = dominoChecks
+      .filter(p => p.condition)
+      .map(p => p.id);
+
+    // idsToUnlockに解除すべきIDが入っている場合のみ処理を実行
+    if (idsToUnlock.length > 0) {
+      await unlockAchievements(interaction.client, interaction.user.id, ...idsToUnlock);
+    }
+  // ▲▲▲ 実績解除ロジックここまで ▲▲▲
 
     await interaction.reply(response);
   } else {
@@ -288,13 +321,14 @@ export async function dominoeffect(message, client, id, username, dpname) {
       // 実績ID 31: ドミノドミノドミノドミノドミノドミノ (1000回) の進捗を更新
       await updateAchievementProgress(client, id, 31);
 
-      if (randomNum === 79) { // 実績ID: i7 「79」
-        await unlockHiddenAchievements(client, id, 7); 
+      if (randomNum === 79) {
+        // 実績ID: i7 「79」
+        await unlockHiddenAchievements(client, id, 7);
       }
 
       if (message.channel?.type === ChannelType.DM) {
-          await unlockHiddenAchievements(client, id, 8); //実績i8
-        }
+        await unlockHiddenAchievements(client, id, 8); //実績i8
+      }
       //5秒後に消える奴
       if (message.channel.id !== config.dominoch) {
         const replyMessage = await message.reply({
