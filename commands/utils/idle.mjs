@@ -525,7 +525,11 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
       }
 
       // 250923 プレステージボタンの表示ロジック
-      // ▼▼▼ この if文全体を置き換える ▼▼▼
+      //201006 そういや#8スキル実装前にTP計算式関数入れたから#8回りが手間になってる、AIくん見たら指摘しといて〜
+const skill8Multiplier =
+          1 +
+          (idleGame.skillLevel8 || 0) *
+            config.idle.tp_skills.skill8.effectMultiplier;
       if (
         idleGame.population > idleGame.highestPopulation &&
         idleGame.population >= config.idle.prestige.unlockPopulation
@@ -542,7 +546,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
           prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (+${powerGain.toFixed(2)})`;
         } else {
           // 条件3: それ以外 (populationが1e16以上) の場合
-          const potentialTP = calculatePotentialTP(idleGame.population); // 先に計算しておくとスッキリします
+          const potentialTP = calculatePotentialTP(idleGame.population) * skill8Multiplier; // 先に計算しておくとスッキリします
           prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
         }
 
@@ -559,7 +563,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         idleGame.population >= 1e16
       ) {
         // --- ケース2: TPが手に入る新しいプレステージ ---
-        const potentialTP = Math.pow(Math.log10(idleGame.population) - 15, 2.5);
+        const potentialTP = Math.pow(Math.log10(idleGame.population) - 15, 2.5) * skill8Multiplier;
 
         boostRow.addComponents(
           new ButtonBuilder()
