@@ -574,11 +574,12 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
       i.user.id === userId && i.customId.startsWith("idle_");
     const collector = initialReply.createMessageComponentCollector({
       filter,
-      time: 60_000,
+      time: 120_000, //1分->2分に延長
     });
 
     collector.on("collect", async (i) => {
       await i.deferUpdate();
+      collector.resetTimer(); // 操作があるたびにタイマーをリセット
 
       // ★★★ どのボタンが押されても、まず最新のDB情報を取得する ★★★
       const latestIdleGame = await IdleGame.findOne({ where: { userId } });
