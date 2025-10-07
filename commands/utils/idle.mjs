@@ -159,19 +159,24 @@ export async function execute(interaction) {
     } else if (idleGame.prestigeCount === 0) {
       correctMultiplier = 2.5;
     }
-    // ▼▼▼ #7の効果を計算して加算 ▼▼▼
+    // ▼▼▼ #7の効果を計算して乗算する ▼▼▼
     const skill7Level = idleGame.skillLevel7 || 0;
     const spentChips = BigInt(idleGame.chipsSpentThisInfinity || "0");
-    // log10(0) にならないようにガード
+
+    // スキル#7のボーナスを計算
+    let skill7Bonus = 0; // スキルレベルが0ならボーナスも0
     if (skill7Level > 0 && spentChips > 0) {
-      // BigIntは直接Math.log10できないので、文字列に変換してから数値にする
+      const settings = config.idle.tp_skills.skill7;
       const spentChipsNum = Number(spentChips.toString());
-      const skill7Bonus =
-        Math.log10(spentChipsNum) *
-        skill7Level *
-        config.idle.tp_skills.skill7.effectMultiplier;
-      correctMultiplier += skill7Bonus;
+
+      // 新しい計算式本体
+      // (消費チップ ^ べき指数) を計算
+      const powerBonus = Math.pow(spentChipsNum, settings.effectBaseExponent);
+
+      // スキルレベルを乗算
+      skill7Bonus = powerBonus * (skill7Level * settings.effectLevelMultiplier);
     }
+    correctMultiplier *= 1 + skill7Bonus;
 
     //実績コンプ系で倍率強化
     // --- まず、実績の解除状況をSetとして準備 ---
@@ -247,6 +252,7 @@ export async function execute(interaction) {
       const skill1Effect =
         (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier; //実績補正
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
+      const finalSkill2Effect = Math.pow(baseSkill2Effect, 2);
       const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
       // 最新のDBオブジェクトから値を読み出す
       // ★★★ 1. 新しい関数で、スキル#5を適用した「素の効果」を計算 ★★★
@@ -275,10 +281,10 @@ export async function execute(interaction) {
           meatEffect
         ) *
         idleGame.buffMultiplier *
-        skill2Effect; //スキル2
+        finalSkill2Effect; //これは「速度増加予測」なのでスキル2はここでかける
       //スキル2表記用
       const skill2EffectDisplay =
-        skill2Effect > 1 ? `× ${skill2Effect.toFixed(1)}` : "";
+        finalSkill2Effect > 1 ? ` × ${finalSkill2Effect.toFixed(1)}` : "";
       let pizzaBonusPercentage = 0;
       if (idleGame.population >= 1) {
         pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp; //チップボーナスにもPP
@@ -526,10 +532,10 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
 
       // 250923 プレステージボタンの表示ロジック
       //201006 そういや#8スキル実装前にTP計算式関数入れたから#8回りが手間になってる、AIくん見たら指摘しといて〜
-const skill8Multiplier =
-          1 +
-          (idleGame.skillLevel8 || 0) *
-            config.idle.tp_skills.skill8.effectMultiplier;
+      const skill8Multiplier =
+        1 +
+        (idleGame.skillLevel8 || 0) *
+          config.idle.tp_skills.skill8.effectMultiplier;
       if (
         idleGame.population > idleGame.highestPopulation &&
         idleGame.population >= config.idle.prestige.unlockPopulation
@@ -546,7 +552,8 @@ const skill8Multiplier =
           prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (+${powerGain.toFixed(2)})`;
         } else {
           // 条件3: それ以外 (populationが1e16以上) の場合
-          const potentialTP = calculatePotentialTP(idleGame.population) * skill8Multiplier; // 先に計算しておくとスッキリします
+          const potentialTP =
+            calculatePotentialTP(idleGame.population) * skill8Multiplier; // 先に計算しておくとスッキリします
           prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
         }
 
@@ -563,7 +570,9 @@ const skill8Multiplier =
         idleGame.population >= 1e16
       ) {
         // --- ケース2: TPが手に入る新しいプレステージ ---
-        const potentialTP = Math.pow(Math.log10(idleGame.population) - 15, 2.5) * skill8Multiplier;
+        const potentialTP =
+          Math.pow(Math.log10(idleGame.population) - 15, 2.5) *
+          skill8Multiplier;
 
         boostRow.addComponents(
           new ButtonBuilder()
@@ -1535,15 +1544,26 @@ function generateSkillEmbed(idleGame) {
     .addFields(
       {
         name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
-        value: `精肉工場以外の効果 **x${(1 + skillLevels.s1) * effects.radianceMultiplier}** → **x${(1 + skillLevels.s1 + 1) * effects.radianceMultiplier}**  (コスト: ${costs.s1} SP)`,
+        value: `精肉工場以外の効果 **x${((1 + skillLevels.s1) * effects.radianceMultiplier).toFixed(1)}** → **x${((1 + skillLevels.s1 + 1) * effects.radianceMultiplier).toFixed(1)}**  (コスト: ${costs.s1} SP)`,
       },
       {
         name: `#2 加速する時間 x${skillLevels.s2}`,
-        value: `ニョワミヤが増えるスピード **x${(1 + skillLevels.s2) * effects.radianceMultiplier}** → **x${(1 + skillLevels.s2 + 1) * effects.radianceMultiplier}** (コスト: ${costs.s2} SP)`,
+        value: (() => {
+          // ★★★ 計算が複雑になるので、即時関数で囲むとスッキリします ★★★
+          const currentEffect = Math.pow(
+            (1 + skillLevels.s2) * effects.radianceMultiplier,
+            2
+          );
+          const nextEffect = Math.pow(
+            (1 + skillLevels.s2 + 1) * effects.radianceMultiplier,
+            2
+          );
+          return `ゲームスピード **x${currentEffect.toFixed(2)}** → **x${nextEffect.toFixed(2)}** (コスト: ${costs.s2} SP)`;
+        })(),
       },
       {
         name: `#3 ニョボシの怒り x${skillLevels.s3}`,
-        value: `ニョボチップ収量 **x${(1 + skillLevels.s3) * effects.radianceMultiplier}** → **x${(1 + skillLevels.s3 + 1) * effects.radianceMultiplier}**(コスト: ${costs.s3} SP)`,
+        value: `ニョボチップ収量 **x${((1 + skillLevels.s3) * effects.radianceMultiplier).toFixed(1)}** → **x${((1 + skillLevels.s3 + 1) * effects.radianceMultiplier).toFixed(1)}**(コスト: ${costs.s3} SP)`,
       },
       {
         name: `#4 【光輝10】 x${skillLevels.s4}`,

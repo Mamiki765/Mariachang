@@ -173,6 +173,9 @@ export async function updateUserIdleGame(userId) {
   const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
   const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
 
+  //#2は②乗
+  const finalSkill2Effect = Math.pow(baseSkill2Effect, 2);
+
   // --- スキル#5対応の工場効果を反映 ---
   const factoryEffects = calculateFactoryEffects(idleGame, pp);
   const ovenEffect = factoryEffects.oven;
@@ -191,6 +194,8 @@ export async function updateUserIdleGame(userId) {
   const now = new Date();
   const lastUpdate = idleGame.lastUpdatedAt || now;
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+  //#2に依って時間を「加速」させる
+  const effectiveElapsedSeconds = elapsedSeconds * finalSkill2Effect;
 
   // --- バフ確認 ---
   let currentBuffMultiplier = 1.0;
@@ -209,12 +214,11 @@ export async function updateUserIdleGame(userId) {
         Math.pow(skill1Effect, 5), // 工場5個なので
       meatEffect
     ) *
-    currentBuffMultiplier *
-    skill2Effect;
+    currentBuffMultiplier;
 
   // --- 経過分の人口加算 ---
   if (elapsedSeconds > 0) {
-    const addedPopulation = (productionPerMinute / 60) * elapsedSeconds;
+    const addedPopulation = (productionPerMinute / 60) * effectiveElapsedSeconds;
     idleGame.population += addedPopulation;
   }
 

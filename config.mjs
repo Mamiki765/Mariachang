@@ -769,8 +769,9 @@ export default {
       skill7: {
         baseCost: 10,
         costMultiplier: 1.8,
-        effectMultiplier: 0.05, // log10(消費チップ)に乗算する値
-        description: "累計消費チップに応じてブースト倍率を加算する",
+        effectBaseExponent: 0.2, // 累計消費チップにかける「べき指数」
+        effectLevelMultiplier: 1.0, // スキルレベル1あたりの効果係数。
+        description: "累計消費チップに応じてブースト倍率を乗算で強化する", 
       },
       skill8: {
         baseCost: 40,
@@ -1137,8 +1138,7 @@ export default {
       {
         id: 56,
         name: "無限への一合目",
-        description:
-          "ニョワミヤの数が6.692e+30に到達(infinityの10%)",
+        description: "ニョワミヤの数が6.692e+30に到達(infinityの10%)",
         reward: {},
       },
       {
@@ -1156,7 +1156,8 @@ export default {
       {
         id: 59,
         name: "ニョボシ・ブラックホール",
-        description: "インフィニティ中に消費されたニョボチップが1000万を超える(チャレンジ)",
+        description:
+          "インフィニティ中に消費されたニョボチップが1000万を超える(チャレンジ)",
         reward: {},
       },
       // 今後、ここに実績をどんどん追加していきます
