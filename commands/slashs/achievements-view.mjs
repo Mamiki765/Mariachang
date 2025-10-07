@@ -29,6 +29,15 @@ export const data = new SlashCommandBuilder()
       .setDescription("他のユーザーの実績を確認します。")
       .setRequired(false)
   )
+  .addIntegerOption((option) =>
+    option
+      .setName("page")
+      .setNameLocalizations({ ja: "ページ" })
+      .setDescription("表示したい実績のページを直接指定します。")
+      .setRequired(false)
+      .setAutocomplete(true) // これがオートコンプリートを有効にする魔法です！
+      .setMinValue(1)
+  )
   .addBooleanOption((option) =>
     option
       .setName("hide")
@@ -37,11 +46,48 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
   );
 
+export async function autocomplete(interaction) {
+  // ユーザーが入力中の値や、どのオプションにフォーカスしているかを取得
+  const focusedOption = interaction.options.getFocused(true);
+
+  if (focusedOption.name === "page") {
+    // configから実績リストを読み込み、総ページ数を計算
+    const achievements = config.idle.achievements;
+    const itemsPerPage = 10;
+    const totalPages = Math.ceil(achievements.length / itemsPerPage);
+
+    const choices = [];
+    for (let i = 0; i < totalPages; i++) {
+      const pageNum = i + 1;
+      const startId = String(i * itemsPerPage + 1).padStart(3, "0");
+      const endId = String(
+        Math.min((i + 1) * itemsPerPage, achievements.length)
+      ).padStart(3, "0");
+
+      // ユーザーに分かりやすい選択肢のテキストを生成
+      choices.push({
+        name: `ページ${pageNum}: 実績 #${startId} ～ #${endId}`,
+        value: pageNum,
+      });
+    }
+
+    // Discord APIの制限（25件）に合わせて、表示する選択肢を絞り込む
+    const filtered = choices.filter(
+      (choice) =>
+        choice.name.startsWith(focusedOption.value) ||
+        String(choice.value).startsWith(focusedOption.value)
+    );
+    await interaction.respond(filtered.slice(0, 25));
+  }
+}
+
 export async function execute(interaction) {
   // --- 1. 初期設定とデータ取得 ---
   await unlockAchievements(interaction.client, interaction.user.id, 28);
 
   const targetUser = interaction.options.getUser("user") || interaction.user;
+    // オプションで指定されたページ番号を取得。なければ1ページ目とする。
+  const startPage = interaction.options.getInteger("page") || 1;
   const userId = targetUser.id;
   const isEphemeral = interaction.options.getBoolean("hide") ?? true;
 
@@ -64,12 +110,14 @@ export async function execute(interaction) {
   if (!unlockedSet.has(50)) {
     const requiredAchievements = Array.from({ length: 50 }, (_, i) => i); // 0から49までの配列
     const excludedAchievements = [23, 24, 25, 26, 27]; // どんぐり実績
-    
+
     // 必須実績リストから、除外対象を除いたもの
-    const finalRequired = requiredAchievements.filter(id => !excludedAchievements.includes(id));
-    
+    const finalRequired = requiredAchievements.filter(
+      (id) => !excludedAchievements.includes(id)
+    );
+
     // 必須実績のすべてが、解除済み実績の中に含まれているかチェック
-    const isPlatinumUnlocked = finalRequired.every(id => unlockedSet.has(id));
+    const isPlatinumUnlocked = finalRequired.every((id) => unlockedSet.has(id));
 
     if (isPlatinumUnlocked) {
       await unlockAchievements(interaction.client, userId, 50);
@@ -84,9 +132,11 @@ export async function execute(interaction) {
   // まだ隠し実績10を解除していない場合のみ、チェックを実行
   if (!hiddenUnlockedSet.has(10)) {
     const requiredHidden = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    
+
     // 必須の隠し実績がすべて含まれているかチェック
-    const isHiddenMasterUnlocked = requiredHidden.every(id => hiddenUnlockedSet.has(id));
+    const isHiddenMasterUnlocked = requiredHidden.every((id) =>
+      hiddenUnlockedSet.has(id)
+    );
 
     if (isHiddenMasterUnlocked) {
       await unlockHiddenAchievements(interaction.client, userId, 10);
@@ -97,7 +147,7 @@ export async function execute(interaction) {
   }
 
   // 表示状態を管理する変数
-  let currentPage = 0;
+  let currentPage = startPage - 1; 
   let isHiddenMode = false;
 
   // --- 2. 表示コンポーネントを生成する関数 ---
@@ -124,7 +174,8 @@ export async function execute(interaction) {
     if (isHidden) {
       title = `"${displayName}" の秘密の実績 (${unlockedCount} / ${sourceAchievements.length})`;
       if (hiddenUnlockedSet.has(10)) {
-        headerString = "それは放置ゲームにおいて、ブースト倍率を1.1倍に強化する。";
+        headerString =
+          "それは放置ゲームにおいて、ブースト倍率を1.1倍に強化する。";
       } else {
         headerString = "薄れゆく達成感。";
       }
