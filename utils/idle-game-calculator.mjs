@@ -174,7 +174,7 @@ export async function updateUserIdleGame(userId) {
   const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
 
   //#2は②乗
-  const finalSkill2Effect = Math.pow(baseSkill2Effect, 2);
+  const finalSkill2Effect = Math.pow(skill2Effect, 2);
 
   // --- スキル#5対応の工場効果を反映 ---
   const factoryEffects = calculateFactoryEffects(idleGame, pp);
