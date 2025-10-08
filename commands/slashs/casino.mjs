@@ -723,11 +723,13 @@ async function handleBalance(interaction) {
 
     // ★★★ 追加: 表示するボーナス文字列を準備 ★★★
     let bonusText = "";
+    let bonusText2 = "";
     // 放置ゲームのデータがあり、かつボーナスが0より大きい場合のみ文字列を生成
     if (idleGame && idleGame.pizzaBonusPercentage > 0) {
       const emoji = "<:nyowamiyarika:1264010111970574408>";
       // toFixed(3)で小数点以下3桁に整形
       bonusText = ` (${emoji} +${idleGame.pizzaBonusPercentage.toFixed(3)}%)`;
+      bonusText2 = ` (+${idleGame.pizzaBonusPercentage.toFixed(3)}%)`;
     }
 
     // コイン -> ピザレートは倍率が影響する
@@ -784,7 +786,7 @@ async function handleBalance(interaction) {
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("withdraw_pizza_modal")
-        .setLabel(`チップを引き出す${bonusText}`)
+        .setLabel(`チップを引き出す${bonusText2}`)
         .setStyle(ButtonStyle.Primary)
         .setDisabled(user.nyobo_bank <= 0)
     );
