@@ -149,7 +149,12 @@ const Point = sequelize.define(
     //ニョボチップ
     //旧レガシーピザ（旧旧UnbelievaBoatのコイン)
     legacy_pizza: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DOUBLE, // ★ INTEGERからDOUBLEに変更
+      defaultValue: 0,
+    },
+    //ニョボバンク
+    nyobo_bank: {
+      type: DataTypes.DOUBLE,
       defaultValue: 0,
     },
     lastRpDate: {
