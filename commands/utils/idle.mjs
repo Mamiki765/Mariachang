@@ -249,7 +249,7 @@ export async function execute(interaction) {
       const skill1Effect =
         (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier; //実績補正
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
-      const finalSkill2Effect = Math.pow(baseSkill2Effect, 2);
+      const finalSkill2Effect = Math.pow(skill2Effect, 2);
       const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
       // 最新のDBオブジェクトから値を読み出す
       // ★★★ 1. 新しい関数で、スキル#5を適用した「素の効果」を計算 ★★★
