@@ -756,9 +756,13 @@ async function handleBalance(interaction) {
           inline: false,
         },
         {
-          //コンバートしたときと異なりもう発言で気軽に拾えるので分岐は不要
           name: `${config.casino.currencies.legacy_pizza.emoji} ニョボチップ`,
-          value: `**${user.legacy_pizza.toLocaleString()}**枚${bonusText}`,
+          value: `**${user.legacy_pizza.toLocaleString()}**枚`,
+          inline: false,
+        },
+        {
+          name: "🏦 ニョボバンク",
+          value: `**${user.nyobo_bank.toLocaleString()}**枚${bonusText}`,
           inline: false,
         }
       );
@@ -777,7 +781,12 @@ async function handleBalance(interaction) {
       new ButtonBuilder()
         .setCustomId("exchange_coin_to_pizza_modal")
         .setLabel(buttonLabel)
-        .setStyle(ButtonStyle.Secondary)
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("withdraw_pizza_modal")
+        .setLabel(`チップを引き出す${bonusText}`)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(user.nyobo_bank <= 0)
     );
 
     // このコマンドが実行されたサーバーが、.envで指定されたMee6のサーバーの場合のみ、
@@ -812,38 +821,42 @@ async function handleBalance(interaction) {
       if (
         i.customId === "exchange_points_modal" ||
         i.customId === "exchange_acorns_modal" ||
-        i.customId === "exchange_coin_to_pizza_modal" // ★ピザを追加！
+        i.customId === "exchange_coin_to_pizza_modal" ||
+        i.customId === "withdraw_pizza_modal" // ★ピザを追加！
       ) {
+        const latestUser = await Point.findOne({ where: { userId: i.user.id } });
+        if (!latestUser) return; // 万が一ユーザーデータがなかったら何もしない
+
         const modal = new ModalBuilder();
         const amountInput = new TextInputBuilder()
           .setCustomId("amount_input")
-          .setLabel("両替したい量")
           .setStyle(TextInputStyle.Short)
           .setRequired(true);
 
         // 押されたボタンに応じて、Modalの内容を動的に設定
         if (i.customId === "exchange_points_modal") {
           modal.setCustomId("exchange_points_submit").setTitle("RP → コイン");
-          amountInput.setPlaceholder("例: 10");
+          amountInput.setLabel("両替したいRPの量");
+          amountInput.setPlaceholder(`${latestUser.point.toLocaleString()} RP所持 (half, all 指定可能)`);
         } else if (i.customId === "exchange_acorns_modal") {
-          modal
-            .setCustomId("exchange_acorns_submit")
-            .setTitle("どんぐり → コイン");
-          amountInput.setPlaceholder("例: 5");
+          modal.setCustomId("exchange_acorns_submit").setTitle("どんぐり → コイン");
+          amountInput.setLabel("両替したいどんぐりの数");
+          amountInput.setPlaceholder(`${latestUser.acorn.toLocaleString()} 個所持 (half, all 指定可能)`);
         } else if (i.customId === "exchange_coin_to_pizza_modal") {
-          modal
-            .setCustomId("exchange_coin_to_pizza_submit")
-            .setTitle("コイン → チップ");
+          modal.setCustomId("exchange_coin_to_pizza_submit").setTitle("コイン → チップ");
           amountInput.setLabel("両替したいコインの枚数");
-          amountInput.setPlaceholder("例: 100");
+          amountInput.setPlaceholder(`${latestUser.coin.toLocaleString()} 枚所持 (half, all 指定可能)`);
+        } else if (i.customId === "withdraw_pizza_modal") {
+          modal.setCustomId("withdraw_pizza_submit").setTitle("🏦 ニョボバンクからの引き出し");
+          amountInput.setLabel("引き出したいチップの量");
+          amountInput.setPlaceholder(`預金:${latestUser.nyobo_bank.toLocaleString()} 枚 (half, all 指定可能)`);
         }
 
         modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
         await i.showModal(modal);
 
-        // Modalを表示したら、このコレクターの役目は終わり
         collector.stop();
-        return; // ★重要: これ以降の処理に進まないようにする
+        return;
       }
 
       // -------------------------------------------------

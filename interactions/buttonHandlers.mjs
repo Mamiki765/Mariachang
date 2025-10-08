@@ -423,43 +423,17 @@ export default async function handleButtonInteraction(interaction) {
         pizzaBreakdown.push(boosterBonus);
       }
 
-      // 4.放置ゲームの人口ボーナス
-      // 新しい関数を呼び出して、人口を更新＆ボーナスを取得
+      // 4. 放置ゲームの人口を「表示のためだけ」に更新
       const idleResult = await updateUserIdleGame(interaction.user.id);
-
-      if (idleResult && idleResult.pizzaBonusPercentage > 0) {
-        // もし放置ゲームをプレイしていて、ボーナスがあるなら...
-
-        // ★★★ (678 + 600 + 1000) x 1.0512 みたいに... ★★★
-        // 今までの合計値(totalPizza)に、パーセントボーナスを掛ける！
-        const populationBonusMultiplier =
-          1 + idleResult.pizzaBonusPercentage / 100;
-        const pizzaBeforeBonus = pizzaBreakdown.reduce(
-          (sum, val) => sum + val,
-          0
-        );
-        const bonusAmount = Math.floor(
-          pizzaBeforeBonus * (populationBonusMultiplier - 1)
-        );
-
-        pizzaMessages.push(
-          `-# ${nyoboChip.displayName}に換金します……ボーナス **${bonusAmount.toLocaleString()}枚**(**+${idleResult.pizzaBonusPercentage.toFixed(3)}%**)`
-        );
-        pizzaBreakdown.push(bonusAmount);
-      } else {
-        // もし放置ゲームをプレイしていないなら...
-        pizzaMessages.push(
-          `-# ${nyoboChip.displayName}に換金します……【PR】拾った${nyoboChip.displayName}を/放置ゲーム(/idle)で使えるようになりました。${nyoboChip.emoji}`
-        );
-      }
+      pizzaMessages.push(`-# 焼きあがったピザはニョボシ達が${nyoboChip.displayName}に換金しに持っていきました。/casino balance から引き出せます。`);
 
       // 合計の計算と最終メッセージの構築
       const totalPizza = pizzaBreakdown.reduce((sum, val) => sum + val, 0);
       Message += `\n${pizzaMessages.join("\n")}`; // \n\nで少し間を空ける
-      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚の${nyoboChip.displayName}を受け取りました！**`;
+      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚の${nyoboChip.displayName}がバンクに入金されました！**`;
 
-      updateData.legacy_pizza = sequelize.literal(
-        `legacy_pizza + ${totalPizza}`
+      updateData.nyobo_bank = sequelize.literal(
+        `nyobo_bank + ${totalPizza}`
       );
       // ▲▲▲ 新ピザメッセージ構築ロジックここまで ▲▲▲
       // 6. データベースを更新

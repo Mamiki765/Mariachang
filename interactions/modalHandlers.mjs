@@ -201,7 +201,10 @@ export default async function handleModalInteraction(interaction) {
         message,
         nocredit
       );
-      const rewardResult = await updatePoints(interaction.user.id, interaction.client);
+      const rewardResult = await updatePoints(
+        interaction.user.id,
+        interaction.client
+      );
 
       const deleteRequestButtonRow = createRpDeleteRequestButton(
         postedMessage.id,
@@ -209,15 +212,12 @@ export default async function handleModalInteraction(interaction) {
       );
       let replyMessage = "送信しました。";
       if (rewardResult) {
-          if (rewardResult.rewardType === 'rp') {
-              // 実際の絵文字IDなどに合わせて変更してください
-              replyMessage += `\n💎 **RP**を1獲得しました！`;
-          } else if (rewardResult.rewardType === 'pizza') {
-            const bonusText = rewardResult.bonusAmount > 0 
-                ? `(内訳: 基本${rewardResult.baseAmount.toLocaleString()}枚 + ボーナス${rewardResult.bonusAmount.toLocaleString()}枚)` 
-                : '';
-            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**を**${rewardResult.amount.toLocaleString()}**枚獲得しました。${bonusText}`;
-          }
+        if (rewardResult.rewardType === "rp") {
+          // 実際の絵文字IDなどに合わせて変更してください
+          replyMessage += `\n💎 **RP**を1獲得しました！`;
+        } else if (rewardResult.rewardType === "pizza") {
+            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**が**${rewardResult.amount.toLocaleString()}**枚、バンクに入金されました。`;
+        }
       }
       await interaction.editReply({
         content: replyMessage,
@@ -231,82 +231,85 @@ export default async function handleModalInteraction(interaction) {
   } else if (
     interaction.customId === "exchange_points_submit" ||
     interaction.customId === "exchange_acorns_submit" ||
-    interaction.customId === "exchange_coin_to_pizza_submit"
+    interaction.customId === "exchange_coin_to_pizza_submit" ||
+    interaction.customId === "withdraw_pizza_submit"
   ) {
     const amountStr = interaction.fields.getTextInputValue("amount_input");
-    const amount = parseInt(amountStr, 10);
-
-    if (isNaN(amount) || amount <= 0) {
-      return interaction.reply({
-        content: "有効な数値を入力してください。",
-        ephemeral: true,
-      });
-    }
 
     try {
-      // sequelize.transactionの外でメッセージを組み立てる準備
       let resultMessage = "";
-
-      // ★★★ 実績解除の判定に使うフラグを準備 ★★★
       let isCoinToPizzaExchange = false;
+      let exchangeAmount = 0; // 実績解除用に、実際に両替したコインの量を保存
 
       await sequelize.transaction(async (t) => {
-        const [user] = await Point.findOrCreate({
+        const user = await Point.findOne({
           where: { userId: interaction.user.id },
           transaction: t,
+          lock: t.LOCK.UPDATE,
         });
+        if (!user) throw new Error("ユーザーデータが見つかりませんでした。");
 
-        if (interaction.customId === "exchange_points_submit") {
-          if (user.point < amount)
-            throw new Error("所持しているRPが足りません！");
-          const coinsGained = amount * 20;
-          user.point -= amount;
-          user.coin += coinsGained;
-          await user.save({ transaction: t });
-          resultMessage = `💎 RP **${amount}** を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
-        } else if (interaction.customId === "exchange_acorns_submit") {
-          if (user.acorn < amount)
-            throw new Error("所持しているどんぐりが足りません！");
-          const coinsGained = amount * 100;
-          user.acorn -= amount;
-          user.coin += coinsGained;
-          await user.save({ transaction: t });
-          resultMessage = `🐿️ どんぐり **${amount}** 個を ${config.nyowacoin} コイン **${coinsGained}** 枚に両替しました！`;
+        switch (interaction.customId) {
+          case "exchange_points_submit": {
+            const amount = parseAmount(amountStr, user.point);
+            const coinsGained = amount * 20;
+            user.point -= amount;
+            user.coin += coinsGained;
+            resultMessage = `💎 RP **${amount.toLocaleString()}** を ${config.nyowacoin} コイン **${coinsGained.toLocaleString()}** 枚に両替しました！`;
+            break;
+          }
+          case "exchange_acorns_submit": {
+            const amount = parseAmount(amountStr, user.acorn);
+            const coinsGained = amount * 100;
+            user.acorn -= amount;
+            user.coin += coinsGained;
+            resultMessage = `🐿️ どんぐり **${amount.toLocaleString()}** 個を ${config.nyowacoin} コイン **${coinsGained.toLocaleString()}** 枚に両替しました！`;
+            break;
+          }
+          case "exchange_coin_to_pizza_submit": {
+            const amount = parseAmount(amountStr, user.coin);
+            const baseRate = 30;
+            const basePizzaToGet = amount * baseRate;
+            const finalPizzaToGet = await applyPizzaBonus(
+              interaction.user.id,
+              basePizzaToGet
+            );
+            const bonusAmount = finalPizzaToGet - basePizzaToGet;
 
-          // ★★★ ここに、コイン→ピザの両替ロジックを追加 ★★★
-        } else if (interaction.customId === "exchange_coin_to_pizza_submit") {
-          const baseRate = 30; // 1コインあたりの基本ピザ
-          if (user.coin < amount)
-            throw new Error("所持しているコインが足りません！");
-          // 1. 基本となるピザ量を計算し、ボーナスをかける関数で処理
-          const basePizzaToGet = amount * baseRate;
-          const finalPizzaToGet = await applyPizzaBonus(
-            interaction.user.id,
-            basePizzaToGet
-          );
-          // 3. DBを更新
-          user.coin -= amount;
-          user.legacy_pizza += finalPizzaToGet;
-          await user.save({ transaction: t });
-          // 4. 返信メッセージを生成
-          const bonusAmount = finalPizzaToGet - basePizzaToGet;
-          resultMessage = `${config.nyowacoin}**${amount.toLocaleString()}枚**を ${config.casino.currencies.legacy_pizza.emoji}**${finalPizzaToGet.toLocaleString()}枚**に両替しました！(内訳 ${basePizzaToGet}+ボーナス${bonusAmount})`;
-          isCoinToPizzaExchange = true; //コイン->ピザを検知（20コイン両替実績用）
+            user.coin -= amount;
+            user.legacy_pizza += finalPizzaToGet;
+            resultMessage = `${config.nyowacoin}**${amount.toLocaleString()}枚**を ${config.casino.currencies.legacy_pizza.emoji}**${finalPizzaToGet.toLocaleString()}枚**に両替しました！\n(内訳: 基本${basePizzaToGet.toLocaleString()}枚 + ボーナス${bonusAmount.toLocaleString()}枚)`;
+
+            isCoinToPizzaExchange = true;
+            exchangeAmount = amount; // 実績判定用に保存
+            break;
+          }
+          case "withdraw_pizza_submit": {
+            const amount = parseAmount(amountStr, user.nyobo_bank);
+            const baseRate = 1; // バンクからの引き出しは1:1
+            const basePizzaToGet = amount * baseRate;
+            const finalPizzaToGet = await applyPizzaBonus(
+              interaction.user.id,
+              basePizzaToGet
+            );
+            const bonusAmount = finalPizzaToGet - basePizzaToGet;
+
+            user.nyobo_bank -= amount;
+            user.legacy_pizza += finalPizzaToGet;
+            resultMessage = `🏦 **${amount.toLocaleString()}枚**をバンクから引き出し、${config.casino.currencies.legacy_pizza.emoji}**${finalPizzaToGet.toLocaleString()}枚**をお財布に入れました！\n(内訳: 基本${basePizzaToGet.toLocaleString()}枚 + ボーナス${bonusAmount.toLocaleString()}枚)`;
+            break;
+          }
         }
+        await user.save({ transaction: t });
       });
 
-      // ★★★ トランザクション成功後に実績解除処理を実行 ★★★
-
-      // #45: 両替機能を使った (すべての両替で共通)
       await unlockAchievements(interaction.client, interaction.user.id, 45);
-      // #46: ぴったり20コインをチップにした
-      if (isCoinToPizzaExchange && amount === 20) {
+      if (isCoinToPizzaExchange && exchangeAmount === 20) {
         await unlockAchievements(interaction.client, interaction.user.id, 46);
       }
 
-      // トランザクションが成功した後で、最終的なメッセージを返信する
       await interaction.reply({
-        content: `✅ **両替成功！**\n${resultMessage}`,
+        content: `✅ **両替/引き出し成功！**\n${resultMessage}`,
         ephemeral: true,
       });
     } catch (error) {
@@ -315,9 +318,41 @@ export default async function handleModalInteraction(interaction) {
         ephemeral: true,
       });
     }
-    return; // 処理が終わったので、ここで関数を抜ける
+    return;
   } else {
     //モーダルが不明のとき
     return;
   }
+}
+
+/**
+ * "all", "half", "数値" の文字列を解釈して、処理すべき数値を返すヘルパー関数
+ * @param {string} amountStr - ユーザーが入力した文字列
+ * @param {number} currentBalance - その時点でのユーザーの所持量
+ * @returns {number} 計算された数値
+ */
+function parseAmount(amountStr, currentBalance) {
+  const lowerCaseStr = amountStr.toLowerCase().trim();
+  let amount;
+
+  if (lowerCaseStr === "all") {
+    amount = currentBalance;
+  } else if (lowerCaseStr === "half") {
+    amount = Math.floor(currentBalance / 2);
+  } else {
+    amount = parseInt(lowerCaseStr, 10);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error("有効な数値を入力してください。");
+    }
+    if (amount > currentBalance) {
+      throw new Error(
+        `所持している量が足りません！(所持: ${currentBalance.toLocaleString()})`
+      );
+    }
+  }
+
+  if (amount <= 0) {
+    throw new Error("両替/引き出し額が0です。");
+  }
+  return amount;
 }

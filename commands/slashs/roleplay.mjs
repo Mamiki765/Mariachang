@@ -774,10 +774,7 @@ export async function execute(interaction) {
           if (rewardResult.rewardType === "rp") {
             replyMessage += `\n💎 **RP**を1獲得しました！`;
           } else if (rewardResult.rewardType === "pizza") {
-            const bonusText = rewardResult.bonusAmount > 0 
-                ? `(内訳: 基本${rewardResult.baseAmount.toLocaleString()}枚 + ボーナス${rewardResult.bonusAmount.toLocaleString()}枚)` 
-                : '';
-            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**を**${rewardResult.amount.toLocaleString()}**枚獲得しました。${bonusText}`;
+            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**が**${rewardResult.amount.toLocaleString()}**枚、バンクに入金されました。`;
           }
         }
         await interaction.editReply({
@@ -1049,21 +1046,16 @@ export async function updatePoints(userId, client) {
       }
       return { rewardType: "rp", amount: 1 };
     } else {
-      // --- クールダウン中の場合：ニョボチップを付与 ---
-      // 1. 放置ゲームのボーナスを適用して、最終的なピザの枚数を計算します。
-      const finalPizzaAmount = await applyPizzaBonus(userId, basePizzaAmount);
+      // --- クールダウン中の場合：ニョボチップを「バンク」に付与 ---
 
-      // 2. 計算された最終的な枚数をデータベースに加算します。
-      await pointEntry.increment("legacy_pizza", { by: finalPizzaAmount });
+      // 入金先を nyobo_bank に変更
+      await pointEntry.increment("nyobo_bank", { by: basePizzaAmount });
 
       const remainingCooldown = Math.ceil(cooldownSeconds - secondsSinceLastRp);
 
-      // 3. ユーザーへのフィードバックで詳細を表示できるよう、内訳も返します。
       return {
         rewardType: "pizza",
-        amount: finalPizzaAmount,
-        baseAmount: basePizzaAmount,
-        bonusAmount: finalPizzaAmount - basePizzaAmount,
+        amount: basePizzaAmount, // ボーナスのかかっていない基本量
         cooldown: remainingCooldown,
       };
     }
