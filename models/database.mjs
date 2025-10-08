@@ -625,6 +625,34 @@ const UserAchievement = sequelize.define(
   }
 );
 
+// カウンティングゲーム状態モデル
+const CountingGame = sequelize.define(
+  "CountingGame",
+  {
+    channelId: { // どのチャンネルのゲームか
+      type: DataTypes.STRING,
+      primaryKey: true,
+    },
+    currentNumber: { 
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    lastUserId: { // 最後に成功したユーザーID
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    lastMessageId: { // 最後に成功したメッセージID
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+  },
+  {
+    tableName: "counting_games",
+    timestamps: true,
+  }
+);
+
+
 // データベースの同期処理
 async function syncModels() {
   try {
@@ -642,6 +670,7 @@ async function syncModels() {
     await Mee6Level.sync({ alter: true });
     await UserAchievement.sync({ alter: true });
     await IdleGame.sync({ alter: true });
+    await CountingGame.sync({ alter: true });
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Error synchronizing models:", error);
@@ -679,4 +708,5 @@ export {
   UserAchievement,
   CasinoStats,
   IdleGame,
+  CountingGame,
 };

@@ -770,7 +770,8 @@ export default {
         baseCost: 10,
         costMultiplier: 1.8,
         exponentPerLevel: 0.1, // スキルレベル1あたり、べき指数がこれだけ上昇する
-        description: "インフィニティ中累計消費チップの(0.10 x #7)乗をブースト倍率に乗算する", 
+        description:
+          "インフィニティ中累計消費チップの(0.10 x #7)乗をブースト倍率に乗算する",
       },
       skill8: {
         baseCost: 40,
@@ -1159,6 +1160,14 @@ export default {
           "インフィニティ中に消費されたニョボチップが1000万を超える(チャレンジ)",
         reward: {},
       },
+      {
+        id: 60,
+        name: "よろしい、ならばシベリア送りだ",
+        description:
+          "countingで100回数字を数える",
+        goal: 100,
+        reward: {},
+      },
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],
@@ -1259,5 +1268,19 @@ export default {
     maxPostsPerCheck: 15,
     // 1投稿ごとの送信間隔（ミリ秒）。APIレート制限を避ける
     postDelay: 1500, // 1.5秒
+  },
+  countingGame: {
+    channelId: "1092415810175250493",
+    allowConsecutivePosts: true, //連続投稿の許可
+    // ▼▼▼ 報酬設定を新しい仕様に更新 ▼▼▼
+    rewards: {
+      coin: 5,
+      nyobo_bank: {
+        min: 80,
+        max: 120,
+      },
+    },
+    // 正解時に付けるリアクション
+    successReaction: "1407422205624844288",
   },
 };

@@ -23,7 +23,12 @@ import {
 // 250904発言によるピザ(チップ)トークン獲得
 const activeUsersForPizza = new Set();
 export { activeUsersForPizza }; // 他のモジュールで使用するためにエクスポート
-import { unlockHiddenAchievements } from "../utils/achievements.mjs";
+import {
+  unlockHiddenAchievements,
+  updateAchievementProgress,
+} from "../utils/achievements.mjs";
+//counting
+import { sequelize, CountingGame, Point } from "../models/database.mjs";
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
@@ -69,6 +74,13 @@ export default async (message) => {
       flags: [4096],
       content: `<@${message.author.id}>:${message.content} > ${url}`,
     });
+  }
+  //カウンティング
+  if (message.channel.id === config.countingGame.channelId) {
+    // awaitを付けて、処理が終わるのを待つ
+    await handleCountingGame(message);
+    // カウンティングチャンネルでは他の処理を行わない場合は return する
+    return;
   }
   //リアクション
   if (message.content.match(/ぽてと|ポテト|じゃがいも|ジャガイモ|🥔|🍟/)) {
@@ -789,3 +801,115 @@ export default async (message) => {
 /*
 メッセージ処理ここまで、以下サブルーチン
 */
+
+/**
+ * カウンティングゲームのメッセージを処理するハンドラ
+ * @param {import('discord.js').Message} message
+ */
+async function handleCountingGame(message) {
+  // メッセージが数字のみで構成されているか正規表現でチェック
+  // これで "123a" や "1.5" のような入力を弾きます
+  if (!/^\d+$/.test(message.content)) {
+    try {
+      await message.delete();
+    } catch (error) {
+      // メッセージが既に削除されている場合などのエラーは無視
+      console.error("[カウンティング]不正なメッセージの削除に失敗", error);
+    }
+    return;
+  }
+
+  const userNumber = parseInt(message.content, 10);
+
+  try {
+    await sequelize.transaction(async (t) => {
+      const [game, created] = await CountingGame.findOrCreate({
+        where: { channelId: message.channel.id },
+        defaults: { currentNumber: 0 },
+        transaction: t,
+        lock: t.LOCK.UPDATE, // ★レースコンディション防止の要
+      });
+
+      const expectedNumber = game.currentNumber + 1;
+
+      // 連続投稿チェック (configに allowConsecutivePosts: false があれば)
+      if (
+        config.countingGame.allowConsecutivePosts === false &&
+        game.lastUserId === message.author.id
+      ) {
+        await message.delete();
+        return;
+      }
+
+      // 番号が間違っている場合も削除
+      if (userNumber !== expectedNumber) {
+        // 多重起動時、遅延したインスタンスが正常な投稿を誤って削除するのを防ぐ
+        // DBの最新情報が「まさにこのメッセージで成功した直後」であるかを確認
+        if (
+          game.lastMessageId === message.id &&
+          game.currentNumber === userNumber
+        ) {
+          // 他のインスタンスが正常処理した結果なので、削除せず、静かに終了
+          return;
+        }
+        // ダブルチェックに該当しない、本当に間違った投稿は削除
+        await message.delete();
+        return;
+      }
+
+      // --- 正解！ ---
+
+      // 1. DBのゲーム状態を更新
+      await game.update(
+        {
+          currentNumber: expectedNumber,
+          lastUserId: message.author.id,
+          lastMessageId: message.id,
+        },
+        { transaction: t }
+      );
+
+      // 2. 報酬を計算
+      const rewards = config.countingGame.rewards;
+      const coinReward = rewards.coin || 0;
+      const nyoboBankReward =
+        Math.floor(
+          Math.random() * (rewards.nyobo_bank.max - rewards.nyobo_bank.min + 1)
+        ) + rewards.nyobo_bank.min;
+
+      // 3. 報酬をPointテーブルに加算
+      // findOrCreateでユーザーデータがない場合も対応
+      const [point, pointCreated] = await Point.findOrCreate({
+        where: { userId: message.author.id },
+        defaults: { userId: message.author.id },
+        transaction: t,
+      });
+
+      await point.increment(
+        {
+          coin: coinReward,
+          nyobo_bank: nyoboBankReward,
+        },
+        { transaction: t }
+      );
+
+      // 4. 静かにリアクション
+      if (config.countingGame.successReaction) {
+        await message.react(config.countingGame.successReaction);
+      }
+
+      // 5. 実績を解除
+      // 毎回の成功時に進捗を+1する。目標達成は関数内で自動的に処理される。
+      await updateAchievementProgress(message.client, message.author.id, 60);
+    });
+  } catch (error) {
+    console.error("[Counting] トランザクションでエラーが発生しました:", error);
+    try {
+      // 失敗した場合は分かりやすくエラーのリアクションを付ける
+      await message.react("❌");
+    } catch (reactError) {
+      // リアクション追加すら失敗した場合
+      console.error("[Counting]エラーリアクションの追加に失敗:", reactError);
+    }
+  }
+}
