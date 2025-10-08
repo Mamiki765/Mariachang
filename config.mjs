@@ -769,9 +769,8 @@ export default {
       skill7: {
         baseCost: 10,
         costMultiplier: 1.8,
-        effectBaseExponent: 0.2, // 累計消費チップにかける「べき指数」
-        effectLevelMultiplier: 1.0, // スキルレベル1あたりの効果係数。
-        description: "累計消費チップに応じてブースト倍率を乗算で強化する", 
+        exponentPerLevel: 0.1, // スキルレベル1あたり、べき指数がこれだけ上昇する
+        description: "インフィニティ中累計消費チップの(0.10 x #7)乗をブースト倍率に乗算する", 
       },
       skill8: {
         baseCost: 40,

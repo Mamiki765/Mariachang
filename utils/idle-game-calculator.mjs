@@ -371,15 +371,22 @@ export function calculateSpentSP(level) {
 }
 
 /**
- * TP獲得量を計算する
+ * TP獲得量を計算する (スキル#8の効果も考慮)
  * @param {number} population - 現在の人口
+ * @param {number} skillLevel8 - スキル#8の現在のレベル
  * @returns {number} 獲得できるTPの量
  */
-export function calculatePotentialTP(population) {
-  // 閾値(1e16)に達していない場合は0を返す
+export function calculatePotentialTP(population, skillLevel8 = 0) {
+  // 閾値に達していない場合は0を返す
   if (population < 1e16) {
     return 0;
   }
-  // 計算式本体
-  return Math.pow(Math.log10(population) - 15, 2.5);
+  
+  // 基礎となるTPを計算
+  const baseTP = Math.pow(Math.log10(population) - 15, 2.5);
+  
+  // スキル#8の倍率を計算 (+100% * level なので、1 + 1.0 * level)
+  const multiplier = 1 + skillLevel8 * config.idle.tp_skills.skill8.effectMultiplier;
+  
+  return baseTP * multiplier;
 }

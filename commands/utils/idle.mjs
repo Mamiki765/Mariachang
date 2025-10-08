@@ -168,13 +168,10 @@ export async function execute(interaction) {
     if (skill7Level > 0 && spentChips > 0) {
       const settings = config.idle.tp_skills.skill7;
       const spentChipsNum = Number(spentChips.toString());
-
-      // 新しい計算式本体
+      // べき指数を計算 (例: 0.1 * Lv8 = 0.8)
+      const exponent = skill7Level * settings.exponentPerLevel;
       // (消費チップ ^ べき指数) を計算
-      const powerBonus = Math.pow(spentChipsNum, settings.effectBaseExponent);
-
-      // スキルレベルを乗算
-      skill7Bonus = powerBonus * (skill7Level * settings.effectLevelMultiplier);
+      skill7Bonus = Math.pow(spentChipsNum, exponent);
     }
     correctMultiplier *= 1 + skill7Bonus;
 
@@ -531,16 +528,11 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
       }
 
       // 250923 プレステージボタンの表示ロジック
-      //201006 そういや#8スキル実装前にTP計算式関数入れたから#8回りが手間になってる、AIくん見たら指摘しといて〜
-      const skill8Multiplier =
-        1 +
-        (idleGame.skillLevel8 || 0) *
-          config.idle.tp_skills.skill8.effectMultiplier;
       if (
         idleGame.population > idleGame.highestPopulation &&
         idleGame.population >= config.idle.prestige.unlockPopulation
       ) {
-        // --- ケース1: PP/SPが手に入る通常のプレステージ ---
+        // --- ケース1: PP/SP/(e16でTP)が手に入る通常のプレステージ ---
         const newPrestigePower = Math.log10(idleGame.population);
         const powerGain = newPrestigePower - idleGame.prestigePower;
         let prestigeButtonLabel;
@@ -553,7 +545,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         } else {
           // 条件3: それ以外 (populationが1e16以上) の場合
           const potentialTP =
-            calculatePotentialTP(idleGame.population) * skill8Multiplier; // 先に計算しておくとスッキリします
+            calculatePotentialTP(idleGame.population,idleGame.skillLevel8); // 先に計算しておくとスッキリします
           prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
         }
 
@@ -569,10 +561,9 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         idleGame.population < idleGame.highestPopulation &&
         idleGame.population >= 1e16
       ) {
-        // --- ケース2: TPが手に入る新しいプレステージ ---
+        // --- ケース2: TPだけ手に入る新しいプレステージ ---
         const potentialTP =
-          Math.pow(Math.log10(idleGame.population) - 15, 2.5) *
-          skill8Multiplier;
+            calculatePotentialTP(idleGame.population,idleGame.skillLevel8);
 
         boostRow.addComponents(
           new ButtonBuilder()
@@ -1371,12 +1362,8 @@ async function handlePrestige(interaction, collector) {
           newSkillPoints += powerGain;
         }
 
-        const skill8Multiplier =
-          1 +
-          (latestIdleGame.skillLevel8 || 0) *
-            config.idle.tp_skills.skill8.effectMultiplier;
         const gainedTP =
-          calculatePotentialTP(currentPopulation) * skill8Multiplier;
+          calculatePotentialTP(currentPopulation,latestIdleGame.skillLevel8);
 
         await latestIdleGame.update(
           {
@@ -1405,12 +1392,8 @@ async function handlePrestige(interaction, collector) {
         };
       } else if (currentPopulation >= 1e16) {
         // --- TPプレステージ (新しいロジック) ---
-        const skill8Multiplier =
-          1 +
-          (latestIdleGame.skillLevel8 || 0) *
-            config.idle.tp_skills.skill8.effectMultiplier;
         const gainedTP =
-          calculatePotentialTP(currentPopulation) * skill8Multiplier;
+          calculatePotentialTP(currentPopulation,latestIdleGame.skillLevel8);
 
         await latestIdleGame.update(
           {
