@@ -432,7 +432,7 @@ export default async function handleButtonInteraction(interaction) {
       // 合計の計算と最終メッセージの構築
       const totalPizza = pizzaBreakdown.reduce((sum, val) => sum + val, 0);
       Message += `\n${pizzaMessages.join("\n")}`; // \n\nで少し間を空ける
-      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚の${nyoboChip.displayName}がバンクに入金されました！**`;
+      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚の${nyoboChip.displayName}を手に入れました！**`;
 
       updateData.nyobo_bank = sequelize.literal(`nyobo_bank + ${totalPizza}`);
       // ▲▲▲ 新ピザメッセージ構築ロジックここまで ▲▲▲

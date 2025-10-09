@@ -132,6 +132,19 @@ export async function execute(interaction) {
       })
       .catch(() => null);
 
+    if (!submitted) {
+      // followUpは失敗する可能性もあるので、念のためtry...catchで囲む
+      try {
+        await interaction.followUp({
+          content: "⏰ 5分間操作がなかったため、タイムアウトしました。",
+          ephemeral: true,
+        });
+      } catch (e) {
+        console.log(`[Bank] Interaction timed out, followUp failed for user ${interaction.user.id}`);
+      }
+      return; // ここで処理を終了
+    }
+
     if (submitted) {
       const selectedAction =
         submitted.fields.getStringSelectValues("bank_action_select")[0];

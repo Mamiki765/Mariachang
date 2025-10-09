@@ -31,6 +31,7 @@ import {
   calculatePotentialTP,
   calculateFactoryEffects,
   calculateDiscountMultiplier,
+  formatNumberDynamic,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -300,7 +301,7 @@ export async function execute(interaction) {
         const ms = idleGame.buffExpiresAt - new Date();
         hours = Math.floor(ms / (1000 * 60 * 60));
         const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        buffField = `**${idleGame.buffMultiplier.toFixed(2)}倍** 残り **${hours}時間${minutes}分**`;
+        buffField = `**${formatNumberDynamic(idleGame.buffMultiplier)}倍** 残り **${hours}時間${minutes}分**`;
       }
 
       // EmbedのDescriptionをプレステージ回数に応じて変更する
@@ -311,7 +312,7 @@ export async function execute(interaction) {
         )} 匹**
 最高人口: ${formatNumberJapanese(
           Math.floor(idleGame.highestPopulation)
-        )} 匹 \nPP: **${pp.toFixed(2)}** 全工場Lv、獲得ニョボチップ%: **+${pp.toFixed(3)}**
+        )} 匹 \nPP: **${pp.toFixed(2)}** 全工場Lv、獲得チップ%増加
 SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.toFixed(2)}** #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4} / #5:${idleGame.skillLevel5} #6:${idleGame.skillLevel6} #7:${idleGame.skillLevel7} #8:${idleGame.skillLevel8}
 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
       } else {
@@ -330,12 +331,12 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         .addFields(
           {
             name: `${config.idle.oven.emoji}ピザ窯`,
-            value: `Lv. ${idleGame.pizzaOvenLevel} (${ovenEffect_display.toFixed(0)}) Next.${costs.oven.toLocaleString()}chip`,
+            value: `Lv. ${idleGame.pizzaOvenLevel} (${formatNumberDynamic(ovenEffect_display,0)}) Next.${costs.oven.toLocaleString()}chip`,
             inline: true,
           },
           {
             name: `${config.idle.cheese.emoji}チーズ工場`,
-            value: `Lv. ${idleGame.cheeseFactoryLevel} (${cheeseEffect_display.toFixed(2)}) Next.${costs.cheese.toLocaleString()}chip`,
+            value: `Lv. ${idleGame.cheeseFactoryLevel} (${formatNumberDynamic(cheeseEffect_display)}) Next.${costs.cheese.toLocaleString()}chip`,
             inline: true,
           },
           {
@@ -343,7 +344,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
             value:
               idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.tomato.unlockPopulation
-                ? `Lv. ${idleGame.tomatoFarmLevel} (${tomatoEffect_display.toFixed(2)}) Next.${costs.tomato.toLocaleString()}chip`
+                ? `Lv. ${idleGame.tomatoFarmLevel} (${formatNumberDynamic(tomatoEffect_display)}) Next.${costs.tomato.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`,
             inline: true,
           },
@@ -352,7 +353,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
             value:
               idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.mushroom.unlockPopulation
-                ? `Lv. ${idleGame.mushroomFarmLevel} (${mushroomEffect_display.toFixed(3)}) Next.${costs.mushroom.toLocaleString()}chip`
+                ? `Lv. ${idleGame.mushroomFarmLevel} (${formatNumberDynamic(mushroomEffect_display,3)}) Next.${costs.mushroom.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.mushroom.unlockPopulation)})`,
             inline: true,
           },
@@ -361,7 +362,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
             value:
               idleGame.prestigeCount > 0 ||
               idleGame.population >= config.idle.anchovy.unlockPopulation
-                ? `Lv. ${idleGame.anchovyFactoryLevel} (${anchovyEffect_display.toFixed(2)}) Next.${costs.anchovy.toLocaleString()}chip`
+                ? `Lv. ${idleGame.anchovyFactoryLevel} (${formatNumberDynamic(anchovyEffect_display)}) Next.${costs.anchovy.toLocaleString()}chip`
                 : `(要:人口${formatNumberJapanese(config.idle.anchovy.unlockPopulation)})`,
             inline: true,
           },
@@ -377,9 +378,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
           },
           {
             name: "計算式",
-            value: `(${ovenEffect_display.toFixed(1)} × ${cheeseEffect_display.toFixed(
-              2
-            )} × ${tomatoEffect_display.toFixed(2)} × ${mushroomEffect_display.toFixed(3)} × ${anchovyEffect_display.toFixed(2)}) ^ ${meatEffect.toFixed(2)} × ${idleGame.buffMultiplier.toFixed(1)}${skill2EffectDisplay}`,
+            value: `(${formatNumberDynamic(ovenEffect_display)} × ${formatNumberDynamic(cheeseEffect_display)} × ${formatNumberDynamic(tomatoEffect_display)} × ${formatNumberDynamic(mushroomEffect_display,3)} × ${formatNumberDynamic(anchovyEffect_display)}) ^ ${meatEffect.toFixed(2)} × ${formatNumberDynamic(idleGame.buffMultiplier,1)}${skill2EffectDisplay}`,
           },
           {
             name: "毎分の増加予測",
@@ -1306,6 +1305,9 @@ async function handlePrestige(interaction, collector) {
       .setStyle(ButtonStyle.Danger)
   );
 
+  // ✅ ここで先に宣言しておく！
+  let confirmationInteraction = null;
+
   const confirmationMessage = await interaction.followUp({
     content:
       "# ⚠️パイナップル警報！ \n### **本当にプレステージを実行しますか？**\n精肉工場以外の工場レベルと人口がリセットされます。この操作は取り消せません！",
@@ -1317,7 +1319,7 @@ async function handlePrestige(interaction, collector) {
   try {
     // 3. ユーザーの応答を待つ (60秒)
     //    .awaitMessageComponent() は、ボタンが押されるまでここで処理を「待機」します
-    const confirmationInteraction =
+     confirmationInteraction =
       await confirmationMessage.awaitMessageComponent({
         filter: (i) => i.user.id === interaction.user.id,
         time: 60_000,
@@ -1462,7 +1464,7 @@ ${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
     } else {
       // タイムアウトエラー
       await confirmationMessage.edit({
-        content: "タイムアウトしました。プレステージはキャンセルされました。",
+        content: "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
         components: [],
       });
     }

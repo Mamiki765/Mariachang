@@ -323,6 +323,35 @@ export function formatProductionRate(n) {
 }
 
 /**
+ * 数値を動的なルールでフォーマットします。
+ * - 100未満: 指定された小数点以下の桁数で表示 (toFixed)
+ * - 100以上, 10億未満: 整数に丸めて桁区切りで表示 (toLocaleString)
+ * - 10億以上: 指数表記 (toExponential)
+ * @param {number} n - フォーマットする数値
+ * @param {number} [decimalPlaces=2] - 100未満の場合に使用する小数点以下の桁数
+ * @returns {string} フォーマットされた文字列
+ */
+export function formatNumberDynamic(n, decimalPlaces = 2) {
+  // 既存の関数から持ってきた、堅牢な入力値チェック
+  if (typeof n !== 'number' || !isFinite(n)) {
+    return 'N/A'; // または '計算中...' など、エラー時の表示を統一
+  }
+
+  // 条件1: 100未満
+  if (n < 100) {
+    return n.toFixed(decimalPlaces);
+  }
+  // 条件2: 100以上 ~ 10億未満 (1e9)
+  else if (n < 1_000_000_000) {
+    return Math.floor(n).toLocaleString();
+  }
+  // 条件3: 10億以上
+  else {
+    return n.toExponential(2);
+  }
+}
+
+/**
  * 巨大な数値を、日本の単位（兆、億、万）を使った最も自然な文字列に整形します。
  * 人間が日常的に読み書きする形式を再現します。
  * @param {number} n - フォーマットしたい数値。
