@@ -283,6 +283,8 @@ export async function execute(interaction) {
               // ▼▼▼ ここからDM通知処理を追加 ▼▼▼
 
               try {
+                // ▼ GuildMember から User を取得
+const userToDM = targetMember.user;
                 const dmEmbed = new EmbedBuilder()
                   .setTitle("🏦 ニョボバンクへの入金がありました")
                   .setDescription(
@@ -304,7 +306,7 @@ export async function execute(interaction) {
                   .setColor("#2ECC71") // 入金が分かりやすい緑色
                   .setTimestamp();
 
-                await targetUser.send({
+                await userToDM.send({
                   embeds: [dmEmbed],
                   flags: [4096], // 通知音を鳴らさない
                 });
