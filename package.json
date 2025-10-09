@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "2.22.0",
+  "version": "3.0.0",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -20,7 +20,7 @@
     "@supabase/supabase-js": "^2.57.0",
     "axios": "^1.9.0",
     "cron-parser": "^5.3.1",
-    "discord.js": "^14.22.1",
+    "discord.js": "^14.23.2",
     "express": "^5.1.0",
     "image-size": "^2.0.2",
     "mee6-levels-api": "^1.3.1",

@@ -10,7 +10,7 @@ export const help = {
 };
 
 export const data = new SlashCommandBuilder()
-  .setName("exchange")
+  .setName("forex")
   .setNameLocalizations({ ja: "為替" })
   .setDescription("現実世界の主要通貨の為替レートを表示します。(対JPY)");
 
