@@ -21,6 +21,7 @@ import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 import {
   updateUserIdleGame,
   formatNumberReadable,
+  formatNumberDynamic,
 } from "../utils/idle-game-calculator.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
@@ -253,7 +254,7 @@ export default async function handleButtonInteraction(interaction) {
                   (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
                 );
                 const multiplier = idleGame.buffMultiplier || 1;
-                boostMessage = `🔥x${multiplier.toFixed(1)} **${hours}時間${minutes}分**`;
+                boostMessage = `🔥x${formatNumberDynamic(multiplier,1)} **${hours}時間${minutes}分**`;
               }
             } else {
               // idleGameはあるがブーストを一度も点火していない人向けの案内
@@ -471,7 +472,7 @@ export default async function handleButtonInteraction(interaction) {
         if (idleResult.buffRemaining) {
           const { hours, minutes } = idleResult.buffRemaining;
           if (hours > 0 || minutes > 0) {
-            Message += ` 🔥x${idleResult.currentBuffMultiplier.toFixed(1)} **${hours}時間${minutes}分**`;
+            Message += ` 🔥x${formatNumberDynamic(idleResult.currentBuffMultiplier,1)} **${hours}時間${minutes}分**`;
           } else {
             Message += ` 🔥ブーストなし /idleで点火できます。`;
           }
