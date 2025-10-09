@@ -66,28 +66,28 @@ export async function execute(interaction) {
               .addOptions(
                 new StringSelectMenuOptionBuilder()
                   .setLabel(`RPをコインに両替 (1 -> 20)`)
-                  .setEmoji("💎")
+                  //.setEmoji("💎")
                   .setValue("exchange_rp"),
                 new StringSelectMenuOptionBuilder()
                   .setLabel(`どんぐりをコインに両替 (1 -> 100)`)
-                  .setEmoji("🐿️")
+                  //.setEmoji("🐿️")
                   .setValue("exchange_acorn"),
                 new StringSelectMenuOptionBuilder()
                   .setLabel(
                     `コインをチップに両替 (1 -> ${finalRate.toFixed(2)})`
                   )
-                  .setEmoji("1407422205624844288")
+                  //.setEmoji("1407422205624844288")
                   .setDescription(
                     "ニョボバンクに行かず、即座にボーナス換算後お財布に入ります"
                   )
                   .setValue("exchange_coin_to_pizza"),
                 new StringSelectMenuOptionBuilder()
                   .setLabel(`チップを引き出す${bonusText}`)
-                  .setEmoji("🏦")
+                  //.setEmoji("🏦")
                   .setValue("withdraw_pizza"),
                 new StringSelectMenuOptionBuilder()
                   .setLabel("Mee6経験値にする(1000coin -> 1000XP)")
-                  .setEmoji("⚡️")
+                  //.setEmoji("⚡️")
                   .setValue("exchange_coin_to_xp")
                   .setDescription(
                     "この経験値でレベルアップをしても通知が出ません。数量指定はできません。"
