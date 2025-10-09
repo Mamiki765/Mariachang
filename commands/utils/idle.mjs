@@ -127,6 +127,7 @@ export async function execute(interaction) {
       },
       { id: 52, condition: idleGame.skillLevel8 >= 1 }, //s8実績もここに
       { id: 56, condition: idleGame.population >= 6.692e30 }, //infinity^0.10
+      { id: 61, condition: idleGame.population >= 4.482e+61 }, //infinity^0.20
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -813,6 +814,7 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
   - PP16:TP解禁、最高人口未満のプレステージ解禁
 - SP:スキルポイント。消費する事で強力なスキルが習得できる。
 - TP:超越スキルポイント。プレステージ時の人口に応じて獲得。
+より詳しいガイドはこちら　-> https://discord.com/channels/1025416221757276242/1425904625692704858
 `;
         await i.followUp({
           content: spExplanation,
@@ -1568,6 +1570,7 @@ function generateSkillEmbed(idleGame) {
     const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
     const spentChips = BigInt(idleGame.chipsSpentThisInfinity || "0");
+    const skill7power = 0.1 * tp_levels.s7;
     // BigIntは直接フォーマット関数に渡せないので、一度Number型に変換する
     const spentChipsFormatted = formatNumberJapanese(
       Number(spentChips.toString())
@@ -1576,19 +1579,19 @@ function generateSkillEmbed(idleGame) {
       { name: "---TPスキル---", value: "\u200B" },
       {
         name: `#5 熱々ポテト x${tp_levels.s5}`,
-        value: `${tp_configs.skill5.description} コスト: ${tp_costs.s5.toFixed(1)} TP`,
+        value: `${tp_configs.skill5.description} コスト: ${formatNumberDynamic(tp_costs.s5,1)} TP`,
       },
       {
         name: `#6 スパイシーコーラ x${tp_levels.s6}`,
-        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${tp_costs.s6.toFixed(1)} TP`,
+        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(tp_costs.s6,1)} TP`,
       },
       {
         name: `#7 山盛りのチキンナゲット x${tp_levels.s7}`,
-        value: `${tp_configs.skill7.description}(**${spentChipsFormatted}枚**) コスト: ${tp_costs.s7.toFixed(1)} TP`,
+        value: `${tp_configs.skill7.description}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(tp_costs.s7,1)} TP`,
       },
       {
         name: `#8 至高の天ぷら x${tp_levels.s8}`, // TenPura
-        value: `${tp_configs.skill8.description} コスト: ${tp_costs.s8.toFixed(1)} TP`,
+        value: `${tp_configs.skill8.description} コスト: ${formatNumberDynamic(tp_costs.s8,1)} TP`,
       }
     );
   }

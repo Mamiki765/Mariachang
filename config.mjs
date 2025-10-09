@@ -771,7 +771,7 @@ export default {
         costMultiplier: 1.8,
         exponentPerLevel: 0.1, // スキルレベル1あたり、べき指数がこれだけ上昇する
         description:
-          "インフィニティ中累計消費チップの(0.10 x #7)乗をブースト倍率に乗算する",
+          "ブーストが∞中累計消費チップに応じて強化される",
       },
       skill8: {
         baseCost: 40,
@@ -1165,6 +1165,13 @@ export default {
         name: "よろしい、ならばシベリア送りだ",
         description: "countingで100回数字を数える",
         goal: 100,
+        reward: {},
+      },
+      {
+        id: 61,
+        name: "無限への二合目",
+        description: "ニョワミヤの数が4.482e+61に到達(infinityの20%)(チャレンジ)",
+        effect: "無駄かもしれないが、ニョワミヤ達はあなたを尊敬するだろう",
         reward: {},
       },
       // 今後、ここに実績をどんどん追加していきます
