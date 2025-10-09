@@ -425,7 +425,7 @@ export default async function handleButtonInteraction(interaction) {
 
       // 4. 放置ゲームの人口を「表示のためだけ」に更新
       const idleResult = await updateUserIdleGame(interaction.user.id);
-      pizzaMessages.push(`-# 焼きあがったピザはニョボシ達が${nyoboChip.displayName}に換金しに持っていきました。/casino balance から引き出せます。`);
+      pizzaMessages.push(`-# 焼きあがったピザはニョボシ達が${nyoboChip.displayName}に換金しに持っていきました。/bank から引き出せます。`);
 
       // 合計の計算と最終メッセージの構築
       const totalPizza = pizzaBreakdown.reduce((sum, val) => sum + val, 0);
@@ -491,7 +491,7 @@ export default async function handleButtonInteraction(interaction) {
   } else if (interaction.customId === "show_currency_help") {
     const helpText = `### 雨宿りの通貨について
 毎日1回、ログインボーナスとして「あまやどんぐり」をはじめ様々な通貨を受け取る事ができます。
-これらの通貨の所持数は、/casino balance で確認できます。
+これらの通貨の所持数は、/bank で確認できます。
 - **あまやどんぐり**
 雑談チャンネルで8時22時の時報についているボタンを押すと毎日1個拾えるログボです
 1どんぐり -> 100コインで両替できます。
@@ -502,7 +502,7 @@ export default async function handleButtonInteraction(interaction) {
 発言すると上がるお得意様レベルです。現在のレベル・経験値は \`!rank\` と喋れば確認できます。10レベルごとにロールを付与されたり、レガシーピザのログボが増えたりします。
 - **ニョボチップ**（旧レガシーピザ）
 ログボの受取や雨宿り内で発言をする事で少しずつ手に入るチップです。ルーレットでコインの代わりに賭けたり、放置ゲームで遊ぶのに使えます。
-放置ゲーの進捗で入手量が少しだけ増えます。
+入手したチップはまず銀行に預けられ、/bankで引き出す時に放置ゲーの進捗に応じて入手量が増えます。
 - **RP(Roleplay Point)**
 雨宿りの/ロールプレイコマンドで発言する度に貯まるポイントです。1RP -> 20コインで両替できます。
     `;
@@ -569,77 +569,6 @@ export default async function handleButtonInteraction(interaction) {
     // 【ステップ2のキャンセル処理】
     await interaction.update({
       content: "削除はキャンセルされました。",
-      components: [],
-    });
-
-    // ====================================================================
-    // ★★★ ここからが、Mee6 XP交換の「第二段階」ロジック ★★★
-    // ====================================================================
-  } else if (interaction.customId === "confirm_exchange_coin_to_xp") {
-    const cost = 1000;
-    const mee6RoleId = "1413916213532295345";
-    const userId = interaction.user.id;
-
-    // 「処理中...」というメッセージで応答を更新し、確認ボタンを無効化する
-    await interaction.update({
-      content: "処理中です。しばらくお待ちください...",
-      components: [], // ボタンを消す
-    });
-
-    const t = await sequelize.transaction();
-    try {
-      const userPoint = await Point.findOne({
-        where: { userId },
-        transaction: t,
-      });
-      if (!userPoint || userPoint.coin < cost) {
-        throw new Error(
-          `コインが足りません！ (必要: ${cost} / 所持: ${userPoint?.coin || 0})`
-        );
-      }
-
-      // 1. コインを引く
-      userPoint.coin -= cost;
-
-      // 2. Discordにロールを付与
-      await interaction.member.roles.add(mee6RoleId);
-
-      // 3. DB変更を保存
-      await userPoint.save({ transaction: t });
-
-      // 4. トランザクションをコミット
-      await t.commit();
-
-      // 5. ユーザーに成功を報告
-      await interaction.followUp({
-        content: `✅ **両替成功！**\n${config.nyowacoin}**${cost}枚**を **Mee6経験値${cost}** に変換しました！\nMee6が経験値を付与するまで、少しお待ちください。`,
-        ephemeral: true,
-      });
-    } catch (error) {
-      await t.rollback();
-      console.error("Mee6 XP交換エラー:", error);
-
-      // エラーメッセージを組み立てる
-      let errorMessage = "処理に失敗しました。";
-      if (error.message.includes("コインが足りません")) {
-        errorMessage = error.message; // ユーザーに分かりやすいエラーメッセージをそのまま表示
-      } else if (error.code === 50013) {
-        // Missing Permissions エラーコード
-        errorMessage =
-          "Botの権限不足により、ロールを付与できませんでした。管理者に連絡してください。";
-        console.error(
-          `[Mee6 Exchange Error] Missing Permissions: ユーザーID ${userId}, サーバーID ${interaction.guildId}`
-        );
-      }
-
-      await interaction.followUp({
-        content: `❌ **エラー**\n${errorMessage}`,
-        ephemeral: true,
-      });
-    }
-  } else if (interaction.customId === "cancel_exchange") {
-    await interaction.update({
-      content: "交換をキャンセルしました。",
       components: [],
     });
   } else {

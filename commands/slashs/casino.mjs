@@ -42,11 +42,6 @@ export const help = {
       notes: "ボーナスがあったり難易度の低い設計になっております。",
     },
     {
-      name: "balance",
-      description: "コインや他の通貨を確認したり両替できます",
-      notes: "RPやどんぐりをコインに両替できます。",
-    },
-    {
       name: "roulette",
       description: "ヨーロピアンスタイルのルーレットで遊びます。",
       notes: "ニョワコインやニョボチップを賭けて遊べます。",
@@ -112,11 +107,6 @@ export const data = new SlashCommandBuilder()
           .setMinValue(1)
           .setMaxValue(5)
       )
-  )
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("balance")
-      .setDescription("コインや他の通貨を確認したり両替できます")
   )
   //ブラックジャック
   .addSubcommand((subcommand) =>
@@ -217,8 +207,6 @@ export async function execute(interaction) {
     await handleSlots(interaction, config.casino.slot);
   } else if (subcommand === "slots_easy") {
     await handleSlots(interaction, config.casino.slot_lowrisk);
-  } else if (subcommand === "balance") {
-    await handleBalance(interaction);
   } else if (subcommand === "blackjack") {
     await handleBlackjack(interaction);
   } else if (subcommand === "roulette") {
@@ -272,8 +260,8 @@ async function handleSlots(interaction, slotConfig) {
 
       if (!userPoint || userPoint.coin < totalBetAmount) {
         const message = isFirstPlay
-          ? `${totalBetAmount}コインを払えません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚\n-# /casino balanceでどんぐりやRPをコインに交換できます。`
-          : `コインが足りなくなったため、ゲームを終了します。\n-# /casino balanceでどんぐりやRPをコインに交換できます。`;
+          ? `${totalBetAmount}コインを払えません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚\n-# /bankでどんぐりやRPをコインに交換できます。`
+          : `コインが足りなくなったため、ゲームを終了します。\n-# /bankでどんぐりやRPをコインに交換できます。`;
 
         // ▼▼▼ ここで、初回かどうかで表示を分岐させる ▼▼▼
         if (isFirstPlay) {
@@ -689,238 +677,6 @@ function getSlotPrize(result, slotConfig) {
   }
   // どの役にも当てはまらない場合、ハズレを示すオブジェクトを返す
   return { id: "none", name: "ハズレ...", payout: 0 };
-}
-//-----------------
-//balance
-//--------------
-async function handleBalance(interaction) {
-  const userId = interaction.user.id;
-  try {
-    const [user] = await Point.findOrCreate({ where: { userId } });
-    // ★★★ 追加: 放置ゲームのデータを取得してボーナス率を確認 ★★★
-    const idleGame = await IdleGame.findOne({ where: { userId } });
-    // サーバーブースターボーナス表示用に数を取得
-    let boost_bonus = ""; // まず空の文字列で初期化
-    try {
-      const supabase = getSupabaseClient();
-      const { count, error } = await supabase
-        .from("booster_status")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", interaction.user.id);
-
-      if (error) {
-        // Supabaseがエラーを返した場合 (例: RLSポリシー違反など)
-        console.error("[Balance] Supabase booster count failed:", error);
-      } else if (count > 0) {
-        // 成功し、かつブースト数が1以上の場合
-        boost_bonus = `\nServer Booster(発言時、毎分 +${count}枚)`;
-      }
-    } catch (e) {
-      // 通信自体が失敗した場合
-      console.error("[Balance] Error fetching booster count:", e);
-      // 通信失敗時は、無理に表示せず、エラーログだけ残して処理を続行
-    }
-
-    // ★★★ 追加: 表示するボーナス文字列を準備 ★★★
-    let bonusText = "";
-    let bonusText2 = "";
-    // 放置ゲームのデータがあり、かつボーナスが0より大きい場合のみ文字列を生成
-    if (idleGame && idleGame.pizzaBonusPercentage > 0) {
-      const emoji = "<:nyowamiyarika:1264010111970574408>";
-      // toFixed(3)で小数点以下3桁に整形
-      bonusText = ` (${emoji} +${idleGame.pizzaBonusPercentage.toFixed(3)}%)`;
-      bonusText2 = ` (+${idleGame.pizzaBonusPercentage.toFixed(3)}%)`;
-    }
-
-    // コイン -> ピザレートは倍率が影響する
-    const baseRate = 30;
-    const multiplier = await getPizzaBonusMultiplier(userId);
-    const finalRate = baseRate * multiplier;
-    const buttonLabel = `1コイン -> ${finalRate.toFixed(2)}チップ`;
-
-    const embed = new EmbedBuilder()
-      .setTitle(`👛 ${interaction.user.username} さんの財布`)
-      .setColor("#FEE75C")
-      .addFields(
-        {
-          name: "💎 Roleplay Point",
-          value: `**${user.point.toLocaleString()}**RP (累計${user.totalpoint.toLocaleString()})`,
-          inline: false,
-        },
-        {
-          name: "🐿️ あまやどんぐり",
-          value: `**${user.acorn.toLocaleString()}**個 (累計${user.totalacorn.toLocaleString()})`,
-          inline: false,
-        },
-        {
-          name: `${config.nyowacoin} ニョワコイン`,
-          value: `**${user.coin.toLocaleString()}**枚${boost_bonus}`,
-          inline: false,
-        },
-        {
-          name: `${config.casino.currencies.legacy_pizza.emoji} ニョボチップ`,
-          value: `**${user.legacy_pizza.toLocaleString()}**枚`,
-          inline: false,
-        },
-        {
-          name: "🏦 ニョボバンク",
-          value: `**${user.nyobo_bank.toLocaleString()}**枚${bonusText}`,
-          inline: false,
-        }
-      );
-
-    embed.setTimestamp();
-
-    const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("exchange_points_modal")
-        .setLabel("1RP -> 20ｺｲﾝ")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId("exchange_acorns_modal")
-        .setLabel("1どんぐり -> 100ｺｲﾝ")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("exchange_coin_to_pizza_modal")
-        .setLabel(buttonLabel)
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("withdraw_pizza_modal")
-        .setLabel(`チップを引き出す${bonusText2}`)
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(user.nyobo_bank <= 0)
-    );
-
-    // このコマンドが実行されたサーバーが、.envで指定されたMee6のサーバーの場合のみ、
-    // XP交換ボタンを追加します。
-    if (interaction.guild.id === process.env.MEE6_GUILD_ID) {
-      buttons.addComponents(
-        new ButtonBuilder()
-          .setCustomId("exchange_coin_to_mee6_xp")
-          .setLabel("1000コイン -> 1K XP")
-          .setStyle(ButtonStyle.Danger) // 警告を促すDangerスタイル
-          .setEmoji("⚡")
-      );
-    }
-
-    // ephemeral: true で本人にだけ表示する
-    const message = await interaction.reply({
-      embeds: [embed],
-      components: [buttons],
-      flags: 64,
-    });
-
-    // Modalを呼び出すためのコレクター
-    const collector = message.createMessageComponentCollector({
-      filter: (i) => i.user.id === userId,
-      time: 60_000, // 60秒間操作を待つ
-    });
-
-    collector.on("collect", async (i) => {
-      // -------------------------------------------------
-      // ▼▼▼ グループ1: Modalを開くボタンたちの処理 ▼▼▼
-      // -------------------------------------------------
-      if (
-        i.customId === "exchange_points_modal" ||
-        i.customId === "exchange_acorns_modal" ||
-        i.customId === "exchange_coin_to_pizza_modal" ||
-        i.customId === "withdraw_pizza_modal" // ★ピザを追加！
-      ) {
-        const latestUser = await Point.findOne({ where: { userId: i.user.id } });
-        if (!latestUser) return; // 万が一ユーザーデータがなかったら何もしない
-
-        const modal = new ModalBuilder();
-        const amountInput = new TextInputBuilder()
-          .setCustomId("amount_input")
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-
-        // 押されたボタンに応じて、Modalの内容を動的に設定
-        if (i.customId === "exchange_points_modal") {
-          modal.setCustomId("exchange_points_submit").setTitle("RP → コイン");
-          amountInput.setLabel("両替したいRPの量");
-          amountInput.setPlaceholder(`${latestUser.point.toLocaleString()} RP所持 (half, all 指定可能)`);
-        } else if (i.customId === "exchange_acorns_modal") {
-          modal.setCustomId("exchange_acorns_submit").setTitle("どんぐり → コイン");
-          amountInput.setLabel("両替したいどんぐりの数");
-          amountInput.setPlaceholder(`${latestUser.acorn.toLocaleString()} 個所持 (half, all 指定可能)`);
-        } else if (i.customId === "exchange_coin_to_pizza_modal") {
-          modal.setCustomId("exchange_coin_to_pizza_submit").setTitle("コイン → チップ");
-          amountInput.setLabel("両替したいコインの枚数");
-          amountInput.setPlaceholder(`${latestUser.coin.toLocaleString()} 枚所持 (half, all 指定可能)`);
-        } else if (i.customId === "withdraw_pizza_modal") {
-          modal.setCustomId("withdraw_pizza_submit").setTitle("🏦 ニョボバンクからの引き出し");
-          amountInput.setLabel("引き出したいチップの量");
-          amountInput.setPlaceholder(`預金:${latestUser.nyobo_bank.toLocaleString()} 枚 (half, all 指定可能)`);
-        }
-
-        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
-        await i.showModal(modal);
-
-        collector.stop();
-        return;
-      }
-
-      // -------------------------------------------------
-      // ▼▼▼ グループ2: 確認メッセージを出すボタンの処理 ▼▼▼
-      // -------------------------------------------------
-      if (i.customId === "exchange_coin_to_mee6_xp") {
-        const cost = 1000;
-        const warningMessage =
-          `**【重要：必ずお読みください】**\n` +
-          `本当に ${config.nyowacoin}**${cost}枚** を **Mee6経験値${cost}** に交換しますか？\n\n` +
-          `- この操作は**取り消すことができません。**\n` +
-          `- Mee6がレベルアップしても、Discordの通知は表示されません。\n` +
-          `- 交換処理の完了には、数秒かかる場合があります。`;
-
-        const confirmationButtons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("confirm_exchange_coin_to_xp")
-            .setLabel("はい、交換します")
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId("cancel_exchange")
-            .setLabel("いいえ、やめておきます")
-            .setStyle(ButtonStyle.Secondary)
-        );
-
-        // ★重要: 元のメッセージを「更新」するのではなく、
-        // ボタン操作(i)に対して、「新しい一時的なメッセージ」で返信する
-        await i.reply({
-          content: warningMessage,
-          components: [confirmationButtons],
-          ephemeral: true,
-        });
-
-        // 確認メッセージを出したら、元の財布ボタンは押せなくする
-        collector.stop();
-        return;
-      }
-    });
-
-    collector.on("end", (collected) => {
-      // タイムアウトした場合、またはボタンが押されて stop() された場合に、
-      // 元の財布メッセージのボタンを無効化する
-      if (!message?.components?.length) return; // undefined対策
-      if (message.components.length > 0) {
-        const disabledButtons = new ActionRowBuilder();
-        message.components[0].components.forEach((button) => {
-          disabledButtons.addComponents(
-            ButtonBuilder.from(button).setDisabled(true)
-          );
-        });
-        interaction
-          .editReply({ components: [disabledButtons] })
-          .catch(() => {});
-      }
-    });
-  } catch (error) {
-    console.error("残高の取得中にエラー:", error);
-    await interaction.reply({
-      content: "残高の取得に失敗しました。",
-      ephemeral: true,
-    });
-  }
 }
 
 // ==================================================================
