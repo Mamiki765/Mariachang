@@ -137,10 +137,7 @@ export async function execute(interaction) {
         submitted.fields.getStringSelectValues("bank_action_select")[0];
       const amountRaw = submitted.fields.getTextInputValue("bank_amount_input");
       const userId = submitted.user.id;
-      const targetUserCollection = submitted.fields.getSelectedUsers(
-        "bank_target_user_select"
-      );
-      const targetUser = targetUserCollection.first();
+
 
       try {
         await submitted.deferReply({ ephemeral: true });
@@ -244,6 +241,10 @@ export async function execute(interaction) {
               return; // この後の共通処理をスキップするためにreturn
             }
             case "send_nyobobank": {
+                    const targetUserCollection = submitted.fields.getSelectedUsers(
+        "bank_target_user_select"
+      );
+      const targetUser = targetUserCollection.first();
               if (!targetUser) {
                 throw new Error("送金相手が選択されていません。");
               }
