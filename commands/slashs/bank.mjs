@@ -8,6 +8,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   UserSelectMenuBuilder,
+  EmbedBuilder,
 } from "discord.js";
 import { Point, IdleGame, sequelize } from "../../models/database.mjs";
 import {
@@ -283,8 +284,6 @@ export async function execute(interaction) {
               // ▼▼▼ ここからDM通知処理を追加 ▼▼▼
 
               try {
-                // ▼ GuildMember から User を取得
-const userToDM = targetMember.user;
                 const dmEmbed = new EmbedBuilder()
                   .setTitle("🏦 ニョボバンクへの入金がありました")
                   .setDescription(
@@ -306,7 +305,7 @@ const userToDM = targetMember.user;
                   .setColor("#2ECC71") // 入金が分かりやすい緑色
                   .setTimestamp();
 
-                await userToDM.send({
+                await targetUser.send({
                   embeds: [dmEmbed],
                   flags: [4096], // 通知音を鳴らさない
                 });
