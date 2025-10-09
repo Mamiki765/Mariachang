@@ -20,7 +20,6 @@ import config from "../../config.mjs";
 
 //14.23.0の新modalはhttps://modal.builders/で確認できる
 
-
 export const help = {
   category: "slash",
   description: "どんぐりやニョワコイン等の雨宿り通貨を両替します",
@@ -139,7 +138,6 @@ export async function execute(interaction) {
       const amountRaw = submitted.fields.getTextInputValue("bank_amount_input");
       const userId = submitted.user.id;
 
-
       try {
         await submitted.deferReply({ ephemeral: true });
 
@@ -242,10 +240,10 @@ export async function execute(interaction) {
               return; // この後の共通処理をスキップするためにreturn
             }
             case "send_nyobobank": {
-                    const targetUserCollection = submitted.fields.getSelectedUsers(
-        "bank_target_user_select"
-      );
-      const targetUser = targetUserCollection.first();
+              const targetUserCollection = submitted.fields.getSelectedUsers(
+                "bank_target_user_select"
+              );
+              const targetUser = targetUserCollection.first();
               if (!targetUser) {
                 throw new Error("送金相手が選択されていません。");
               }

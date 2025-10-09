@@ -629,19 +629,22 @@ const UserAchievement = sequelize.define(
 const CountingGame = sequelize.define(
   "CountingGame",
   {
-    channelId: { // どのチャンネルのゲームか
+    channelId: {
+      // どのチャンネルのゲームか
       type: DataTypes.STRING,
       primaryKey: true,
     },
-    currentNumber: { 
+    currentNumber: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
-    lastUserId: { // 最後に成功したユーザーID
+    lastUserId: {
+      // 最後に成功したユーザーID
       type: DataTypes.STRING,
       allowNull: true,
     },
-    lastMessageId: { // 最後に成功したメッセージID
+    lastMessageId: {
+      // 最後に成功したメッセージID
       type: DataTypes.STRING,
       allowNull: true,
     },
@@ -651,7 +654,6 @@ const CountingGame = sequelize.define(
     timestamps: true,
   }
 );
-
 
 // データベースの同期処理
 async function syncModels() {

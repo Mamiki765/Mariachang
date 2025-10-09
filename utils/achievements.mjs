@@ -255,7 +255,9 @@ async function _tryUnlockHiddenAchievement(userId, achievementId) {
   // 保存先の配列を hidden_unlocked に変更
   achievements.hidden_unlocked.push(achievementId);
   dirtyUsers.add(userId); // 変更があったので保存対象にする
-  console.log(`[Achievement] ${userId} が隠し実績「${achievement.name}」を解除！`);
+  console.log(
+    `[Achievement] ${userId} が隠し実績「${achievement.name}」を解除！`
+  );
   return achievement;
 }
 
@@ -265,7 +267,11 @@ async function _tryUnlockHiddenAchievement(userId, achievementId) {
  * @param {string} userId
  * @param {...number} hiddenAchievementIds - 解除したい隠し実績ID
  */
-export async function unlockHiddenAchievements(client, userId, ...hiddenAchievementIds) {
+export async function unlockHiddenAchievements(
+  client,
+  userId,
+  ...hiddenAchievementIds
+) {
   const newlyUnlocked = [];
   for (const id of hiddenAchievementIds) {
     // 内部関数を隠し実績用に変更
@@ -279,7 +285,7 @@ export async function unlockHiddenAchievements(client, userId, ...hiddenAchievem
 
   // --- 通知処理 ---
   // 隠し実績はネタバレ防止のため、本人にのみDMで通知するのが望ましいです。
-  
+
   let embed;
   if (newlyUnlocked.length === 1) {
     const ach = newlyUnlocked[0];

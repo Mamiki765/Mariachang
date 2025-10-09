@@ -48,5 +48,5 @@ export async function execute(interaction) {
     ],
   });
   //実績i1
-   await unlockHiddenAchievements(interaction.client, interaction.user.id, 1);
+  await unlockHiddenAchievements(interaction.client, interaction.user.id, 1);
 }

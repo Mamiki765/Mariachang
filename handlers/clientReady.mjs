@@ -33,8 +33,8 @@ export default async (client) => {
   // 8時と22時に時報、送信先読み込み
   const timechannel = await client.channels.fetch(config.timesignalch);
   const morningImageUrl =
-      "https://cdn.discordapp.com/attachments/1261485824378142760/1421894692391358607/image.png?ex=68dab220&is=68d960a0&hm=4e7367625ea405cb6e3e58f79cd0bbc3e085155ab03721cf9867acf5eac012bf&";
-    
+    "https://cdn.discordapp.com/attachments/1261485824378142760/1421894692391358607/image.png?ex=68dab220&is=68d960a0&hm=4e7367625ea405cb6e3e58f79cd0bbc3e085155ab03721cf9867acf5eac012bf&";
+
   const nightImageUrl =
     "https://cdn.discordapp.com/attachments/1261485824378142760/1421894775795089448/image.png?ex=68dab234&is=68d960b4&hm=e607ae645534b086ae44e8c4438f6434f33afff37521c460dcf36c7f65f92bd4&";
   //8時
@@ -148,7 +148,7 @@ export default async (client) => {
     console.log("[TASK] Booster Sync: Performing initial synchronization.");
     await synchronizeBoosters(client);
     //ついでにRSSもチェック
-    initializeRssWatcher(client); 
+    initializeRssWatcher(client);
   } else {
     console.log(
       "[TASK] Scenario checker: Initial check skipped in development mode."

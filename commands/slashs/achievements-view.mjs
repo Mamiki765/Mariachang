@@ -86,7 +86,7 @@ export async function execute(interaction) {
   await unlockAchievements(interaction.client, interaction.user.id, 28);
 
   const targetUser = interaction.options.getUser("user") || interaction.user;
-    // オプションで指定されたページ番号を取得。なければ1ページ目とする。
+  // オプションで指定されたページ番号を取得。なければ1ページ目とする。
   const startPage = interaction.options.getInteger("page") || 1;
   const userId = targetUser.id;
   const isEphemeral = interaction.options.getBoolean("hide") ?? true;
@@ -147,7 +147,7 @@ export async function execute(interaction) {
   }
 
   // 表示状態を管理する変数
-  let currentPage = startPage - 1; 
+  let currentPage = startPage - 1;
   let isHiddenMode = false;
 
   // --- 2. 表示コンポーネントを生成する関数 ---

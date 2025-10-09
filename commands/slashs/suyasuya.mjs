@@ -57,11 +57,19 @@ export async function timeout_confirm(interaction, minutes) {
     //本当は下の.timeout後にやるべきですが、私が取れなくなります←
     const numericMinutes = parseInt(minutes, 10);
     if (numericMinutes === 1) {
-      // 実績ID: i3 
-      await unlockHiddenAchievements(interaction.client, interaction.user.id, 3);
+      // 実績ID: i3
+      await unlockHiddenAchievements(
+        interaction.client,
+        interaction.user.id,
+        3
+      );
     } else if (numericMinutes === 720) {
-      // 実績ID: i4 
-      await unlockHiddenAchievements(interaction.client, interaction.user.id, 4);
+      // 実績ID: i4
+      await unlockHiddenAchievements(
+        interaction.client,
+        interaction.user.id,
+        4
+      );
     }
     await interaction.member.timeout(
       sleaptime,

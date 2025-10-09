@@ -175,7 +175,7 @@ export async function checkNewScenarios(client) {
         // DBに記録されている数と、APIから取得した新しい数を比較
         const oldCount = existing.rally_member_count || 0;
         const newCount = newData.rally_member_count || 0;
-        
+
         // 返却済人数が増えていたら「返却あり」と判断
         if (newCount > oldCount) {
           hasReplayReturned = true;
@@ -581,7 +581,7 @@ export async function checkNewScenarios(client) {
         await channel.send({ embeds: [embed] });
       }
     }
- //  リプレイ返却シナリオの通知
+    //  リプレイ返却シナリオの通知
     if (replayReturnedScenariosForNotification.length > 0) {
       console.log(
         `${replayReturnedScenariosForNotification.length}件のラリーシナリオでリプレイ返却を発見！`
@@ -608,7 +608,9 @@ export async function checkNewScenarios(client) {
           descriptionText !== ""
         ) {
           embedsToSend.push(
-            new EmbedBuilder().setColor("Purple").setDescription(descriptionText)
+            new EmbedBuilder()
+              .setColor("Purple")
+              .setDescription(descriptionText)
           );
           descriptionText = line;
         } else {

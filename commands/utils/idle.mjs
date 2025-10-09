@@ -544,8 +544,10 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
           prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (+${powerGain.toFixed(2)})`;
         } else {
           // 条件3: それ以外 (populationが1e16以上) の場合
-          const potentialTP =
-            calculatePotentialTP(idleGame.population,idleGame.skillLevel8); // 先に計算しておくとスッキリします
+          const potentialTP = calculatePotentialTP(
+            idleGame.population,
+            idleGame.skillLevel8
+          ); // 先に計算しておくとスッキリします
           prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
         }
 
@@ -562,8 +564,10 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         idleGame.population >= 1e16
       ) {
         // --- ケース2: TPだけ手に入る新しいプレステージ ---
-        const potentialTP =
-            calculatePotentialTP(idleGame.population,idleGame.skillLevel8);
+        const potentialTP = calculatePotentialTP(
+          idleGame.population,
+          idleGame.skillLevel8
+        );
 
         boostRow.addComponents(
           new ButtonBuilder()
@@ -1362,8 +1366,10 @@ async function handlePrestige(interaction, collector) {
           newSkillPoints += powerGain;
         }
 
-        const gainedTP =
-          calculatePotentialTP(currentPopulation,latestIdleGame.skillLevel8);
+        const gainedTP = calculatePotentialTP(
+          currentPopulation,
+          latestIdleGame.skillLevel8
+        );
 
         await latestIdleGame.update(
           {
@@ -1392,8 +1398,10 @@ async function handlePrestige(interaction, collector) {
         };
       } else if (currentPopulation >= 1e16) {
         // --- TPプレステージ (新しいロジック) ---
-        const gainedTP =
-          calculatePotentialTP(currentPopulation,latestIdleGame.skillLevel8);
+        const gainedTP = calculatePotentialTP(
+          currentPopulation,
+          latestIdleGame.skillLevel8
+        );
 
         await latestIdleGame.update(
           {

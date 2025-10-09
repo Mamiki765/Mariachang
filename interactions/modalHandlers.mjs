@@ -216,7 +216,7 @@ export default async function handleModalInteraction(interaction) {
           // 実際の絵文字IDなどに合わせて変更してください
           replyMessage += `\n💎 **RP**を1獲得しました！`;
         } else if (rewardResult.rewardType === "pizza") {
-            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**が**${rewardResult.amount.toLocaleString()}**枚、バンクに入金されました。`;
+          replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**が**${rewardResult.amount.toLocaleString()}**枚、バンクに入金されました。`;
         }
       }
       await interaction.editReply({

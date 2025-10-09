@@ -35,33 +35,40 @@ export function calculateFactoryEffects(idleGame, pp) {
 
   // --- ピザ窯 ---
   const oven_base_lv = idleGame.pizzaOvenLevel || 0;
-  const ovenFinalEffect = (oven_base_lv + pp) * (1 + baseLevelBonusPerLevel * oven_base_lv);
+  const ovenFinalEffect =
+    (oven_base_lv + pp) * (1 + baseLevelBonusPerLevel * oven_base_lv);
 
   // --- チーズ工場 ---
   const cheese_base_lv = idleGame.cheeseFactoryLevel || 0;
   const cheese_base_effect = config.idle.cheese.effect;
   // 1. まず、スキル#5で「基本効果」そのものを強化する
-  const cheese_boosted_effect = cheese_base_effect * (1 + baseLevelBonusPerLevel * cheese_base_lv);
+  const cheese_boosted_effect =
+    cheese_base_effect * (1 + baseLevelBonusPerLevel * cheese_base_lv);
   // 2. その強化された効果を使って、最終的な効果を計算する
   const cheeseFinalEffect = 1 + cheese_boosted_effect * (cheese_base_lv + pp);
-  
+
   // --- トマト農場 ---
   const tomato_base_lv = idleGame.tomatoFarmLevel || 0;
   const tomato_base_effect = config.idle.tomato.effect;
-  const tomato_boosted_effect = tomato_base_effect * (1 + baseLevelBonusPerLevel * tomato_base_lv);
+  const tomato_boosted_effect =
+    tomato_base_effect * (1 + baseLevelBonusPerLevel * tomato_base_lv);
   const tomatoFinalEffect = 1 + tomato_boosted_effect * (tomato_base_lv + pp);
-  
+
   // --- マッシュルーム農場 ---
   const mushroom_base_lv = idleGame.mushroomFarmLevel || 0;
   const mushroom_base_effect = config.idle.mushroom.effect;
-  const mushroom_boosted_effect = mushroom_base_effect * (1 + baseLevelBonusPerLevel * mushroom_base_lv);
-  const mushroomFinalEffect = 1 + mushroom_boosted_effect * (mushroom_base_lv + pp);
+  const mushroom_boosted_effect =
+    mushroom_base_effect * (1 + baseLevelBonusPerLevel * mushroom_base_lv);
+  const mushroomFinalEffect =
+    1 + mushroom_boosted_effect * (mushroom_base_lv + pp);
 
   // --- アンチョビ工場 ---
   const anchovy_base_lv = idleGame.anchovyFactoryLevel || 0;
   const anchovy_base_effect = config.idle.anchovy.effect;
-  const anchovy_boosted_effect = anchovy_base_effect * (1 + baseLevelBonusPerLevel * anchovy_base_lv);
-  const anchovyFinalEffect = 1 + anchovy_boosted_effect * (anchovy_base_lv + pp);
+  const anchovy_boosted_effect =
+    anchovy_base_effect * (1 + baseLevelBonusPerLevel * anchovy_base_lv);
+  const anchovyFinalEffect =
+    1 + anchovy_boosted_effect * (anchovy_base_lv + pp);
 
   return {
     oven: ovenFinalEffect,
@@ -71,7 +78,6 @@ export function calculateFactoryEffects(idleGame, pp) {
     anchovy: anchovyFinalEffect,
   };
 }
-
 
 /**
  * 施設のアップグレードコストを計算する (割引適用版)
@@ -213,12 +219,12 @@ export async function updateUserIdleGame(userId) {
         anchovyEffect *
         Math.pow(skill1Effect, 5), // 工場5個なので
       meatEffect
-    ) *
-    currentBuffMultiplier;
+    ) * currentBuffMultiplier;
 
   // --- 経過分の人口加算 ---
   if (elapsedSeconds > 0) {
-    const addedPopulation = (productionPerMinute / 60) * effectiveElapsedSeconds;
+    const addedPopulation =
+      (productionPerMinute / 60) * effectiveElapsedSeconds;
     idleGame.population += addedPopulation;
   }
 
@@ -381,12 +387,13 @@ export function calculatePotentialTP(population, skillLevel8 = 0) {
   if (population < 1e16) {
     return 0;
   }
-  
+
   // 基礎となるTPを計算
   const baseTP = Math.pow(Math.log10(population) - 15, 2.5);
-  
+
   // スキル#8の倍率を計算 (+100% * level なので、1 + 1.0 * level)
-  const multiplier = 1 + skillLevel8 * config.idle.tp_skills.skill8.effectMultiplier;
-  
+  const multiplier =
+    1 + skillLevel8 * config.idle.tp_skills.skill8.effectMultiplier;
+
   return baseTP * multiplier;
 }

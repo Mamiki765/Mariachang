@@ -425,16 +425,16 @@ export default async function handleButtonInteraction(interaction) {
 
       // 4. 放置ゲームの人口を「表示のためだけ」に更新
       const idleResult = await updateUserIdleGame(interaction.user.id);
-      pizzaMessages.push(`-# 焼きあがったピザはニョボシ達が${nyoboChip.displayName}に換金しに持っていきました。/bank から引き出せます。`);
+      pizzaMessages.push(
+        `-# 焼きあがったピザはニョボシ達が${nyoboChip.displayName}に換金しに持っていきました。/bank から引き出せます。`
+      );
 
       // 合計の計算と最終メッセージの構築
       const totalPizza = pizzaBreakdown.reduce((sum, val) => sum + val, 0);
       Message += `\n${pizzaMessages.join("\n")}`; // \n\nで少し間を空ける
       Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚の${nyoboChip.displayName}がバンクに入金されました！**`;
 
-      updateData.nyobo_bank = sequelize.literal(
-        `nyobo_bank + ${totalPizza}`
-      );
+      updateData.nyobo_bank = sequelize.literal(`nyobo_bank + ${totalPizza}`);
       // ▲▲▲ 新ピザメッセージ構築ロジックここまで ▲▲▲
       // 6. データベースを更新
       await pointEntry.update(updateData);
@@ -449,9 +449,15 @@ export default async function handleButtonInteraction(interaction) {
         { id: 26, condition: updatedPointEntry.totalacorn >= 50 },
         { id: 27, condition: updatedPointEntry.totalacorn >= 100 },
       ];
-      const idsToCheck = acornChecks.filter(p => p.condition).map(p => p.id);
-      await unlockAchievements(interaction.client, interaction.user.id, ...idsToCheck);
-      
+      const idsToCheck = acornChecks
+        .filter((p) => p.condition)
+        .map((p) => p.id);
+      await unlockAchievements(
+        interaction.client,
+        interaction.user.id,
+        ...idsToCheck
+      );
+
       // 7. ユーザーに成功を報告するメッセージを作成
       // 区切り線
       Message += `\n--------------------`;

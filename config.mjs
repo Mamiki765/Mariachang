@@ -1163,8 +1163,7 @@ export default {
       {
         id: 60,
         name: "よろしい、ならばシベリア送りだ",
-        description:
-          "countingで100回数字を数える",
+        description: "countingで100回数字を数える",
         goal: 100,
         reward: {},
       },

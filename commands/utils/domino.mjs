@@ -84,43 +84,49 @@ export async function execute(interaction) {
 
     // ▼▼▼ ここからが自分の順位を表示する追加ロジック ▼▼▼
 
-  const myUsername = interaction.user.username;
-  let myCollapseCount = 0; // ★1. letで変数を宣言し、0で初期化
-  let myRankText = "";
+    const myUsername = interaction.user.username;
+    let myCollapseCount = 0; // ★1. letで変数を宣言し、0で初期化
+    let myRankText = "";
 
-  // 2. 自分がTOP10に入っているかチェック
-  const myTop10Data = loserCounts.find(loser => loser.loserName === myUsername);
+    // 2. 自分がTOP10に入っているかチェック
+    const myTop10Data = loserCounts.find(
+      (loser) => loser.loserName === myUsername
+    );
 
-  if (myTop10Data) {
-    // 3a. TOP10に入っていた場合、そのデータから回数を取得
-    myCollapseCount = myTop10Data.count;
-    // この場合、自分の順位は既に表示されているので myRankText は空のまま
-  } else {
-    // 3b. TOP10に入っていなかった場合、DBに問い合わせる
-    myCollapseCount = await DominoLog.count({ where: { loserName: myUsername } });
-
-    if (myCollapseCount > 0) {
-      const allLosersRanked = await DominoLog.findAll({
-        attributes: ["loserName"], // 順位の特定に必要なのは名前だけなので軽量化
-        group: ["loserName"],
-        order: [[sequelize.fn("COUNT", sequelize.col("loserName")), "DESC"]],
-        raw: true,
-      });
-      
-      const myRankIndex = allLosersRanked.findIndex(loser => loser.loserName === myUsername);
-      const myRank = myRankIndex + 1;
-
-      myRankText = `\n★あなたの記録★\n-# ${myRank}位: ${escapeDiscordText(myUsername)} (${myCollapseCount}回)`;
+    if (myTop10Data) {
+      // 3a. TOP10に入っていた場合、そのデータから回数を取得
+      myCollapseCount = myTop10Data.count;
+      // この場合、自分の順位は既に表示されているので myRankText は空のまま
     } else {
-      myRankText = `\n★あなたの記録★\n-# あなたはまだドミノを崩したことがありません。`;
+      // 3b. TOP10に入っていなかった場合、DBに問い合わせる
+      myCollapseCount = await DominoLog.count({
+        where: { loserName: myUsername },
+      });
+
+      if (myCollapseCount > 0) {
+        const allLosersRanked = await DominoLog.findAll({
+          attributes: ["loserName"], // 順位の特定に必要なのは名前だけなので軽量化
+          group: ["loserName"],
+          order: [[sequelize.fn("COUNT", sequelize.col("loserName")), "DESC"]],
+          raw: true,
+        });
+
+        const myRankIndex = allLosersRanked.findIndex(
+          (loser) => loser.loserName === myUsername
+        );
+        const myRank = myRankIndex + 1;
+
+        myRankText = `\n★あなたの記録★\n-# ${myRank}位: ${escapeDiscordText(myUsername)} (${myCollapseCount}回)`;
+      } else {
+        myRankText = `\n★あなたの記録★\n-# あなたはまだドミノを崩したことがありません。`;
+      }
     }
-  }
 
-  // 4. 最後に自分の順位情報をresponseに追加
-  response += myRankText;
+    // 4. 最後に自分の順位情報をresponseに追加
+    response += myRankText;
 
-  // ▼▼▼ ここからが実績解除ロジック ▼▼▼
-  // myCollapseCount は必ず正しい回数が入っているので、ここで安心して使える
+    // ▼▼▼ ここからが実績解除ロジック ▼▼▼
+    // myCollapseCount は必ず正しい回数が入っているので、ここで安心して使える
     const dominoChecks = [
       { id: 53, condition: myCollapseCount >= 15 },
       { id: 54, condition: myCollapseCount >= 20 },
@@ -128,14 +134,18 @@ export async function execute(interaction) {
     ];
 
     const idsToUnlock = dominoChecks
-      .filter(p => p.condition)
-      .map(p => p.id);
+      .filter((p) => p.condition)
+      .map((p) => p.id);
 
     // idsToUnlockに解除すべきIDが入っている場合のみ処理を実行
     if (idsToUnlock.length > 0) {
-      await unlockAchievements(interaction.client, interaction.user.id, ...idsToUnlock);
+      await unlockAchievements(
+        interaction.client,
+        interaction.user.id,
+        ...idsToUnlock
+      );
     }
-  // ▲▲▲ 実績解除ロジックここまで ▲▲▲
+    // ▲▲▲ 実績解除ロジックここまで ▲▲▲
 
     await interaction.reply(response);
   } else {
