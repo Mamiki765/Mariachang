@@ -1,9 +1,9 @@
 //utils/idle-game-calculator.mjs
 //commands/utils/idle.mjsの各種計算や、処理部分を移植する
 //UIとかユーザーが直接操作する部分は今のところidle.mjsに残す
-import Decimal from 'break_infinity.js'; 
+import Decimal from "break_infinity.js";
 import config from "../config.mjs";
-import { IdleGame, Mee6Level, UserAchievement } from "../models/database.mjs";
+import { IdleGame } from "../models/database.mjs";
 
 /**
  * TPスキル#6によるコスト割引率を計算する
@@ -80,7 +80,7 @@ export function calculateFactoryEffects(idleGame, pp) {
 }
 
 /**
- * 施設のアップグレードコストを計算する (割引適用版)
+ * 施設のアップグレードコストを計算する (Decimal版)
  * @param {string} type
  * @param {number} level
  * @param {number} skillLevel6 - TPスキル#6のレベル
@@ -93,7 +93,9 @@ export function calculateFacilityCost(type, level, skillLevel6 = 0) {
   // 1. 計算に使う数値をDecimalオブジェクトに変換
   const baseCost_d = new Decimal(facility.baseCost);
   const multiplier_d = new Decimal(facility.multiplier);
-  const discountMultiplier_d = new Decimal(calculateDiscountMultiplier(skillLevel6));
+  const discountMultiplier_d = new Decimal(
+    calculateDiscountMultiplier(skillLevel6)
+  );
 
   // 2. 全ての計算をDecimalメソッドで行う
   const finalCost_d = baseCost_d
@@ -137,134 +139,45 @@ export function calculateAllCosts(idleGame) {
 }
 
 /**
- *  * ==========================================================================================
- * ★★★ 将来の自分へ: 計算式に関する超重要メモ ★★★
- *
- * この updateUserIdleGame 関数内の人口計算ロジックは、
- * SupabaseのSQL関数 `update_all_idle_games_and_bonuses` 内でも、
- * 全く同じ計算式でSQLとして再現されています。
- *
- * (SQL関数は、tasks/pizza-distributor.mjsから10分毎に呼び出され、
- * 全ユーザーの人口を一括で更新するために使われています)
- *
- * そのため、将来ここで計算式を変更する場合 (例: 施設の補正数値をconfigで変える、新しい施設を追加する) は、
- * 必ずSupabaseにある `update_all_idle_games_and_bonuses` 関数も
- * 同じロジックになるよう修正してください！
- *
- * ==========================================================================================
- *
- * 特定ユーザーの放置ゲームデータを更新し、最新の人口を返す関数
- * @param {string} userId - DiscordのユーザーID
- * @returns {Promise<object|null>} 成功した場合は { population, pizzaBonusPercentage }、データがなければ null
+ * スキルレベルから、そのスキルに費やされた合計SPを計算する
+ * (2^0 + 2^1 + ... + 2^(レベル-1)) = 2^レベル - 1
+ * @param {number} level - スキルの現在のレベル
+ * @returns {number} 消費された合計SP
  */
+export function calculateSpentSP(level) {
+  if (level <= 0) return 0;
+  return Math.pow(2, level) - 1;
+}
+
 /**
- * 特定ユーザーの放置ゲームデータを更新し、最新の人口を返す関数
- * @param {string} userId - DiscordのユーザーID
- * @returns {Promise<object|null>} 成功した場合は { population, pizzaBonusPercentage }、データがなければ null
+ * TP獲得量を計算する (スキル#8の効果も考慮)
+ * ★ Decimal対応版 ★
+ * @param {Decimal} population_d - 現在の人口 (Decimalオブジェクト)
+ * @param {number} skillLevel8 - スキル#8の現在のレベル (これはNumberでOK)
+ * @returns {number} 獲得できるTPの量 (TPはNumberで十分なのでNumberを返す)
  */
-export async function updateUserIdleGame(userId) {
-  const idleGame = await IdleGame.findOne({ where: { userId } });
-  if (!idleGame) return null;
-
-  const pp = idleGame.prestigePower || 0;
-  const userAchievement = await UserAchievement.findOne({ where: { userId } });
-  const achievementCount = userAchievement?.achievements?.unlocked?.length || 0;
-  const achievementMultiplier = 1.0 + achievementCount * 0.01;
-  const achievementExponentBonus = achievementCount;
-
-  const skillLevels = {
-    s1: idleGame.skillLevel1 || 0,
-    s2: idleGame.skillLevel2 || 0,
-    s3: idleGame.skillLevel3 || 0,
-    s4: idleGame.skillLevel4 || 0,
-    s5: idleGame.skillLevel5 || 0,
-  };
-
-  // 光輝
-  const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
-  const skill1Effect =
-    (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier;
-  const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
-  const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
-
-  //#2は②乗
-  const finalSkill2Effect = Math.pow(skill2Effect, 2);
-
-  // --- スキル#5対応の工場効果を反映 ---
-  const factoryEffects = calculateFactoryEffects(idleGame, pp);
-  const ovenEffect = factoryEffects.oven;
-  const cheeseEffect = factoryEffects.cheese;
-  const tomatoEffect = factoryEffects.tomato;
-  const mushroomEffect = factoryEffects.mushroom;
-  const anchovyEffect = factoryEffects.anchovy;
-
-  // --- Mee6レベル由来の肉工場 ---
-  const mee6Level = await Mee6Level.findOne({ where: { userId } });
-  const meatFactoryLevel =
-    (mee6Level ? mee6Level.level : 0) + pp + achievementExponentBonus;
-  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
-
-  // --- 経過時間計算 ---
-  const now = new Date();
-  const lastUpdate = idleGame.lastUpdatedAt || now;
-  const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
-  //#2に依って時間を「加速」させる
-  const effectiveElapsedSeconds = elapsedSeconds * finalSkill2Effect;
-
-  // --- バフ確認 ---
-  let currentBuffMultiplier = 1.0;
-  if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
-    currentBuffMultiplier = idleGame.buffMultiplier;
+export function calculatePotentialTP(population_d, skillLevel8 = 0) {
+  // --- 1. 比較もDecimalのメソッドで行う ---
+  const threshold = new Decimal("1e16");
+  if (population_d.lt(threshold)) {
+    // .lt() は "less than" (<)
+    return 0;
   }
 
-  // --- 生産量（人口増加）計算 ---
-  const productionPerMinute =
-    Math.pow(
-      ovenEffect *
-        cheeseEffect *
-        tomatoEffect *
-        mushroomEffect *
-        anchovyEffect *
-        Math.pow(skill1Effect, 5), // 工場5個なので
-      meatEffect
-    ) * currentBuffMultiplier;
+  // --- 2. 基礎TPの計算をDecimalで行う ---
+  // population_d.log10() は Number を返すので、それをDecimalに変換し直す
+  const logPop_d = new Decimal(population_d.log10());
 
-  // --- 経過分の人口加算 ---
-  if (elapsedSeconds > 0) {
-    const addedPopulation =
-      (productionPerMinute / 60) * effectiveElapsedSeconds;
-    idleGame.population += addedPopulation;
-  }
+  // (log10(人口) - 15) ^ 2.5
+  const baseTP_d = logPop_d.minus(15).pow(2.5);
+  // .minus() は引き算, .pow() はべき乗
 
-  // --- ピザボーナス算出 ---
-  let pizzaBonusPercentage = 0;
-  if (idleGame.population >= 1) {
-    pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp;
-  } else if (pp > 0) {
-    pizzaBonusPercentage = pp;
-  }
-  pizzaBonusPercentage = (100 + pizzaBonusPercentage) * skill3Effect - 100;
+  // --- 3. スキル倍率を計算し、最終結果を求める ---
+  const multiplier =
+    1 + skillLevel8 * config.idle.tp_skills.skill8.effectMultiplier;
 
-  // --- 保存 ---
-  idleGame.pizzaBonusPercentage = pizzaBonusPercentage;
-  idleGame.lastUpdatedAt = now;
-  await idleGame.save();
-
-  // --- バフ残り時間を返却 ---
-  let buffRemaining = null;
-  if (idleGame.buffExpiresAt && new Date(idleGame.buffExpiresAt) > now) {
-    const ms = idleGame.buffExpiresAt - now;
-    const hours = Math.floor(ms / (1000 * 60 * 60));
-    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    buffRemaining = { hours, minutes };
-  }
-
-  return {
-    population: idleGame.population,
-    pizzaBonusPercentage,
-    buffRemaining,
-    currentBuffMultiplier,
-  };
+  // 最後に .toNumber() で通常の数値に戻して返す
+  return baseTP_d.times(multiplier).toNumber();
 }
 
 /**
@@ -330,6 +243,198 @@ export function formatProductionRate(n) {
   }
 }
 
+// =========================================================================
+// ★★★ ここからが新しいリファクタリングの核心部です ★★★
+// =========================================================================
+/**
+ * 【新規】1. 生産量の計算エンジン
+ * 毎分のニョワミヤ増加量を "Decimal" オブジェクトとして計算して返す。
+ * @param {object} idleGameData - IdleGameの生データ
+ * @param {object} externalData - Mee6レベルなど外部から与えるデータ
+ * @returns {Decimal} - 毎分の生産量
+ */
+function calculateProductionRate(idleGameData, externalData) {
+  const pp = idleGameData.prestigePower || 0;
+  const achievementCount = externalData.achievementCount || 0;
+  const achievementMultiplier = 1.0 + achievementCount * 0.01;
+  const achievementExponentBonus = achievementCount;
+
+  // スキル効果 (これらは通常のNumberでOK)
+  const skillLevels = {
+    s1: idleGameData.skillLevel1,
+    s2: idleGameData.skillLevel2,
+    s3: idleGameData.skillLevel3,
+    s4: idleGameData.skillLevel4,
+  };
+  const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
+  const skill1Effect =
+    (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier;
+  const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
+  const finalSkill2Effect = Math.pow(skill2Effect, 2); // 時間加速
+
+  // 工場効果 (これもNumberでOK)
+  const factoryEffects = calculateFactoryEffects(idleGameData, pp);
+  const meatFactoryLevel =
+    (externalData.mee6Level || 0) + pp + achievementExponentBonus;
+  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
+
+  // バフ (これもNumberでOK)
+  let buffMultiplier = 1.0;
+  if (
+    idleGameData.buffExpiresAt &&
+    new Date(idleGameData.buffExpiresAt) > new Date()
+  ) {
+    buffMultiplier = idleGameData.buffMultiplier;
+  }
+
+  // --- ここからDecimal計算 ---
+  let baseProduction = new Decimal(factoryEffects.oven)
+    .times(factoryEffects.cheese)
+    .times(factoryEffects.tomato)
+    .times(factoryEffects.mushroom)
+    .times(factoryEffects.anchovy)
+    .times(new Decimal(skill1Effect).pow(5));
+
+  let finalProduction = baseProduction
+    .pow(meatEffect)
+    .times(buffMultiplier)
+    .times(finalSkill2Effect); // 時間加速効果は最終乗算
+
+  return finalProduction;
+}
+
+/**
+ * 【新規】2. オフライン進行の計算エンジン (新しい心臓部)
+ * @param {object} idleGameData - Sequelizeから取得したidleGameの生データ
+ * @param {object} externalData - Mee6レベルなど外部から与えるデータ
+ * @returns {object} - 計算後の更新されたidleGameの生データ (プレーンなJSオブジェクト)
+ */
+export function calculateOfflineProgress(idleGameData, externalData) {
+  // --- 1. Decimalオブジェクトへ変換 ---
+  let population_d = new Decimal(idleGameData.population);
+
+  // --- 2. 経過時間に基づいた人口計算 ---
+  const now = new Date();
+  const lastUpdate = new Date(idleGameData.lastUpdatedAt);
+  const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+
+  if (elapsedSeconds > 0) {
+    const productionPerMinute_d = calculateProductionRate(
+      idleGameData,
+      externalData
+    );
+    const productionPerSecond_d = productionPerMinute_d.div(60);
+    const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
+    population_d = population_d.add(addedPopulation_d);
+  }
+
+  // --- 3. ピザボーナスの再計算 ---
+  let pizzaBonusPercentage = 0;
+  // populationが1以上の場合のみ計算
+  if (population_d.gte(1)) {
+    // population_d.log10() は通常の Number を返すので、以降はNumber計算でOK
+    const logPop = population_d.log10();
+    const skill3Effect =
+      (1 + (idleGameData.skillLevel3 || 0)) *
+      (1.0 + (idleGameData.skillLevel4 || 0) * 0.1);
+    pizzaBonusPercentage =
+      (100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect -
+      100;
+  }
+
+  // --- 4. 更新されたデータをオブジェクトとして返す ---
+  return {
+    ...idleGameData, // 変更がないデータはそのままコピー
+    population: population_d.toString(), // ★ 文字列に戻して返す
+    lastUpdatedAt: now,
+    pizzaBonusPercentage: pizzaBonusPercentage,
+  };
+}
+
+// =========================================================================
+// ★★★ UI表示用のフォーマット関数 (Decimal対応版) ★★★
+// =========================================================================
+
+/**
+ * 【新規】Decimal対応版 - 動的なルールでフォーマット
+ * @param {Decimal} dec - フォーマットするDecimalオブジェクト
+ * @param {number} [decimalPlaces=2] - 100未満の場合に使用する小数点以下の桁数
+ * @returns {string} フォーマットされた文字列
+ */
+export function formatNumberDynamic_Decimal(dec, decimalPlaces = 2) {
+  if (!(dec instanceof Decimal)) {
+    return "N/A";
+  }
+  if (dec.lt(100)) {
+    return dec.toFixed(decimalPlaces);
+  }
+  if (dec.lt(1_000_000_000)) {
+    // 10億未満
+    return dec.floor().toNumber().toLocaleString();
+  }
+  return dec.toExponential(2);
+}
+
+// (↓既存のフォーマット関数は、内部で使われるので残しておきます)
+/**
+ * 【Decimal対応 - 巨大数値を日本の単位に整形
+ * - 1京未満: 日本の単位（兆, 億, 万）で詳細に表示
+ * - 1京以上: 指数表記 (e+) で表示
+ * @param {Decimal} dec - フォーマットしたいDecimalオブジェクト
+ * @returns {string} フォーマットされた文字列
+ */
+export function formatNumberJapanese_Decimal(dec) {
+  if (!(dec instanceof Decimal)) {
+    return "N/A";
+  }
+  if (dec.isZero()) {
+    return "0";
+  }
+
+  const KEI = new Decimal("1e16");
+
+  // --- 1京以上は指数表記 ---
+  if (dec.gte(KEI)) {
+    return dec.toExponential(4);
+  }
+
+  // --- 1京未満は日本の単位で表示 ---
+  const CHOU = new Decimal("1e12");
+  const OKU = new Decimal("1e8");
+  const MAN = new Decimal("1e4");
+
+  let temp_d = dec.floor();
+  let result = "";
+
+  // 兆の単位
+  if (temp_d.gte(CHOU)) {
+    const chouPart = temp_d.div(CHOU).floor();
+    result += `${chouPart.toString()}兆`;
+    temp_d = temp_d.mod(CHOU);
+  }
+
+  // 億の単位
+  if (temp_d.gte(OKU)) {
+    const okuPart = temp_d.div(OKU).floor();
+    result += `${okuPart.toString()}億`;
+    temp_d = temp_d.mod(OKU);
+  }
+
+  // 万の単位
+  if (temp_d.gte(MAN)) {
+    const manPart = temp_d.div(MAN).floor();
+    result += `${manPart.toString()}万`;
+    temp_d = temp_d.mod(MAN);
+  }
+
+  // 残りの部分
+  if (temp_d.gt(0) || result === "") {
+    result += temp_d.toString();
+  }
+
+  return result;
+}
+
 /**
  * 数値を動的なルールでフォーマットします。
  * - 100未満: 指定された小数点以下の桁数で表示 (toFixed)
@@ -341,8 +446,8 @@ export function formatProductionRate(n) {
  */
 export function formatNumberDynamic(n, decimalPlaces = 2) {
   // 既存の関数から持ってきた、堅牢な入力値チェック
-  if (typeof n !== 'number' || !isFinite(n)) {
-    return 'N/A'; // または '計算中...' など、エラー時の表示を統一
+  if (typeof n !== "number" || !isFinite(n)) {
+    return "N/A"; // または '計算中...' など、エラー時の表示を統一
   }
 
   // 条件1: 100未満
@@ -357,80 +462,4 @@ export function formatNumberDynamic(n, decimalPlaces = 2) {
   else {
     return n.toExponential(2);
   }
-}
-
-/**
- * 巨大な数値を、日本の単位（兆、億、万）を使った最も自然な文字列に整形します。
- * 人間が日常的に読み書きする形式を再現します。
- * @param {number} n - フォーマットしたい数値。
- * @returns {string} フォーマットされた文字列。
- * @example
- * formatNumberJapanese(1234567890123); // "1兆2345億6789万123"
- * formatNumberJapanese(100010001);     // "1億1万1"
- * formatNumberJapanese(100000023);     // "1億23"
- * formatNumberJapanese(12345);         // "1万2345"
- * formatNumberJapanese(123);           // "123"
- */
-export function formatNumberJapanese(n) {
-  if (typeof n !== "number" || !Number.isFinite(n)) {
-    return String(n);
-  }
-  if (n > Number.MAX_SAFE_INTEGER) {
-    return n.toExponential(4);
-  }
-  const num = Math.floor(n);
-  if (num === 0) {
-    return "0";
-  }
-  const units = [
-    { value: 1_0000_0000_0000, name: "兆" },
-    { value: 1_0000_0000, name: "億" },
-    { value: 1_0000, name: "万" },
-  ];
-  let result = "";
-  let tempNum = num;
-  for (const unit of units) {
-    if (tempNum >= unit.value) {
-      const part = Math.floor(tempNum / unit.value);
-      result += part + unit.name;
-      tempNum %= unit.value;
-    }
-  }
-  if (tempNum > 0) {
-    result += tempNum;
-  }
-  return result || String(num);
-}
-
-/**
- * スキルレベルから、そのスキルに費やされた合計SPを計算する
- * (2^0 + 2^1 + ... + 2^(レベル-1)) = 2^レベル - 1
- * @param {number} level - スキルの現在のレベル
- * @returns {number} 消費された合計SP
- */
-export function calculateSpentSP(level) {
-  if (level <= 0) return 0;
-  return Math.pow(2, level) - 1;
-}
-
-/**
- * TP獲得量を計算する (スキル#8の効果も考慮)
- * @param {number} population - 現在の人口
- * @param {number} skillLevel8 - スキル#8の現在のレベル
- * @returns {number} 獲得できるTPの量
- */
-export function calculatePotentialTP(population, skillLevel8 = 0) {
-  // 閾値に達していない場合は0を返す
-  if (population < 1e16) {
-    return 0;
-  }
-
-  // 基礎となるTPを計算
-  const baseTP = Math.pow(Math.log10(population) - 15, 2.5);
-
-  // スキル#8の倍率を計算 (+100% * level なので、1 + 1.0 * level)
-  const multiplier =
-    1 + skillLevel8 * config.idle.tp_skills.skill8.effectMultiplier;
-
-  return baseTP * multiplier;
 }
