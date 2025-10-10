@@ -1,7 +1,7 @@
 //utils/idle-game-calculator.mjs
 //commands/utils/idle.mjsの各種計算や、処理部分を移植する
 //UIとかユーザーが直接操作する部分は今のところidle.mjsに残す
-
+import Decimal from 'break_infinity.js'; 
 import config from "../config.mjs";
 import { IdleGame, Mee6Level, UserAchievement } from "../models/database.mjs";
 
@@ -90,10 +90,18 @@ export function calculateFacilityCost(type, level, skillLevel6 = 0) {
   const facility = config.idle[type];
   if (!facility) return Infinity;
 
-  const baseCost = facility.baseCost * Math.pow(facility.multiplier, level);
-  const discountMultiplier = calculateDiscountMultiplier(skillLevel6);
+  // 1. 計算に使う数値をDecimalオブジェクトに変換
+  const baseCost_d = new Decimal(facility.baseCost);
+  const multiplier_d = new Decimal(facility.multiplier);
+  const discountMultiplier_d = new Decimal(calculateDiscountMultiplier(skillLevel6));
 
-  return Math.floor(baseCost * discountMultiplier);
+  // 2. 全ての計算をDecimalメソッドで行う
+  const finalCost_d = baseCost_d
+    .times(multiplier_d.pow(level)) // .times() は * (乗算), .pow() はべき乗
+    .times(discountMultiplier_d);
+
+  // 3. 最終結果を通常の数値に戻して返す (コストがe308を超えることはないので安全)
+  return finalCost_d.floor().toNumber(); // .floor()で小数点以下を切り捨て、.toNumber()で数値に変換
 }
 
 /**
