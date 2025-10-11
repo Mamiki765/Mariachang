@@ -1582,7 +1582,7 @@ function generateSkillEmbed(idleGame) {
         value: `スキル#1~3の効果 **x${effects.radianceMultiplier.toFixed(1)}** → **x${(effects.radianceMultiplier + 0.1).toFixed(1)}**(コスト: ${costs.s4} SP)`,
       }
     );
-  if (idleGame.prestigePower >= 16 || highestPopulation_d.gte("1e16")) {
+  if (idleGame.prestigePower >= 16) {
     const currentDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6);
     const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
@@ -1695,7 +1695,7 @@ function generateSkillButtons(idleGame) {
   );
   const components = [skillRow];
 
-  if (idleGame.prestigePower >= 16 || highestPopulation_d.gte("1e16")) {
+  if (idleGame.prestigePower >= 16) {
     const tpSkillRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_5")
