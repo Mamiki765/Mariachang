@@ -69,6 +69,7 @@ export const data = new SlashCommandBuilder()
       .addChoices(
         { name: "ランキング表示（公開）", value: "public" },
         { name: "ランキング表示（非公開）", value: "private" },
+        { name: "自分の工場を見せる", value: "view" },
         { name: "表示しない", value: "none" } // あるいは、ephemeral: trueを外した簡易的な自分の工場を見せるオプション
       )
   )
@@ -93,6 +94,29 @@ export async function execute(interaction) {
   if (rankingChoice === "public" || rankingChoice === "private") {
     const isPrivate = rankingChoice === "private";
     await executeRankingCommand(interaction, isPrivate);
+  } else if (rankingChoice === "view") {
+    //プロフ
+    await interaction.reply({
+      content: "プロフィールを生成しています...",
+      ephemeral: true,
+    });
+
+    // 1. uiDataを呼び出す
+    const uiData = await getSingleUserUIData(interaction.user.id);
+    if (!uiData) {
+      await interaction.editReply({
+        content: "エラー：工場のデータが見つかりませんでした。",
+      });
+      return;
+    }
+
+    // 2. 新しいプロフィール用Embedを生成
+    const profileEmbed = generateProfileEmbed(uiData, interaction.user);
+
+    // 3. ephemeral（自分だけに見える）ではない、通常のメッセージとして返信する
+    await interaction.followUp({ embeds: [profileEmbed] });
+    // ephemeralなメッセージを消す
+    await interaction.deleteReply();
   } else {
     //工場
     const initialReply = await interaction.reply({
@@ -1158,7 +1182,7 @@ async function executeRankingCommand(interaction, isPrivate) {
   // ★★★ 攻略法１：sequelize.cast を使って、TEXTを数字としてソートする ★★★
   const allIdleGames = await IdleGame.findAll({
     where: { userId: { [Op.ne]: excludedUserId } },
-    order: [[sequelize.cast(sequelize.col('population'), 'DECIMAL'), 'DESC']], // ← これが魔法の呪文！
+    order: [[sequelize.cast(sequelize.col("population"), "DECIMAL"), "DESC"]], // ← これが魔法の呪文！
     limit: 100,
     raw: true, // ★ .findAll() には raw: true を付けると高速になります
   });
@@ -1811,4 +1835,31 @@ async function handleSkillReset(interaction, collector) {
       components: [],
     });
   }
+}
+
+/**
+ * プロフィールカード用のコンパクトなEmbedを生成する
+ * @param {object} uiData - getSingleUserUIDataから返されたオブジェクト
+ * @param {import("discord.js").User} user - Discordのユーザーオブジェクト
+ * @returns {EmbedBuilder}
+ */
+function generateProfileEmbed(uiData, user) {
+    const { idleGame, achievementCount } = uiData;
+    const population_d = new Decimal(idleGame.population);
+    const highestPopulation_d = new Decimal(idleGame.highestPopulation);
+
+    // Descriptionを組み立てる
+    const description = [
+        `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
+        `🍕Lv.${idleGame.pizzaOvenLevel} 🧀Lv.${idleGame.cheeseFactoryLevel} 🍅Lv.${idleGame.tomatoFarmLevel} 🍄Lv.${idleGame.mushroomFarmLevel} 🐟Lv.${idleGame.anchovyFactoryLevel} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
+        `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
+        `#1:${idleGame.skillLevel1||0} #2:${idleGame.skillLevel2||0} #3:${idleGame.skillLevel3||0} #4:${idleGame.skillLevel4||0} / #5:${idleGame.skillLevel5||0} #6:${idleGame.skillLevel6||0} #7:${idleGame.skillLevel7||0} #8:${idleGame.skillLevel8||0}`,
+        `IP: 0 ∞: 0` // 将来のInfinity Pointへの布石
+    ].join('\n');
+
+    return new EmbedBuilder()
+        .setTitle(`${user.displayName}さんのピザ工場`)
+        .setColor('Aqua') // 通常のEmbedと色を変えて区別
+        .setDescription(description)
+        .setTimestamp();
 }
