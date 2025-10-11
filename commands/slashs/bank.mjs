@@ -1,3 +1,4 @@
+//commands\slashs\bank.mjs
 import {
   SlashCommandBuilder,
   ModalBuilder,

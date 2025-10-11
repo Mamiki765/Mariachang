@@ -1,4 +1,5 @@
 // commands/utils/idle.mjs
+import Decimal from "break_infinity.js";
 import {
   SlashCommandBuilder,
   EmbedBuilder,
@@ -22,16 +23,18 @@ import {
 
 //idlegame関数群
 import {
-  calculateFacilityCost,
-  calculateAllCosts,
-  updateUserIdleGame,
-  formatProductionRate,
-  formatNumberJapanese,
-  calculateSpentSP, // handleSkillResetで使うので追加
+  calculateOfflineProgress,
+  formatNumberJapanese_Decimal, // 新しいフォーマッター
+  formatNumberDynamic_Decimal, // 新しいフォーマッター
   calculatePotentialTP,
+  calculateAllCosts,
+  calculateFacilityCost,
+  formatProductionRate,
+  calculateSpentSP, // handleSkillResetで使うので追加
   calculateFactoryEffects,
   calculateDiscountMultiplier,
   formatNumberDynamic,
+  getSingleUserUIData,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -83,6 +86,8 @@ export const data = new SlashCommandBuilder()
       )
   );
 
+// --- 2. execute 関数のすぐ上に、UIデータ準備役を追加 ---
+
 export async function execute(interaction) {
   const rankingChoice = interaction.options.getString("ranking");
   if (rankingChoice === "public" || rankingChoice === "private") {
@@ -99,35 +104,53 @@ export async function execute(interaction) {
     const [point, createdPoint] = await Point.findOrCreate({
       where: { userId },
     });
-    const [idleGame, createdIdle] = await IdleGame.findOrCreate({
-      where: { userId },
-    });
-    const [userAchievement, createdAchievement] =
-      await UserAchievement.findOrCreate({ where: { userId } });
-    //オフライン計算
-    await updateUserIdleGame(userId);
+
+    // 新規ユーザーのためにデータがなければ作る
+    await IdleGame.findOrCreate({ where: { userId } });
+
+    // ★新しいUIデータ準備役を呼び出す！
+    // これで idleGame, mee6Level, userAchievement が一度に手に入ります
+    const uiData = await getSingleUserUIData(userId);
+    if (!uiData) {
+      // ... (エラー処理: 初回ユーザーなど)
+      await interaction.editReply({
+        content: "エラーにより、工場のデータを取得できませんでした。",
+      });
+      return;
+    }
+
+    // 取得したデータを分かりやすい変数に展開
+    const { achievementCount, userAchievement } = uiData;
+    let { idleGame, mee6Level, displayData } = uiData; // ← これらはcollectorで再代入するので let
+
+    // ★★★ これが最重要！計算用のDecimalオブジェクトをここで作る ★★★
+    let population_d = new Decimal(idleGame.population); // ← let に変更
+    let highestPopulation_d = new Decimal(idleGame.highestPopulation); // ← let に変更
+
+    // displayDataから変数を取り出す
+    let { productionRate_d, factoryEffects, skill1Effect, meatEffect } =
+      displayData; // ← これらも let
     //--------------
     //人口系実績など、起動時に取れるもの
     //--------------
     const populationChecks = [
       { id: 0, condition: true }, // 「ようこそ」は常にチェック
-      { id: 3, condition: idleGame.population >= 100 },
-      { id: 5, condition: idleGame.population >= 10000 },
-      { id: 6, condition: idleGame.population >= 1000000 },
-      { id: 8, condition: idleGame.population >= 10000000 },
-      { id: 10, condition: idleGame.population >= 100000000 },
-      { id: 19, condition: idleGame.population >= 1e9 }, // 10億
-      { id: 20, condition: idleGame.population >= 1e10 }, // 100億
-      { id: 21, condition: idleGame.population >= 1e14 }, // 100兆
-      { id: 22, condition: idleGame.population >= 9007199254740991 }, // Number.MAX_SAFE_INTEGER
+      { id: 3, condition: population_d.gte(100) },
+      { id: 5, condition: population_d.gte(10000) },
+      { id: 6, condition: population_d.gte(1000000) },
+      { id: 8, condition: population_d.gte(10000000) },
+      { id: 10, condition: population_d.gte(100000000) },
+      { id: 19, condition: population_d.gte(1e9) }, // 10億
+      { id: 20, condition: population_d.gte(1e10) }, // 100億
+      { id: 21, condition: population_d.gte(1e14) }, // 100兆
+      { id: 22, condition: population_d.gte(9007199254740991) }, // Number.MAX_SAFE_INTEGER
       {
         id: 51,
-        condition:
-          idleGame.population >= 1e16 || idleGame.highestPopulation >= 1e16,
+        condition: population_d.gte("1e16") || highestPopulation_d.gte("1e16"),
       },
       { id: 52, condition: idleGame.skillLevel8 >= 1 }, //s8実績もここに
-      { id: 56, condition: idleGame.population >= 6.692e30 }, //infinity^0.10
-      { id: 61, condition: idleGame.population >= 4.482e+61 }, //infinity^0.20
+      { id: 56, condition: population_d.gte(6.692e30) }, //infinity^0.10
+      { id: 61, condition: population_d.gte(4.482e61) }, //infinity^0.20
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -220,109 +243,66 @@ export async function execute(interaction) {
     // --- ステップ3：保存の実行 ---
     // もし、倍率か時間のどちらかに変更があった場合のみ、DBに保存する
     if (needsSave) {
-      await idleGame.save();
+      // .save() はrawでは使えないので、.update() に変更する ▼▼▼
+      await IdleGame.update(
+        {
+          buffMultiplier: idleGame.buffMultiplier,
+          buffExpiresAt: idleGame.buffExpiresAt,
+        },
+        { where: { userId } }
+      );
     }
-    //Mee6レベル取得
-    const mee6Level = await Mee6Level.findOne({ where: { userId } });
-    const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
+    //Mee6レベルから精肉取得
+    const meatFactoryLevel = mee6Level ?? 0;
 
     // --- ★★★ ここからが修正箇所 ★★★ ---
 
     // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
     const generateEmbed = (isFinal = false) => {
-      // 実績数を取得（データがないユーザーのために安全に）
-      const achievementCount =
-        userAchievement.achievements?.unlocked?.length || 0;
-      // 実績による乗算ボーナス (1実績あたり+1%)
-      const achievementMultiplier = 1.0 + achievementCount * 0.01;
-      // 実績による指数ボーナス (1実績あたりLv+1)
-      const achievementExponentBonus = achievementCount;
-      //プレステージボーナス
-      const pp = idleGame.prestigePower || 0; //未定義で0
-      // スキル効果
       const skillLevels = {
-        s1: idleGame.skillLevel1 || 0,
-        s2: idleGame.skillLevel2 || 0,
-        s3: idleGame.skillLevel3 || 0,
-        s4: idleGame.skillLevel4 || 0,
+        s1: idleGame.skillLevel1,
+        s2: idleGame.skillLevel2,
+        s3: idleGame.skillLevel3,
+        s4: idleGame.skillLevel4,
       };
-
-      const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
-      const skill1Effect =
-        (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier; //実績補正
-      const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
-      const finalSkill2Effect = Math.pow(skill2Effect, 2);
-      const skill3Effect = (1 + skillLevels.s3) * radianceMultiplier;
-      // 最新のDBオブジェクトから値を読み出す
-      // ★★★ 1. 新しい関数で、スキル#5を適用した「素の効果」を計算 ★★★
-      const factoryEffects = calculateFactoryEffects(idleGame, pp);
-
-      // ★★★ 2. 表示用に、スキル#1の効果を乗算 ★★★
+      const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
+      // 表示用の施設効果
       const ovenEffect_display = factoryEffects.oven * skill1Effect;
       const cheeseEffect_display = factoryEffects.cheese * skill1Effect;
       const tomatoEffect_display = factoryEffects.tomato * skill1Effect;
       const mushroomEffect_display = factoryEffects.mushroom * skill1Effect;
       const anchovyEffect_display = factoryEffects.anchovy * skill1Effect;
-      //サラミ
-      const meatEffect =
-        1 +
-        config.idle.meat.effect *
-          (meatFactoryLevel + pp + achievementExponentBonus); //実績補正
-      //バフも乗るように
-      const productionPerMinute =
-        Math.pow(
-          factoryEffects.oven *
-            factoryEffects.cheese *
-            factoryEffects.tomato *
-            factoryEffects.mushroom *
-            factoryEffects.anchovy *
-            Math.pow(skill1Effect, 5),
-          meatEffect
-        ) *
-        idleGame.buffMultiplier *
-        finalSkill2Effect; //これは「速度増加予測」なのでスキル2はここでかける
-      //スキル2表記用
+
+      // スキル#2の効果
+      const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
+      const finalSkill2Effect = Math.pow(skill2Effect, 2);
       const skill2EffectDisplay =
         finalSkill2Effect > 1 ? ` × ${finalSkill2Effect.toFixed(1)}` : "";
-      let pizzaBonusPercentage = 0;
-      if (idleGame.population >= 1) {
-        pizzaBonusPercentage = Math.log10(idleGame.population) + 1 + pp; //チップボーナスにもPP
-      } else if (pp > 0) {
-        pizzaBonusPercentage = pp; //プレステージ直後に0になる不具合の修正
-      }
-      // スキル3の効果を適用
-      pizzaBonusPercentage = (100 + pizzaBonusPercentage) * skill3Effect - 100;
-      //生産速度を関数にかけてフォーマット
-      const productionString = formatProductionRate(productionPerMinute);
 
       // ★ バフ残り時間計算
       let buffField = null;
-      let hours = null;
-      if (idleGame.buffExpiresAt && idleGame.buffExpiresAt > new Date()) {
-        const ms = idleGame.buffExpiresAt - new Date();
-        hours = Math.floor(ms / (1000 * 60 * 60));
+      if (
+        idleGame.buffExpiresAt &&
+        new Date(idleGame.buffExpiresAt) > new Date()
+      ) {
+        const ms = new Date(idleGame.buffExpiresAt) - new Date();
+        const hours = Math.floor(ms / (1000 * 60 * 60));
         const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
         buffField = `**${formatNumberDynamic(idleGame.buffMultiplier)}倍** 残り **${hours}時間${minutes}分**`;
       }
 
-      // EmbedのDescriptionをプレステージ回数に応じて変更する
       let descriptionText;
       if (idleGame.prestigeCount > 0) {
-        descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
-          Math.floor(idleGame.population)
-        )} 匹**
-最高人口: ${formatNumberJapanese(
-          Math.floor(idleGame.highestPopulation)
-        )} 匹 \nPP: **${pp.toFixed(2)}** 全工場Lv、獲得チップ%増加
-SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.toFixed(2)}** #1:${idleGame.skillLevel1} #2:${idleGame.skillLevel2} #3:${idleGame.skillLevel3} #4:${idleGame.skillLevel4} / #5:${idleGame.skillLevel5} #6:${idleGame.skillLevel6} #7:${idleGame.skillLevel7} #8:${idleGame.skillLevel8}
+        descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
+最高人口: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**
+PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoints.toFixed(2)}** | TP: **${idleGame.transcendencePoints.toFixed(2)}**
+#1:${skillLevels.s1} #2:${skillLevels.s2} #3:${skillLevels.s3} #4:${skillLevels.s4} / #5:${idleGame.skillLevel5} #6:${idleGame.skillLevel6} #7:${idleGame.skillLevel7} #8:${idleGame.skillLevel8}
 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
       } else {
-        descriptionText = `現在のニョワミヤ人口: **${formatNumberJapanese(
-          Math.floor(idleGame.population)
-        )} 匹**\n 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
+        descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
+🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
       }
 
-      //コストを表示するために計算する
       const costs = calculateAllCosts(idleGame);
 
       const embed = new EmbedBuilder()
@@ -332,39 +312,39 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         .addFields(
           {
             name: `${config.idle.oven.emoji}ピザ窯`,
-            value: `Lv. ${idleGame.pizzaOvenLevel} (${formatNumberDynamic(ovenEffect_display,0)}) Next.${costs.oven.toLocaleString()}chip`,
+            value: `Lv. ${idleGame.pizzaOvenLevel} (${formatNumberDynamic(ovenEffect_display, 0)}) Next.${costs.oven.toLocaleString()}©`,
             inline: true,
           },
           {
             name: `${config.idle.cheese.emoji}チーズ工場`,
-            value: `Lv. ${idleGame.cheeseFactoryLevel} (${formatNumberDynamic(cheeseEffect_display)}) Next.${costs.cheese.toLocaleString()}chip`,
+            value: `Lv. ${idleGame.cheeseFactoryLevel} (${formatNumberDynamic(cheeseEffect_display)}) Next.${costs.cheese.toLocaleString()}©`,
             inline: true,
           },
           {
             name: `${config.idle.tomato.emoji}トマト農場`,
             value:
-              idleGame.prestigeCount > 0 ||
-              idleGame.population >= config.idle.tomato.unlockPopulation
-                ? `Lv. ${idleGame.tomatoFarmLevel} (${formatNumberDynamic(tomatoEffect_display)}) Next.${costs.tomato.toLocaleString()}chip`
-                : `(要:人口${formatNumberJapanese(config.idle.tomato.unlockPopulation)})`,
+              population_d.gte(config.idle.tomato.unlockPopulation) ||
+              idleGame.prestigeCount > 0
+                ? `Lv. ${idleGame.tomatoFarmLevel} (${formatNumberDynamic(tomatoEffect_display)}) Next.${costs.tomato.toLocaleString()}©`
+                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.tomato.unlockPopulation))})`,
             inline: true,
           },
           {
             name: `${config.idle.mushroom.emoji}マッシュルーム農場`,
             value:
-              idleGame.prestigeCount > 0 ||
-              idleGame.population >= config.idle.mushroom.unlockPopulation
-                ? `Lv. ${idleGame.mushroomFarmLevel} (${formatNumberDynamic(mushroomEffect_display,3)}) Next.${costs.mushroom.toLocaleString()}chip`
-                : `(要:人口${formatNumberJapanese(config.idle.mushroom.unlockPopulation)})`,
+              population_d.gte(config.idle.mushroom.unlockPopulation) ||
+              idleGame.prestigeCount > 0
+                ? `Lv. ${idleGame.mushroomFarmLevel} (${formatNumberDynamic(mushroomEffect_display, 3)}) Next.${costs.mushroom.toLocaleString()}©`
+                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.mushroom.unlockPopulation))})`,
             inline: true,
           },
           {
             name: `${config.idle.anchovy.emoji}アンチョビ工場`,
             value:
-              idleGame.prestigeCount > 0 ||
-              idleGame.population >= config.idle.anchovy.unlockPopulation
-                ? `Lv. ${idleGame.anchovyFactoryLevel} (${formatNumberDynamic(anchovyEffect_display)}) Next.${costs.anchovy.toLocaleString()}chip`
-                : `(要:人口${formatNumberJapanese(config.idle.anchovy.unlockPopulation)})`,
+              population_d.gte(config.idle.anchovy.unlockPopulation) ||
+              idleGame.prestigeCount > 0
+                ? `Lv. ${idleGame.anchovyFactoryLevel} (${formatNumberDynamic(anchovyEffect_display)}) Next.${costs.anchovy.toLocaleString()}©`
+                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.anchovy.unlockPopulation))})`,
             inline: true,
           },
           {
@@ -374,28 +354,25 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
           },
           {
             name: "🔥ブースト",
-            value: buffField ? buffField : "ブースト切れ", //ここを見てる時点で24時間あるはずだが念のため
+            value: buffField || "ブースト切れ",
             inline: true,
           },
           {
             name: "計算式",
-            value: `(${formatNumberDynamic(ovenEffect_display)} × ${formatNumberDynamic(cheeseEffect_display)} × ${formatNumberDynamic(tomatoEffect_display)} × ${formatNumberDynamic(mushroomEffect_display,3)} × ${formatNumberDynamic(anchovyEffect_display)}) ^ ${meatEffect.toFixed(2)} × ${formatNumberDynamic(idleGame.buffMultiplier,1)}${skill2EffectDisplay}`,
+            value: `(${formatNumberDynamic(ovenEffect_display)} × ${formatNumberDynamic(cheeseEffect_display)} × ${formatNumberDynamic(tomatoEffect_display)} × ${formatNumberDynamic(mushroomEffect_display, 3)} × ${formatNumberDynamic(anchovyEffect_display)}) ^ ${meatEffect.toFixed(2)} × ${formatNumberDynamic(idleGame.buffMultiplier, 1)}${skill2EffectDisplay}`,
           },
           {
             name: "毎分の増加予測",
-            value: `${productionString} 匹/分`,
+            value: `${formatNumberJapanese_Decimal(productionRate_d)} 匹/分`,
           },
           {
             name: "人口ボーナス(チップ獲得量)",
-            value: `${config.casino.currencies.legacy_pizza.emoji}+${pizzaBonusPercentage.toFixed(3)} %`,
+            value: `${config.casino.currencies.legacy_pizza.emoji}+${idleGame.pizzaBonusPercentage.toFixed(3)} %`,
           }
         )
         .setFooter({
-          text: `現在の所持チップ: ${Math.floor(
-            point.legacy_pizza
-          ).toLocaleString()}枚 | 10分ごと、あるいは再度/idleで更新されます。`,
+          text: `現在の所持チップ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚`,
         });
-
       return embed;
     };
 
@@ -457,11 +434,12 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
           .setStyle(ButtonStyle.Success)
           .setDisabled(isDisabled || point.legacy_pizza < costs.cheese)
       );
-      // ★ 人口が条件を満たしていたらトマトボタンを追加(以下3つともプレステージ後は無条件)
+      //トマトキノコアンチョビはgte グレーターザンイコールで見る
       if (
         idleGame.prestigeCount > 0 ||
-        idleGame.population >= config.idle.tomato.unlockPopulation
+        population_d.gte(config.idle.tomato.unlockPopulation)
       ) {
+        // ★ .gte()で比較
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_tomato`)
@@ -471,11 +449,11 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
             .setDisabled(isDisabled || point.legacy_pizza < costs.tomato)
         );
       }
-      // 人口が条件を満たしていたらマッシュルームボタンを追加
       if (
         idleGame.prestigeCount > 0 ||
-        idleGame.population >= config.idle.mushroom.unlockPopulation
+        population_d.gte(config.idle.mushroom.unlockPopulation)
       ) {
+        // ★ .gte()で比較
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_mushroom`)
@@ -485,11 +463,11 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
             .setDisabled(isDisabled || point.legacy_pizza < costs.mushroom)
         );
       }
-      // 人口が条件を満たしていたらアンチョビボタンを追加
       if (
         idleGame.prestigeCount > 0 ||
-        idleGame.population >= config.idle.anchovy.unlockPopulation
+        population_d.gte(config.idle.anchovy.unlockPopulation)
       ) {
+        // ★ .gte()で比較
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_anchovy`)
@@ -529,23 +507,24 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
 
       // 250923 プレステージボタンの表示ロジック
       if (
-        idleGame.population > idleGame.highestPopulation &&
-        idleGame.population >= config.idle.prestige.unlockPopulation
+        population_d.gt(highestPopulation_d) &&
+        population_d.gte(config.idle.prestige.unlockPopulation)
       ) {
         // --- ケース1: PP/SP/(e16でTP)が手に入る通常のプレステージ ---
-        const newPrestigePower = Math.log10(idleGame.population);
+        const newPrestigePower = population_d.log10();
         const powerGain = newPrestigePower - idleGame.prestigePower;
         let prestigeButtonLabel;
         if (idleGame.prestigeCount === 0) {
           // 条件1: prestigeCountが0の場合
           prestigeButtonLabel = `プレステージ Power: ${newPrestigePower.toFixed(3)}`;
-        } else if (idleGame.population < 1e16) {
+        } else if (population_d.lt("1e16")) {
+          //lower than
           // 条件2: populationが1e16未満の場合
           prestigeButtonLabel = `Prestige Power: ${newPrestigePower.toFixed(2)} (+${powerGain.toFixed(2)})`;
         } else {
           // 条件3: それ以外 (populationが1e16以上) の場合
           const potentialTP = calculatePotentialTP(
-            idleGame.population,
+            population_d,
             idleGame.skillLevel8
           ); // 先に計算しておくとスッキリします
           prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
@@ -560,12 +539,12 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
             .setDisabled(isDisabled)
         );
       } else if (
-        idleGame.population < idleGame.highestPopulation &&
-        idleGame.population >= 1e16
+        population_d.lt(highestPopulation_d) &&
+        population_d.gte("1e16")
       ) {
         // --- ケース2: TPだけ手に入る新しいプレステージ ---
         const potentialTP = calculatePotentialTP(
-          idleGame.population,
+          population_d,
           idleGame.skillLevel8
         );
 
@@ -892,8 +871,20 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
         await latestIdleGame.save();
 
         // ★★★ メインのidleGameオブジェクトにも変更を反映させる ★★★
-        point.legacy_pizza = latestPoint.legacy_pizza;
-        Object.assign(idleGame, latestIdleGame.dataValues);
+        const newUiData = await getSingleUserUIData(userId);
+
+        // 古い変数を、取得し直した新しいデータで"全て"上書きする
+        // (この部分は、施設強化の時と全く同じコードです)
+        Object.assign(idleGame, newUiData.idleGame);
+        point.legacy_pizza = (
+          await Point.findOne({ where: { userId } })
+        ).legacy_pizza;
+
+        population_d = new Decimal(newUiData.idleGame.population);
+        highestPopulation_d = new Decimal(newUiData.idleGame.highestPopulation);
+
+        ({ productionRate_d, factoryEffects, skill1Effect, meatEffect } =
+          newUiData.displayData);
 
         // 5. 結果のフィードバック
         let summaryMessage = `**🤖 自動割り振りが完了しました！**\n- 消費チップ: ${totalCost.toLocaleString()}枚\n`;
@@ -1051,17 +1042,27 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
           }
         });
 
-        // ★★★ 成功したら、DBから更新された最新の値を、関数のスコープ内にあるオリジナルのDBオブジェクトに再代入する ★★★
-        point.legacy_pizza = latestPoint.legacy_pizza;
-        idleGame.pizzaOvenLevel = latestIdleGame.pizzaOvenLevel;
-        idleGame.cheeseFactoryLevel = latestIdleGame.cheeseFactoryLevel;
-        idleGame.tomatoFarmLevel = latestIdleGame.tomatoFarmLevel;
-        idleGame.mushroomFarmLevel = latestIdleGame.mushroomFarmLevel;
-        idleGame.anchovyFactoryLevel = latestIdleGame.anchovyFactoryLevel;
-        idleGame.buffExpiresAt = latestIdleGame.buffExpiresAt;
-        idleGame.buffMultiplier = latestIdleGame.buffMultiplier;
+        // DB更新が成功したので、もう一度UIデータを"全て"取得し直す！
+        const newUiData = await getSingleUserUIData(userId);
 
-        // そして、更新されたオブジェクトを使って、メッセージを再描画する
+        // 古い変数を、取得し直した新しいデータで"全て"上書きする
+        Object.assign(idleGame, newUiData.idleGame); // idleGameオブジェクトを丸ごと更新
+        point.legacy_pizza = (
+          await Point.findOne({ where: { userId } })
+        ).legacy_pizza; // pointも再取得
+
+        // Decimalオブジェクトも再生成
+        population_d = new Decimal(newUiData.idleGame.population);
+        highestPopulation_d = new Decimal(newUiData.idleGame.highestPopulation);
+
+        // 表示用データも再代入
+        productionRate_d = newUiData.displayData.productionRate_d;
+        factoryEffects = newUiData.displayData.factoryEffects;
+        skill1Effect = newUiData.displayData.skill1Effect;
+        meatEffect = newUiData.displayData.meatEffect;
+        // ★★★★★★★★★★★★★★★★★★★★★★★★
+
+        // 最新のデータでEmbedとボタンを再描画する
         await interaction.editReply({
           embeds: [generateEmbed()],
           components: generateButtons(),
@@ -1071,11 +1072,8 @@ SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.
           facility === "nyobosi"
             ? `✅ **ニョボシ** を雇い、ブーストを24時間延長しました！`
             : `✅ **${facilityName}** の強化に成功しました！`;
+        await i.followUp({ content: successMsg, ephemeral: true });
 
-        await i.followUp({
-          content: successMsg,
-          ephemeral: true,
-        });
         //施設強化系実績
         if (facility === "oven") {
           await unlockAchievements(interaction.client, userId, 1);
@@ -1155,25 +1153,18 @@ async function executeRankingCommand(interaction, isPrivate) {
     ephemeral: isPrivate,
   });
 
-  // 除外したいユーザーIDを定義
   const excludedUserId = "1123987861180534826";
 
+  // ★★★ 攻略法１：sequelize.cast を使って、TEXTを数字としてソートする ★★★
   const allIdleGames = await IdleGame.findAll({
-    where: {
-      // userIdが、指定したIDと「等しくない(!=)」という条件
-      userId: {
-        [Op.ne]: excludedUserId,
-      },
-    },
-    order: [["population", "DESC"]],
-    limit: 100, // DBから取得する時点で除外されるので、100人のランキングが維持される
+    where: { userId: { [Op.ne]: excludedUserId } },
+    order: [[sequelize.cast(sequelize.col('population'), 'DECIMAL'), 'DESC']], // ← これが魔法の呪文！
+    limit: 100,
+    raw: true, // ★ .findAll() には raw: true を付けると高速になります
   });
 
   if (allIdleGames.length === 0) {
-    await interaction.editReply({
-      content: "まだ誰もニョワミヤを集めていません。",
-    });
-    return;
+    /* ... (変更なし) ... */
   }
 
   const itemsPerPage = 10;
@@ -1189,8 +1180,6 @@ async function executeRankingCommand(interaction, isPrivate) {
       currentItems.map(async (game, index) => {
         const rank = start + index + 1;
         let displayName;
-
-        // ★ 改善ポイント1：退会ユーザーの表示を親切に ★
         try {
           const member =
             interaction.guild.members.cache.get(game.userId) ||
@@ -1200,7 +1189,10 @@ async function executeRankingCommand(interaction, isPrivate) {
           displayName = "(退会したユーザー)";
         }
 
-        const population = formatNumberJapanese(Math.floor(game.population));
+        // ★★★ 攻略法２：Decimalに変換し、新しいフォーマッターを使う ★★★
+        const population_d = new Decimal(game.population);
+        const population = formatNumberJapanese_Decimal(population_d);
+
         return {
           name: `**${rank}位**`,
           value: `${displayName}\n└ ${population} 匹`,
@@ -1209,16 +1201,15 @@ async function executeRankingCommand(interaction, isPrivate) {
       })
     );
 
-    // 自分の順位を探す
     const myIndex = allIdleGames.findIndex(
       (game) => game.userId === interaction.user.id
     );
     let myRankText = "あなたはまだピザ工場を持っていません。";
     if (myIndex !== -1) {
       const myRank = myIndex + 1;
-      const myPopulation = formatNumberJapanese(
-        Math.floor(allIdleGames[myIndex].population)
-      );
+      // ★★★ 攻略法２（自分用） ★★★
+      const myPopulation_d = new Decimal(allIdleGames[myIndex].population);
+      const myPopulation = formatNumberJapanese_Decimal(myPopulation_d);
       myRankText = `**${myRank}位** └ ${myPopulation} 匹`;
     }
 
@@ -1229,7 +1220,6 @@ async function executeRankingCommand(interaction, isPrivate) {
       .setFooter({ text: `ページ ${page + 1} / ${totalPages}` })
       .addFields({ name: "📌 あなたの順位", value: myRankText });
   };
-
   const generateButtons = (page) => {
     return new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -1321,11 +1311,10 @@ async function handlePrestige(interaction, collector) {
   try {
     // 3. ユーザーの応答を待つ (60秒)
     //    .awaitMessageComponent() は、ボタンが押されるまでここで処理を「待機」します
-     confirmationInteraction =
-      await confirmationMessage.awaitMessageComponent({
-        filter: (i) => i.user.id === interaction.user.id,
-        time: 60_000,
-      });
+    confirmationInteraction = await confirmationMessage.awaitMessageComponent({
+      filter: (i) => i.user.id === interaction.user.id,
+      time: 60_000,
+    });
 
     // 4. 押されたボタンに応じて処理を分岐
     if (confirmationInteraction.customId === "prestige_confirm_no") {
@@ -1350,16 +1339,19 @@ async function handlePrestige(interaction, collector) {
         lock: t.LOCK.UPDATE,
       });
 
-      currentPopulation = latestIdleGame.population;
+      // ★★★ 1. Decimalに変換 ★★★
+      const currentPopulation_d = new Decimal(latestIdleGame.population);
+      const highestPopulation_d = new Decimal(latestIdleGame.highestPopulation);
 
       // ▼▼▼ ここから分岐ロジック ▼▼▼
-      if (currentPopulation > latestIdleGame.highestPopulation) {
+      if (currentPopulation_d.gt(highestPopulation_d)) {
         // --- PP/SPプレステージ (既存のロジック) ---
-        if (currentPopulation <= config.idle.prestige.unlockPopulation) {
+        if (currentPopulation_d.lte(config.idle.prestige.unlockPopulation)) {
+          // .lte() = less than or equal
           throw new Error("プレステージの最低人口条件を満たしていません。");
         }
 
-        const newPrestigePower = Math.log10(currentPopulation);
+        const newPrestigePower = currentPopulation_d.log10();
         let newSkillPoints = latestIdleGame.skillPoints;
 
         if (latestIdleGame.prestigeCount === 0) {
@@ -1371,13 +1363,13 @@ async function handlePrestige(interaction, collector) {
         }
 
         const gainedTP = calculatePotentialTP(
-          currentPopulation,
+          currentPopulation_d,
           latestIdleGame.skillLevel8
         );
 
         await latestIdleGame.update(
           {
-            population: 0,
+            population: "0",
             pizzaOvenLevel: 0,
             cheeseFactoryLevel: 0,
             tomatoFarmLevel: 0,
@@ -1386,7 +1378,7 @@ async function handlePrestige(interaction, collector) {
             prestigeCount: latestIdleGame.prestigeCount + 1,
             prestigePower: newPrestigePower,
             skillPoints: newSkillPoints,
-            highestPopulation: currentPopulation, // 最高記録を更新
+            highestPopulation: currentPopulation_d.toString(), // 最高記録を更新
             transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
             lastUpdatedAt: new Date(),
           },
@@ -1397,19 +1389,19 @@ async function handlePrestige(interaction, collector) {
         await unlockAchievements(interaction.client, interaction.user.id, 11);
         prestigeResult = {
           type: "PP_SP",
-          population: currentPopulation,
+          population_d: currentPopulation_d,
           gainedTP: gainedTP,
         };
-      } else if (currentPopulation >= 1e16) {
+      } else if (currentPopulation_d.gte("1e16")) {
         // --- TPプレステージ (新しいロジック) ---
         const gainedTP = calculatePotentialTP(
-          currentPopulation,
+          currentPopulation_d,
           latestIdleGame.skillLevel8
         );
 
         await latestIdleGame.update(
           {
-            population: 0,
+            population: "0",
             pizzaOvenLevel: 0,
             cheeseFactoryLevel: 0,
             tomatoFarmLevel: 0,
@@ -1423,7 +1415,7 @@ async function handlePrestige(interaction, collector) {
         );
         prestigeResult = {
           type: "TP_ONLY",
-          population: currentPopulation,
+          population_d: currentPopulation_d,
           gainedTP: gainedTP,
         };
       } else {
@@ -1437,7 +1429,7 @@ async function handlePrestige(interaction, collector) {
       await confirmationInteraction.editReply({
         content: `●プレステージ
 # なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！
-凄まじい地響きと共に${formatNumberJapanese(prestigeResult.population)}匹のニョワミヤ達が押し寄せてきます！
+凄まじい地響きと共に${formatNumberJapanese_Decimal(prestigeResult.population_d)}匹のニョワミヤ達が押し寄せてきます！
 彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！
 狂った様にパイナップルピザを求めたニョワミヤ達によって、今までのピザ工場は藻屑のように吹き飛ばされてしまいました……
 -# そしてなぜか次の工場は強化されました。`,
@@ -1447,7 +1439,7 @@ async function handlePrestige(interaction, collector) {
       await confirmationInteraction.editReply({
         content: `●TPプレステージ
 # そうだ、サイドメニュー作ろう。
-あなた達は${formatNumberJapanese(currentPopulation)}匹のニョワミヤ達と一緒にサイドメニューを作ることにしました。
+あなた達は${formatNumberJapanese_Decimal(prestigeResult.population_d)}匹のニョワミヤ達と一緒にサイドメニューを作ることにしました。
 美味しそうなポテトやナゲット、そして何故か天ぷらの数々が揚がっていきます・　・　・　・　・　・。
 -# 何故か終わる頃には工場は蜃気楼のように消えてしまっていました。
 ${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
@@ -1466,7 +1458,8 @@ ${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
     } else {
       // タイムアウトエラー
       await confirmationMessage.edit({
-        content: "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
+        content:
+          "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
         components: [],
       });
     }
@@ -1530,7 +1523,7 @@ function generateSkillEmbed(idleGame) {
 
   // ボタンが欠ける問題に関する案内を常に追加する
   // 引用(>)を使うと、他のテキストと区別しやすくなります。
-  descriptionText += `\n> スマホ等でボタンが欠ける場合、\`/放置ゲーム 開始画面:スキル画面\`をお試しください。`;
+  descriptionText += `\n-# スマホ等でボタンが欠ける場合、\`/放置ゲーム 開始画面:スキル画面\`をお試しください。`;
 
   const embed = new EmbedBuilder()
     .setTitle("✨ スキル強化 ✨")
@@ -1565,33 +1558,34 @@ function generateSkillEmbed(idleGame) {
         value: `スキル#1~3の効果 **x${effects.radianceMultiplier.toFixed(1)}** → **x${(effects.radianceMultiplier + 0.1).toFixed(1)}**(コスト: ${costs.s4} SP)`,
       }
     );
-  if (idleGame.prestigePower >= 16 || idleGame.highestPopulation >= 1e16) {
+  if (idleGame.prestigePower >= 16 || highestPopulation_d.gte("1e16")) {
     const currentDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6);
     const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
-    const spentChips = BigInt(idleGame.chipsSpentThisInfinity || "0");
-    const skill7power = 0.1 * tp_levels.s7;
-    // BigIntは直接フォーマット関数に渡せないので、一度Number型に変換する
-    const spentChipsFormatted = formatNumberJapanese(
-      Number(spentChips.toString())
+    // BigInt を Decimal に変換し、新しいフォーマッターを使う
+    const spentChips_d = new Decimal(
+      idleGame.chipsSpentThisInfinity.toString() || "0"
     );
+    const skill7power = 0.1 * tp_levels.s7;
+    const spentChipsFormatted = formatNumberJapanese_Decimal(spentChips_d);
+
     embed.addFields(
       { name: "---TPスキル---", value: "\u200B" },
       {
         name: `#5 熱々ポテト x${tp_levels.s5}`,
-        value: `${tp_configs.skill5.description} コスト: ${formatNumberDynamic(tp_costs.s5,1)} TP`,
+        value: `${tp_configs.skill5.description} コスト: ${formatNumberDynamic(tp_costs.s5, 1)} TP`,
       },
       {
         name: `#6 スパイシーコーラ x${tp_levels.s6}`,
-        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(tp_costs.s6,1)} TP`,
+        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(tp_costs.s6, 1)} TP`,
       },
       {
         name: `#7 山盛りのチキンナゲット x${tp_levels.s7}`,
-        value: `${tp_configs.skill7.description}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(tp_costs.s7,1)} TP`,
+        value: `${tp_configs.skill7.description}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(tp_costs.s7, 1)} TP`,
       },
       {
         name: `#8 至高の天ぷら x${tp_levels.s8}`, // TenPura
-        value: `${tp_configs.skill8.description} コスト: ${formatNumberDynamic(tp_costs.s8,1)} TP`,
+        value: `${tp_configs.skill8.description} コスト: ${formatNumberDynamic(tp_costs.s8, 1)} TP`,
       }
     );
   }
@@ -1677,7 +1671,7 @@ function generateSkillButtons(idleGame) {
   );
   const components = [skillRow];
 
-  if (idleGame.prestigePower >= 16 || idleGame.highestPopulation >= 1e16) {
+  if (idleGame.prestigePower >= 16 || highestPopulation_d.gte("1e16")) {
     const tpSkillRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_5")

@@ -479,8 +479,8 @@ const IdleGame = sequelize.define(
     },
     // 人口は天文学的な数値になる可能性があるのでDOUBLE型が最適
     population: {
-      type: DataTypes.DOUBLE,
-      defaultValue: 0,
+      type: DataTypes.TEXT,
+      defaultValue: '0', // デフォルト値も文字列に
     },
     pizzaOvenLevel: {
       // ピザ窯（ベース生産量）
@@ -518,8 +518,8 @@ const IdleGame = sequelize.define(
       defaultValue: 0.0, // プレステージパワー(PP)
     },
     highestPopulation: {
-      type: DataTypes.DOUBLE,
-      defaultValue: 0.0, // プレステージ計算に使った最高人口
+      type: DataTypes.TEXT,
+      defaultValue: '0', // デフォルト値も文字列に
     },
     skillPoints: {
       type: DataTypes.DOUBLE,
@@ -567,7 +567,7 @@ const IdleGame = sequelize.define(
       defaultValue: 0,
     },
     chipsSpentThisInfinity: {
-      type: DataTypes.BIGINT, // チップは大きな値になるのでBIGINT
+      type: DataTypes.BIGINT,
       defaultValue: 0,
     },
     skillLevel8: {
@@ -599,7 +599,7 @@ const IdleGame = sequelize.define(
     },
   },
   {
-    tableName: "idle_games",
+    tableName: "idle_games_v2",
     timestamps: false,
   }
 );
