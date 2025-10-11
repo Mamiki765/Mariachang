@@ -1528,7 +1528,7 @@ function generateSkillEmbed(idleGame) {
 
   // ボタンが欠ける問題に関する案内を常に追加する
   // 引用(>)を使うと、他のテキストと区別しやすくなります。
-  descriptionText += `\n> スマホ等でボタンが欠ける場合、\`/放置ゲーム 開始画面:スキル画面\`をお試しください。`;
+  descriptionText += `\n-# スマホ等でボタンが欠ける場合、\`/放置ゲーム 開始画面:スキル画面\`をお試しください。`;
 
   const embed = new EmbedBuilder()
     .setTitle("✨ スキル強化 ✨")
@@ -1563,16 +1563,15 @@ function generateSkillEmbed(idleGame) {
         value: `スキル#1~3の効果 **x${effects.radianceMultiplier.toFixed(1)}** → **x${(effects.radianceMultiplier + 0.1).toFixed(1)}**(コスト: ${costs.s4} SP)`,
       }
     );
-  if (idleGame.prestigePower >= 16 || idleGame.highestPopulation >= 1e16) {
+  if (idleGame.prestigePower >= 16 || highestPopulation_d.gte("1e16")) {
     const currentDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6);
     const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
-    const spentChips = BigInt(idleGame.chipsSpentThisInfinity || "0");
+    // BigInt を Decimal に変換し、新しいフォーマッターを使う 
+    const spentChips_d = new Decimal(idleGame.chipsSpentThisInfinity.toString() || '0');
     const skill7power = 0.1 * tp_levels.s7;
-    // BigIntは直接フォーマット関数に渡せないので、一度Number型に変換する
-    const spentChipsFormatted = formatNumberJapanese(
-      Number(spentChips.toString())
-    );
+    const spentChipsFormatted = formatNumberJapanese_Decimal(spentChips_d);
+
     embed.addFields(
       { name: "---TPスキル---", value: "\u200B" },
       {
@@ -1675,7 +1674,7 @@ function generateSkillButtons(idleGame) {
   );
   const components = [skillRow];
 
-  if (idleGame.prestigePower >= 16 || idleGame.highestPopulation >= 1e16) {
+  if (idleGame.prestigePower >= 16 || highestPopulation_d.gte("1e16")) {
     const tpSkillRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_5")
