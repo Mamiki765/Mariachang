@@ -1,6 +1,10 @@
 // commands/slashs/debug.mjs
 import { SlashCommandBuilder } from "discord.js";
-import { IdleGame, Mee6Level } from "../../models/database.mjs";
+import {
+  IdleGame,
+  Mee6Level,
+  UserAchievement,
+} from "../../models/database.mjs";
 import { calculateOfflineProgress } from "../../utils/idle-game-calculator.mjs";
 import config from "../../config.mjs";
 

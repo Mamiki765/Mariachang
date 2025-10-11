@@ -22,6 +22,7 @@ import {
   getSingleUserUIData,
   formatNumberJapanese_Decimal,
   formatNumberDynamic_Decimal,
+  formatNumberDynamic,
 } from "../utils/idle-game-calculator.mjs";
 import Decimal from "break_infinity.js";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
@@ -241,7 +242,7 @@ export default async function handleButtonInteraction(interaction) {
             where: { userId: interaction.user.id },
           });
           //ニョワ人口
-          const population = idleGame ? Math.floor(idleGame.population) : 0;
+          const population_d = idleGame ? new Decimal(idleGame.population) : new Decimal(0);
           //ブースト
           let boostMessage = "🔥なし";
           if (idleGame) {
@@ -268,7 +269,7 @@ export default async function handleButtonInteraction(interaction) {
               `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
               ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚\n` +
               `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚` +
-              `<:nyowamiyarika:1264010111970574408>: ${formatNumberReadable(population)}匹 ${boostMessage}\n` +
+              `<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)}匹 ${boostMessage}\n` +
               `ロスアカのどんぐりもお忘れなく……`,
             components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
           });

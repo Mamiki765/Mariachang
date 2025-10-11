@@ -4,6 +4,10 @@
 import Decimal from "break_infinity.js";
 import config from "../config.mjs";
 import { IdleGame,  Mee6Level, UserAchievement } from "../models/database.mjs";
+//modがないので自作
+Decimal.prototype.mod = function (b) {
+  return this.sub(this.div(b).floor().mul(b));
+};
 
 /**
  * TPスキル#6によるコスト割引率を計算する
@@ -388,7 +392,7 @@ export function formatNumberJapanese_Decimal(dec) {
   if (!(dec instanceof Decimal)) {
     return "N/A";
   }
-  if (dec.isZero()) {
+  if (dec.equals(0)) {
     return "0";
   }
 
@@ -498,11 +502,28 @@ export async function getSingleUserUIData(userId) {
     { where: { userId } }
   );
 
-  // 5. UIで必要なデータをまとめて返す
+  // --- 5. UI表示に必要なデータを "全て" 計算してまとめる ---
+  const pp = updatedIdleGame.prestigePower || 0;
+  const achievementExponentBonus = externalData.achievementCount;
+
+  const factoryEffects = calculateFactoryEffects(updatedIdleGame, pp);
+  const skillLevels = { s1: updatedIdleGame.skillLevel1, s2: updatedIdleGame.skillLevel2, s3: updatedIdleGame.skillLevel3, s4: updatedIdleGame.skillLevel4 };
+  const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
+  
+  // ★表示に必要なデータを displayData オブジェクトに格納する
+  const displayData = {
+    productionRate_d: calculateProductionRate(updatedIdleGame, externalData),
+    factoryEffects: factoryEffects,
+    skill1Effect: (1 + (skillLevels.s1 || 0)) * radianceMultiplier * (1.0 + externalData.achievementCount * 0.01),
+    meatEffect: 1 + config.idle.meat.effect * (externalData.mee6Level + pp + achievementExponentBonus)
+  };
+
+  // --- 6. 最終的なデータを返す ---
   return {
     idleGame: updatedIdleGame,
     mee6Level: externalData.mee6Level,
     achievementCount: externalData.achievementCount,
-    userAchievement: userAchievement, // 実績コンプチェックなどで使うので渡す
+    userAchievement: userAchievement,
+    displayData: displayData // ★計算済みの表示用データも一緒に返す！
   };
 }
