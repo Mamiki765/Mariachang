@@ -718,21 +718,21 @@ export default {
     cheese: {
       emoji: "🧀",
       baseCost: 500,
-      multiplier: 1.15,
+      multiplier: 1.09,
       effect: 0.05, // 1レベルあたりの効果 (+5%)
     },
     tomato: {
       emoji: "🍅",
       baseCost: 800,
-      multiplier: 1.12,
-      effect: 0.03, // 1レベルあたりの効果 (+3%)
+      multiplier: 1.10,
+      effect: 0.04, // 1レベルあたりの効果 (+3%)
       unlockPopulation: 100_0000, // 人口100万で解禁
     },
     mushroom: {
       emoji: "🍄",
       baseCost: 1000, // 初期コスト
-      multiplier: 1.115, // コスト成長率
-      effect: 0.025, // 1レベルあたりの効果 (+2.5%)
+      multiplier: 1.105, // コスト成長率
+      effect: 0.03, // 1レベルあたりの効果 (+2.5%)
       unlockPopulation: 1000_0000, // 人口1000万で解禁
     },
     anchovy: {

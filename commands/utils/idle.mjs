@@ -358,7 +358,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
             value:
               population_d.gte(config.idle.mushroom.unlockPopulation) ||
               idleGame.prestigeCount > 0
-                ? `Lv. ${idleGame.mushroomFarmLevel} (${formatNumberDynamic(mushroomEffect_display, 3)}) Next.${costs.mushroom.toLocaleString()}©`
+                ? `Lv. ${idleGame.mushroomFarmLevel} (${formatNumberDynamic(mushroomEffect_display)}) Next.${costs.mushroom.toLocaleString()}©`
                 : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.mushroom.unlockPopulation))})`,
             inline: true,
           },

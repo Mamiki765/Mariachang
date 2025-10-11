@@ -3,7 +3,7 @@
 //UIとかユーザーが直接操作する部分は今のところidle.mjsに残す
 import Decimal from "break_infinity.js";
 import config from "../config.mjs";
-import { IdleGame,  Mee6Level, UserAchievement } from "../models/database.mjs";
+import { IdleGame, Mee6Level, UserAchievement } from "../models/database.mjs";
 //modがないので自作
 Decimal.prototype.mod = function (b) {
   return this.sub(this.div(b).floor().mul(b));
@@ -333,6 +333,14 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     population_d = population_d.add(addedPopulation_d);
   }
 
+  // --- 2.5 Infinityを超えたら直前で止める
+  if (true) { //強制的にBreak infinity前
+    const INFINITY_THRESHOLD = new Decimal("1.79769e308"); //この数値をInfinityボタン出現条件とする
+    if (population_d.gte(INFINITY_THRESHOLD)) {
+        population_d = INFINITY_THRESHOLD;
+    }
+  }
+
   // --- 3. ピザボーナスの再計算 ---
   let pizzaBonusPercentage = 0;
   // populationが1以上の場合のみ計算
@@ -507,15 +515,26 @@ export async function getSingleUserUIData(userId) {
   const achievementExponentBonus = externalData.achievementCount;
 
   const factoryEffects = calculateFactoryEffects(updatedIdleGame, pp);
-  const skillLevels = { s1: updatedIdleGame.skillLevel1, s2: updatedIdleGame.skillLevel2, s3: updatedIdleGame.skillLevel3, s4: updatedIdleGame.skillLevel4 };
+  const skillLevels = {
+    s1: updatedIdleGame.skillLevel1,
+    s2: updatedIdleGame.skillLevel2,
+    s3: updatedIdleGame.skillLevel3,
+    s4: updatedIdleGame.skillLevel4,
+  };
   const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
-  
+
   // ★表示に必要なデータを displayData オブジェクトに格納する
   const displayData = {
     productionRate_d: calculateProductionRate(updatedIdleGame, externalData),
     factoryEffects: factoryEffects,
-    skill1Effect: (1 + (skillLevels.s1 || 0)) * radianceMultiplier * (1.0 + externalData.achievementCount * 0.01),
-    meatEffect: 1 + config.idle.meat.effect * (externalData.mee6Level + pp + achievementExponentBonus)
+    skill1Effect:
+      (1 + (skillLevels.s1 || 0)) *
+      radianceMultiplier *
+      (1.0 + externalData.achievementCount * 0.01),
+    meatEffect:
+      1 +
+      config.idle.meat.effect *
+        (externalData.mee6Level + pp + achievementExponentBonus),
   };
 
   // --- 6. 最終的なデータを返す ---
@@ -524,6 +543,6 @@ export async function getSingleUserUIData(userId) {
     mee6Level: externalData.mee6Level,
     achievementCount: externalData.achievementCount,
     userAchievement: userAchievement,
-    displayData: displayData // ★計算済みの表示用データも一緒に返す！
+    displayData: displayData, // ★計算済みの表示用データも一緒に返す！
   };
 }
