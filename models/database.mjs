@@ -599,7 +599,7 @@ const IdleGame = sequelize.define(
     },
   },
   {
-    tableName: "idle_games_v2",
+    tableName: "idle_games",
     timestamps: false,
   }
 );
