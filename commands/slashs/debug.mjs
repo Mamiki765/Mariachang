@@ -1,7 +1,7 @@
 // commands/slashs/debug.mjs
 import { SlashCommandBuilder } from "discord.js";
 import { IdleGame, Mee6Level } from "../../models/database.mjs";
-import { updateUserIdleGame } from "../../utils/idle-game-calculator.mjs";
+import { calculateOfflineProgress } from "../../utils/idle-game-calculator.mjs";
 import config from "../../config.mjs";
 
 // このコマンドはデバッグ専用なので、helpには表示しない
@@ -81,7 +81,39 @@ export async function execute(interaction) {
       );
       idleGame.lastUpdatedAt = newLastUpdate;
       await idleGame.save();
-      await updateUserIdleGame(targetUser.id);
+
+      // 2. 関連データを取得して externalData を準備
+      const [mee6Level, userAchievement] = await Promise.all([
+        Mee6Level.findOne({ where: { userId: targetUser.id }, raw: true }),
+        UserAchievement.findOne({
+          where: { userId: targetUser.id },
+          raw: true,
+        }),
+      ]);
+      const externalData = {
+        mee6Level: mee6Level?.level || 0,
+        achievementCount: userAchievement?.achievements?.unlocked?.length || 0,
+      };
+
+      // 3. 最新のDBデータと externalData を使って再計算
+      const latestIdleGame = await IdleGame.findOne({
+        where: { userId: targetUser.id },
+        raw: true,
+      });
+      const updatedIdleGame = calculateOfflineProgress(
+        latestIdleGame,
+        externalData
+      );
+
+      // 4. 計算結果をDBに保存
+      await IdleGame.update(
+        {
+          population: updatedIdleGame.population,
+          lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
+          pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
+        },
+        { where: { userId: targetUser.id } }
+      );
       await interaction.editReply(
         `✅ ${targetUser.username} の時間を **${hoursToAdvance}時間** 進めて、データを再計算しました。`
       );

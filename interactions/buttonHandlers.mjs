@@ -19,10 +19,11 @@ import { unlockAchievements } from "../utils/achievements.mjs";
 import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 // 放置ゲームの人口を更新する関数をインポート
 import {
-  updateUserIdleGame,
-  formatNumberReadable,
-  formatNumberDynamic,
+  getSingleUserUIData,
+  formatNumberJapanese_Decimal,
+  formatNumberDynamic_Decimal,
 } from "../utils/idle-game-calculator.mjs";
+import Decimal from "break_infinity.js";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
 
@@ -254,7 +255,7 @@ export default async function handleButtonInteraction(interaction) {
                   (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
                 );
                 const multiplier = idleGame.buffMultiplier || 1;
-                boostMessage = `🔥x${formatNumberDynamic(multiplier,1)} **${hours}時間${minutes}分**`;
+                boostMessage = `🔥x${formatNumberDynamic(multiplier, 1)} **${hours}時間${minutes}分**`;
               }
             } else {
               // idleGameはあるがブーストを一度も点火していない人向けの案内
@@ -425,7 +426,34 @@ export default async function handleButtonInteraction(interaction) {
       }
 
       // 4. 放置ゲームの人口を「表示のためだけ」に更新
-      const idleResult = await updateUserIdleGame(interaction.user.id);
+      const uiData = await getSingleUserUIData(interaction.user.id);
+      let idleGameMessagePart = ""; // メッセージの断片を初期化
+
+      if (uiData) {
+        const { idleGame } = uiData;
+        const population_d = new Decimal(idleGame.population);
+
+        // 人口表示
+        idleGameMessagePart += ` <:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)}匹`;
+
+        // ブースト表示
+        if (idleGame.buffExpiresAt) {
+          const now = new Date();
+          const remainingMs =
+            new Date(idleGame.buffExpiresAt).getTime() - now.getTime();
+          if (remainingMs > 0) {
+            const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+            const minutes = Math.floor(
+              (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
+            );
+            idleGameMessagePart += ` 🔥x${formatNumberDynamic(idleGame.buffMultiplier, 1)} **${hours}時間${minutes}分**`;
+          } else {
+            idleGameMessagePart += ` 🔥ブーストなし /idleで点火できます。`;
+          }
+        } else {
+          idleGameMessagePart += ` 🔥ブーストなし /idleで点火できます。`;
+        }
+      }
       pizzaMessages.push(
         `-# 焼きあがったピザはニョボシ達が${nyoboChip.displayName}に換金しに持っていきました。/bank から引き出せます。`
       );
@@ -464,22 +492,9 @@ export default async function handleButtonInteraction(interaction) {
       Message += `\n--------------------`;
       // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
       Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚`;
-      if (idleResult) {
-        //放置ゲーの人口及びブースト表示
-        // 人口表示
-        Message += ` <:nyowamiyarika:1264010111970574408>: ${formatNumberReadable(Math.floor(idleResult.population))}匹`;
-        // ブースト表示
-        if (idleResult.buffRemaining) {
-          const { hours, minutes } = idleResult.buffRemaining;
-          if (hours > 0 || minutes > 0) {
-            Message += ` 🔥x${formatNumberDynamic(idleResult.currentBuffMultiplier,1)} **${hours}時間${minutes}分**`;
-          } else {
-            Message += ` 🔥ブーストなし /idleで点火できます。`;
-          }
-        } else {
-          // バフ情報自体がない場合も
-          Message += ` 🔥ブーストなし /idleで点火できます。`;
-        }
+      //放置ゲーの人口及びブースト表示
+      if (idleGameMessagePart) {
+        Message += ` ${idleGameMessagePart}`;
       }
       Message += `\nロスアカのどんぐりもお忘れなく……`;
       // 8. ユーザーに返信

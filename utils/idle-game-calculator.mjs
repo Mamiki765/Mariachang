@@ -3,7 +3,7 @@
 //UIとかユーザーが直接操作する部分は今のところidle.mjsに残す
 import Decimal from "break_infinity.js";
 import config from "../config.mjs";
-import { IdleGame } from "../models/database.mjs";
+import { IdleGame,  Mee6Level, UserAchievement } from "../models/database.mjs";
 
 /**
  * TPスキル#6によるコスト割引率を計算する
@@ -28,6 +28,7 @@ export function calculateDiscountMultiplier(skillLevel6 = 0) {
 }
 
 //TPスキル#5によるベース強化を考慮した強化を入れる
+//ゲームが進んできたらここもDicimal検討しよう
 export function calculateFactoryEffects(idleGame, pp) {
   const s5_level = idleGame.skillLevel5 || 0;
   const s5_config = config.idle.tp_skills.skill5;
@@ -462,4 +463,46 @@ export function formatNumberDynamic(n, decimalPlaces = 2) {
   else {
     return n.toExponential(2);
   }
+}
+
+/**
+ * UI表示に必要な全てのデータを取得・計算して返す関数
+ * @param {string} userId
+ * @returns {Promise<object|null>}
+ */
+export async function getSingleUserUIData(userId) {
+  // 1. 関連データを "並行して" 取得 (Promise.allで高速化)
+  const [idleGameData, mee6Level, userAchievement] = await Promise.all([
+    IdleGame.findOne({ where: { userId }, raw: true }),
+    Mee6Level.findOne({ where: { userId }, raw: true }),
+    UserAchievement.findOne({ where: { userId }, raw: true }),
+  ]);
+  if (!idleGameData) return null; // ユーザーデータがなければ終了
+
+  // 2. externalData(道具箱)を準備
+  const externalData = {
+    mee6Level: mee6Level?.level || 0,
+    achievementCount: userAchievement?.achievements?.unlocked?.length || 0,
+  };
+
+  // 3. 計算エンジンを呼び出して、最新の状態にする
+  const updatedIdleGame = calculateOfflineProgress(idleGameData, externalData);
+
+  // 4. DBに保存する (注意: この関数はUI表示のたびに呼ばれるので、頻繁なDB書き込みになる。将来的には分離も検討)
+  await IdleGame.update(
+    {
+      population: updatedIdleGame.population,
+      lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
+      pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
+    },
+    { where: { userId } }
+  );
+
+  // 5. UIで必要なデータをまとめて返す
+  return {
+    idleGame: updatedIdleGame,
+    mee6Level: externalData.mee6Level,
+    achievementCount: externalData.achievementCount,
+    userAchievement: userAchievement, // 実績コンプチェックなどで使うので渡す
+  };
 }

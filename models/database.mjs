@@ -567,7 +567,7 @@ const IdleGame = sequelize.define(
       defaultValue: 0,
     },
     chipsSpentThisInfinity: {
-      type: DataTypes.DOUBLE,
+      type: DataTypes.BIGINT,
       defaultValue: 0,
     },
     skillLevel8: {
