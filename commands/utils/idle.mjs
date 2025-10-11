@@ -962,6 +962,9 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
 
         await i.followUp({ content: summaryMessage, flags: 64 });
         await unlockAchievements(interaction.client, userId, 14);
+        if (totalCost >= 1000000) {
+          await unlockAchievements(interaction.client, userId, 63);
+        }
         // 6. Embedとボタンの再描画
         await interaction.editReply({
           embeds: [generateEmbed()],
@@ -1403,6 +1406,21 @@ async function handlePrestige(interaction, collector) {
       // ★★★ 1. Decimalに変換 ★★★
       const currentPopulation_d = new Decimal(latestIdleGame.population);
       const highestPopulation_d = new Decimal(latestIdleGame.highestPopulation);
+
+      // #65 充足の試練チェック
+      if (latestIdleGame.skillLevel1 === 0 && currentPopulation_d.gte("1e27")) {
+        await unlockAchievements(interaction.client, interaction.user.id, 65);
+      }
+      // #62 虚無の試練チェック
+      const areFactoriesLevelZero =
+        latestIdleGame.pizzaOvenLevel === 0 &&
+        latestIdleGame.cheeseFactoryLevel === 0 &&
+        latestIdleGame.tomatoFarmLevel === 0 &&
+        latestIdleGame.mushroomFarmLevel === 0 &&
+        latestIdleGame.anchovyFactoryLevel === 0;
+      if (areFactoriesLevelZero && currentPopulation_d.gte("1e24")) {
+        await unlockAchievements(interaction.client, interaction.user.id, 62);
+      }
 
       // ▼▼▼ ここから分岐ロジック ▼▼▼
       if (currentPopulation_d.gt(highestPopulation_d)) {
