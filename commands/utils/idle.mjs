@@ -876,12 +876,15 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         // 古い変数を、取得し直した新しいデータで"全て"上書きする
         // (この部分は、施設強化の時と全く同じコードです)
         Object.assign(idleGame, newUiData.idleGame);
-        point.legacy_pizza = (await Point.findOne({ where: { userId } })).legacy_pizza;
-        
+        point.legacy_pizza = (
+          await Point.findOne({ where: { userId } })
+        ).legacy_pizza;
+
         population_d = new Decimal(newUiData.idleGame.population);
         highestPopulation_d = new Decimal(newUiData.idleGame.highestPopulation);
-        
-        ({ productionRate_d, factoryEffects, skill1Effect, meatEffect } = newUiData.displayData);
+
+        ({ productionRate_d, factoryEffects, skill1Effect, meatEffect } =
+          newUiData.displayData);
 
         // 5. 結果のフィードバック
         let summaryMessage = `**🤖 自動割り振りが完了しました！**\n- 消費チップ: ${totalCost.toLocaleString()}枚\n`;
@@ -1150,25 +1153,18 @@ async function executeRankingCommand(interaction, isPrivate) {
     ephemeral: isPrivate,
   });
 
-  // 除外したいユーザーIDを定義
   const excludedUserId = "1123987861180534826";
 
+  // ★★★ 攻略法１：sequelize.cast を使って、TEXTを数字としてソートする ★★★
   const allIdleGames = await IdleGame.findAll({
-    where: {
-      // userIdが、指定したIDと「等しくない(!=)」という条件
-      userId: {
-        [Op.ne]: excludedUserId,
-      },
-    },
-    order: [["population", "DESC"]],
-    limit: 100, // DBから取得する時点で除外されるので、100人のランキングが維持される
+    where: { userId: { [Op.ne]: excludedUserId } },
+    order: [[sequelize.cast(sequelize.col('population'), 'DECIMAL'), 'DESC']], // ← これが魔法の呪文！
+    limit: 100,
+    raw: true, // ★ .findAll() には raw: true を付けると高速になります
   });
 
   if (allIdleGames.length === 0) {
-    await interaction.editReply({
-      content: "まだ誰もニョワミヤを集めていません。",
-    });
-    return;
+    /* ... (変更なし) ... */
   }
 
   const itemsPerPage = 10;
@@ -1184,8 +1180,6 @@ async function executeRankingCommand(interaction, isPrivate) {
       currentItems.map(async (game, index) => {
         const rank = start + index + 1;
         let displayName;
-
-        // ★ 改善ポイント1：退会ユーザーの表示を親切に ★
         try {
           const member =
             interaction.guild.members.cache.get(game.userId) ||
@@ -1195,7 +1189,10 @@ async function executeRankingCommand(interaction, isPrivate) {
           displayName = "(退会したユーザー)";
         }
 
-        const population = formatNumberJapanese(Math.floor(game.population));
+        // ★★★ 攻略法２：Decimalに変換し、新しいフォーマッターを使う ★★★
+        const population_d = new Decimal(game.population);
+        const population = formatNumberJapanese_Decimal(population_d);
+
         return {
           name: `**${rank}位**`,
           value: `${displayName}\n└ ${population} 匹`,
@@ -1204,16 +1201,15 @@ async function executeRankingCommand(interaction, isPrivate) {
       })
     );
 
-    // 自分の順位を探す
     const myIndex = allIdleGames.findIndex(
       (game) => game.userId === interaction.user.id
     );
     let myRankText = "あなたはまだピザ工場を持っていません。";
     if (myIndex !== -1) {
       const myRank = myIndex + 1;
-      const myPopulation = formatNumberJapanese(
-        Math.floor(allIdleGames[myIndex].population)
-      );
+      // ★★★ 攻略法２（自分用） ★★★
+      const myPopulation_d = new Decimal(allIdleGames[myIndex].population);
+      const myPopulation = formatNumberJapanese_Decimal(myPopulation_d);
       myRankText = `**${myRank}位** └ ${myPopulation} 匹`;
     }
 
@@ -1224,7 +1220,6 @@ async function executeRankingCommand(interaction, isPrivate) {
       .setFooter({ text: `ページ ${page + 1} / ${totalPages}` })
       .addFields({ name: "📌 あなたの順位", value: myRankText });
   };
-
   const generateButtons = (page) => {
     return new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -1567,8 +1562,10 @@ function generateSkillEmbed(idleGame) {
     const currentDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6);
     const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
-    // BigInt を Decimal に変換し、新しいフォーマッターを使う 
-    const spentChips_d = new Decimal(idleGame.chipsSpentThisInfinity.toString() || '0');
+    // BigInt を Decimal に変換し、新しいフォーマッターを使う
+    const spentChips_d = new Decimal(
+      idleGame.chipsSpentThisInfinity.toString() || "0"
+    );
     const skill7power = 0.1 * tp_levels.s7;
     const spentChipsFormatted = formatNumberJapanese_Decimal(spentChips_d);
 
