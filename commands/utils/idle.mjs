@@ -593,7 +593,20 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       if (boostRow.components.length > 0) {
         components.push(boostRow);
       }
-      //3行のボタンを返信
+
+      //infinityRow
+      if (population_d.gte(config.idle.infinity)) {
+        infinityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_infinity")
+            .setLabel("インフィニティ")
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji("🌌")
+            .setDisabled(isDisabled)
+        );
+        components.push(infinityRow);
+      }
+      //4行のボタンを返信
       return components;
     };
 
@@ -821,6 +834,27 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
 `;
         await i.followUp({
           content: spExplanation,
+          flags: 64, // 本人にだけ見えるメッセージ
+        });
+        return; // 解説を表示したら、このcollectイベントの処理は終了
+      } else if (i.customId === "idle_infinity") {
+        //仮のメッセージ
+        const hogeExplanation = `# 1.79e+308 Infinity
+## ――あなたは果てにたどり着いた。
+終わりは意外とあっけないものだった。
+ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
+それは一塊に集まると、凄まじい光を放ち膨張し……そして新たなピザ宇宙が誕生した。
+
+おめでとう、あなたの努力はついに報われた。
+キミは満足しただろうか、或いは途方もない徒労感と緊張の糸が切れた感覚があるだろうか。
+いずれにせよ……ここが終点だ。さあ、君たちの世界の戦場に帰るときが来た。
+
+1IP と 1∞ を手に入れた。
+……ちょっと待って？　なんでこのメッセージが見えてるの？
+コレ見えてるのおかしいよ！？　早く工場に帰ってきて！？
+`;
+        await i.followUp({
+          content: hogeExplanation,
           flags: 64, // 本人にだけ見えるメッセージ
         });
         return; // 解説を表示したら、このcollectイベントの処理は終了
@@ -1188,7 +1222,10 @@ async function executeRankingCommand(interaction, isPrivate) {
   });
 
   if (allIdleGames.length === 0) {
-    /* ... (変更なし) ... */
+    await interaction.editReply({
+      content: "まだ誰もニョワミヤを集めていません。",
+    });
+    return;
   }
 
   const itemsPerPage = 10;
@@ -1844,22 +1881,22 @@ async function handleSkillReset(interaction, collector) {
  * @returns {EmbedBuilder}
  */
 function generateProfileEmbed(uiData, user) {
-    const { idleGame, achievementCount } = uiData;
-    const population_d = new Decimal(idleGame.population);
-    const highestPopulation_d = new Decimal(idleGame.highestPopulation);
+  const { idleGame, achievementCount } = uiData;
+  const population_d = new Decimal(idleGame.population);
+  const highestPopulation_d = new Decimal(idleGame.highestPopulation);
 
-    // Descriptionを組み立てる
-    const description = [
-        `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
-        `🍕Lv.${idleGame.pizzaOvenLevel} 🧀Lv.${idleGame.cheeseFactoryLevel} 🍅Lv.${idleGame.tomatoFarmLevel} 🍄Lv.${idleGame.mushroomFarmLevel} 🐟Lv.${idleGame.anchovyFactoryLevel} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
-        `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
-        `#1:${idleGame.skillLevel1||0} #2:${idleGame.skillLevel2||0} #3:${idleGame.skillLevel3||0} #4:${idleGame.skillLevel4||0} / #5:${idleGame.skillLevel5||0} #6:${idleGame.skillLevel6||0} #7:${idleGame.skillLevel7||0} #8:${idleGame.skillLevel8||0}`,
-        `IP: 0 ∞: 0` // 将来のInfinity Pointへの布石
-    ].join('\n');
+  // Descriptionを組み立てる
+  const description = [
+    `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
+    `🍕Lv.${idleGame.pizzaOvenLevel} 🧀Lv.${idleGame.cheeseFactoryLevel} 🍅Lv.${idleGame.tomatoFarmLevel} 🍄Lv.${idleGame.mushroomFarmLevel} 🐟Lv.${idleGame.anchovyFactoryLevel} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
+    `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
+    `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
+    `IP: 0 ∞: 0`, // 将来のInfinity Pointへの布石
+  ].join("\n");
 
-    return new EmbedBuilder()
-        .setTitle(`${user.displayName}さんのピザ工場`)
-        .setColor('Aqua') // 通常のEmbedと色を変えて区別
-        .setDescription(description)
-        .setTimestamp();
+  return new EmbedBuilder()
+    .setTitle(`${user.displayName}さんのピザ工場`)
+    .setColor("Aqua") // 通常のEmbedと色を変えて区別
+    .setDescription(description)
+    .setTimestamp();
 }

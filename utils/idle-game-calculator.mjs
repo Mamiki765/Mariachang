@@ -335,7 +335,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
 
   // --- 2.5 Infinityを超えたら直前で止める
   if (true) { //強制的にBreak infinity前
-    const INFINITY_THRESHOLD = new Decimal("1.79769e308"); //この数値をInfinityボタン出現条件とする
+    const INFINITY_THRESHOLD = new Decimal(config.idle.infinity); //この数値をInfinityボタン出現条件とする
     if (population_d.gte(INFINITY_THRESHOLD)) {
         population_d = INFINITY_THRESHOLD;
     }
