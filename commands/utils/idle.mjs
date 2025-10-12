@@ -626,6 +626,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
 
       //infinityRow
       // Infinityを1回以上経験している場合、「ジェネレーター」画面への切り替えボタンを追加
+      const infinityRow = new ActionRowBuilder();
       if (idleGame.infinityCount > 0) {
         infinityRow.addComponents(
           new ButtonBuilder()
