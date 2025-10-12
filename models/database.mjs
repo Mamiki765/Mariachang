@@ -480,7 +480,7 @@ const IdleGame = sequelize.define(
     // 人口は天文学的な数値になる可能性があるのでDOUBLE型が最適
     population: {
       type: DataTypes.TEXT,
-      defaultValue: '0', // デフォルト値も文字列に
+      defaultValue: "0", // デフォルト値も文字列に
     },
     pizzaOvenLevel: {
       // ピザ窯（ベース生産量）
@@ -519,7 +519,7 @@ const IdleGame = sequelize.define(
     },
     highestPopulation: {
       type: DataTypes.TEXT,
-      defaultValue: '0', // デフォルト値も文字列に
+      defaultValue: "0", // デフォルト値も文字列に
     },
     skillPoints: {
       type: DataTypes.DOUBLE,
@@ -577,9 +577,30 @@ const IdleGame = sequelize.define(
     },
     infinityTime: {
       // このInfinity周回でのゲーム内プレイ時間（秒単位）
-      type: DataTypes.DOUBLE, 
+      type: DataTypes.DOUBLE,
       allowNull: false,
       defaultValue: 0.0,
+    },
+    //インフィニティ
+    infinityPoints: {
+      type: DataTypes.TEXT,
+      defaultValue: "0",
+    },
+    infinityCount: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0,
+    },
+    ipUpgrades: {
+      type: DataTypes.JSONB,
+      defaultValue: { generators: {} },
+    },
+    eternityTime: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0.0,
+    },
+    chipsSpentThisEternity: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
     },
     challenges: {
       // 各種チャレンジの進捗や状態を保存

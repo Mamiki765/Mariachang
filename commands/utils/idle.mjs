@@ -32,7 +32,7 @@ import {
   calculateDiscountMultiplier,
   formatNumberDynamic,
   getSingleUserUIData,
-  formatInfinityTime, 
+  formatInfinityTime,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -173,6 +173,8 @@ export async function execute(interaction) {
       { id: 52, condition: idleGame.skillLevel8 >= 1 }, //s8実績もここに
       { id: 56, condition: population_d.gte(6.692e30) }, //infinity^0.10
       { id: 61, condition: population_d.gte(4.482e61) }, //infinity^0.20
+      { id: 70, condition: population_d.gte(2.9613e92) }, //infinity^0.30
+      { id: 71, condition: population_d.gte(1.3407e154) }, //infinity^0.50
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -862,26 +864,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         });
         return; // 解説を表示したら、このcollectイベントの処理は終了
       } else if (i.customId === "idle_infinity") {
-        //仮のメッセージ
-        const hogeExplanation = `# 1.79e+308 Infinity
-## ――あなたは果てにたどり着いた。
-終わりは意外とあっけないものだった。
-ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
-それは一塊に集まると、凄まじい光を放ち膨張し……そして新たなピザ宇宙が誕生した。
-
-おめでとう、あなたの努力はついに報われた。
-キミは満足しただろうか、或いは途方もない徒労感と緊張の糸が切れた感覚があるだろうか。
-いずれにせよ……ここが終点だ。さあ、君たちの世界の戦場に帰るときが来た。
-
-1IP と 1∞ を手に入れた。
-……ちょっと待って？　なんでこのメッセージが見えてるの？
-コレ見えてるのおかしいよ！？　早く工場に帰ってきて！？
-`;
-        await i.followUp({
-          content: hogeExplanation,
-          flags: 64, // 本人にだけ見えるメッセージ
-        });
-        return; // 解説を表示したら、このcollectイベントの処理は終了
+        await handleInfinity(i, collector);
+        return;
         //全自動購入
       } else if (i.customId === "idle_auto_allocate") {
         // 1. ループの準備
@@ -1448,12 +1432,12 @@ async function handlePrestige(interaction, collector) {
       // #64 忍耐の試練記録
       const challenges = latestIdleGame.challenges || {};
       if (!challenges.trial64?.isCleared) {
-      challenges.trial64 = {
-        lastPrestigeTime: latestIdleGame.infinityTime,
-        isCleared: false, // リセットなので未クリア状態に戻す
-      };
-      latestIdleGame.changed("challenges", true);
-    }
+        challenges.trial64 = {
+          lastPrestigeTime: latestIdleGame.infinityTime,
+          isCleared: false, // リセットなので未クリア状態に戻す
+        };
+        latestIdleGame.changed("challenges", true);
+      }
 
       // ▼▼▼ ここから分岐ロジック ▼▼▼
       if (currentPopulation_d.gt(highestPopulation_d)) {
@@ -1893,12 +1877,12 @@ async function handleSkillReset(interaction, collector) {
       // #64 忍耐の試練記録
       const challenges = latestIdleGame.challenges || {};
       if (!challenges.trial64?.isCleared) {
-      challenges.trial64 = {
-        lastPrestigeTime: latestIdleGame.infinityTime,
-        isCleared: false, // リセットなので未クリア状態に戻す
-      };
-      latestIdleGame.changed("challenges", true);
-    }
+        challenges.trial64 = {
+          lastPrestigeTime: latestIdleGame.infinityTime,
+          isCleared: false, // リセットなので未クリア状態に戻す
+        };
+        latestIdleGame.changed("challenges", true);
+      }
 
       // 6. データベースの値を更新
       await latestIdleGame.update(
@@ -1951,13 +1935,17 @@ function generateProfileEmbed(uiData, user) {
 
   const formattedTime = formatInfinityTime(idleGame.infinityTime);
 
+  const formattedChipsEternity = formatNumberJapanese_Decimal(new Decimal(idleGame.chipsSpentThisEternity?.toString() || '0'));
+  const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
+
   // Descriptionを組み立てる
   const description = [
     `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
     `🍕Lv.${idleGame.pizzaOvenLevel} 🧀Lv.${idleGame.cheeseFactoryLevel} 🍅Lv.${idleGame.tomatoFarmLevel} 🍄Lv.${idleGame.mushroomFarmLevel} 🐟Lv.${idleGame.anchovyFactoryLevel} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
-    `IP: 0 ∞: 0 ∞⏳${formattedTime}`, // 将来のInfinity Pointへの布石
+    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}** | ∞⏳: ${formattedTime}`,
+    `Eternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}**`,
   ].join("\n");
 
   return new EmbedBuilder()
@@ -1965,4 +1953,173 @@ function generateProfileEmbed(uiData, user) {
     .setColor("Aqua") // 通常のEmbedと色を変えて区別
     .setDescription(description)
     .setTimestamp();
+}
+
+/**
+ * Infinityを実行し、世界をリセットする関数
+ * @param {import("discord.js").ButtonInteraction} interaction - Infinityボタンのインタラクション
+ * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
+ */
+async function handleInfinity(interaction, collector) {
+  // 1. コレクターを停止
+  collector.stop();
+  await interaction.deferUpdate(); // 「考え中...」の状態にする
+
+  try {
+    let gainedIP = new Decimal(0);
+    let isFirstInfinity = false;
+
+    // 2. トランザクションで安全にデータベースを更新
+    await sequelize.transaction(async (t) => {
+      const latestIdleGame = await IdleGame.findOne({
+        where: { userId: interaction.user.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      // 人口がInfinityに達しているか最終チェック
+      if (new Decimal(latestIdleGame.population).lt(config.idle.infinity)) {
+        throw new Error("インフィニティの条件を満たしていません。");
+      }
+
+      if (latestIdleGame.infinityCount === 0) {
+        isFirstInfinity = true;
+      }
+
+      // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
+      gainedIP = new Decimal(1);
+
+      // 4. データベースの値をリセット＆更新
+      await latestIdleGame.update(
+        {
+          // --- リセットされる項目 ---
+          population: "0",
+          highestPopulation: "0",
+          pizzaOvenLevel: 0,
+          cheeseFactoryLevel: 0,
+          tomatoFarmLevel: 0,
+          mushroomFarmLevel: 0,
+          anchovyFactoryLevel: 0,
+          prestigeCount: 0,
+          prestigePower: 0,
+          skillPoints: 0,
+          skillLevel1: 0,
+          skillLevel2: 0,
+          skillLevel3: 0,
+          skillLevel4: 0,
+          transcendencePoints: 0,
+          skillLevel5: 0,
+          skillLevel6: 0,
+          skillLevel7: 0,
+          skillLevel8: 0,
+          infinityTime: 0,
+          chipsSpentThisInfinity: "0",
+          buffMultiplier: 2.0,
+          // challenges はリセットしない
+
+          // --- 更新される項目 ---
+          infinityPoints: new Decimal(latestIdleGame.infinityPoints)
+            .add(gainedIP)
+            .toString(),
+          infinityCount: latestIdleGame.infinityCount + 1, // infinityCountはDouble型なので、JSのNumberでOK
+          lastUpdatedAt: new Date(),
+        },
+        { transaction: t }
+      );
+    });
+
+    // 5. 成功メッセージを送信（初回かどうかで分岐）
+    let successMessage;
+    if (isFirstInfinity) {
+      successMessage = `# ●1.79e+308 Infinity
+## ――あなたは果てにたどり着いた。
+終わりは意外とあっけないものだった。
+ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
+それは一塊に集まると、凄まじい光を放ち膨張し……そして新たな星が誕生した。
+## ニョワミヤは、青かった。
+……。
+おめでとう、あなたの努力はついに報われた。
+キミは満足しただろうか、或いは途方もない徒労感と緊張の糸が切れた感覚があるだろうか。
+いずれにせよ……ここが終点だ。さあ、君たちの星、君たちの世界の戦場に帰するときが来た。
+……君達が満足していなければ、あるいはまたここに戻ってくるのだろうか。
+
+あなたは全ての工場に関する能力を失った。
+しかし、あなたは強くなった。
+**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
+ピザ生産ジェネレーターが解禁された。`;
+    } else {
+      successMessage = `# ●1.79e+308 Infinity
+## ――あなたは果てにたどり着いた。
+終わりは意外とあっけないものだった。
+ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
+それは一塊に集まると、凄まじい光を放ち膨張し……そして新たな星が誕生した。
+## ニョワミヤは、青かった。
+……。
+たとえ一度見た光景であろうと、あなたの努力と活動は称賛されるべきである。
+然るべき達成感と褒章を得るべきで……え？　早くIPと∞よこせって？
+
+インフィニティリセットを行った。
+**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。`;
+    }
+
+    await interaction.followUp({
+      content: successMessage,
+      flags: 64, // 本人にだけ見えるメッセージ
+    });
+  } catch (error) {
+    console.error("Infinity Error:", error);
+    await interaction.followUp({
+      content: "❌ エラーによりインフィニティに失敗しました。",
+      flags: 64,
+    });
+  }
+}
+
+/**
+ * インフィニティ画面のEmbedを生成する（ジェネレーター）
+ * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @returns {EmbedBuilder}
+ */
+function generateInfinityEmbed(idleGame) {
+  const ip_d = new Decimal(idleGame.infinityPoints);
+  const infinityCount = idleGame.infinityCount || 0;
+  const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
+GP:1^0.5 = 1倍`;//GPはinfinityのたびに1にリセットされる…revoのパクリやんけ～～～！
+
+  const embed = new EmbedBuilder()
+    .setTitle("🌌 インフィニティ 🌌")
+    .setColor("Aqua")
+    .setDescription(infinityDescription)
+    .addFields(
+      {
+        //ダミー
+        name: "Lv1.ピザ工場複製装置(1個)",
+        value:
+          "10コス。毎分、GPを1生産する。Lv1増やすと初期個数が1増え効果が2倍になる。\n生産速度は∞倍される", //revoの（ｒｙ
+      },
+      {
+        //ダミー
+        name: "Lv0.ピザ工場複製装置Ⅱ(0個)",
+        value:
+          "100コス。毎分、ピザ工場複製装置を1生産する。Lv1増やすと初期個数が1増え効果が2倍になる。", //アンチマターニョワミヤ
+      },// そしてジェネレーターのジェネレーターのジェネレーターへ…
+    );
+  return embed;
+}
+
+/**
+ * インフィニティ画面のボタンを生成する
+ * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @returns {ActionRowBuilder[]}
+ */
+function generateInfinityButtons(idleGame) {
+  // 将来的には、ここにジェネレーターやアップグレードの購入ボタンを追加します
+  const utilityRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_show_factory") // 工場画面に戻る
+      .setLabel("工場画面に戻る")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🏭")
+  );
+  return [utilityRow];
 }
