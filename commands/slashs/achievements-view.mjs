@@ -146,6 +146,27 @@ export async function execute(interaction) {
     }
   }
 
+  // --- 実績66「工場の試練」のチェック ---
+  // まだ実績66を解除していない場合のみ、チェックを実行
+  if (!unlockedSet.has(66)) {
+    // 制覇に必要な試練の実績IDリスト
+    const requiredTrials = [62, 63, 64, 65];
+
+    // 必須の試練が、すべて解除済み実績の中に含まれているかチェック
+    const areAllTrialsCleared = requiredTrials.every((id) =>
+      unlockedSet.has(id)
+    );
+
+    if (areAllTrialsCleared) {
+      // 4つの試練をすべてクリアしていたら、実績66を解除する
+      await unlockAchievements(interaction.client, userId, 66);
+
+      // 後続の処理で参照される可能性を考慮し、ローカルのデータも更新しておく
+      unlockedSet.add(66);
+      achievementsData.unlocked.push(66);
+    }
+  }
+
   // 表示状態を管理する変数
   let currentPage = startPage - 1;
   let isHiddenMode = false;

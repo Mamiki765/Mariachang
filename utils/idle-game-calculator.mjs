@@ -553,3 +553,46 @@ export async function getSingleUserUIData(userId) {
     displayData: displayData, // ★計算済みの表示用データも一緒に返す！
   };
 }
+
+/**
+ * 秒数を「X年X日X時間X分X秒」の形式にフォーマットする
+ * @param {number} totalSeconds - 合計秒数
+ * @returns {string} フォーマットされた時間文字列
+ */
+export function formatInfinityTime(totalSeconds) {
+  if (typeof totalSeconds !== 'number' || totalSeconds < 0) {
+    return "測定不能";
+  }
+
+  if (totalSeconds < 60) {
+    return `${Math.floor(totalSeconds)}秒`;
+  }
+
+  const SECONDS_IN_MINUTE = 60;
+  const SECONDS_IN_HOUR = 60 * SECONDS_IN_MINUTE;
+  const SECONDS_IN_DAY = 24 * SECONDS_IN_HOUR;
+  const SECONDS_IN_YEAR = 365 * SECONDS_IN_DAY;
+
+  let remainingSeconds = totalSeconds;
+
+  const years = Math.floor(remainingSeconds / SECONDS_IN_YEAR);
+  remainingSeconds %= SECONDS_IN_YEAR;
+
+  const days = Math.floor(remainingSeconds / SECONDS_IN_DAY);
+  remainingSeconds %= SECONDS_IN_DAY;
+
+  const hours = Math.floor(remainingSeconds / SECONDS_IN_HOUR);
+  remainingSeconds %= SECONDS_IN_HOUR;
+
+  const minutes = Math.floor(remainingSeconds / SECONDS_IN_MINUTE);
+  const seconds = Math.floor(remainingSeconds % SECONDS_IN_MINUTE);
+
+  const parts = [];
+  if (years > 0) parts.push(`${years}年`);
+  if (days > 0) parts.push(`${days}日`);
+  if (hours > 0) parts.push(`${hours}時間`);
+  if (minutes > 0) parts.push(`${minutes}分`);
+  if (seconds > 0) parts.push(`${seconds}秒`);
+
+  return parts.join(' ') || '0秒';
+}

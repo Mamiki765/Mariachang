@@ -23,18 +23,16 @@ import {
 
 //idlegame関数群
 import {
-  calculateOfflineProgress,
   formatNumberJapanese_Decimal, // 新しいフォーマッター
   formatNumberDynamic_Decimal, // 新しいフォーマッター
   calculatePotentialTP,
   calculateAllCosts,
   calculateFacilityCost,
-  formatProductionRate,
   calculateSpentSP, // handleSkillResetで使うので追加
-  calculateFactoryEffects,
   calculateDiscountMultiplier,
   formatNumberDynamic,
   getSingleUserUIData,
+  formatInfinityTime, 
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -195,6 +193,32 @@ export async function execute(interaction) {
       .map((p) => p.id);
     await unlockAchievements(interaction.client, userId, ...idsToCheck);
     //人口系実績ここまで
+    // #64 忍耐の試練の「判定」をここで行う
+    // userAchievementからではなく、最新のidleGameオブジェクトからchallengesを取得
+    const challenges = idleGame.challenges || {};
+    const trial64 = challenges.trial64 || {};
+
+    if (trial64.lastPrestigeTime && !trial64.isCleared) {
+      const elapsed = idleGame.infinityTime - trial64.lastPrestigeTime;
+      const SECONDS_7D = 7 * 24 * 60 * 60;
+
+      if (elapsed >= SECONDS_7D) {
+        // isClearedフラグを立ててDBを更新する
+        const idleGameInstance = await IdleGame.findOne({ where: { userId } });
+        const currentChallenges = idleGameInstance.challenges || {};
+        currentChallenges.trial64.isCleared = true;
+        idleGameInstance.challenges = currentChallenges;
+
+        // Sequelize v6以降では、JSONBフィールドの変更を明示する必要がある場合があります
+        idleGameInstance.changed("challenges", true);
+
+        await idleGameInstance.save();
+        await unlockAchievements(interaction.client, userId, 64);
+
+        // 後続の処理で使うidleGameオブジェクトにも変更を反映しておく
+        idleGame.challenges.trial64.isCleared = true;
+      }
+    }
 
     // ★★★ ピザ窯覗きバフ処理 ★★★
     const now = new Date();
@@ -1421,6 +1445,14 @@ async function handlePrestige(interaction, collector) {
       if (areFactoriesLevelZero && currentPopulation_d.gte("1e24")) {
         await unlockAchievements(interaction.client, interaction.user.id, 62);
       }
+      // #64 忍耐の試練記録
+      const challenges = latestIdleGame.challenges || {};
+      if (!challenges.trial64?.isCleared) {
+      challenges.trial64 = {
+        lastPrestigeTime: latestIdleGame.infinityTime,
+        isCleared: false, // リセットなので未クリア状態に戻す
+      };
+    }
 
       // ▼▼▼ ここから分岐ロジック ▼▼▼
       if (currentPopulation_d.gt(highestPopulation_d)) {
@@ -1460,6 +1492,7 @@ async function handlePrestige(interaction, collector) {
             highestPopulation: currentPopulation_d.toString(), // 最高記録を更新
             transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
             lastUpdatedAt: new Date(),
+            challenges,
           },
           { transaction: t }
         );
@@ -1489,6 +1522,7 @@ async function handlePrestige(interaction, collector) {
             transcendencePoints: latestIdleGame.transcendencePoints + gainedTP, // TPを加算
             // PP, SP, highestPopulation は更新しない！
             lastUpdatedAt: new Date(),
+            challenges,
           },
           { transaction: t }
         );
@@ -1855,6 +1889,15 @@ async function handleSkillReset(interaction, collector) {
       const totalRefundSP = spent1 + spent2 + spent3 + spent4;
       refundedSP = totalRefundSP; // メッセージ表示用に保存
 
+      // #64 忍耐の試練記録
+      const challenges = latestIdleGame.challenges || {};
+      if (!challenges.trial64?.isCleared) {
+      challenges.trial64 = {
+        lastPrestigeTime: latestIdleGame.infinityTime,
+        isCleared: false, // リセットなので未クリア状態に戻す
+      };
+    }
+
       // 6. データベースの値を更新
       await latestIdleGame.update(
         {
@@ -1869,6 +1912,7 @@ async function handleSkillReset(interaction, collector) {
           skillLevel3: 0,
           skillLevel4: 0,
           skillPoints: latestIdleGame.skillPoints + totalRefundSP,
+          challenges,
           lastUpdatedAt: new Date(),
         },
         { transaction: t }
@@ -1903,13 +1947,15 @@ function generateProfileEmbed(uiData, user) {
   const population_d = new Decimal(idleGame.population);
   const highestPopulation_d = new Decimal(idleGame.highestPopulation);
 
+  const formattedTime = formatInfinityTime(idleGame.infinityTime);
+
   // Descriptionを組み立てる
   const description = [
     `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
     `🍕Lv.${idleGame.pizzaOvenLevel} 🧀Lv.${idleGame.cheeseFactoryLevel} 🍅Lv.${idleGame.tomatoFarmLevel} 🍄Lv.${idleGame.mushroomFarmLevel} 🐟Lv.${idleGame.anchovyFactoryLevel} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
-    `IP: 0 ∞: 0`, // 将来のInfinity Pointへの布石
+    `IP: 0 ∞: 0 ∞⏳${formattedTime}`, // 将来のInfinity Pointへの布石
   ].join("\n");
 
   return new EmbedBuilder()
