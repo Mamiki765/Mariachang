@@ -94,9 +94,13 @@ export async function execute(interaction) {
           raw: true,
         }),
       ]);
+      const unlockedSet = new Set(
+        userAchievement?.achievements?.unlocked || []
+      );
       const externalData = {
         mee6Level: mee6Level?.level || 0,
-        achievementCount: userAchievement?.achievements?.unlocked?.length || 0,
+        achievementCount: unlockedSet.size,
+        unlockedSet: unlockedSet,
       };
 
       // 3. 最新のDBデータと externalData を使って再計算
@@ -115,7 +119,7 @@ export async function execute(interaction) {
           population: updatedIdleGame.population,
           lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
           pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
-          infinityTime : updatedIdleGame.infinityTime
+          infinityTime: updatedIdleGame.infinityTime,
         },
         { where: { userId: targetUser.id } }
       );

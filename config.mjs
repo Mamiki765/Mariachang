@@ -708,7 +708,7 @@ export default {
   },
   // 放置ゲーム設定
   idle: {
-    infinity : "1.79769e308",
+    infinity: "1.79769e308",
     oven: {
       emoji: "🍕",
       baseCost: 100, // 基本コスト
@@ -724,7 +724,7 @@ export default {
     tomato: {
       emoji: "🍅",
       baseCost: 800,
-      multiplier: 1.10,
+      multiplier: 1.1,
       effect: 0.04, // 1レベルあたりの効果 (+3%)
       unlockPopulation: 100_0000, // 人口100万で解禁
     },
@@ -770,8 +770,7 @@ export default {
         baseCost: 10,
         costMultiplier: 1.8,
         exponentPerLevel: 0.1, // スキルレベル1あたり、べき指数がこれだけ上昇する
-        description:
-          "ブーストが∞中累計消費チップに応じて強化される",
+        description: "ブーストが∞中累計消費チップに応じて強化される",
       },
       skill8: {
         baseCost: 40,
@@ -1170,7 +1169,8 @@ export default {
       {
         id: 61,
         name: "無限への二合目",
-        description: "ニョワミヤの数が4.482e+61に到達(infinityの20%)(チャレンジ)",
+        description:
+          "ニョワミヤの数が4.482e+61に到達(infinityの20%)(チャレンジ)",
         effect: "無駄かもしれないが、ニョワミヤ達はあなたを尊敬するだろう",
         reward: {},
       },
@@ -1191,7 +1191,8 @@ export default {
       {
         id: 64,
         name: "忍耐の試練",
-        description: "最後にプレステージか工場リセットをしてから1週間が経過する…1週間！？",
+        description:
+          "最後にプレステージか工場リセットをしてから1週間が経過する…1週間！？",
         effect: "工場の試練3/4",
         reward: {},
       },
@@ -1206,8 +1207,12 @@ export default {
         id: 66,
         name: "工場の試練",
         description: "インフィニティ前の4つの試練を制覇してから実績を見る",
-        effect: "(未実装)精肉以外の工場Lv10につき、指数+0.01",
-        reward: {},
+        effect: "精肉以外の工場Lv10につき、指数+0.01", //1につき0.001
+        reward: {
+          type: "exponentBonusPerFactoryLevel",
+          value: 0.001, //perLevelなので1ごとの数値
+          対象施設: ["oven", "cheese", "tomato", "mushroom", "anchovy"],
+        },
       },
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },

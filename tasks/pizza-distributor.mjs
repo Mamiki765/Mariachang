@@ -3,8 +3,8 @@ import cron from "node-cron";
 import { activeUsersForPizza } from "../handlers/messageCreate.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
-import { IdleGame, Mee6Level, UserAchievement } from '../models/database.mjs'; 
-import { calculateOfflineProgress } from '../utils/idle-game-calculator.mjs';
+import { IdleGame, Mee6Level, UserAchievement } from "../models/database.mjs";
+import { calculateOfflineProgress } from "../utils/idle-game-calculator.mjs";
 
 /**
  * 定期的にピザを配布するタスクを開始する
@@ -12,15 +12,18 @@ import { calculateOfflineProgress } from '../utils/idle-game-calculator.mjs';
 export function startPizzaDistribution() {
   // 毎時 0分, 10分, 20分, 30分, 40分, 50分に実行
   //人口を増加させ、ボーナス率を記録しておく
-cron.schedule("*/10 * * * *", async () => {
-  console.log("[CALC_ALL] 全ユーザーの人口ボーナス更新処理を開始します。");
-  try {
-    await updateAllUsersIdleGame(); // 新しく作る全体更新関数を呼び出す
-    console.log("[CALC_ALL] 更新処理が正常に完了しました。");
-  } catch (error) {
-    console.error("[CALC_ALL] ボーナス更新処理でエラーが発生しました:", error);
-  }
-});
+  cron.schedule("*/10 * * * *", async () => {
+    console.log("[CALC_ALL] 全ユーザーの人口ボーナス更新処理を開始します。");
+    try {
+      await updateAllUsersIdleGame(); // 新しく作る全体更新関数を呼び出す
+      console.log("[CALC_ALL] 更新処理が正常に完了しました。");
+    } catch (error) {
+      console.error(
+        "[CALC_ALL] ボーナス更新処理でエラーが発生しました:",
+        error
+      );
+    }
+  });
   //毎分起動
   //発言した人がいたら、ニョワミヤがピザをお届けする
   cron.schedule("*/1 * * * *", async () => {
@@ -81,12 +84,17 @@ async function updateAllUsersIdleGame() {
   const allAchievements = await UserAchievement.findAll({ raw: true });
 
   // --- 2. ユーザーIDで高速に検索できるよう、Mapオブジェクトに変換 ---
-  const mee6Map = new Map(allMee6Levels.map(item => [item.userId, item.level]));
-  const achievementMap = new Map(allAchievements.map(item => 
-      [item.userId, item.achievements?.unlocked?.length || 0]
-  ));
+  const mee6Map = new Map(
+    allMee6Levels.map((item) => [item.userId, item.level])
+  );
+  const achievementMap = new Map(
+    allAchievements.map((item) => [
+      item.userId,
+      new Set(item.achievements?.unlocked || []),
+    ])
+  );
 
-  const CHUNK_SIZE = 200; // 一度に処理するユーザー数
+  const CHUNK_SIZE = 100; // 一度に処理するユーザー数
   let offset = 0;
 
   while (true) {
@@ -94,17 +102,19 @@ async function updateAllUsersIdleGame() {
     const users = await IdleGame.findAll({
       limit: CHUNK_SIZE,
       offset: offset,
-      raw: true // 高速化のため
+      raw: true, // 高速化のため
     });
 
     if (users.length === 0) break; // 全ユーザーの処理が終わったらループを抜ける
 
     // --- 3. 各ユーザーのオフライン進行を計算 ---
-    const updatedUsersData = users.map(user => {
+    const updatedUsersData = users.map((user) => {
+      const unlockedSet = achievementMap.get(user.userId) || new Set();
       // 3-1. 各ユーザーの「道具箱 (externalData)」を準備する
       const externalData = {
         mee6Level: mee6Map.get(user.userId) || 0, // Mapから高速に取得
-        achievementCount: achievementMap.get(user.userId) || 0,
+        achievementCount: unlockedSet.size, // .lengthではなく.sizeを使う
+        unlockedSet: unlockedSet,
       };
 
       // 3-2. 計算エンジンに、idleGameデータと道具箱を渡す！
@@ -114,14 +124,16 @@ async function updateAllUsersIdleGame() {
     // --- 4. SequelizeのbulkCreateを使って一括更新 ---
     await IdleGame.bulkCreate(updatedUsersData, {
       updateOnDuplicate: [
-          "population",
-          "lastUpdatedAt",
-          "pizzaBonusPercentage",
-          "infinityTime"
+        "population",
+        "lastUpdatedAt",
+        "pizzaBonusPercentage",
+        "infinityTime",
       ],
     });
 
-    console.log(`[CALC_ALL] ${offset + users.length}人までのデータ更新が完了しました。`);
+    console.log(
+      `[CALC_ALL] ${offset + users.length}人までのデータ更新が完了しました。`
+    );
     offset += CHUNK_SIZE;
   }
 }

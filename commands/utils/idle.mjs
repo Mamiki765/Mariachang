@@ -1452,6 +1452,7 @@ async function handlePrestige(interaction, collector) {
         lastPrestigeTime: latestIdleGame.infinityTime,
         isCleared: false, // リセットなので未クリア状態に戻す
       };
+      latestIdleGame.changed("challenges", true);
     }
 
       // ▼▼▼ ここから分岐ロジック ▼▼▼
@@ -1896,6 +1897,7 @@ async function handleSkillReset(interaction, collector) {
         lastPrestigeTime: latestIdleGame.infinityTime,
         isCleared: false, // リセットなので未クリア状態に戻す
       };
+      latestIdleGame.changed("challenges", true);
     }
 
       // 6. データベースの値を更新

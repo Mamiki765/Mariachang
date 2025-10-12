@@ -261,8 +261,38 @@ export function formatProductionRate(n) {
 function calculateProductionRate(idleGameData, externalData) {
   const pp = idleGameData.prestigePower || 0;
   const achievementCount = externalData.achievementCount || 0;
+  // 1. externalDataからunlockedSetを取り出す
+  const unlockedSet = externalData.unlockedSet || new Set();
+  // 2. 実績による指数ボーナスを計算する
+  let exponentBonusFromAchievements = 0;
+  if (unlockedSet.has(66)) {
+    const rewardDef = config.idle.achievements[66].reward;
+    if (rewardDef && rewardDef.type === "exponentBonusPerFactoryLevel") {
+      let totalLevels = 0;
+      // rewardで定義された対象施設のレベルを合計する
+      for (const facilityName of rewardDef.対象施設) {
+        if (facilityName === "oven") {
+          totalLevels += idleGameData.pizzaOvenLevel || 0;
+        } else {
+          // "cheese" -> "cheeseFactoryLevel" のようにキー名を生成
+          const levelKey = `${facilityName}FactoryLevel`;
+          totalLevels += idleGameData[levelKey] || 0;
+        }
+      }
+      // レベルの合計に、configで定義された値を掛ける
+      exponentBonusFromAchievements += totalLevels * rewardDef.value;
+    }
+  }
+  // 3. 最終的な精肉工場の効果(指数)を計算する
+  const meatFactoryLevel =
+    (externalData.mee6Level || 0) + pp + achievementCount;
+  const meatEffect =
+    1 +
+    config.idle.meat.effect * meatFactoryLevel +
+    exponentBonusFromAchievements; // ★計算したボーナスを加算！
+
+  // --- これ以降の計算は、修正済みのmeatEffectが使われるので変更不要 ---
   const achievementMultiplier = 1.0 + achievementCount * 0.01;
-  const achievementExponentBonus = achievementCount;
 
   // スキル効果 (これらは通常のNumberでOK)
   const skillLevels = {
@@ -271,17 +301,14 @@ function calculateProductionRate(idleGameData, externalData) {
     s3: idleGameData.skillLevel3,
     s4: idleGameData.skillLevel4,
   };
-  const radianceMultiplier = 1.0 + skillLevels.s4 * 0.1;
+  const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
   const skill1Effect =
-    (1 + skillLevels.s1) * radianceMultiplier * achievementMultiplier;
-  const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
+    (1 + (skillLevels.s1 || 0)) * radianceMultiplier * achievementMultiplier;
+  const skill2Effect = (1 + (skillLevels.s2 || 0)) * radianceMultiplier;
   const finalSkill2Effect = Math.pow(skill2Effect, 2); // 時間加速
 
   // 工場効果 (これもNumberでOK)
   const factoryEffects = calculateFactoryEffects(idleGameData, pp);
-  const meatFactoryLevel =
-    (externalData.mee6Level || 0) + pp + achievementExponentBonus;
-  const meatEffect = 1 + config.idle.meat.effect * meatFactoryLevel;
 
   // バフ (これもNumberでOK)
   let buffMultiplier = 1.0;
@@ -301,7 +328,7 @@ function calculateProductionRate(idleGameData, externalData) {
     .times(new Decimal(skill1Effect).pow(5));
 
   let finalProduction = baseProduction
-    .pow(meatEffect)
+    .pow(meatEffect) // ★実績ボーナスが含まれた新しい指数がここで使われる！
     .times(buffMultiplier)
     .times(finalSkill2Effect); // 時間加速効果は最終乗算
 
@@ -334,7 +361,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     population_d = population_d.add(addedPopulation_d);
 
     //251012仮infinitytimeを足す
-    newInfinityTime += elapsedSeconds * Math.pow(((1 + idleGameData.skillLevel2) * (1.0 + idleGameData.skillLevel4 * 0.1)), 2);;
+    newInfinityTime +=
+      elapsedSeconds *
+      Math.pow(
+        (1 + idleGameData.skillLevel2) * (1.0 + idleGameData.skillLevel4 * 0.1),
+        2
+      );
   }
 
   // --- 2.5 Infinityを超えたら直前で止める
@@ -497,10 +529,13 @@ export async function getSingleUserUIData(userId) {
   ]);
   if (!idleGameData) return null; // ユーザーデータがなければ終了
 
+  const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
+
   // 2. externalData(道具箱)を準備
   const externalData = {
     mee6Level: mee6Level?.level || 0,
-    achievementCount: userAchievement?.achievements?.unlocked?.length || 0,
+    achievementCount: unlockedSet.size,
+    unlockedSet: unlockedSet, // ★ Setオブジェクトそのものを梱包！
   };
 
   // 3. 計算エンジンを呼び出して、最新の状態にする
@@ -512,7 +547,7 @@ export async function getSingleUserUIData(userId) {
       population: updatedIdleGame.population,
       lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
       pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
-      infinityTime: updatedIdleGame.infinityTime
+      infinityTime: updatedIdleGame.infinityTime,
     },
     { where: { userId } }
   );
@@ -538,10 +573,25 @@ export async function getSingleUserUIData(userId) {
       (1 + (skillLevels.s1 || 0)) *
       radianceMultiplier *
       (1.0 + externalData.achievementCount * 0.01),
-    meatEffect:
-      1 +
-      config.idle.meat.effect *
-        (externalData.mee6Level + pp + achievementExponentBonus),
+    meatEffect: (() => {
+      let bonus = 0;
+      if (unlockedSet.has(66)) {
+        const rewardDef = config.idle.achievements[66].reward;
+        const totalLevels =
+          (updatedIdleGame.pizzaOvenLevel || 0) +
+          (updatedIdleGame.cheeseFactoryLevel || 0) +
+          (updatedIdleGame.tomatoFarmLevel || 0) +
+          (updatedIdleGame.mushroomFarmLevel || 0) +
+          (updatedIdleGame.anchovyFactoryLevel || 0);
+        bonus += totalLevels * rewardDef.value;
+      }
+      return (
+        1 +
+        config.idle.meat.effect *
+          (externalData.mee6Level + pp + achievementExponentBonus) +
+        bonus
+      );
+    })(),
   };
 
   // --- 6. 最終的なデータを返す ---
@@ -560,7 +610,7 @@ export async function getSingleUserUIData(userId) {
  * @returns {string} フォーマットされた時間文字列
  */
 export function formatInfinityTime(totalSeconds) {
-  if (typeof totalSeconds !== 'number' || totalSeconds < 0) {
+  if (typeof totalSeconds !== "number" || totalSeconds < 0) {
     return "測定不能";
   }
 
@@ -594,5 +644,5 @@ export function formatInfinityTime(totalSeconds) {
   if (minutes > 0) parts.push(`${minutes}分`);
   if (seconds > 0) parts.push(`${seconds}秒`);
 
-  return parts.join(' ') || '0秒';
+  return parts.join(" ") || "0秒";
 }
