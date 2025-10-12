@@ -575,6 +575,18 @@ const IdleGame = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    infinityTime: {
+      // このInfinity周回でのゲーム内プレイ時間（秒単位）
+      type: DataTypes.DOUBLE, 
+      allowNull: false,
+      defaultValue: 3110640.0,
+    },
+    challenges: {
+      // 各種チャレンジの進捗や状態を保存
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {}, // デフォルトは空のオブジェクト
+    },
     buffMultiplier: {
       //ブースト(最終結果に対する乗算)
       type: DataTypes.DOUBLE,

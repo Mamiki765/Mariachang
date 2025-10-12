@@ -331,13 +331,18 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     const productionPerSecond_d = productionPerMinute_d.div(60);
     const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
     population_d = population_d.add(addedPopulation_d);
+
+    //251012仮infinitytimeを足す
+    let newInfinityTime = idleGameData.infinityTime || 0;
+    newInfinityTime += elapsedSeconds * Math.pow(((1 + idleGameData.skillLevel2) * (1.0 + idleGameData.skillLevel4 * 0.1)), 2);;
   }
 
   // --- 2.5 Infinityを超えたら直前で止める
-  if (true) { //強制的にBreak infinity前
+  if (true) {
+    //強制的にBreak infinity前
     const INFINITY_THRESHOLD = new Decimal(config.idle.infinity); //この数値をInfinityボタン出現条件とする
     if (population_d.gte(INFINITY_THRESHOLD)) {
-        population_d = INFINITY_THRESHOLD;
+      population_d = INFINITY_THRESHOLD;
     }
   }
 
@@ -361,6 +366,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     population: population_d.toString(), // ★ 文字列に戻して返す
     lastUpdatedAt: now,
     pizzaBonusPercentage: pizzaBonusPercentage,
+    infinityTime: newInfinityTime,
   };
 }
 
@@ -506,6 +512,7 @@ export async function getSingleUserUIData(userId) {
       population: updatedIdleGame.population,
       lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
       pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
+      infinityTime: updatedIdleGame.infinityTime
     },
     { where: { userId } }
   );

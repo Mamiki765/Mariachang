@@ -115,6 +115,7 @@ export async function execute(interaction) {
           population: updatedIdleGame.population,
           lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
           pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
+          infinityTime : updatedIdleGame.infinityTime
         },
         { where: { userId: targetUser.id } }
       );

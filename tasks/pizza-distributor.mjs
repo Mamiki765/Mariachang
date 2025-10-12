@@ -86,7 +86,7 @@ async function updateAllUsersIdleGame() {
       [item.userId, item.achievements?.unlocked?.length || 0]
   ));
 
-  const CHUNK_SIZE = 100; // 一度に処理するユーザー数
+  const CHUNK_SIZE = 200; // 一度に処理するユーザー数
   let offset = 0;
 
   while (true) {
@@ -116,7 +116,8 @@ async function updateAllUsersIdleGame() {
       updateOnDuplicate: [
           "population",
           "lastUpdatedAt",
-          "pizzaBonusPercentage"
+          "pizzaBonusPercentage",
+          "infinityTime"
       ],
     });
 
