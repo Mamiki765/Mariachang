@@ -120,6 +120,7 @@ export async function execute(interaction) {
           lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
           pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
           infinityTime: updatedIdleGame.infinityTime,
+          eternityTime: updatedIdleGame.eternityTime,
         },
         { where: { userId: targetUser.id } }
       );

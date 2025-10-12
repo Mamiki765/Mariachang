@@ -350,6 +350,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   const lastUpdate = new Date(idleGameData.lastUpdatedAt);
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
   let newInfinityTime = idleGameData.infinityTime || 0;
+  let newEternityTime = idleGameData.eternityTime || 0; 
 
   if (elapsedSeconds > 0) {
     const productionPerMinute_d = calculateProductionRate(
@@ -360,13 +361,13 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
     population_d = population_d.add(addedPopulation_d);
 
-    //251012仮infinitytimeを足す
-    newInfinityTime +=
-      elapsedSeconds *
-      Math.pow(
-        (1 + idleGameData.skillLevel2) * (1.0 + idleGameData.skillLevel4 * 0.1),
+    //251012仮 時間加速スキル効果を計算
+    const timeAccelerationMultiplier = Math.pow(
+        (1 + (idleGameData.skillLevel2 || 0)) * (1.0 + (idleGameData.skillLevel4 || 0) * 0.1),
         2
-      );
+    );
+    newInfinityTime += elapsedSeconds * timeAccelerationMultiplier;
+    newEternityTime += elapsedSeconds * timeAccelerationMultiplier; 
   }
 
   // --- 2.5 Infinityを超えたら直前で止める
@@ -399,6 +400,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     lastUpdatedAt: now,
     pizzaBonusPercentage: pizzaBonusPercentage,
     infinityTime: newInfinityTime,
+    eternityTime: newEternityTime,
   };
 }
 
@@ -548,6 +550,7 @@ export async function getSingleUserUIData(userId) {
       lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
       pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
       infinityTime: updatedIdleGame.infinityTime,
+      eternityTime: updatedIdleGame.eternityTime,
     },
     { where: { userId } }
   );

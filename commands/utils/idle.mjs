@@ -188,6 +188,10 @@ export async function execute(interaction) {
         id: 59,
         condition: BigInt(idleGame.chipsSpentThisInfinity || "0") >= 10000000,
       },
+      //チップ倍率
+      { id: 67, condition: idleGame.pizzaBonusPercentage >= 518 },
+      { id: 68, condition: idleGame.pizzaBonusPercentage >= 815 },
+      { id: 69, condition: idleGame.pizzaBonusPercentage >= 1254 },
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks
@@ -230,9 +234,9 @@ export async function execute(interaction) {
     // まず、現在の状態に基づいた「あるべき倍率」を計算する
     let correctMultiplier = 2.0;
     if (idleGame.prestigeCount === 0 && idleGame.population <= 1000000) {
-      correctMultiplier = 3.0;
+      correctMultiplier = 4.0;
     } else if (idleGame.prestigeCount === 0) {
-      correctMultiplier = 2.5;
+      correctMultiplier = 3.0;
     }
     // ▼▼▼ #7の効果を計算して乗算する ▼▼▼
     const skill7Level = idleGame.skillLevel7 || 0;
@@ -621,17 +625,33 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       }
 
       //infinityRow
+      // Infinityを1回以上経験している場合、「ジェネレーター」画面への切り替えボタンを追加
+      if (idleGame.infinityCount > 0) {
+        infinityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_show_infinity")
+            .setLabel("ジェネレーター")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("🌌")
+            .setDisabled(isDisabled)
+        );
+      }
+      // 人口がインフィニティに到達した場合、「インフィニティ実行」ボタンを追加
       if (population_d.gte(config.idle.infinity)) {
         infinityRow.addComponents(
           new ButtonBuilder()
             .setCustomId("idle_infinity")
             .setLabel("インフィニティ")
             .setStyle(ButtonStyle.Danger)
-            .setEmoji("🌌")
+            .setEmoji("💥")
             .setDisabled(isDisabled)
         );
+      }
+      // infinityRowにボタンが1つでも追加されていたら、components配列にpushする
+      if (infinityRow.components.length > 0) {
         components.push(infinityRow);
       }
+
       //4行のボタンを返信
       return components;
     };
@@ -726,6 +746,15 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           components: generateButtons(),
         });
         return;
+      }
+
+      if (i.customId === "idle_show_infinity") {
+        await interaction.editReply({
+          content: "ピザ工場に果ては無い（未実装です）",
+          embeds: [generateInfinityEmbed(latestIdleGame)],
+          components: generateInfinityButtons(latestIdleGame),
+        });
+        return; // 画面を切り替えたので終了
       }
 
       // --- 3. スキル強化の処理 ---
@@ -932,6 +961,10 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         latestIdleGame.chipsSpentThisInfinity = (
           currentSpent + BigInt(totalCost)
         ).toString();
+        latestIdleGame.chipsSpentThisEternity = (
+          BigInt(latestIdleGame.chipsSpentThisEternity || "0") +
+          BigInt(totalCost)
+        ).toString();
         // 4. DBへの一括保存
         await latestPoint.save();
         await latestIdleGame.save();
@@ -1071,6 +1104,9 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           );
           latestIdleGame.chipsSpentThisInfinity = (
             currentSpent + BigInt(cost)
+          ).toString();
+          latestIdleGame.chipsSpentThisEternity = (
+            BigInt(latestIdleGame.chipsSpentThisEternity || "0") + BigInt(cost)
           ).toString();
           if (facility === "oven") {
             await latestIdleGame.increment("pizzaOvenLevel", {
@@ -1935,7 +1971,9 @@ function generateProfileEmbed(uiData, user) {
 
   const formattedTime = formatInfinityTime(idleGame.infinityTime);
 
-  const formattedChipsEternity = formatNumberJapanese_Decimal(new Decimal(idleGame.chipsSpentThisEternity?.toString() || '0'));
+  const formattedChipsEternity = formatNumberJapanese_Decimal(
+    new Decimal(idleGame.chipsSpentThisEternity?.toString() || "0")
+  );
   const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
 
   // Descriptionを組み立てる
@@ -2028,6 +2066,8 @@ async function handleInfinity(interaction, collector) {
       );
     });
 
+    await unlockAchievements(interaction.client, interaction.user.id, 72);//THE END
+
     // 5. 成功メッセージを送信（初回かどうかで分岐）
     let successMessage;
     if (isFirstInfinity) {
@@ -2084,7 +2124,7 @@ function generateInfinityEmbed(idleGame) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
-GP:1^0.5 = 1倍`;//GPはinfinityのたびに1にリセットされる…revoのパクリやんけ～～～！
+GP:1^0.5 = 1倍`; //GPはinfinityのたびに1にリセットされる…revoのパクリやんけ～～～！
 
   const embed = new EmbedBuilder()
     .setTitle("🌌 インフィニティ 🌌")
@@ -2102,7 +2142,7 @@ GP:1^0.5 = 1倍`;//GPはinfinityのたびに1にリセットされる…revoの�
         name: "Lv0.ピザ工場複製装置Ⅱ(0個)",
         value:
           "100コス。毎分、ピザ工場複製装置を1生産する。Lv1増やすと初期個数が1増え効果が2倍になる。", //アンチマターニョワミヤ
-      },// そしてジェネレーターのジェネレーターのジェネレーターへ…
+      } // そしてジェネレーターのジェネレーターのジェネレーターへ…
     );
   return embed;
 }

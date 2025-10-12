@@ -128,6 +128,7 @@ async function updateAllUsersIdleGame() {
         "lastUpdatedAt",
         "pizzaBonusPercentage",
         "infinityTime",
+        "eternityTime", 
       ],
     });
 
