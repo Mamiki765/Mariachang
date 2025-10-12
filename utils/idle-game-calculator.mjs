@@ -322,6 +322,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   const now = new Date();
   const lastUpdate = new Date(idleGameData.lastUpdatedAt);
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+  let newInfinityTime = idleGameData.infinityTime || 0;
 
   if (elapsedSeconds > 0) {
     const productionPerMinute_d = calculateProductionRate(
@@ -333,7 +334,6 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     population_d = population_d.add(addedPopulation_d);
 
     //251012仮infinitytimeを足す
-    let newInfinityTime = idleGameData.infinityTime || 0;
     newInfinityTime += elapsedSeconds * Math.pow(((1 + idleGameData.skillLevel2) * (1.0 + idleGameData.skillLevel4 * 0.1)), 2);;
   }
 

@@ -579,7 +579,7 @@ const IdleGame = sequelize.define(
       // このInfinity周回でのゲーム内プレイ時間（秒単位）
       type: DataTypes.DOUBLE, 
       allowNull: false,
-      defaultValue: 3110640.0,
+      defaultValue: 0.0,
     },
     challenges: {
       // 各種チャレンジの進捗や状態を保存
