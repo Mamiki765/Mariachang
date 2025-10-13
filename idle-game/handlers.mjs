@@ -912,6 +912,7 @@ export async function handleInfinity(interaction, collector) {
           oliveFarmLevel: 0,
           wheatFarmLevel: 0,
           pineappleFarmLevel: 0,
+          ascensionCount: 0,
           prestigeCount: 0,
           prestigePower: 0,
           skillPoints: 0,
