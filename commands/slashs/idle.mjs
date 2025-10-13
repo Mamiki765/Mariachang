@@ -7,28 +7,27 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
-import {
-  Point,
-  IdleGame,
-  Mee6Level,
-  sequelize,
-  UserAchievement,
-} from "../../models/database.mjs";
+import { Point, IdleGame, sequelize } from "../../models/database.mjs";
 import { Op } from "sequelize";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
-import {
-  unlockAchievements,
-  unlockHiddenAchievements,
-} from "../../utils/achievements.mjs";
+import { unlockAchievements } from "../../utils/achievements.mjs";
 
+//idlegameイベント群
+import {
+  handleFacilityUpgrade,
+  handlePrestige,
+  handleSkillReset,
+  handleNyoboshiHire,
+  handleAutoAllocate,
+  handleSkillUpgrade,
+  handleInfinity,
+} from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
   formatNumberJapanese_Decimal, // 新しいフォーマッター
   formatNumberDynamic_Decimal, // 新しいフォーマッター
   calculatePotentialTP,
   calculateAllCosts,
-  calculateFacilityCost,
-  calculateSpentSP, // handleSkillResetで使うので追加
   calculateDiscountMultiplier,
   formatNumberDynamic,
   getSingleUserUIData,
@@ -143,7 +142,7 @@ export async function execute(interaction) {
       });
       return;
     }
-
+    uiData.point = point;
     // 取得したデータを分かりやすい変数に展開
     const { achievementCount, userAchievement } = uiData;
     let { idleGame, mee6Level, displayData } = uiData; // ← これらはcollectorで再代入するので let
@@ -316,7 +315,18 @@ export async function execute(interaction) {
     // --- ★★★ ここからが修正箇所 ★★★ ---
 
     // generateEmbed関数：この関数が呼ばれるたびに、最新のDBオブジェクトから値を読み出すようにする
-    const generateEmbed = (isFinal = false) => {
+    const generateEmbed = (uiData, isFinal = false) => {
+      // ★★★ 受け取ったuiDataから、必要な変数を取り出す ★★★
+      const { idleGame, point, displayData, userAchievement, mee6Level } =
+        uiData;
+      const population_d = new Decimal(idleGame.population);
+      const highestPopulation_d = new Decimal(idleGame.highestPopulation);
+      const { productionRate_d, factoryEffects, skill1Effect, meatEffect } =
+        displayData;
+      const unlockedSet = new Set(
+        userAchievement?.achievements?.unlocked || []
+      );
+      const meatFactoryLevel = mee6Level;
       const skillLevels = {
         s1: idleGame.skillLevel1,
         s2: idleGame.skillLevel2,
@@ -477,7 +487,14 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
     };
 
     // generateButtons関数：こちらも、最新のDBオブジェクトからコストを計算するようにする
-    const generateButtons = (isDisabled = false) => {
+    const generateButtons = (uiData, isDisabled = false) => {
+      // ★★★ 必要な変数を取り出す ★★★
+      const { idleGame, point, userAchievement } = uiData;
+      const population_d = new Decimal(idleGame.population);
+      const highestPopulation_d = new Decimal(idleGame.highestPopulation);
+      const unlockedSet = new Set(
+        userAchievement?.achievements?.unlocked || []
+      );
       // ボタンを描画するたびに、コストを再計算する
       const costs = calculateAllCosts(idleGame);
       const components = [];
@@ -580,10 +597,12 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       components.push(facilityRow);
       //Lv6~8
       const advancedFacilityRow = new ActionRowBuilder();
-      const unlockedSet = new Set(userAchievement.achievements?.unlocked || []); // ★ 実績情報を取得
+      const unlockedAchievements = new Set(
+        userAchievement.achievements?.unlocked || []
+      ); // ★ 実績情報を取得
 
       // オリーブ農園のボタン
-      if (unlockedSet.has(73)) {
+      if (unlockedAchievements.has(73)) {
         // 73: 極限に至る道
         advancedFacilityRow.addComponents(
           new ButtonBuilder()
@@ -598,7 +617,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       }
 
       // 小麦の品種改良のボタン
-      if (unlockedSet.has(74)) {
+      if (unlockedAchievements.has(74)) {
         // 74: 原点への回帰
         advancedFacilityRow.addComponents(
           new ButtonBuilder()
@@ -613,7 +632,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       }
 
       // パイナップル農場のボタン
-      if (unlockedSet.has(66)) {
+      if (unlockedAchievements.has(66)) {
         // 66: 工場の試練
         advancedFacilityRow.addComponents(
           new ButtonBuilder()
@@ -754,33 +773,35 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       return components;
     };
 
-    // 1. ユーザーが選択した "開始画面" オプションを取得します
+    // --- 1. 表示する画面を決定する ---
+    let currentView = "factory"; // 'factory' または 'skill'
+    // ユーザーが選択した "開始画面" オプションを取得します
     const viewChoice = interaction.options.getString("view");
 
-    // 2. もしユーザーが「スキル画面」を選択した場合
+    // もしユーザーが「スキル画面」を選択した場合
     if (viewChoice === "skill") {
-      // 3. ただし、プレステージをしていない場合は表示できないのでチェック
-      if (idleGame.prestigePower < 8) {
-        // PP8未満はスキルがそもそもないのでこの条件がより正確
-        // エラーメッセージを本人にだけ送り、処理はこのまま下の「工場画面の表示」へ流す
+      if (idleGame.prestigePower >= 8) {
+        currentView = "skill"; // 条件を満たせばスキル画面に設定
+      } else {
         await interaction.followUp({
           content:
             "⚠️ スキル画面はプレステージパワー(PP)が8以上で解放されます。代わりに工場画面を表示します。",
           ephemeral: true,
         });
-      } else {
-        // 4. 条件を満たしていれば、スキル画面を最初に表示する
-        await interaction.editReply({
-          content: " ", // メッセージは空にする
-          embeds: [generateSkillEmbed(idleGame)],
-          components: generateSkillButtons(idleGame),
-        });
+        // currentViewは'factory'のまま
       }
     }
 
-    // 5. デフォルト（オプション未指定）の場合、またはスキル画面表示の条件を満たさなかった場合
-    if (viewChoice !== "skill" || idleGame.prestigePower < 8) {
-      // 6. 従来どおり、工場画面を表示する（ここのコードは以前と同じです）
+    // --- 2. 決定した画面を描画する ---
+    if (currentView === "skill") {
+      // ★ スキル画面の描画はここだけ
+      await interaction.editReply({
+        content: " ",
+        embeds: [generateSkillEmbed(idleGame)],
+        components: generateSkillButtons(idleGame),
+      });
+    } else {
+      // ★ 工場画面の描画はここだけ
       const remainingMs = idleGame.buffExpiresAt
         ? idleGame.buffExpiresAt.getTime() - new Date().getTime()
         : 0;
@@ -791,11 +812,10 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         content =
           "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
       }
-
       await interaction.editReply({
         content: content,
-        embeds: [generateEmbed()],
-        components: generateButtons(),
+        embeds: [generateEmbed(uiData)], // ★ uiDataを渡す
+        components: generateButtons(uiData), // ★ uiDataを渡す
       });
     }
 
@@ -809,46 +829,28 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
     collector.on("collect", async (i) => {
       await i.deferUpdate();
       collector.resetTimer(); // 操作があるたびにタイマーをリセット
+      let success = false; // 処理が成功したかを記録するフラグ
+      let viewChanged = false; // ★画面切り替えかどうかのフラグ
 
       // ★★★ どのボタンが押されても、まず最新のDB情報を取得する ★★★
       const latestIdleGame = await IdleGame.findOne({ where: { userId } });
       if (!latestIdleGame) return; // 万が一データがなかったら終了
 
-      // --- 1. スキル画面への切り替え ---
+      // --- 画面切り替えの処理
       if (i.customId === "idle_show_skills") {
-        await interaction.editReply({
-          content: " ", // contentを空にするとメッセージがスッキリします
-          embeds: [generateSkillEmbed(latestIdleGame)],
-          components: generateSkillButtons(latestIdleGame),
-        });
-        return; // 画面を切り替えたので、この回の処理は終了
-      }
-
-      // --- 2. 工場画面への切り替え ---
-      if (i.customId === "idle_show_factory") {
-        // 工場画面を描画するには、Point と Mee6Level の情報も必要なので再取得します
-        const latestPoint = await Point.findOne({ where: { userId } });
-        const mee6Level = await Mee6Level.findOne({ where: { userId } });
-        const meatFactoryLevel = mee6Level ? mee6Level.level : 0;
-
-        // ★重要★ 再描画する際は、必ず最新のDBオブジェクトを渡してあげる
-        // (こうしないと、古い情報でUIが描画されてしまう)
-        // ※generateEmbed/Buttonsがグローバル変数に依存しないように改修すると、より安全です
-        point.legacy_pizza = latestPoint.legacy_pizza;
-        Object.assign(idleGame, latestIdleGame.dataValues);
-
-        await interaction.editReply({
-          content:
-            "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！", // 元のメッセージに戻す
-          embeds: [generateEmbed()],
-          components: generateButtons(),
-        });
-        return;
+        currentView = "skill";
+        viewChanged = true;
+      } else if (i.customId === "idle_show_factory") {
+        currentView = "factory";
+        viewChanged = true;
+      } else if (i.customId === "idle_show_infinity") { 
+        currentView = "infinity"; 
+        viewChanged = true;
       }
 
       if (i.customId === "idle_show_infinity") {
         await interaction.editReply({
-          content: "ピザ工場に果ては無い（未実装です）",
+          content: "ピザ工場に果ては無い（ジェネレーターは未実装です）",
           embeds: [generateInfinityEmbed(latestIdleGame)],
           components: generateInfinityButtons(latestIdleGame),
         });
@@ -856,115 +858,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       }
 
       // --- 3. スキル強化の処理 ---
-      if (i.customId.startsWith("idle_upgrade_skill_")) {
-        const skillNum = parseInt(i.customId.split("_").pop(), 10);
-        const skillLevelKey = `skillLevel${skillNum}`;
-
-        // ===================================
-        //  SPスキル (スキル#1～#4) の処理
-        // ===================================
-        if (skillNum >= 1 && skillNum <= 4) {
-          const currentLevel = latestIdleGame[skillLevelKey] || 0;
-          const cost = Math.pow(2, currentLevel);
-
-          if (latestIdleGame.skillPoints < cost) {
-            await i.followUp({ content: "SPが足りません！", ephemeral: true });
-            return; // 処理を中断
-          }
-
-          try {
-            await sequelize.transaction(async (t) => {
-              latestIdleGame.skillPoints -= cost;
-              latestIdleGame[skillLevelKey] += 1;
-              await latestIdleGame.save({ transaction: t });
-            });
-
-            // 実績解除
-            switch (skillNum) {
-              case 1:
-                await unlockAchievements(interaction.client, userId, 13);
-                break;
-              case 2:
-                await unlockAchievements(interaction.client, userId, 18);
-                break;
-              case 3:
-                await unlockAchievements(interaction.client, userId, 17);
-                break;
-              case 4:
-                await unlockAchievements(interaction.client, userId, 16);
-                break;
-            }
-
-            // UIを更新してフィードバック
-            await interaction.editReply({
-              embeds: [generateSkillEmbed(latestIdleGame)],
-              components: generateSkillButtons(latestIdleGame),
-            });
-            await i.followUp({
-              content: `✅ SPスキル #${skillNum} を強化しました！`,
-              ephemeral: true,
-            });
-          } catch (error) {
-            console.error("SP Skill Upgrade Error:", error);
-            await i.followUp({
-              content: "❌ SPスキル強化中にエラーが発生しました。",
-              ephemeral: true,
-            });
-          }
-        }
-
-        // ===================================
-        //  TPスキル (スキル#5～#8) の処理
-        // ===================================
-        else if (skillNum >= 5 && skillNum <= 8) {
-          const skillKey = `skill${skillNum}`;
-          const currentLevel = latestIdleGame[skillLevelKey] || 0;
-          const skillConfig = config.idle.tp_skills[skillKey];
-          const cost =
-            skillConfig.baseCost *
-            Math.pow(skillConfig.costMultiplier, currentLevel);
-
-          if (latestIdleGame.transcendencePoints < cost) {
-            await i.followUp({ content: "TPが足りません！", ephemeral: true });
-            return; // 処理を中断
-          }
-
-          try {
-            await sequelize.transaction(async (t) => {
-              latestIdleGame.transcendencePoints -= cost;
-              latestIdleGame[skillLevelKey] += 1;
-              await latestIdleGame.save({ transaction: t });
-            });
-
-            // UIを更新してフィードバック
-            await interaction.editReply({
-              embeds: [generateSkillEmbed(latestIdleGame)],
-              components: generateSkillButtons(latestIdleGame),
-            });
-            await i.followUp({
-              content: `✅ TPスキル #${skillNum} を強化しました！`,
-              ephemeral: true,
-            });
-          } catch (error) {
-            console.error("TP Skill Upgrade Error:", error);
-            await i.followUp({
-              content: "❌ TPスキル強化中にエラーが発生しました。",
-              ephemeral: true,
-            });
-          }
-        }
-
-        return; // スキル強化処理はここで終わり
-      } else if (i.customId === "idle_prestige") {
-        // プレステージ処理は特別なので、ここで処理して、下の施設強化ロジックには進ませない
-        await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
-        return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
-      } else if (i.customId === "idle_skill_reset") {
-        // スキルリセット
-        await handleSkillReset(i, collector);
-        return;
-        //遊び方
-      } else if (i.customId === "idle_info") {
+      if (i.customId === "idle_info") {
         const spExplanation = `### ピザ工場の遊び方
 放置ゲーム「ピザ工場」はピザ工場を強化し、チーズピザが好きな雨宿りの珍生物「ニョワミヤ」を集めるゲーム(？)です。
 このゲームを進めるのに必要なものはゲーム内では稼げません。
@@ -980,6 +874,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
 プレステージすると人口と工場のLvは0になりますが、到達した最高人口に応じたPPとSPを得ることができます。
 - PP:プレステージパワー、工場のLVとニョボチップ獲得%が増える他、一定値貯まると色々解禁される。
   - PP8:3施設の人口制限解除。「施設適当強化」「スキル」解禁
+  - PP12: オリーブ農園解除。コレ以降も2つ乗算施設が隠されています。
   - PP16:TP解禁、最高人口未満のプレステージ解禁
 - SP:スキルポイント。消費する事で強力なスキルが習得できる。
 - TP:超越スキルポイント。プレステージ時の人口に応じて獲得。
@@ -990,340 +885,104 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           flags: 64, // 本人にだけ見えるメッセージ
         });
         return; // 解説を表示したら、このcollectイベントの処理は終了
-      } else if (i.customId === "idle_infinity") {
-        await handleInfinity(i, collector);
-        return;
-        //全自動購入
-      } else if (i.customId === "idle_auto_allocate") {
-        // 1. ループの準備
-        const MAX_ITERATIONS = 1000; // 安全装置
-        let iterations = 0;
-        let totalCost = 0;
-        const levelsPurchased = {
-          oven: 0,
-          cheese: 0,
-          tomato: 0,
-          mushroom: 0,
-          anchovy: 0,
-          olive: 0,
-          wheat: 0,
-          pineapple: 0,
-        };
+      } 
 
-        // ★★★ DBから最新のデータを取得することが非常に重要！ ★★★
-        const latestPoint = await Point.findOne({ where: { userId } });
-        const latestIdleGame = await IdleGame.findOne({ where: { userId } });
-        const userAchievement = await UserAchievement.findOne({
-          where: { userId },
-          raw: true,
-        });
-        const unlockedSet = new Set(
-          userAchievement?.achievements?.unlocked || []
-        );
-        let currentSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || "0");
-
-        // 2. ループ処理
-        while (iterations < MAX_ITERATIONS) {
-          const currentChips = latestPoint.legacy_pizza;
-          const costs = calculateAllCosts(latestIdleGame);
-
-          const affordableFacilities = Object.entries(costs)
-            .filter(([name, cost]) => {
-              const factoryConfig = config.idle.factories[name];
-              if (!factoryConfig) return false;
-
-              let isUnlocked = true;
-              // ★ populationの取得を new Decimal(...) から修正
-              //自動購入の解禁で人口要求系は解禁されてるはずなのでコメントアウト
-              //if (factoryConfig.unlockPopulation && !latestIdleGame.prestigeCount && new Decimal(latestIdleGame.population).lt(factoryConfig.unlockPopulation)) {
-              //    isUnlocked = false;
-              //}
-              // ★ unlockedSet はループの外で準備したものを使う
-              if (
-                factoryConfig.unlockAchievementId &&
-                !unlockedSet.has(factoryConfig.unlockAchievementId)
-              ) {
-                isUnlocked = false;
-              }
-
-              return isUnlocked && currentChips >= cost;
-            })
-            .sort((a, b) => a[1] - b[1]);
-
-          if (affordableFacilities.length === 0) {
-            break;
-          }
-
-          const [cheapestFacilityName, cheapestCost] = affordableFacilities[0];
-
-          // 3. 購入処理
-          latestPoint.legacy_pizza -= cheapestCost;
-          totalCost += cheapestCost;
-          levelsPurchased[cheapestFacilityName]++;
-
-          const factoryConfig = config.idle.factories[cheapestFacilityName];
-          if (factoryConfig) {
-            const levelKey = factoryConfig.key;
-            latestIdleGame[levelKey]++;
-          }
-
-          iterations++;
-        }
-
-        //#7用に使用チップを加算
-        latestIdleGame.chipsSpentThisInfinity = (
-          currentSpent + BigInt(totalCost)
-        ).toString();
-        latestIdleGame.chipsSpentThisEternity = (
-          BigInt(latestIdleGame.chipsSpentThisEternity || "0") +
-          BigInt(totalCost)
-        ).toString();
-        // 4. DBへの一括保存
-        await latestPoint.save();
-        await latestIdleGame.save();
-
-        // ★★★ メインのidleGameオブジェクトにも変更を反映させる ★★★
-        const newUiData = await getSingleUserUIData(userId);
-
-        // 古い変数を、取得し直した新しいデータで"全て"上書きする
-        // (この部分は、施設強化の時と全く同じコードです)
-        Object.assign(idleGame, newUiData.idleGame);
-        point.legacy_pizza = (
-          await Point.findOne({ where: { userId } })
-        ).legacy_pizza;
-
-        population_d = new Decimal(newUiData.idleGame.population);
-        highestPopulation_d = new Decimal(newUiData.idleGame.highestPopulation);
-
-        ({ productionRate_d, factoryEffects, skill1Effect, meatEffect } =
-          newUiData.displayData);
-
-        // 5. 結果のフィードバック
-        let summaryMessage = `**🤖 自動割り振りが完了しました！**\n- 消費チップ: ${totalCost.toLocaleString()}枚\n`;
-        const purchasedList = Object.entries(levelsPurchased)
-          .filter(([name, count]) => count > 0)
-          .map(
-            ([name, count]) =>
-              `- ${config.idle.factories[name].emoji}${name}: +${count}レベル`
-          )
-          .join("\n");
-
-        if (purchasedList.length > 0) {
-          summaryMessage += purchasedList;
-        } else {
-          summaryMessage += "購入可能な施設がありませんでした。";
-        }
-
-        await i.followUp({ content: summaryMessage, flags: 64 });
-        await unlockAchievements(interaction.client, userId, 14);
-        if (totalCost >= 1000000) {
-          await unlockAchievements(interaction.client, userId, 63);
-        }
-        // 6. Embedとボタンの再描画
-        await interaction.editReply({
-          embeds: [generateEmbed()],
-          components: generateButtons(),
-        });
-
-        return;
-      }
-
-      // ★★★ コレクター内では、必ずDBから最新のデータを再取得する ★★★
-      const latestPoint = await Point.findOne({ where: { userId } });
-      //const latestIdleGame = await IdleGame.findOne({ where: { userId } });
-
-      let facility, cost, facilityName;
-      const skillLevel6 = latestIdleGame.skillLevel6 || 0;
-
-      if (i.customId.startsWith("idle_upgrade_")) {
-        // "idle_upgrade_oven" から "oven" の部分を抽出
-        facility = i.customId.substring("idle_upgrade_".length);
-
-        const factoryConfig = config.idle.factories[facility];
-
-        if (factoryConfig) {
-          // 該当する施設がconfigに存在するかチェック
-          const levelKey = factoryConfig.key;
-          const currentLevel = latestIdleGame[levelKey] || 0;
-
-          cost = calculateFacilityCost(facility, currentLevel, skillLevel6);
-          facilityName = factoryConfig.successName || factoryConfig.name; // configから正式名称を取得
-        } else {
-          // nyobosi などの特殊なケースや、エラーハンドリング
-          // ...
-        }
+      if (i.customId.startsWith("idle_upgrade_skill_")) {
+        //スキル習得
+        const skillNum = parseInt(i.customId.split("_").pop(), 10);
+        success = await handleSkillUpgrade(i, skillNum);
+      } else if (i.customId.startsWith("idle_upgrade_")) {
+        //1施設購入
+        // "idle_upgrade_oven" から "oven" の部分を抽出しhandlerへ
+        const facility = i.customId.substring("idle_upgrade_".length);
+        success = await handleFacilityUpgrade(i, facility);
       } else if (i.customId === "idle_extend_buff") {
-        //extend_buff
-        facility = "nyobosi";
-        const now = new Date();
-        const remainingMs = latestIdleGame.buffExpiresAt
-          ? latestIdleGame.buffExpiresAt.getTime() - now.getTime()
-          : 0;
-        const remainingHours = remainingMs / (1000 * 60 * 60);
-
-        if (remainingHours > 0 && remainingHours < 24) {
-          cost = 500;
-        } else if (remainingHours >= 24 && remainingHours < 48) {
-          cost = 1000;
-        } else {
-          cost = 1e300; // 絶対通らない
-        }
-        facilityName = "ニョボシ";
+        //ブースト延長
+        success = await handleNyoboshiHire(i);
+      } else if (i.customId === "idle_auto_allocate") {
+        //適当に購入
+        success = await handleAutoAllocate(i);
+      } else if (i.customId === "idle_prestige") {
+        // ここで処理して、下の施設強化ロジックには進ませない
+        await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
+        return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
+      } else if (i.customId === "idle_skill_reset") {
+        // スキルリセット
+        await handleSkillReset(i, collector);
+        return;
+      } else if (i.customId === "idle_infinity") {
+        await handleInfinity(i, collector); 
+        return;
       }
 
-      if (latestPoint.legacy_pizza < cost) {
-        await i.followUp({
-          content: `チップが足りません！ (必要: ${cost.toLocaleString()} / 所持: ${Math.floor(latestPoint.legacy_pizza).toLocaleString()})`,
-          ephemeral: true,
-        });
-        return; // この場合はコレクターを止めず、続けて操作できるようにする
-      }
-
-      try {
-        await sequelize.transaction(async (t) => {
-          // DB更新は、必ず再取得した最新のオブジェクトに対して行う
-          // チップを減らす
-          await latestPoint.decrement("legacy_pizza", {
-            by: cost,
-            transaction: t,
-          });
-
-          // S7用BIGINTに加算する処理
-          const currentSpent = BigInt(
-            latestIdleGame.chipsSpentThisInfinity || "0"
-          );
-          latestIdleGame.chipsSpentThisInfinity = (
-            currentSpent + BigInt(cost)
-          ).toString();
-          latestIdleGame.chipsSpentThisEternity = (
-            BigInt(latestIdleGame.chipsSpentThisEternity || "0") + BigInt(cost)
-          ).toString();
-          if (facility === "nyobosi") {
-            const now = new Date();
-            const currentBuff =
-              latestIdleGame.buffExpiresAt && latestIdleGame.buffExpiresAt > now
-                ? latestIdleGame.buffExpiresAt
-                : now;
-            latestIdleGame.buffExpiresAt = new Date(
-              currentBuff.getTime() + 24 * 60 * 60 * 1000
-            );
-            await latestIdleGame.save({ transaction: t });
-          } else {
-            //8工場はこっち
-            const factoryConfig = config.idle.factories[facility];
-            if (factoryConfig) {
-              const levelKey = factoryConfig.key;
-              await latestIdleGame.increment(levelKey, {
-                by: 1,
-                transaction: t,
-              });
-            }
-          }
-        });
+      // --- 3. 処理が成功した場合にのみ、UIを更新する ---
+      if (success || viewChanged) {
+        // ▼▼▼ ここが「成功後の共通処理」の場所 ▼▼▼
 
         // DB更新が成功したので、もう一度UIデータを"全て"取得し直す！
         const newUiData = await getSingleUserUIData(userId);
 
-        // 古い変数を、取得し直した新しいデータで"全て"上書きする
-        Object.assign(idleGame, newUiData.idleGame); // idleGameオブジェクトを丸ごと更新
-        point.legacy_pizza = (
-          await Point.findOne({ where: { userId } })
-        ).legacy_pizza; // pointも再取得
+        // Point情報も取得して、newUiDataに統合する
+        const newPoint = await Point.findOne({ where: { userId } });
 
-        // Decimalオブジェクトも再生成
-        population_d = new Decimal(newUiData.idleGame.population);
-        highestPopulation_d = new Decimal(newUiData.idleGame.highestPopulation);
-
-        // 表示用データも再代入
-        productionRate_d = newUiData.displayData.productionRate_d;
-        factoryEffects = newUiData.displayData.factoryEffects;
-        skill1Effect = newUiData.displayData.skill1Effect;
-        meatEffect = newUiData.displayData.meatEffect;
+        // 万が一データ取得に失敗した場合のエラーハンドリング
+        if (!newUiData || !newPoint) {
+          console.error("Failed to fetch new UI data after action.");
+          await i.followUp({
+            content: "データの更新表示に失敗しました。",
+            ephemeral: true,
+          });
+          return;
+        }
+        newUiData.point = newPoint; // 取得したpointオブジェクトをuiDataに追加
         // ★★★★★★★★★★★★★★★★★★★★★★★★
 
-        // 最新のデータでEmbedとボタンを再描画する
-        await interaction.editReply({
-          embeds: [generateEmbed()],
-          components: generateButtons(),
-        });
-
-        const successMsg =
-          facility === "nyobosi"
-            ? `✅ **ニョボシ** を雇い、ブーストを24時間延長しました！`
-            : `✅ **${facilityName}** の強化に成功しました！`;
-        await i.followUp({ content: successMsg, ephemeral: true });
-
-        //施設強化系実績
-        //5施設はここにまとめる
-        const achievementMap = {
-          oven: 1,
-          cheese: 2,
-          tomato: 7,
-          mushroom: 9,
-          anchovy: 12,
-          olive: 75,
-          wheat: 76,
-          pineapple: 77,
-        };
-        if (achievementMap[facility]) {
-          await unlockAchievements(
-            interaction.client,
-            userId,
-            achievementMap[facility]
-          );
-        } else if (facility === "nyobosi") {
-          await unlockAchievements(interaction.client, userId, 4);
+        // 最新のデータでEmbedとボタンを再描描画する
+        // currentView の値に応じて描画する内容を決定
+        let replyOptions = {};
+        switch (currentView) {
+            case "skill":
+                replyOptions = {
+                    embeds: [generateSkillEmbed(newUiData.idleGame)],
+                    components: generateSkillButtons(newUiData.idleGame),
+                };
+                break;
+            case "infinity": // ★★★ インフィニティ画面の描画を追加 ★★★
+                replyOptions = {
+                    content: "ピザ工場に果ては無い（ジェネレーターは未実装です）",
+                    embeds: [generateInfinityEmbed(newUiData.idleGame)],
+                    components: generateInfinityButtons(newUiData.idleGame),
+                };
+                break;
+            case "factory":
+            default: // デフォルトは工場画面
+                replyOptions = {
+                    embeds: [generateEmbed(newUiData)],
+                    components: generateButtons(newUiData),
+                };
+                break;
         }
-        // i5条件: 強化した施設が 'oven' や 'nyobosi' 以外で、かつ強化前の 'oven' レベルが 0 だった場合
-        if (
-          facility !== "oven" &&
-          facility !== "nyobosi" &&
-          latestIdleGame.pizzaOvenLevel === 0
-        ) {
-          await unlockHiddenAchievements(
-            interaction.client,
-            interaction.user.id,
-            5 //実績i5
-          );
-        }
-        // i6条件 5つの施設のレベルが逆さまになる
-        // 5つの施設のレベルを定数に入れておくと、コードが読みやすくなります
-        const {
-          pizzaOvenLevel: oven,
-          cheeseFactoryLevel: cheese,
-          tomatoFarmLevel: tomato,
-          mushroomFarmLevel: mushroom,
-          anchovyFactoryLevel: anchovy,
-        } = latestIdleGame;
 
-        // 条件: a > m > t > c > o
-        if (
-          anchovy > mushroom &&
-          mushroom > tomato &&
-          tomato > cheese &&
-          cheese > oven
-        ) {
-          // この条件を満たした場合、実績を解除
-          await unlockHiddenAchievements(
-            interaction.client,
-            interaction.user.id,
-            6 // 実績ID: i6
-          );
-        }
-      } catch (error) {
-        console.error("IdleGame Collector Upgrade Error:", error);
-        await i.followUp({
-          content: "❌ アップグレード中にエラーが発生しました。",
-          ephemeral: true,
-        });
+        await interaction.editReply(replyOptions);
       }
+      // ▲▲▲ UI更新処理は、このifブロックの中だけになる ▲▲▲
     });
 
-    collector.on("end", (collected) => {
-      interaction.editReply({
-        embeds: [generateEmbed(true)],
-        components: generateButtons(true),
-      });
+    collector.on("end", async (collected) => {
+      // asyncを追加
+      try {
+        await interaction.editReply({
+          // awaitを追加
+          embeds: [generateEmbed(uiData, true)],
+          components: generateButtons(uiData, true),
+        });
+      } catch (error) {
+        // 編集に失敗した場合 (メッセージ削除済みなど) はエラーをコンソールに警告として表示し、
+        // ボットはクラッシュさせずに安全に終了させる。
+        console.warn(
+          `Idle game collector 'end' event failed to edit reply: ${error.message}`
+        );
+      }
     });
   }
 }
@@ -1462,247 +1121,6 @@ async function executeRankingCommand(interaction, isPrivate) {
       );
     }
   });
-}
-
-/**
- * プレステージの確認と実行を担当する関数
- * @param {import("discord.js").ButtonInteraction} interaction - プレステージボタンのインタラクション
- * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
- */
-async function handlePrestige(interaction, collector) {
-  // 1. まず、現在のコレクターを止めて、ボタン操作を一旦リセットする
-  collector.stop();
-
-  // 2. 確認用のメッセージとボタンを作成
-  const confirmationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("prestige_confirm_yes")
-      .setLabel("はい、リセットします")
-      .setStyle(ButtonStyle.Success)
-      .setEmoji("🍍"),
-    new ButtonBuilder()
-      .setCustomId("prestige_confirm_no")
-      .setLabel("いいえ、やめておきます")
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  // ✅ ここで先に宣言しておく！
-  let confirmationInteraction = null;
-
-  const confirmationMessage = await interaction.followUp({
-    content:
-      "# ⚠️パイナップル警報！ \n### **本当にプレステージを実行しますか？**\n精肉工場以外の工場レベルと人口がリセットされます。この操作は取り消せません！",
-    components: [confirmationRow],
-    flags: 64, // 本人にだけ見える確認
-    fetchReply: true, // 送信したメッセージオブジェクトを取得するため
-  });
-
-  try {
-    // 3. ユーザーの応答を待つ (60秒)
-    //    .awaitMessageComponent() は、ボタンが押されるまでここで処理を「待機」します
-    confirmationInteraction = await confirmationMessage.awaitMessageComponent({
-      filter: (i) => i.user.id === interaction.user.id,
-      time: 60_000,
-    });
-
-    // 4. 押されたボタンに応じて処理を分岐
-    if (confirmationInteraction.customId === "prestige_confirm_no") {
-      // 「いいえ」が押された場合
-      await confirmationInteraction.update({
-        content: "プレステージをキャンセルしました。工場は無事です！",
-        components: [], // ボタンを消す
-      });
-      return; // 処理を終了
-    }
-
-    // --- 「はい」が押された場合の処理 ---
-    await confirmationInteraction.deferUpdate(); // 「考え中...」の状態にする
-
-    let currentPopulation;
-    let prestigeResult = {};
-    // 5. トランザクションを使って、安全にデータベースを更新
-    await sequelize.transaction(async (t) => {
-      const latestIdleGame = await IdleGame.findOne({
-        where: { userId: interaction.user.id },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-
-      // ★★★ 1. Decimalに変換 ★★★
-      const currentPopulation_d = new Decimal(latestIdleGame.population);
-      const highestPopulation_d = new Decimal(latestIdleGame.highestPopulation);
-
-      // #65 充足の試練チェック
-      if (latestIdleGame.skillLevel1 === 0 && currentPopulation_d.gte("1e27")) {
-        await unlockAchievements(interaction.client, interaction.user.id, 65);
-      }
-      // #62 虚無の試練チェック
-      const areFactoriesLevelZero =
-        latestIdleGame.pizzaOvenLevel === 0 &&
-        latestIdleGame.cheeseFactoryLevel === 0 &&
-        latestIdleGame.tomatoFarmLevel === 0 &&
-        latestIdleGame.mushroomFarmLevel === 0 &&
-        latestIdleGame.anchovyFactoryLevel === 0;
-      if (areFactoriesLevelZero && currentPopulation_d.gte("1e24")) {
-        await unlockAchievements(interaction.client, interaction.user.id, 62);
-      }
-      // #64 忍耐の試練記録
-      const challenges = latestIdleGame.challenges || {};
-      if (!challenges.trial64?.isCleared) {
-        challenges.trial64 = {
-          lastPrestigeTime: latestIdleGame.infinityTime,
-          isCleared: false, // リセットなので未クリア状態に戻す
-        };
-        latestIdleGame.changed("challenges", true);
-      }
-
-      // 「原点への回帰」実績のチェック
-      if (
-        latestIdleGame.pizzaOvenLevel >= 80 &&
-        currentPopulation_d.gte("1e16")
-      ) {
-        // トランザクションの外で実行した方が安全
-        unlockAchievements(interaction.client, interaction.user.id, 74);
-      }
-
-      // ▼▼▼ ここから分岐ロジック ▼▼▼
-      if (currentPopulation_d.gt(highestPopulation_d)) {
-        // --- PP/SPプレステージ (既存のロジック) ---
-        if (currentPopulation_d.lte(config.idle.prestige.unlockPopulation)) {
-          // .lte() = less than or equal
-          throw new Error("プレステージの最低人口条件を満たしていません。");
-        }
-
-        const newPrestigePower = currentPopulation_d.log10();
-        let newSkillPoints = latestIdleGame.skillPoints;
-
-        if (latestIdleGame.prestigeCount === 0) {
-          const deduction = config.idle.prestige.spBaseDeduction;
-          newSkillPoints = Math.max(0, newPrestigePower - deduction);
-        } else {
-          const powerGain = newPrestigePower - latestIdleGame.prestigePower;
-          newSkillPoints += powerGain;
-        }
-
-        const gainedTP = calculatePotentialTP(
-          currentPopulation_d,
-          latestIdleGame.skillLevel8
-        );
-
-        await latestIdleGame.update(
-          {
-            population: "0",
-            pizzaOvenLevel: 0,
-            cheeseFactoryLevel: 0,
-            tomatoFarmLevel: 0,
-            mushroomFarmLevel: 0,
-            anchovyFactoryLevel: 0,
-            oliveFarmLevel: 0,
-            wheatFarmLevel: 0,
-            pineappleFarmLevel: 0,
-            prestigeCount: latestIdleGame.prestigeCount + 1,
-            prestigePower: newPrestigePower,
-            skillPoints: newSkillPoints,
-            highestPopulation: currentPopulation_d.toString(), // 最高記録を更新
-            transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
-            lastUpdatedAt: new Date(),
-            challenges,
-          },
-          { transaction: t }
-        );
-
-        // プレステージ実績
-        await unlockAchievements(interaction.client, interaction.user.id, 11);
-        prestigeResult = {
-          type: "PP_SP",
-          population_d: currentPopulation_d,
-          gainedTP: gainedTP,
-        };
-      } else if (currentPopulation_d.gte("1e16")) {
-        // --- TPプレステージ (新しいロジック) ---
-        const gainedTP = calculatePotentialTP(
-          currentPopulation_d,
-          latestIdleGame.skillLevel8
-        );
-
-        await latestIdleGame.update(
-          {
-            population: "0",
-            pizzaOvenLevel: 0,
-            cheeseFactoryLevel: 0,
-            tomatoFarmLevel: 0,
-            mushroomFarmLevel: 0,
-            anchovyFactoryLevel: 0,
-            oliveFarmLevel: 0,
-            wheatFarmLevel: 0,
-            pineappleFarmLevel: 0,
-            transcendencePoints: latestIdleGame.transcendencePoints + gainedTP, // TPを加算
-            // PP, SP, highestPopulation は更新しない！
-            lastUpdatedAt: new Date(),
-            challenges,
-          },
-          { transaction: t }
-        );
-        prestigeResult = {
-          type: "TP_ONLY",
-          population_d: currentPopulation_d,
-          gainedTP: gainedTP,
-        };
-      } else {
-        // どちらの条件も満たさない場合 (ボタン表示ロジックのおかげで通常はありえない)
-        throw new Error("プレステージの条件を満たしていません。");
-      }
-    });
-
-    // 6. トランザクション成功後、結果に応じてメッセージを送信
-    if (prestigeResult.type === "PP_SP") {
-      await confirmationInteraction.editReply({
-        content: `●プレステージ
-# なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！
-凄まじい地響きと共に${formatNumberJapanese_Decimal(prestigeResult.population_d)}匹のニョワミヤ達が押し寄せてきます！
-彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！
-狂った様にパイナップルピザを求めたニョワミヤ達によって、今までのピザ工場は藻屑のように吹き飛ばされてしまいました……
--# そしてなぜか次の工場は強化されました。`,
-        components: [], // ボタンを消す
-      });
-    } else if (prestigeResult.type === "TP_ONLY") {
-      await confirmationInteraction.editReply({
-        content: `●TPプレステージ
-# そうだ、サイドメニュー作ろう。
-あなた達は${formatNumberJapanese_Decimal(prestigeResult.population_d)}匹のニョワミヤ達と一緒にサイドメニューを作ることにしました。
-美味しそうなポテトやナゲット、そして何故か天ぷらの数々が揚がっていきます・　・　・　・　・　・。
--# 何故か終わる頃には工場は蜃気楼のように消えてしまっていました。
-${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
-        components: [], // ボタンを消す
-      });
-    }
-  } catch (error) {
-    console.error("Prestige Error:", error); // エラー内容はコンソールに出力
-
-    if (confirmationInteraction) {
-      // ボタン操作後のエラー (DBエラーなど)
-      await confirmationInteraction.editReply({
-        content: "❌ データベースエラーにより、プレステージに失敗しました。",
-        components: [],
-      });
-    } else {
-      try {
-        // タイムアウトエラー
-        await confirmationMessage.edit({
-          content:
-            "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
-          components: [],
-        });
-      } catch (editError) {
-        // メッセージの編集に失敗した場合 (すでに削除されている、トークンが失効しているなど)
-        // エラーをコンソールに警告として表示するが、ボットはクラッシュさせない
-        console.warn(
-          "タイムアウト後の確認メッセージの編集に失敗しました:",
-          editError.message
-        );
-      }
-    }
-  }
 }
 
 /**
@@ -1949,124 +1367,6 @@ function generateSkillButtons(idleGame) {
 }
 
 /**
- * スキルと工場のリセットを担当する関数
- * @param {import("discord.js").ButtonInteraction} interaction - リセットボタンのインタラクション
- * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
- */
-async function handleSkillReset(interaction, collector) {
-  // 1. コレクターを止めて、ボタン操作をリセット
-  collector.stop();
-
-  // 2. 確認メッセージを作成
-  const confirmationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("skill_reset_confirm_yes")
-      .setLabel("はい、リセットします")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId("skill_reset_confirm_no")
-      .setLabel("いいえ、やめておきます")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  // ★★★ .followUp() を使うのが重要！ ★★★
-  const confirmationMessage = await interaction.followUp({
-    content:
-      "### ⚠️ **本当にスキルをリセットしますか？**\n消費したSPは全て返還されますが、精肉工場以外の工場レベルと人口も含めて**全てリセット**されます。この操作は取り消せません！",
-    components: [confirmationRow],
-    flags: 64,
-    fetchReply: true,
-  });
-
-  try {
-    // 3. ユーザーの応答を待つ
-    const confirmationInteraction =
-      await confirmationMessage.awaitMessageComponent({
-        filter: (i) => i.user.id === interaction.user.id,
-        time: 60_000,
-      });
-
-    if (confirmationInteraction.customId === "skill_reset_confirm_no") {
-      await confirmationInteraction.update({
-        content: "スキルリセットをキャンセルしました。",
-        components: [],
-      });
-      return;
-    }
-
-    // --- 「はい」が押された場合 ---
-    await confirmationInteraction.deferUpdate();
-
-    let refundedSP = 0;
-
-    // 4. トランザクションで安全にデータベースを更新
-    await sequelize.transaction(async (t) => {
-      const latestIdleGame = await IdleGame.findOne({
-        where: { userId: interaction.user.id },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-
-      // 5. 返還するSPを計算
-      const spent1 = calculateSpentSP(latestIdleGame.skillLevel1);
-      const spent2 = calculateSpentSP(latestIdleGame.skillLevel2);
-      const spent3 = calculateSpentSP(latestIdleGame.skillLevel3);
-      const spent4 = calculateSpentSP(latestIdleGame.skillLevel4);
-      const totalRefundSP = spent1 + spent2 + spent3 + spent4;
-      refundedSP = totalRefundSP; // メッセージ表示用に保存
-
-      // #64 忍耐の試練記録
-      const challenges = latestIdleGame.challenges || {};
-      if (!challenges.trial64?.isCleared) {
-        challenges.trial64 = {
-          lastPrestigeTime: latestIdleGame.infinityTime,
-          isCleared: false, // リセットなので未クリア状態に戻す
-        };
-        latestIdleGame.changed("challenges", true);
-      }
-
-      // 6. データベースの値を更新
-      await latestIdleGame.update(
-        {
-          population: 0,
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          oliveFarmLevel: 0,
-          wheatFarmLevel: 0,
-          pineappleFarmLevel: 0,
-          skillLevel1: 0,
-          skillLevel2: 0,
-          skillLevel3: 0,
-          skillLevel4: 0,
-          skillPoints: latestIdleGame.skillPoints + totalRefundSP,
-          challenges,
-          lastUpdatedAt: new Date(),
-        },
-        { transaction: t }
-      );
-    });
-
-    //スキルリセット実績
-    await unlockAchievements(interaction.client, interaction.user.id, 15);
-
-    // 7. 成功メッセージを送信
-    await confirmationInteraction.editReply({
-      content: `🔄 **スキルと工場をリセットしました！**\n**${refundedSP.toFixed(2)} SP** が返還されました。`,
-      components: [],
-    });
-  } catch (error) {
-    // タイムアウトなどのエラー処理
-    await interaction.editReply({
-      content: "タイムアウトしました。リセットはキャンセルされました。",
-      components: [],
-    });
-  }
-}
-
-/**
  * プロフィールカード用のコンパクトなEmbedを生成する
  * @param {object} uiData - getSingleUserUIDataから返されたオブジェクト
  * @param {import("discord.js").User} user - Discordのユーザーオブジェクト
@@ -2127,130 +1427,7 @@ function generateProfileEmbed(uiData, user) {
     .setTimestamp();
 }
 
-/**
- * Infinityを実行し、世界をリセットする関数
- * @param {import("discord.js").ButtonInteraction} interaction - Infinityボタンのインタラクション
- * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
- */
-async function handleInfinity(interaction, collector) {
-  // 1. コレクターを停止
-  collector.stop();
-  await interaction.deferUpdate(); // 「考え中...」の状態にする
 
-  try {
-    let gainedIP = new Decimal(0);
-    let isFirstInfinity = false;
-
-    // 2. トランザクションで安全にデータベースを更新
-    await sequelize.transaction(async (t) => {
-      const latestIdleGame = await IdleGame.findOne({
-        where: { userId: interaction.user.id },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-
-      // 人口がInfinityに達しているか最終チェック
-      if (new Decimal(latestIdleGame.population).lt(config.idle.infinity)) {
-        throw new Error("インフィニティの条件を満たしていません。");
-      }
-
-      if (latestIdleGame.infinityCount === 0) {
-        isFirstInfinity = true;
-      }
-
-      // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
-      gainedIP = new Decimal(1);
-
-      // 4. データベースの値をリセット＆更新
-      await latestIdleGame.update(
-        {
-          // --- リセットされる項目 ---
-          population: "0",
-          highestPopulation: "0",
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          oliveFarmLevel: 0,
-          wheatFarmLevel: 0,
-          pineappleFarmLevel: 0,
-          prestigeCount: 0,
-          prestigePower: 0,
-          skillPoints: 0,
-          skillLevel1: 0,
-          skillLevel2: 0,
-          skillLevel3: 0,
-          skillLevel4: 0,
-          transcendencePoints: 0,
-          skillLevel5: 0,
-          skillLevel6: 0,
-          skillLevel7: 0,
-          skillLevel8: 0,
-          infinityTime: 0,
-          chipsSpentThisInfinity: "0",
-          buffMultiplier: 2.0,
-          // challenges はリセットしない
-
-          // --- 更新される項目 ---
-          infinityPoints: new Decimal(latestIdleGame.infinityPoints)
-            .add(gainedIP)
-            .toString(),
-          infinityCount: latestIdleGame.infinityCount + 1, // infinityCountはDouble型なので、JSのNumberでOK
-          lastUpdatedAt: new Date(),
-        },
-        { transaction: t }
-      );
-    });
-
-    await unlockAchievements(interaction.client, interaction.user.id, 72); //THE END
-
-    // 5. 成功メッセージを送信（初回かどうかで分岐）
-    let successMessage;
-    if (isFirstInfinity) {
-      successMessage = `# ●1.79e+308 Infinity
-## ――あなたは果てにたどり着いた。
-終わりは意外とあっけないものだった。
-ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
-それは一塊に集まると、凄まじい光を放ち膨張し……そして新たな星が誕生した。
-## ニョワミヤは、青かった。
-……。
-おめでとう、あなたの努力はついに報われた。
-キミは満足しただろうか、或いは途方もない徒労感と緊張の糸が切れた感覚があるだろうか。
-いずれにせよ……ここが終点だ。さあ、君たちの星、君たちの世界の戦場に帰するときが来た。
-……君達が満足していなければ、あるいはまたここに戻ってくるのだろうか。
-
-あなたは全ての工場に関する能力を失った。
-しかし、あなたは強くなった。
-**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
-ピザ生産ジェネレーターが解禁された。`;
-    } else {
-      successMessage = `# ●1.79e+308 Infinity
-## ――あなたは果てにたどり着いた。
-終わりは意外とあっけないものだった。
-ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
-それは一塊に集まると、凄まじい光を放ち膨張し……そして新たな星が誕生した。
-## ニョワミヤは、青かった。
-……。
-たとえ一度見た光景であろうと、あなたの努力と活動は称賛されるべきである。
-然るべき達成感と褒章を得るべきで……え？　早くIPと∞よこせって？
-
-インフィニティリセットを行った。
-**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。`;
-    }
-
-    await interaction.followUp({
-      content: successMessage,
-      flags: 64, // 本人にだけ見えるメッセージ
-    });
-  } catch (error) {
-    console.error("Infinity Error:", error);
-    await interaction.followUp({
-      content: "❌ エラーによりインフィニティに失敗しました。",
-      flags: 64,
-    });
-  }
-}
 
 /**
  * インフィニティ画面のEmbedを生成する（ジェネレーター）
