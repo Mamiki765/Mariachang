@@ -688,8 +688,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       // 3. 8つの施設がアンロックされているか (実績#78=全施設Lv1以上で代用)
       const canAscend =
         population_d.gte(requiredPopulation_d) &&
-        point.legacy_pizza >= requiredChips ;
-        //&& unlockedAchievements.has(78); // 実績#78: 今こそ目覚めの時
+        point.legacy_pizza >= requiredChips && 
+        unlockedAchievements.has(78); // 実績#78: 今こそ目覚めの時
       if (population_d.gte(requiredPopulation_d)) {
         advancedFacilityRow.addComponents(
           new ButtonBuilder()
