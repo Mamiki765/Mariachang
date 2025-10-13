@@ -1,4 +1,4 @@
-// commands/utils/idle.mjs
+// commands/slashs/idle.mjs
 import Decimal from "break_infinity.js";
 import {
   SlashCommandBuilder,
