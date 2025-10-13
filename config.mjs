@@ -722,7 +722,7 @@ export default {
       },
       cheese: {
         key: "cheeseFactoryLevel",
-        name :"チーズ工場",
+        name: "チーズ工場",
         emoji: "🧀",
         baseCost: 500,
         multiplier: 1.09,
@@ -732,7 +732,7 @@ export default {
       },
       tomato: {
         key: "tomatoFarmLevel",
-        name :"トマト農場",
+        name: "トマト農場",
         emoji: "🍅",
         baseCost: 700, // 800 -> 700予定
         multiplier: 1.1,
@@ -742,7 +742,7 @@ export default {
       },
       mushroom: {
         key: "mushroomFarmLevel",
-        name :"マッシュルーム農場",
+        name: "マッシュルーム農場",
         emoji: "🍄",
         baseCost: 900, // 1000-> 900?
         multiplier: 1.105,
@@ -752,7 +752,7 @@ export default {
       },
       anchovy: {
         key: "anchovyFactoryLevel",
-        name :"アンチョビ工場",
+        name: "アンチョビ工場",
         successName: "アンチョビ工場(ニボシじゃないよ！)",
         emoji: "🐟",
         baseCost: 1100, // 1500->1100?
@@ -765,7 +765,7 @@ export default {
       // keyは新しいカラム名と一致させる
       olive: {
         key: "oliveFarmLevel",
-        name :"オリーブ農園",
+        name: "オリーブ農園",
         emoji: "🫒",
         baseCost: 1300,
         multiplier: 1.115,
@@ -775,7 +775,7 @@ export default {
       },
       wheat: {
         key: "wheatFarmLevel",
-        name :"小麦の品種改良",
+        name: "小麦の品種改良",
         emoji: "🌾",
         baseCost: 1500,
         multiplier: 1.12,
@@ -785,7 +785,8 @@ export default {
       },
       pineapple: {
         key: "pineappleFarmLevel",
-        name :"パイナップル農園",
+        name: "パイナップル農園",
+        successName: "パイナップル農園(安全)",
         emoji: "🍍",
         baseCost: 1700,
         multiplier: 1.125,
@@ -1339,6 +1340,24 @@ export default {
         description:
           "人口1e+16以上かつピザ窯のLvが80に達した状態でプレステージする",
         effect: "小麦の品種改良とそのPP効果を解禁",
+        reward: {},
+      },
+      {
+        id: 75,
+        name: "カロリーは旨い",
+        description: "オリーブ農園を強化する",
+        reward: {},
+      },
+      {
+        id: 76,
+        name: "ピザ用です。パスタにしてはいけません",
+        description: "小麦の新種改良を行い、生地をより美味しくする",
+        reward: {},
+      },
+      {
+        id: 77,
+        name: "帰ってきたパイナップル",
+        description: "ニョワミヤが殺到しない、無臭のパイナップル農園を整備する", //プレステージネタ
         reward: {},
       },
       // 今後、ここに実績をどんどん追加していきます

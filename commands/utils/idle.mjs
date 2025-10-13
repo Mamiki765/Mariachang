@@ -1261,6 +1261,9 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           tomato: 7,
           mushroom: 9,
           anchovy: 12,
+          olive: 75,
+          wheat: 76,
+          pineapple: 77,
         };
         if (achievementMap[facility]) {
           await unlockAchievements(
