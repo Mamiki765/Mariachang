@@ -365,40 +365,42 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         .setDescription(descriptionText)
         .addFields(
           {
-            name: `${config.idle.oven.emoji}ピザ窯`,
+            name: `${config.idle.factories.oven.emoji}ピザ窯`,
             value: `Lv. ${idleGame.pizzaOvenLevel} (${formatNumberDynamic(ovenEffect_display, 0)}) Next.${costs.oven.toLocaleString()}©`,
             inline: true,
           },
           {
-            name: `${config.idle.cheese.emoji}チーズ工場`,
+            name: `${config.idle.factories.cheese.emoji}チーズ工場`,
             value: `Lv. ${idleGame.cheeseFactoryLevel} (${formatNumberDynamic(cheeseEffect_display)}) Next.${costs.cheese.toLocaleString()}©`,
             inline: true,
           },
           {
-            name: `${config.idle.tomato.emoji}トマト農場`,
+            name: `${config.idle.factories.tomato.emoji}トマト農場`,
             value:
-              population_d.gte(config.idle.tomato.unlockPopulation) ||
+              population_d.gte(config.idle.factories.tomato.unlockPopulation) ||
               idleGame.prestigeCount > 0
                 ? `Lv. ${idleGame.tomatoFarmLevel} (${formatNumberDynamic(tomatoEffect_display)}) Next.${costs.tomato.toLocaleString()}©`
-                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.tomato.unlockPopulation))})`,
+                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.factories.tomato.unlockPopulation))})`,
             inline: true,
           },
           {
-            name: `${config.idle.mushroom.emoji}マッシュルーム農場`,
+            name: `${config.idle.factories.mushroom.emoji}マッシュルーム農場`,
             value:
-              population_d.gte(config.idle.mushroom.unlockPopulation) ||
-              idleGame.prestigeCount > 0
+              population_d.gte(
+                config.idle.factories.mushroom.unlockPopulation
+              ) || idleGame.prestigeCount > 0
                 ? `Lv. ${idleGame.mushroomFarmLevel} (${formatNumberDynamic(mushroomEffect_display)}) Next.${costs.mushroom.toLocaleString()}©`
-                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.mushroom.unlockPopulation))})`,
+                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.factories.mushroom.unlockPopulation))})`,
             inline: true,
           },
           {
-            name: `${config.idle.anchovy.emoji}アンチョビ工場`,
+            name: `${config.idle.factories.anchovy.emoji}アンチョビ工場`,
             value:
-              population_d.gte(config.idle.anchovy.unlockPopulation) ||
-              idleGame.prestigeCount > 0
+              population_d.gte(
+                config.idle.factories.anchovy.unlockPopulation
+              ) || idleGame.prestigeCount > 0
                 ? `Lv. ${idleGame.anchovyFactoryLevel} (${formatNumberDynamic(anchovyEffect_display)}) Next.${costs.anchovy.toLocaleString()}©`
-                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.anchovy.unlockPopulation))})`,
+                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.factories.anchovy.unlockPopulation))})`,
             inline: true,
           },
           {
@@ -477,56 +479,56 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       const facilityRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`idle_upgrade_oven`)
-          .setEmoji(config.idle.oven.emoji)
-          .setLabel(`+${config.idle.oven.effect}`)
+          .setEmoji(config.idle.factories.oven.emoji)
+          .setLabel(`+${config.idle.factories.oven.effect}`)
           .setStyle(ButtonStyle.Primary)
           .setDisabled(isDisabled || point.legacy_pizza < costs.oven),
         new ButtonBuilder()
           .setCustomId(`idle_upgrade_cheese`)
-          .setEmoji(config.idle.cheese.emoji)
-          .setLabel(`+${config.idle.cheese.effect}`)
+          .setEmoji(config.idle.factories.cheese.emoji)
+          .setLabel(`+${config.idle.factories.cheese.effect}`)
           .setStyle(ButtonStyle.Success)
           .setDisabled(isDisabled || point.legacy_pizza < costs.cheese)
       );
       //トマトキノコアンチョビはgte グレーターザンイコールで見る
       if (
         idleGame.prestigeCount > 0 ||
-        population_d.gte(config.idle.tomato.unlockPopulation)
+        population_d.gte(config.idle.factories.tomato.unlockPopulation)
       ) {
         // ★ .gte()で比較
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_tomato`)
-            .setEmoji(config.idle.tomato.emoji)
-            .setLabel(`+${config.idle.tomato.effect}`)
+            .setEmoji(config.idle.factories.tomato.emoji)
+            .setLabel(`+${config.idle.factories.tomato.effect}`)
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(isDisabled || point.legacy_pizza < costs.tomato)
         );
       }
       if (
         idleGame.prestigeCount > 0 ||
-        population_d.gte(config.idle.mushroom.unlockPopulation)
+        population_d.gte(config.idle.factories.mushroom.unlockPopulation)
       ) {
         // ★ .gte()で比較
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_mushroom`)
-            .setEmoji(config.idle.mushroom.emoji)
-            .setLabel(`+${config.idle.mushroom.effect}`)
+            .setEmoji(config.idle.factories.mushroom.emoji)
+            .setLabel(`+${config.idle.factories.mushroom.effect}`)
             .setStyle(ButtonStyle.Primary)
             .setDisabled(isDisabled || point.legacy_pizza < costs.mushroom)
         );
       }
       if (
         idleGame.prestigeCount > 0 ||
-        population_d.gte(config.idle.anchovy.unlockPopulation)
+        population_d.gte(config.idle.factories.anchovy.unlockPopulation)
       ) {
         // ★ .gte()で比較
         facilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`idle_upgrade_anchovy`)
-            .setEmoji(config.idle.anchovy.emoji)
-            .setLabel(`+${config.idle.anchovy.effect}`)
+            .setEmoji(config.idle.factories.anchovy.emoji)
+            .setLabel(`+${config.idle.factories.anchovy.effect}`)
             .setStyle(ButtonStyle.Success)
             .setDisabled(isDisabled || point.legacy_pizza < costs.anchovy)
         );
@@ -625,6 +627,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       }
 
       //infinityRow
+      const infinityRow = new ActionRowBuilder();
       // Infinityを1回以上経験している場合、「ジェネレーター」画面への切り替えボタンを追加
       if (idleGame.infinityCount > 0) {
         infinityRow.addComponents(
@@ -2066,7 +2069,7 @@ async function handleInfinity(interaction, collector) {
       );
     });
 
-    await unlockAchievements(interaction.client, interaction.user.id, 72);//THE END
+    await unlockAchievements(interaction.client, interaction.user.id, 72); //THE END
 
     // 5. 成功メッセージを送信（初回かどうかで分岐）
     let successMessage;

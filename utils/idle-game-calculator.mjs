@@ -34,54 +34,31 @@ export function calculateDiscountMultiplier(skillLevel6 = 0) {
 //TPスキル#5によるベース強化を考慮した強化を入れる
 //ゲームが進んできたらここもDicimal検討しよう
 export function calculateFactoryEffects(idleGame, pp) {
+  const effects = {};
   const s5_level = idleGame.skillLevel5 || 0;
   const s5_config = config.idle.tp_skills.skill5;
   const baseLevelBonusPerLevel = s5_level * s5_config.effect;
 
-  // --- ピザ窯 ---
-  const oven_base_lv = idleGame.pizzaOvenLevel || 0;
-  const ovenFinalEffect =
-    (oven_base_lv + pp) * (1 + baseLevelBonusPerLevel * oven_base_lv);
+  // config.idle.factories をループで処理
+  for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
+    // configに定義された 'key' を使って、idleGameオブジェクトからレベルを取得
+    const level = idleGame[factoryConfig.key] || 0;
 
-  // --- チーズ工場 ---
-  const cheese_base_lv = idleGame.cheeseFactoryLevel || 0;
-  const cheese_base_effect = config.idle.cheese.effect;
-  // 1. まず、スキル#5で「基本効果」そのものを強化する
-  const cheese_boosted_effect =
-    cheese_base_effect * (1 + baseLevelBonusPerLevel * cheese_base_lv);
-  // 2. その強化された効果を使って、最終的な効果を計算する
-  const cheeseFinalEffect = 1 + cheese_boosted_effect * (cheese_base_lv + pp);
+    if (factoryConfig.type === 'additive') {
+      // ピザ窯の計算
+      const ovenFinalEffect = (level + pp) * (1 + baseLevelBonusPerLevel * level);
+      effects[name] = ovenFinalEffect;
 
-  // --- トマト農場 ---
-  const tomato_base_lv = idleGame.tomatoFarmLevel || 0;
-  const tomato_base_effect = config.idle.tomato.effect;
-  const tomato_boosted_effect =
-    tomato_base_effect * (1 + baseLevelBonusPerLevel * tomato_base_lv);
-  const tomatoFinalEffect = 1 + tomato_boosted_effect * (tomato_base_lv + pp);
+    } else if (factoryConfig.type === 'multiplicative') {
+      // チーズ工場などの乗算施設の計算
+      const base_effect = factoryConfig.effect;
+      const boosted_effect = base_effect * (1 + baseLevelBonusPerLevel * level);
+      const finalEffect = 1 + boosted_effect * (level + pp);
+      effects[name] = finalEffect;
+    }
+  }
 
-  // --- マッシュルーム農場 ---
-  const mushroom_base_lv = idleGame.mushroomFarmLevel || 0;
-  const mushroom_base_effect = config.idle.mushroom.effect;
-  const mushroom_boosted_effect =
-    mushroom_base_effect * (1 + baseLevelBonusPerLevel * mushroom_base_lv);
-  const mushroomFinalEffect =
-    1 + mushroom_boosted_effect * (mushroom_base_lv + pp);
-
-  // --- アンチョビ工場 ---
-  const anchovy_base_lv = idleGame.anchovyFactoryLevel || 0;
-  const anchovy_base_effect = config.idle.anchovy.effect;
-  const anchovy_boosted_effect =
-    anchovy_base_effect * (1 + baseLevelBonusPerLevel * anchovy_base_lv);
-  const anchovyFinalEffect =
-    1 + anchovy_boosted_effect * (anchovy_base_lv + pp);
-
-  return {
-    oven: ovenFinalEffect,
-    cheese: cheeseFinalEffect,
-    tomato: tomatoFinalEffect,
-    mushroom: mushroomFinalEffect,
-    anchovy: anchovyFinalEffect,
-  };
+  return effects;
 }
 
 /**
@@ -92,7 +69,7 @@ export function calculateFactoryEffects(idleGame, pp) {
  * @returns {number}
  */
 export function calculateFacilityCost(type, level, skillLevel6 = 0) {
-  const facility = config.idle[type];
+  const facility = config.idle.factories[type];
   if (!facility) return Infinity;
 
   // 1. 計算に使う数値をDecimalオブジェクトに変換

@@ -709,42 +709,86 @@ export default {
   // 放置ゲーム設定
   idle: {
     infinity: "1.79769e308",
-    oven: {
-      emoji: "🍕",
-      baseCost: 100, // 基本コスト
-      multiplier: 1.08, // レベルで加算される乗数 (気軽に変えると大変！)
-      effect: 1, // 1レベルあたりの効果 (+1人/分)
+    factories: { //要の部分
+      oven: {
+        key: "pizzaOvenLevel",
+        emoji: "🍕",
+        baseCost: 100,
+        multiplier: 1.08,
+        effect: 1,
+        type: "additive", //基本
+      },
+      cheese: {
+        key: "cheeseFactoryLevel",
+        emoji: "🧀",
+        baseCost: 500,
+        multiplier: 1.09,
+        effect: 0.05,
+        unlockPopulation: 0,
+        type: "multiplicative", //乗数（下位）
+      },
+      tomato: {
+        key: "tomatoFarmLevel",
+        emoji: "🍅",
+        baseCost: 800, // 800 -> 700予定
+        multiplier: 1.1,
+        effect: 0.04,
+        unlockPopulation: 100_0000,
+        type: "multiplicative",
+      },
+      mushroom: {
+        key: "mushroomFarmLevel",
+        emoji: "🍄",
+        baseCost: 1000, // 1000-> 900?
+        multiplier: 1.105,
+        effect: 0.03,
+        unlockPopulation: 1000_0000,
+        type: "multiplicative",
+      },
+      anchovy: {
+        key: "anchovyFactoryLevel",
+        emoji: "🐟",
+        baseCost: 1500, // 1500->1100?
+        multiplier: 1.11,
+        effect: 0.02,
+        unlockPopulation: 1_0000_0000,
+        type: "multiplicative",
+      },
     },
-    cheese: {
-      emoji: "🧀",
-      baseCost: 500,
-      multiplier: 1.09,
-      effect: 0.05, // 1レベルあたりの効果 (+5%)
+    //メモ：アンチョビ以降の乗算施設は構想段階　まだカラム作らないけど
+    // keyは新しいカラム名と一致させる
+    olive: {
+      key: "oliveFarmLevel",
+      emoji: "🫒",
+      baseCost: 1300,
+      multiplier: 1.115,
+      effect: 0.02, //こっから下げると#5が弱くなりすぎる　悩む
+      unlockPopulation: 1_0000_0000_0000, // 人口1兆で解禁
+      type: "multiplicative2", //乗数施設（上位）#1や実績の効果が乗らない。未解禁時PPは乗らず、#5や工場試練のLvだけ精肉+^0.001は乗る
     },
-    tomato: {
-      emoji: "🍅",
-      baseCost: 800,
-      multiplier: 1.1,
-      effect: 0.04, // 1レベルあたりの効果 (+3%)
-      unlockPopulation: 100_0000, // 人口100万で解禁
+    wheat: {
+      key: "wheatFarmLevel",
+      emoji: "🌾",
+      baseCost: 1500,
+      multiplier: 1.12,
+      effect: 0.02,
+      unlockPopulation: 1e16, // 人口1京(TP)で解禁
+      type: "multiplicative2",
     },
-    mushroom: {
-      emoji: "🍄",
-      baseCost: 1000, // 初期コスト
-      multiplier: 1.105, // コスト成長率
-      effect: 0.03, // 1レベルあたりの効果 (+2.5%)
-      unlockPopulation: 1000_0000, // 人口1000万で解禁
+    pineapple: {
+      key: "pineappleFarmLevel",
+      emoji: "🍍",
+      baseCost: 1700,
+      multiplier: 1.125,
+      effect: 0.02,
+      unlockPopulation: 1e30, // 人口1e30(工場の試練)で解禁
+      type: "multiplicative2",
     },
-    anchovy: {
-      emoji: "🐟",
-      baseCost: 1500, // 初期コスト
-      multiplier: 1.11, // コスト成長率
-      effect: 0.02, // 1レベルあたりの効果 (+2%)
-      unlockPopulation: 1_0000_0000, // 人口1億で解禁
-    },
+    //ここからいつものアイツ
     meat: {
       emoji: "🍖",
       effect: 0.01, // 1レベルあたりの効果 (^1.01)
+      type: "power", //指数施設。素は違う表にあるmee6レベルなのでカラムは無し
     },
     prestige: {
       emoji: "🍍",
@@ -781,8 +825,8 @@ export default {
     },
     infinityGenerators: [
       // 配列のインデックスが (ジェネレーター番号 - 1) に対応
-      { id: 1, baseCost: 1, costMultiplier: 10, },
-      { id: 2, baseCost: 100, costMultiplier: 100, },
+      { id: 1, baseCost: 1, costMultiplier: 10 },
+      { id: 2, baseCost: 100, costMultiplier: 100 },
     ],
     //実績　utils\achievements.mjs
     // 実績一覧は unlockAchievements(client, userId, ID) で解除可能です。
@@ -1237,7 +1281,7 @@ export default {
         id: 69,
         name: "この数字に何の意味があんのよ？", //p3p001254=リカ・サキュバスのID
         description: "ニョボチップの入手量が+1254%を達成する",
-        effect: "+1%の実績は残念ながらない。",//r2p000001 = 二星亜希のID
+        effect: "+1%の実績は残念ながらない。", //r2p000001 = 二星亜希のID
         reward: {},
       },
       {
