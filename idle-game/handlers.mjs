@@ -763,6 +763,93 @@ export async function handleSkillUpgrade(interaction, skillNum) {
 }
 
 /**
+ * アセンションを実行し、チップと人口を消費して新たな力を得る関数
+ * @param {import("discord.js").ButtonInteraction} interaction - ボタンのインタラクション
+ * @returns {Promise<boolean>} 成功した場合はtrue、失敗した場合はfalseを返す
+ */
+export async function handleAscension(interaction) {
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction(); // トランザクション開始
+
+  try {
+    // 1. 必要な最新データをDBから取得 (ロックをかけて安全に)
+    const [latestPoint, latestIdleGame] = await Promise.all([
+      Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
+      IdleGame.findOne({
+        where: { userId },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      }),
+    ]);
+    if (!latestPoint || !latestIdleGame) {
+      throw new Error("ユーザーデータが見つかりません。");
+    }
+
+    // 2. アセンション要件を再計算して最終チェック
+    const ascensionCount = latestIdleGame.ascensionCount || 0;
+    const { requiredPopulation_d, requiredChips } =
+      calculateAscensionRequirements(
+        ascensionCount,
+        latestIdleGame.skillLevel6
+      );
+
+    if (
+      new Decimal(latestIdleGame.population).lt(requiredPopulation_d) ||
+      latestPoint.legacy_pizza < requiredChips
+    ) {
+      await interaction.followUp({
+        content: "アセンションの条件を満たしていません。",
+        ephemeral: true,
+      });
+      await t.rollback(); // 条件を満たさないのでロールバック
+      return false;
+    }
+
+    // 3. データベースを更新
+    // 3-1. チップと人口を消費
+    latestPoint.legacy_pizza -= requiredChips;
+    latestIdleGame.population = new Decimal(latestIdleGame.population)
+      .minus(requiredPopulation_d)
+      .toString();
+
+    // 3-2. アセンション回数を増やす
+    latestIdleGame.ascensionCount += 1;
+
+    // 3-3. 変更を保存
+    await latestPoint.save({ transaction: t });
+    await latestIdleGame.save({ transaction: t });
+
+    // 4. トランザクションをコミット (全てのDB操作が成功した場合)
+    await t.commit();
+
+    // 5. 成功メッセージと実績解除
+    await interaction.followUp({
+      content: `🚀 **賃金として${requiredChips}チップを貰った${requiredPopulation_d}匹のニョワミヤ達は何処かへと旅立っていった… (現在: ${latestIdleGame.ascensionCount}回)`,
+      ephemeral: true,
+    });
+
+    // 実績解除
+    await unlockAchievements(interaction.client, userId, 79); // #79: あるものはニョワミヤでも使う
+    if (latestIdleGame.ascensionCount >= 10) {
+      await unlockAchievements(interaction.client, userId, 80); // #80: ニョワミヤがニョワミヤを呼ぶ
+    }
+    if (latestIdleGame.ascensionCount >= 50) {
+      await unlockAchievements(interaction.client, userId, 80); // #81: ニョワミヤ永久機関
+    }
+
+    return true; // 成功
+  } catch (error) {
+    console.error("Ascension Error:", error);
+    await t.rollback(); // エラーが発生したらロールバック
+    await interaction.followUp({
+      content: "❌ アセンション中にエラーが発生しました。",
+      ephemeral: true,
+    });
+    return false;
+  }
+}
+
+/**
  * Infinityを実行し、世界をリセットする関数
  * @param {import("discord.js").ButtonInteraction} interaction - Infinityボタンのインタラクション
  * @param {import("discord.js").InteractionCollector} collector - 親のコレクター

@@ -242,6 +242,7 @@ export function formatProductionRate(n) {
 function calculateProductionRate(idleGameData, externalData) {
   const pp = idleGameData.prestigePower || 0;
   const achievementCount = externalData.achievementCount || 0;
+  const ascensionCount = idleGameData.ascensionCount || 0;
   // 1. externalDataからunlockedSetを取り出す
   const unlockedSet = externalData.unlockedSet || new Set();
   // 2. 実績による指数ボーナスを計算する
@@ -295,6 +296,15 @@ function calculateProductionRate(idleGameData, externalData) {
     .times(factoryEffects.olive || 1.0)
     .times(factoryEffects.wheat || 1.0)
     .times(factoryEffects.pineapple || 1.0);
+  if (ascensionCount > 0) { //0でも1-8だけど軽量化のため
+    // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
+    const ascensionFactor = Math.pow(
+      config.idle.ascension.effect,
+      ascensionCount
+    );
+    // 8つの工場すべてに適用されるため、その効果を8乗したものを baseProduction に乗算する
+    baseProduction = baseProduction.times(new Decimal(ascensionFactor).pow(8));
+  }
 
   let finalProduction = baseProduction
     .pow(meatEffect) // ★実績ボーナスが含まれた新しい指数がここで使われる！
@@ -647,4 +657,42 @@ function calculateAchievement66Bonus(idleGameData, unlockedSet) {
   }
 
   return totalLevels * rewardDef.value;
+}
+
+/**
+ * アセンションの要件（必要人口、必要チップ）を計算する
+ * @param {number} currentAscensionCount - 現在のアセンション回数 (0から始まる)
+ * @param {number} skillLevel6 - TPスキル#6のレベル
+ * @returns {{requiredPopulation_d: Decimal, requiredChips: number}}
+ */
+export function calculateAscensionRequirements(
+  currentAscensionCount,
+  skillLevel6 = 0
+) {
+  const ascensionConfig = config.idle.ascension;
+
+  // 1. 要求人口を計算 (これは変更なし)
+  const requiredPopulation_d = new Decimal(
+    ascensionConfig.basePopulation
+  ).times(
+    new Decimal(ascensionConfig.populationMultiplier).pow(currentAscensionCount)
+  );
+
+  // 2. 要求チップ数を計算
+  let totalChipCost = 0;
+  const targetLevel = currentAscensionCount; // 0回目はLv0->1, 1回目はLv1->2 ...
+
+  for (const facilityName in config.idle.factories) {
+    // TPスキル#6の割引も考慮したコストを合計する
+    totalChipCost += calculateFacilityCost(
+      facilityName,
+      targetLevel,
+      skillLevel6
+    );
+  }
+
+  // ★★★ ご指摘に基づき、10倍の乗算を削除 ★★★
+  const requiredChips = totalChipCost;
+
+  return { requiredPopulation_d, requiredChips };
 }

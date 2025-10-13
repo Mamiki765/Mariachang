@@ -21,6 +21,7 @@ import {
   handleAutoAllocate,
   handleSkillUpgrade,
   handleInfinity,
+  handleAscension,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
@@ -32,6 +33,7 @@ import {
   formatNumberDynamic,
   getSingleUserUIData,
   formatInfinityTime,
+  calculateAscensionRequirements,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -202,6 +204,21 @@ export async function execute(interaction) {
       .map((p) => p.id);
     await unlockAchievements(interaction.client, userId, ...idsToCheck);
     //人口系実績ここまで
+
+    // 実績#78のチェック処理
+    // configに定義されている全ての工場のレベルをチェック
+    const allFactoriesLevelOne = Object.values(config.idle.factories).every(
+      (factoryConfig) => {
+        const levelKey = factoryConfig.key;
+        const currentLevel = idleGame[levelKey] || 0;
+        return currentLevel >= 1;
+      }
+    );
+    // 全ての工場がLv1以上なら、実績#78の解除を試みる
+    if (allFactoriesLevelOne) {
+      await unlockAchievements(interaction.client, userId, 78);
+    }
+
     // #64 忍耐の試練の「判定」をここで行う
     // userAchievementからではなく、最新のidleGameオブジェクトからchallengesを取得
     const challenges = idleGame.challenges || {};
@@ -334,17 +351,28 @@ export async function execute(interaction) {
         s4: idleGame.skillLevel4,
       };
       const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
+      //アセンション回数
+      const ascensionCount = idleGame.ascensionCount || 0;
+      const ascensionEffect =
+        ascensionCount > 0
+          ? Math.pow(config.idle.ascension.effect, ascensionCount)
+          : 1;
       // 表示用の施設効果
       const effects_display = {};
-      effects_display.oven = factoryEffects.oven * skill1Effect;
-      effects_display.cheese = factoryEffects.cheese * skill1Effect;
-      effects_display.tomato = factoryEffects.tomato * skill1Effect;
-      effects_display.mushroom = factoryEffects.mushroom * skill1Effect;
-      effects_display.anchovy = factoryEffects.anchovy * skill1Effect;
+      effects_display.oven =
+        factoryEffects.oven * skill1Effect * ascensionEffect;
+      effects_display.cheese =
+        factoryEffects.cheese * skill1Effect * ascensionEffect;
+      effects_display.tomato =
+        factoryEffects.tomato * skill1Effect * ascensionEffect;
+      effects_display.mushroom =
+        factoryEffects.mushroom * skill1Effect * ascensionEffect;
+      effects_display.anchovy =
+        factoryEffects.anchovy * skill1Effect * ascensionEffect;
       // 上位施設には skill1Effect を掛けない
-      effects_display.olive = factoryEffects.olive;
-      effects_display.wheat = factoryEffects.wheat;
-      effects_display.pineapple = factoryEffects.pineapple;
+      effects_display.olive = factoryEffects.olive * ascensionEffect;
+      effects_display.wheat = factoryEffects.wheat * ascensionEffect;
+      effects_display.pineapple = factoryEffects.pineapple * ascensionEffect;
 
       // スキル#2の効果
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
@@ -365,12 +393,16 @@ export async function execute(interaction) {
       }
 
       let descriptionText;
+      let ascensionText;
+      if (ascensionCount > 0) {
+        ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
+      }
       if (idleGame.prestigeCount > 0) {
         descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
 最高人口: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**
 PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoints.toFixed(2)}** | TP: **${idleGame.transcendencePoints.toFixed(2)}**
 #1:${skillLevels.s1} #2:${skillLevels.s2} #3:${skillLevels.s3} #4:${skillLevels.s4} / #5:${idleGame.skillLevel5} #6:${idleGame.skillLevel6} #7:${idleGame.skillLevel7} #8:${idleGame.skillLevel8}
-🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
+🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍${ascensionText}`;
       } else {
         descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
@@ -645,6 +677,29 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
             )
         );
       }
+      //アセンションは9個目みたいなノリで入る
+      // アセンションの要件を計算する
+      const ascensionCount = idleGame.ascensionCount || 0;
+      const { requiredPopulation_d, requiredChips } =
+        calculateAscensionRequirements(ascensionCount, idleGame.skillLevel6);
+      // アセンションボタンを表示する条件を定義
+      // 1. 人口が要件を満たしている
+      // 2. チップが要件を満たしている
+      // 3. 8つの施設がアンロックされているか (実績#78=全施設Lv1以上で代用)
+      const canAscend =
+        population_d.gte(requiredPopulation_d) &&
+        point.legacy_pizza >= requiredChips &&
+        unlockedAchievements.has(78); // 実績#78: 今こそ目覚めの時
+      if (canAscend) {
+        advancedFacilityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_ascension") // 新しいID
+            .setLabel(`アセンション (${requiredChips}©)`)
+            .setStyle(ButtonStyle.Danger) // 重大なリセットなのでDanger
+            .setEmoji("🚀") // 宇宙へ！
+            .setDisabled(isDisabled)
+        );
+      }
       //Lv6~8解禁でボタンの行を挿入
       if (advancedFacilityRow.components.length > 0) {
         components.push(advancedFacilityRow);
@@ -843,8 +898,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       } else if (i.customId === "idle_show_factory") {
         currentView = "factory";
         viewChanged = true;
-      } else if (i.customId === "idle_show_infinity") { 
-        currentView = "infinity"; 
+      } else if (i.customId === "idle_show_infinity") {
+        currentView = "infinity";
         viewChanged = true;
       }
 
@@ -885,7 +940,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           flags: 64, // 本人にだけ見えるメッセージ
         });
         return; // 解説を表示したら、このcollectイベントの処理は終了
-      } 
+      }
 
       if (i.customId.startsWith("idle_upgrade_skill_")) {
         //スキル習得
@@ -911,8 +966,10 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         await handleSkillReset(i, collector);
         return;
       } else if (i.customId === "idle_infinity") {
-        await handleInfinity(i, collector); 
+        await handleInfinity(i, collector);
         return;
+      } else if (i.customId === "idle_ascension") {
+        success = await handleAscension(i);
       }
 
       // --- 3. 処理が成功した場合にのみ、UIを更新する ---
@@ -941,26 +998,26 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         // currentView の値に応じて描画する内容を決定
         let replyOptions = {};
         switch (currentView) {
-            case "skill":
-                replyOptions = {
-                    embeds: [generateSkillEmbed(newUiData.idleGame)],
-                    components: generateSkillButtons(newUiData.idleGame),
-                };
-                break;
-            case "infinity": // ★★★ インフィニティ画面の描画を追加 ★★★
-                replyOptions = {
-                    content: "ピザ工場に果ては無い（ジェネレーターは未実装です）",
-                    embeds: [generateInfinityEmbed(newUiData.idleGame)],
-                    components: generateInfinityButtons(newUiData.idleGame),
-                };
-                break;
-            case "factory":
-            default: // デフォルトは工場画面
-                replyOptions = {
-                    embeds: [generateEmbed(newUiData)],
-                    components: generateButtons(newUiData),
-                };
-                break;
+          case "skill":
+            replyOptions = {
+              embeds: [generateSkillEmbed(newUiData.idleGame)],
+              components: generateSkillButtons(newUiData.idleGame),
+            };
+            break;
+          case "infinity": // ★★★ インフィニティ画面の描画を追加 ★★★
+            replyOptions = {
+              content: "ピザ工場に果ては無い（ジェネレーターは未実装です）",
+              embeds: [generateInfinityEmbed(newUiData.idleGame)],
+              components: generateInfinityButtons(newUiData.idleGame),
+            };
+            break;
+          case "factory":
+          default: // デフォルトは工場画面
+            replyOptions = {
+              embeds: [generateEmbed(newUiData)],
+              components: generateButtons(newUiData),
+            };
+            break;
         }
 
         await interaction.editReply(replyOptions);
@@ -1427,7 +1484,6 @@ function generateProfileEmbed(uiData, user) {
     .setTimestamp();
 }
 
-
 /*
 実装草案
 G8はG7を生み、G7はG6を生み…G1はGPを生む
@@ -1461,7 +1517,9 @@ function generateInfinityEmbed(idleGame) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
   // 仮: GPはジェネレーター1が生み出して追加のカラム(dicimal)で管理する数値ですが、今は仮にG1のamountとします
-  const generator1Amount = new Decimal(idleGame.ipUpgrades?.generators?.[0]?.amount || '0');
+  const generator1Amount = new Decimal(
+    idleGame.ipUpgrades?.generators?.[0]?.amount || "0"
+  );
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
 GP: ${formatNumberDynamic_Decimal(generator1Amount)} (仮)`;
 
@@ -1476,9 +1534,10 @@ GP: ${formatNumberDynamic_Decimal(generator1Amount)} (仮)`;
   // configをループしてフィールドを動的に生成
   for (const generatorConfig of config.idle.infinityGenerators) {
     const index = generatorConfig.id - 1;
-    
+
     // --- 表示条件のチェック ---
-    if (index > 0) { // ジェネレーターII (index=1) 以降が対象
+    if (index > 0) {
+      // ジェネレーターII (index=1) 以降が対象
       const prevGeneratorData = userGenerators[index - 1];
       // 1つ前のジェネレーターの購入数(bought)が0なら、このジェネレーターは表示しない
       if (!prevGeneratorData || prevGeneratorData.bought === 0) {
@@ -1487,7 +1546,7 @@ GP: ${formatNumberDynamic_Decimal(generator1Amount)} (仮)`;
     }
 
     // --- 表示するデータを準備 ---
-    const generatorData = userGenerators[index] || { amount: '0', bought: 0 };
+    const generatorData = userGenerators[index] || { amount: "0", bought: 0 };
     const amount_d = new Decimal(generatorData.amount);
     const bought = generatorData.bought;
     // 仮のコスト計算 (将来的にはcalculator.mjsに)
@@ -1528,7 +1587,7 @@ function generateInfinityButtons(idleGame) {
     }
 
     // --- ボタンのデータを準備 ---
-    const generatorData = userGenerators[index] || { amount: '0', bought: 0 };
+    const generatorData = userGenerators[index] || { amount: "0", bought: 0 };
     // 仮のコスト計算
     const cost = new Decimal(generatorConfig.baseCost).times(
       new Decimal(generatorConfig.costMultiplier).pow(generatorData.bought)

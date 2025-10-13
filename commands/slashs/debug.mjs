@@ -51,6 +51,17 @@ export const data = new SlashCommandBuilder()
           .setDescription("設定したいMee6レベル")
           .setRequired(true)
       )
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("clone-data")
+      .setDescription("指定IDの工場データを自分にコピーする")
+      .addStringOption((option) =>
+        option
+          .setName("source-id")
+          .setDescription("コピー元のユーザーID")
+          .setRequired(true)
+      )
   );
 // .addSubcommand(...) で、今後 'grant-tp' などの機能を追加できます
 
@@ -67,7 +78,11 @@ export async function execute(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   const subcommand = interaction.options.getSubcommand();
-  const targetUser = interaction.options.getUser("target");
+  // clone-data 以外のコマンドは targetUser が必要
+  let targetUser;
+  if (subcommand !== "clone-data") {
+    targetUser = interaction.options.getUser("target");
+  }
 
   if (subcommand === "advance-time") {
     const hoursToAdvance = interaction.options.getInteger("hours");
@@ -147,6 +162,68 @@ export async function execute(interaction) {
     } catch (error) {
       console.error("[DEBUG-IDLE] Error in set-mee6-level:", error);
       await interaction.editReply("❌ 処理中にエラーが発生しました。");
+    }
+  } else if (subcommand === "clone-data") {
+    // ★★★ 新しいサブコマンドの処理 ★★★
+    const sourceId = interaction.options.getString("source-id");
+    const destinationId = interaction.user.id; // コマンド実行者
+
+    // 安全装置: コピー元が自分自身の場合はエラー
+    if (sourceId === destinationId) {
+      return interaction.editReply("❌ コピー元とコピー先が同じです。");
+    }
+
+    try {
+      // 1. コピー元のデータを全て取得
+      const sourceIdleGame = await IdleGame.findByPk(sourceId, { raw: true });
+      const sourceMee6Level = await Mee6Level.findByPk(sourceId, { raw: true });
+      const sourceAchievements = await UserAchievement.findByPk(sourceId, {
+        raw: true,
+      });
+
+      if (!sourceIdleGame) {
+        return interaction.editReply(
+          `❌ コピー元 (${sourceId}) の工場データが見つかりません。`
+        );
+      }
+
+      // 2. コピー先のデータを生成 (userId と lastUpdatedAt を除く)
+      const clonedIdleGameData = { ...sourceIdleGame };
+      delete clonedIdleGameData.userId; // 主キーなので削除
+      clonedIdleGameData.lastUpdatedAt = new Date(); // 最終更新日時を現在に
+
+      const clonedMee6Data = { ...sourceMee6Level };
+      if (sourceMee6Level) {
+        delete clonedMee6Data.userId;
+      }
+
+      const clonedAchievementsData = { ...sourceAchievements };
+      if (sourceAchievements) {
+        delete clonedAchievementsData.userId;
+      }
+
+      // 3. upsert を使ってデータを一括で上書き・作成
+      await IdleGame.upsert({ userId: destinationId, ...clonedIdleGameData });
+
+      if (sourceMee6Level) {
+        await Mee6Level.upsert({ userId: destinationId, ...clonedMee6Data });
+      }
+
+      if (sourceAchievements) {
+        await UserAchievement.upsert({
+          userId: destinationId,
+          ...clonedAchievementsData,
+        });
+      }
+
+      await interaction.editReply(
+        `✅ ユーザーID: \`${sourceId}\` のデータを、あなたに正常にコピーしました。`
+      );
+    } catch (error) {
+      console.error("[DEBUG-IDLE] Error in clone-data:", error);
+      await interaction.editReply(
+        "❌ データのコピー中にエラーが発生しました。"
+      );
     }
   }
 }

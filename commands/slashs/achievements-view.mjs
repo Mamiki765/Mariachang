@@ -202,7 +202,7 @@ export async function execute(interaction) {
       }
     } else {
       title = `"${displayName}" の実績 (${unlockedCount} / ${sourceAchievements.length})`;
-      headerString = `それは放置ゲームにおいて全てのMultを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;
+      headerString = `それは放置ゲームにおいて始めの5つの工場のMultを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;
     }
 
     const achievementListString = currentAchievements

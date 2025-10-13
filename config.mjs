@@ -705,6 +705,12 @@ export default {
         description: "TP獲得量を+100%増加させる",
       },
     },
+    ascension :{
+      //アセンション
+      basePopulation: "1e40", // Decimalで扱うため文字列にしておくのが安全
+      populationMultiplier: 10, // 2回目以降は要求人口が10倍になる
+      effect: 1.125, // 8つのfactoriesがそれぞれ 1.125^n 倍
+    },
     infinityGenerators: [
       // 配列のインデックスが (ジェネレーター番号 - 1) に対応
       // なお#2効果によってそれは加速し、n個買えば初期個数n 効果は2^(n-1)となる

@@ -590,6 +590,11 @@ const IdleGame = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    //アセンション数
+    ascensionCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     infinityTime: {
       // このInfinity周回でのゲーム内プレイ時間（秒単位）
       type: DataTypes.DOUBLE,
