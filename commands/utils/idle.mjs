@@ -994,7 +994,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           .filter(([name, count]) => count > 0)
           .map(
             ([name, count]) =>
-              `- ${config.idle[name].emoji}${name}: +${count}レベル`
+              `- ${config.idle.factories[name].emoji}${name}: +${count}レベル`
           )
           .join("\n");
 
