@@ -709,7 +709,8 @@ export default {
   // 放置ゲーム設定
   idle: {
     infinity: "1.79769e308",
-    factories: { //要の部分
+    factories: {
+      //要の部分
       oven: {
         key: "pizzaOvenLevel",
         emoji: "🍕",
@@ -1259,8 +1260,8 @@ export default {
         effect: "精肉以外の工場Lv10につき、指数+0.01", //1につき0.001
         reward: {
           type: "exponentBonusPerFactoryLevel",
-          value: 0.001, //perLevelなので1ごとの数値
-          対象施設: ["oven", "cheese", "tomato", "mushroom", "anchovy"],
+          value: 0.001,
+          targetFactories: ["oven", "cheese", "tomato", "mushroom", "anchovy"], // 英語キーに
         },
       },
       {
@@ -1302,7 +1303,7 @@ export default {
         id: 72,
         name: "ＴＨＥ　ＥＮＤ　？",
         description: "(未実装)ピザ工場の終わりを見る", //infinityに到達し、エンディングを見る。
-        effect: "ニョボチップ入手量+5000%", //ここに来たら実際5500~8000くらいなのでリセットされるの考えるとご褒美としてはこんなもの
+        effect: "ニョボチップ入手量+5000%(未実装)", //ここに来たら実際5500~8000くらいなのでリセットされるの考えるとご褒美としてはこんなもの
         reward: {},
       },
 

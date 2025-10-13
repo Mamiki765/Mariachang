@@ -44,12 +44,12 @@ export function calculateFactoryEffects(idleGame, pp) {
     // configに定義された 'key' を使って、idleGameオブジェクトからレベルを取得
     const level = idleGame[factoryConfig.key] || 0;
 
-    if (factoryConfig.type === 'additive') {
+    if (factoryConfig.type === "additive") {
       // ピザ窯の計算
-      const ovenFinalEffect = (level + pp) * (1 + baseLevelBonusPerLevel * level);
+      const ovenFinalEffect =
+        (level + pp) * (1 + baseLevelBonusPerLevel * level);
       effects[name] = ovenFinalEffect;
-
-    } else if (factoryConfig.type === 'multiplicative') {
+    } else if (factoryConfig.type === "multiplicative") {
       // チーズ工場などの乗算施設の計算
       const base_effect = factoryConfig.effect;
       const boosted_effect = base_effect * (1 + baseLevelBonusPerLevel * level);
@@ -241,25 +241,10 @@ function calculateProductionRate(idleGameData, externalData) {
   // 1. externalDataからunlockedSetを取り出す
   const unlockedSet = externalData.unlockedSet || new Set();
   // 2. 実績による指数ボーナスを計算する
-  let exponentBonusFromAchievements = 0;
-  if (unlockedSet.has(66)) {
-    const rewardDef = config.idle.achievements[66].reward;
-    if (rewardDef && rewardDef.type === "exponentBonusPerFactoryLevel") {
-      let totalLevels = 0;
-      // rewardで定義された対象施設のレベルを合計する
-      for (const facilityName of rewardDef.対象施設) {
-        if (facilityName === "oven") {
-          totalLevels += idleGameData.pizzaOvenLevel || 0;
-        } else {
-          // "cheese" -> "cheeseFactoryLevel" のようにキー名を生成
-          const levelKey = `${facilityName}FactoryLevel`;
-          totalLevels += idleGameData[levelKey] || 0;
-        }
-      }
-      // レベルの合計に、configで定義された値を掛ける
-      exponentBonusFromAchievements += totalLevels * rewardDef.value;
-    }
-  }
+  const exponentBonusFromAchievements = calculateAchievement66Bonus(
+    idleGameData,
+    unlockedSet
+  );
   // 3. 最終的な精肉工場の効果(指数)を計算する
   const meatFactoryLevel =
     (externalData.mee6Level || 0) + pp + achievementCount;
@@ -327,7 +312,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   const lastUpdate = new Date(idleGameData.lastUpdatedAt);
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
   let newInfinityTime = idleGameData.infinityTime || 0;
-  let newEternityTime = idleGameData.eternityTime || 0; 
+  let newEternityTime = idleGameData.eternityTime || 0;
 
   if (elapsedSeconds > 0) {
     const productionPerMinute_d = calculateProductionRate(
@@ -340,11 +325,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
 
     //251012仮 時間加速スキル効果を計算
     const timeAccelerationMultiplier = Math.pow(
-        (1 + (idleGameData.skillLevel2 || 0)) * (1.0 + (idleGameData.skillLevel4 || 0) * 0.1),
-        2
+      (1 + (idleGameData.skillLevel2 || 0)) *
+        (1.0 + (idleGameData.skillLevel4 || 0) * 0.1),
+      2
     );
     newInfinityTime += elapsedSeconds * timeAccelerationMultiplier;
-    newEternityTime += elapsedSeconds * timeAccelerationMultiplier; 
+    newEternityTime += elapsedSeconds * timeAccelerationMultiplier;
   }
 
   // --- 2.5 Infinityを超えたら直前で止める
@@ -553,24 +539,14 @@ export async function getSingleUserUIData(userId) {
       (1 + (skillLevels.s1 || 0)) *
       radianceMultiplier *
       (1.0 + externalData.achievementCount * 0.01),
-    meatEffect: (() => {
-      let bonus = 0;
-      if (unlockedSet.has(66)) {
-        const rewardDef = config.idle.achievements[66].reward;
-        const totalLevels =
-          (updatedIdleGame.pizzaOvenLevel || 0) +
-          (updatedIdleGame.cheeseFactoryLevel || 0) +
-          (updatedIdleGame.tomatoFarmLevel || 0) +
-          (updatedIdleGame.mushroomFarmLevel || 0) +
-          (updatedIdleGame.anchovyFactoryLevel || 0);
-        bonus += totalLevels * rewardDef.value;
-      }
-      return (
-        1 +
-        config.idle.meat.effect *
-          (externalData.mee6Level + pp + achievementExponentBonus) +
-        bonus
-      );
+   meatEffect: (() => {
+      // 1. 基本的なmeatEffectを計算
+      const baseMeatEffect = 1 + config.idle.meat.effect * 
+        (externalData.mee6Level + pp + (externalData.achievementCount || 0));
+      // 2. 新しいヘルパー関数で実績ボーナスを計算
+      const bonus = calculateAchievement66Bonus(updatedIdleGame, unlockedSet);
+      // 3. 合算して返す
+      return baseMeatEffect + bonus;
     })(),
   };
 
@@ -625,4 +601,37 @@ export function formatInfinityTime(totalSeconds) {
   if (seconds > 0) parts.push(`${seconds}秒`);
 
   return parts.join(" ") || "0秒";
+}
+
+/**
+ * 実績#66による指数ボーナスを計算する
+ * @param {object} idleGameData - IdleGameの生データ
+ * @param {Set<number>} unlockedSet - 解除済み実績IDのSet
+ * @returns {number} - 計算された指数ボーナス
+ */
+function calculateAchievement66Bonus(idleGameData, unlockedSet) {
+  if (!unlockedSet.has(66)) {
+    return 0;
+  }
+
+  const rewardDef = config.idle.achievements[66].reward;
+  if (!rewardDef || rewardDef.type !== "exponentBonusPerFactoryLevel") {
+    return 0;
+  }
+
+  let totalLevels = 0;
+  // rewardで定義された対象施設の "キー名" ("oven", "cheese"など) でループ
+  for (const factoryKey of rewardDef.targetFactories) {
+    // ★ "対象施設" -> "targetFactories" に変更
+    // configから、そのキーに対応する施設の定義を取得
+    const factoryConfig = config.idle.factories[factoryKey];
+    if (factoryConfig) {
+      // configから、正しいDBカラム名 ('pizzaOvenLevel'など) を取得
+      const dbColumnName = factoryConfig.key;
+      // 正しいカラム名を使って、idleGameDataからレベルを取得して加算
+      totalLevels += idleGameData[dbColumnName] || 0;
+    }
+  }
+
+  return totalLevels * rewardDef.value;
 }
