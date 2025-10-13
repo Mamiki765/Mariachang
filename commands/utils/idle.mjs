@@ -41,6 +41,9 @@ import {
  * 乗算２：トマト農場（トマトソース）100万
  * 乗算３：マッシュルーム 1000万
  * 乗算４：アンチョビ 1億
+ * 追加乗数５：オリーブ　PP12(1兆)
+ * 追加乗数６：小麦（ovenLv80+PP16でプレステージ）
+ * 追加乗数７：パイナップル(最初の試練制覇)
  * 指数施設：精肉工場（サラミ）
  * ブースト：お手伝い（２４時間ブースト）
  * 予定１：プレステージでパイナップルが指数や乗数に追加
@@ -164,6 +167,7 @@ export async function execute(interaction) {
       { id: 10, condition: population_d.gte(100000000) },
       { id: 19, condition: population_d.gte(1e9) }, // 10億
       { id: 20, condition: population_d.gte(1e10) }, // 100億
+      { id: 73, condition: (idleGame.prestigePower || 0) >= 12 }, //PP12(1兆)
       { id: 21, condition: population_d.gte(1e14) }, // 100兆
       { id: 22, condition: population_d.gte(9007199254740991) }, // Number.MAX_SAFE_INTEGER
       {
@@ -321,11 +325,16 @@ export async function execute(interaction) {
       };
       const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
       // 表示用の施設効果
-      const ovenEffect_display = factoryEffects.oven * skill1Effect;
-      const cheeseEffect_display = factoryEffects.cheese * skill1Effect;
-      const tomatoEffect_display = factoryEffects.tomato * skill1Effect;
-      const mushroomEffect_display = factoryEffects.mushroom * skill1Effect;
-      const anchovyEffect_display = factoryEffects.anchovy * skill1Effect;
+      const effects_display = {};
+      effects_display.oven = factoryEffects.oven * skill1Effect;
+      effects_display.cheese = factoryEffects.cheese * skill1Effect;
+      effects_display.tomato = factoryEffects.tomato * skill1Effect;
+      effects_display.mushroom = factoryEffects.mushroom * skill1Effect;
+      effects_display.anchovy = factoryEffects.anchovy * skill1Effect;
+      // 上位施設には skill1Effect を掛けない
+      effects_display.olive = factoryEffects.olive;
+      effects_display.wheat = factoryEffects.wheat;
+      effects_display.pineapple = factoryEffects.pineapple;
 
       // スキル#2の効果
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
@@ -362,73 +371,108 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       const embed = new EmbedBuilder()
         .setTitle("ピザ工場ステータス")
         .setColor(isFinal ? "Grey" : "Gold")
-        .setDescription(descriptionText)
-        .addFields(
-          {
-            name: `${config.idle.factories.oven.emoji}ピザ窯`,
-            value: `Lv. ${idleGame.pizzaOvenLevel} (${formatNumberDynamic(ovenEffect_display, 0)}) Next.${costs.oven.toLocaleString()}©`,
-            inline: true,
-          },
-          {
-            name: `${config.idle.factories.cheese.emoji}チーズ工場`,
-            value: `Lv. ${idleGame.cheeseFactoryLevel} (${formatNumberDynamic(cheeseEffect_display)}) Next.${costs.cheese.toLocaleString()}©`,
-            inline: true,
-          },
-          {
-            name: `${config.idle.factories.tomato.emoji}トマト農場`,
-            value:
-              population_d.gte(config.idle.factories.tomato.unlockPopulation) ||
-              idleGame.prestigeCount > 0
-                ? `Lv. ${idleGame.tomatoFarmLevel} (${formatNumberDynamic(tomatoEffect_display)}) Next.${costs.tomato.toLocaleString()}©`
-                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.factories.tomato.unlockPopulation))})`,
-            inline: true,
-          },
-          {
-            name: `${config.idle.factories.mushroom.emoji}マッシュルーム農場`,
-            value:
-              population_d.gte(
-                config.idle.factories.mushroom.unlockPopulation
-              ) || idleGame.prestigeCount > 0
-                ? `Lv. ${idleGame.mushroomFarmLevel} (${formatNumberDynamic(mushroomEffect_display)}) Next.${costs.mushroom.toLocaleString()}©`
-                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.factories.mushroom.unlockPopulation))})`,
-            inline: true,
-          },
-          {
-            name: `${config.idle.factories.anchovy.emoji}アンチョビ工場`,
-            value:
-              population_d.gte(
-                config.idle.factories.anchovy.unlockPopulation
-              ) || idleGame.prestigeCount > 0
-                ? `Lv. ${idleGame.anchovyFactoryLevel} (${formatNumberDynamic(anchovyEffect_display)}) Next.${costs.anchovy.toLocaleString()}©`
-                : `(要:人口${formatNumberJapanese_Decimal(new Decimal(config.idle.factories.anchovy.unlockPopulation))})`,
-            inline: true,
-          },
-          {
-            name: `${config.idle.meat.emoji}精肉工場 (Mee6)`,
-            value: `Lv. ${meatFactoryLevel} (${meatEffect.toFixed(2)})`,
-            inline: true,
-          },
-          {
-            name: "🔥ブースト",
-            value: buffField || "ブースト切れ",
-            inline: true,
-          },
-          {
-            name: "計算式",
-            value: `(${formatNumberDynamic(ovenEffect_display)} × ${formatNumberDynamic(cheeseEffect_display)} × ${formatNumberDynamic(tomatoEffect_display)} × ${formatNumberDynamic(mushroomEffect_display, 3)} × ${formatNumberDynamic(anchovyEffect_display)}) ^ ${meatEffect.toFixed(2)} × ${formatNumberDynamic(idleGame.buffMultiplier, 1)}${skill2EffectDisplay}`,
-          },
-          {
-            name: "毎分の増加予測",
-            value: `${formatNumberJapanese_Decimal(productionRate_d)} 匹/分`,
-          },
-          {
-            name: "人口ボーナス(チップ獲得量)",
-            value: `${config.casino.currencies.legacy_pizza.emoji}+${idleGame.pizzaBonusPercentage.toFixed(3)} %`,
-          }
-        )
-        .setFooter({
-          text: `現在の所持チップ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚`,
+        .setDescription(descriptionText);
+      // --- ループで施設のFieldを追加 ---
+      let hasShownFirstLocked = false;
+      for (const [name, factoryConfig] of Object.entries(
+        config.idle.factories
+      )) {
+        // --- この施設が解禁されているかを判定 ---
+        let isUnlocked = true;
+        if (
+          factoryConfig.unlockPopulation &&
+          !idleGame.prestigeCount &&
+          population_d.lt(factoryConfig.unlockPopulation)
+        ) {
+          isUnlocked = false;
+        }
+        if (
+          factoryConfig.unlockAchievementId &&
+          !unlockedSet.has(factoryConfig.unlockAchievementId)
+        ) {
+          isUnlocked = false;
+        }
+        if (!isUnlocked && hasShownFirstLocked) {
+          // 2つ目以降の未解禁施設は、何もせずスキップ
+          continue;
+        }
+        // --- 表示するテキストを準備 ---
+        const effectText = formatNumberDynamic(
+          effects_display[name],
+          name === "oven" ? 0 : 2
+        );
+        const valueText = isUnlocked
+          ? `Lv. ${idleGame[factoryConfig.key] || 0} (${effectText}) Next.${costs[name].toLocaleString()}©`
+          : `(要: ${
+              factoryConfig.unlockAchievementId
+                ? `実績「${config.idle.achievements[factoryConfig.unlockAchievementId].name}」`
+                : `人口 ${formatNumberJapanese_Decimal(new Decimal(factoryConfig.unlockPopulation))}`
+            })`;
+
+        embed.addFields({
+          name: `${factoryConfig.emoji} ${factoryConfig.name}`, // configから名前を取得
+          value: valueText,
+          inline: true,
         });
+        if (!isUnlocked) {
+          // 未解禁施設を表示したら、フラグを立てる
+          hasShownFirstLocked = true;
+        }
+      }
+
+      // --- 固定のFieldを追加 ---
+      embed.addFields(
+        {
+          name: `${config.idle.meat.emoji}精肉工場 (Mee6)`,
+          value: `Lv. ${meatFactoryLevel} (${meatEffect.toFixed(2)})`,
+          inline: true,
+        },
+        {
+          name: "🔥ブースト",
+          value: buffField || "ブースト切れ",
+          inline: true,
+        },
+        {
+          name: "計算式",
+          value: (() => {
+            // ★ 即時関数で囲んで、中でロジックを組む
+            const baseFactors = [
+              formatNumberDynamic(effects_display.oven),
+              formatNumberDynamic(effects_display.cheese),
+              formatNumberDynamic(effects_display.tomato),
+              formatNumberDynamic(effects_display.mushroom),
+              formatNumberDynamic(effects_display.anchovy),
+            ];
+
+            // 上位施設が解禁されていて、効果が1.0より大きい場合のみ追加
+            if (effects_display.olive > 1.0) {
+              baseFactors.push(formatNumberDynamic(effects_display.olive));
+            }
+            if (effects_display.wheat > 1.0) {
+              baseFactors.push(formatNumberDynamic(effects_display.wheat));
+            }
+            if (effects_display.pineapple > 1.0) {
+              baseFactors.push(formatNumberDynamic(effects_display.pineapple));
+            }
+
+            const baseFormula = `(${baseFactors.join(" × ")})`;
+
+            return `${baseFormula} ^ ${meatEffect.toFixed(2)} × ${formatNumberDynamic(idleGame.buffMultiplier, 1)}${skill2EffectDisplay}`;
+          })(),
+        },
+        {
+          name: "毎分の増加予測",
+          value: `${formatNumberJapanese_Decimal(productionRate_d)} 匹/分`,
+        },
+        {
+          name: "人口ボーナス(チップ獲得量)",
+          value: `${config.casino.currencies.legacy_pizza.emoji}+${idleGame.pizzaBonusPercentage.toFixed(3)} %`,
+        }
+      );
+
+      embed.setFooter({
+        text: `現在の所持チップ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚`,
+      });
       return embed;
     };
 
@@ -534,7 +578,59 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         );
       }
       components.push(facilityRow);
+      //Lv6~8
+      const advancedFacilityRow = new ActionRowBuilder();
+      const unlockedSet = new Set(userAchievement.achievements?.unlocked || []); // ★ 実績情報を取得
 
+      // オリーブ農園のボタン
+      if (unlockedSet.has(73)) {
+        // 73: 極限に至る道
+        advancedFacilityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_upgrade_olive")
+            .setEmoji(config.idle.factories.olive.emoji)
+            .setLabel(`+${config.idle.factories.olive.effect}`)
+            .setStyle(ButtonStyle.Secondary) // 色を分けると分かりやすい
+            .setDisabled(
+              isDisabled || point.legacy_pizza < (costs.olive || Infinity)
+            )
+        );
+      }
+
+      // 小麦の品種改良のボタン
+      if (unlockedSet.has(74)) {
+        // 74: 原点への回帰
+        advancedFacilityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_upgrade_wheat")
+            .setEmoji(config.idle.factories.wheat.emoji)
+            .setLabel(`+${config.idle.factories.wheat.effect}`)
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(
+              isDisabled || point.legacy_pizza < (costs.wheat || Infinity)
+            )
+        );
+      }
+
+      // パイナップル農場のボタン
+      if (unlockedSet.has(66)) {
+        // 66: 工場の試練
+        advancedFacilityRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("idle_upgrade_pineapple")
+            .setEmoji(config.idle.factories.pineapple.emoji)
+            .setLabel(`+${config.idle.factories.pineapple.effect}`)
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(
+              isDisabled || point.legacy_pizza < (costs.pineapple || Infinity)
+            )
+        );
+      }
+      //Lv6~8解禁でボタンの行を挿入
+      if (advancedFacilityRow.components.length > 0) {
+        components.push(advancedFacilityRow);
+      }
+      //ブースト関連の行
       //ブーストボタンを後から追加
       const boostRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -548,7 +644,6 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           .setEmoji(nyoboshiemoji)
           .setDisabled(isNyoboshiDisabled)
       );
-      //オート振り
       if (idleGame.prestigePower >= 8) {
         //SP強化
         boostRow.addComponents(
@@ -655,7 +750,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         components.push(infinityRow);
       }
 
-      //4行のボタンを返信
+      //5行のボタンを返信
       return components;
     };
 
@@ -910,11 +1005,21 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           tomato: 0,
           mushroom: 0,
           anchovy: 0,
+          olive: 0,
+          wheat: 0,
+          pineapple: 0,
         };
 
         // ★★★ DBから最新のデータを取得することが非常に重要！ ★★★
         const latestPoint = await Point.findOne({ where: { userId } });
         const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+        const userAchievement = await UserAchievement.findOne({
+          where: { userId },
+          raw: true,
+        });
+        const unlockedSet = new Set(
+          userAchievement?.achievements?.unlocked || []
+        );
         let currentSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || "0");
 
         // 2. ループ処理
@@ -922,13 +1027,30 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           const currentChips = latestPoint.legacy_pizza;
           const costs = calculateAllCosts(latestIdleGame);
 
-          // 購入可能な施設をフィルタリングし、最も安いものを探す
           const affordableFacilities = Object.entries(costs)
-            .filter(([name, cost]) => currentChips >= cost)
-            .sort((a, b) => a[1] - b[1]); // コストの昇順でソート
+            .filter(([name, cost]) => {
+              const factoryConfig = config.idle.factories[name];
+              if (!factoryConfig) return false;
+
+              let isUnlocked = true;
+              // ★ populationの取得を new Decimal(...) から修正
+              //自動購入の解禁で人口要求系は解禁されてるはずなのでコメントアウト
+              //if (factoryConfig.unlockPopulation && !latestIdleGame.prestigeCount && new Decimal(latestIdleGame.population).lt(factoryConfig.unlockPopulation)) {
+              //    isUnlocked = false;
+              //}
+              // ★ unlockedSet はループの外で準備したものを使う
+              if (
+                factoryConfig.unlockAchievementId &&
+                !unlockedSet.has(factoryConfig.unlockAchievementId)
+              ) {
+                isUnlocked = false;
+              }
+
+              return isUnlocked && currentChips >= cost;
+            })
+            .sort((a, b) => a[1] - b[1]);
 
           if (affordableFacilities.length === 0) {
-            // 購入できる施設が何もない
             break;
           }
 
@@ -939,22 +1061,10 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           totalCost += cheapestCost;
           levelsPurchased[cheapestFacilityName]++;
 
-          switch (cheapestFacilityName) {
-            case "oven":
-              latestIdleGame.pizzaOvenLevel++;
-              break;
-            case "cheese":
-              latestIdleGame.cheeseFactoryLevel++;
-              break;
-            case "tomato":
-              latestIdleGame.tomatoFarmLevel++;
-              break;
-            case "mushroom":
-              latestIdleGame.mushroomFarmLevel++;
-              break;
-            case "anchovy":
-              latestIdleGame.anchovyFactoryLevel++;
-              break;
+          const factoryConfig = config.idle.factories[cheapestFacilityName];
+          if (factoryConfig) {
+            const levelKey = factoryConfig.key;
+            latestIdleGame[levelKey]++;
           }
 
           iterations++;
@@ -1025,46 +1135,23 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       let facility, cost, facilityName;
       const skillLevel6 = latestIdleGame.skillLevel6 || 0;
 
-      if (i.customId === "idle_upgrade_oven") {
-        facility = "oven";
-        cost = calculateFacilityCost(
-          "oven",
-          latestIdleGame.pizzaOvenLevel,
-          skillLevel6
-        );
-        facilityName = "ピザ窯";
-      } else if (i.customId === "idle_upgrade_cheese") {
-        facility = "cheese";
-        cost = calculateFacilityCost(
-          "cheese",
-          latestIdleGame.cheeseFactoryLevel,
-          skillLevel6
-        );
-        facilityName = "チーズ工場";
-      } else if (i.customId === "idle_upgrade_tomato") {
-        facility = "tomato";
-        cost = calculateFacilityCost(
-          "tomato",
-          latestIdleGame.tomatoFarmLevel,
-          skillLevel6
-        );
-        facilityName = "トマト農場";
-      } else if (i.customId === "idle_upgrade_mushroom") {
-        facility = "mushroom";
-        cost = calculateFacilityCost(
-          "mushroom",
-          latestIdleGame.mushroomFarmLevel,
-          skillLevel6
-        );
-        facilityName = "マッシュルーム農場";
-      } else if (i.customId === "idle_upgrade_anchovy") {
-        facility = "anchovy";
-        cost = calculateFacilityCost(
-          "anchovy",
-          latestIdleGame.anchovyFactoryLevel,
-          skillLevel6
-        );
-        facilityName = "アンチョビ工場(ニボシじゃないよ！)";
+      if (i.customId.startsWith("idle_upgrade_")) {
+        // "idle_upgrade_oven" から "oven" の部分を抽出
+        facility = i.customId.substring("idle_upgrade_".length);
+
+        const factoryConfig = config.idle.factories[facility];
+
+        if (factoryConfig) {
+          // 該当する施設がconfigに存在するかチェック
+          const levelKey = factoryConfig.key;
+          const currentLevel = latestIdleGame[levelKey] || 0;
+
+          cost = calculateFacilityCost(facility, currentLevel, skillLevel6);
+          facilityName = factoryConfig.successName || factoryConfig.name; // configから正式名称を取得
+        } else {
+          // nyobosi などの特殊なケースや、エラーハンドリング
+          // ...
+        }
       } else if (i.customId === "idle_extend_buff") {
         //extend_buff
         facility = "nyobosi";
@@ -1111,33 +1198,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           latestIdleGame.chipsSpentThisEternity = (
             BigInt(latestIdleGame.chipsSpentThisEternity || "0") + BigInt(cost)
           ).toString();
-          if (facility === "oven") {
-            await latestIdleGame.increment("pizzaOvenLevel", {
-              by: 1,
-              transaction: t,
-            });
-          } else if (facility === "cheese") {
-            //elseから念の為cheeseが必要な様に変更
-            await latestIdleGame.increment("cheeseFactoryLevel", {
-              by: 1,
-              transaction: t,
-            });
-          } else if (facility === "tomato") {
-            await latestIdleGame.increment("tomatoFarmLevel", {
-              by: 1,
-              transaction: t,
-            });
-          } else if (facility === "mushroom") {
-            await latestIdleGame.increment("mushroomFarmLevel", {
-              by: 1,
-              transaction: t,
-            });
-          } else if (facility === "anchovy") {
-            await latestIdleGame.increment("anchovyFactoryLevel", {
-              by: 1,
-              transaction: t,
-            });
-          } else if (facility === "nyobosi") {
+          if (facility === "nyobosi") {
             const now = new Date();
             const currentBuff =
               latestIdleGame.buffExpiresAt && latestIdleGame.buffExpiresAt > now
@@ -1147,6 +1208,16 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
               currentBuff.getTime() + 24 * 60 * 60 * 1000
             );
             await latestIdleGame.save({ transaction: t });
+          } else {
+            //8工場はこっち
+            const factoryConfig = config.idle.factories[facility];
+            if (factoryConfig) {
+              const levelKey = factoryConfig.key;
+              await latestIdleGame.increment(levelKey, {
+                by: 1,
+                transaction: t,
+              });
+            }
           }
         });
 
@@ -1183,16 +1254,20 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         await i.followUp({ content: successMsg, ephemeral: true });
 
         //施設強化系実績
-        if (facility === "oven") {
-          await unlockAchievements(interaction.client, userId, 1);
-        } else if (facility === "cheese") {
-          await unlockAchievements(interaction.client, userId, 2);
-        } else if (facility === "tomato") {
-          await unlockAchievements(interaction.client, userId, 7);
-        } else if (facility === "mushroom") {
-          await unlockAchievements(interaction.client, userId, 9);
-        } else if (facility === "anchovy") {
-          await unlockAchievements(interaction.client, userId, 12);
+        //5施設はここにまとめる
+        const achievementMap = {
+          oven: 1,
+          cheese: 2,
+          tomato: 7,
+          mushroom: 9,
+          anchovy: 12,
+        };
+        if (achievementMap[facility]) {
+          await unlockAchievements(
+            interaction.client,
+            userId,
+            achievementMap[facility]
+          );
         } else if (facility === "nyobosi") {
           await unlockAchievements(interaction.client, userId, 4);
         }
@@ -1478,6 +1553,15 @@ async function handlePrestige(interaction, collector) {
         latestIdleGame.changed("challenges", true);
       }
 
+      // 「原点への回帰」実績のチェック
+      if (
+        latestIdleGame.pizzaOvenLevel >= 80 &&
+        currentPopulation_d.gte("1e16")
+      ) {
+        // トランザクションの外で実行した方が安全
+        unlockAchievements(interaction.client, interaction.user.id, 74);
+      }
+
       // ▼▼▼ ここから分岐ロジック ▼▼▼
       if (currentPopulation_d.gt(highestPopulation_d)) {
         // --- PP/SPプレステージ (既存のロジック) ---
@@ -1510,6 +1594,9 @@ async function handlePrestige(interaction, collector) {
             tomatoFarmLevel: 0,
             mushroomFarmLevel: 0,
             anchovyFactoryLevel: 0,
+            oliveFarmLevel: 0,
+            wheatFarmLevel: 0,
+            pineappleFarmLevel: 0,
             prestigeCount: latestIdleGame.prestigeCount + 1,
             prestigePower: newPrestigePower,
             skillPoints: newSkillPoints,
@@ -1543,6 +1630,9 @@ async function handlePrestige(interaction, collector) {
             tomatoFarmLevel: 0,
             mushroomFarmLevel: 0,
             anchovyFactoryLevel: 0,
+            oliveFarmLevel: 0,
+            wheatFarmLevel: 0,
+            pineappleFarmLevel: 0,
             transcendencePoints: latestIdleGame.transcendencePoints + gainedTP, // TPを加算
             // PP, SP, highestPopulation は更新しない！
             lastUpdatedAt: new Date(),
@@ -1669,7 +1759,7 @@ function generateSkillEmbed(idleGame) {
     .addFields(
       {
         name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
-        value: `精肉工場以外の効果 **x${((1 + skillLevels.s1) * effects.radianceMultiplier).toFixed(1)}** → **x${((1 + skillLevels.s1 + 1) * effects.radianceMultiplier).toFixed(1)}**  (コスト: ${costs.s1} SP)`,
+        value: `基本5施設の効果 **x${((1 + skillLevels.s1) * effects.radianceMultiplier).toFixed(1)}** → **x${((1 + skillLevels.s1 + 1) * effects.radianceMultiplier).toFixed(1)}**  (コスト: ${costs.s1} SP)`,
       },
       {
         name: `#2 加速する時間 x${skillLevels.s2}`,
@@ -1932,6 +2022,9 @@ async function handleSkillReset(interaction, collector) {
           tomatoFarmLevel: 0,
           mushroomFarmLevel: 0,
           anchovyFactoryLevel: 0,
+          oliveFarmLevel: 0,
+          wheatFarmLevel: 0,
+          pineappleFarmLevel: 0,
           skillLevel1: 0,
           skillLevel2: 0,
           skillLevel3: 0,
@@ -1968,9 +2061,10 @@ async function handleSkillReset(interaction, collector) {
  * @returns {EmbedBuilder}
  */
 function generateProfileEmbed(uiData, user) {
-  const { idleGame, achievementCount } = uiData;
+  const { idleGame, achievementCount, userAchievement } = uiData;
   const population_d = new Decimal(idleGame.population);
   const highestPopulation_d = new Decimal(idleGame.highestPopulation);
+  const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
 
   const formattedTime = formatInfinityTime(idleGame.infinityTime);
 
@@ -1978,11 +2072,36 @@ function generateProfileEmbed(uiData, user) {
     new Decimal(idleGame.chipsSpentThisEternity?.toString() || "0")
   );
   const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
+  const factoryLevels = [];
+  for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
+    // --- この施設が解禁されているかを判定 ---
+    let isUnlocked = true;
+    if (
+      factoryConfig.unlockPopulation &&
+      !idleGame.prestigeCount &&
+      population_d.lt(factoryConfig.unlockPopulation)
+    ) {
+      isUnlocked = false;
+    }
+    if (
+      factoryConfig.unlockAchievementId &&
+      !unlockedSet.has(factoryConfig.unlockAchievementId)
+    ) {
+      isUnlocked = false;
+    }
+
+    // 解禁済みの場合のみ表示する
+    const level = idleGame[factoryConfig.key] || 0;
+    if (isUnlocked) {
+      factoryLevels.push(`${factoryConfig.emoji}Lv.${level}`);
+    }
+  }
+  const factoryLevelsString = factoryLevels.join(" ");
 
   // Descriptionを組み立てる
   const description = [
     `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
-    `🍕Lv.${idleGame.pizzaOvenLevel} 🧀Lv.${idleGame.cheeseFactoryLevel} 🍅Lv.${idleGame.tomatoFarmLevel} 🍄Lv.${idleGame.mushroomFarmLevel} 🐟Lv.${idleGame.anchovyFactoryLevel} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
+    `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
     `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}** | ∞⏳: ${formattedTime}`,
@@ -2041,6 +2160,9 @@ async function handleInfinity(interaction, collector) {
           tomatoFarmLevel: 0,
           mushroomFarmLevel: 0,
           anchovyFactoryLevel: 0,
+          oliveFarmLevel: 0,
+          wheatFarmLevel: 0,
+          pineappleFarmLevel: 0,
           prestigeCount: 0,
           prestigePower: 0,
           skillPoints: 0,

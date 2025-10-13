@@ -507,6 +507,21 @@ const IdleGame = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    oliveFarmLevel: {
+      // オリーブ農園（追加乗算係数その１）
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    wheatFarmLevel: {
+      // 小麦の品種改良（追加乗算係数その２）
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    pineappleFarmLevel: {
+      // パイナップル農場（追加乗算係数その３）
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     //(指数施設である精肉工場のLVはMee6テーブルのLVから持ってくる)
     //プレステージ
     prestigeCount: {

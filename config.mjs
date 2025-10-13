@@ -713,6 +713,7 @@ export default {
       //要の部分
       oven: {
         key: "pizzaOvenLevel",
+        name: "ピザ窯",
         emoji: "🍕",
         baseCost: 100,
         multiplier: 1.08,
@@ -721,6 +722,7 @@ export default {
       },
       cheese: {
         key: "cheeseFactoryLevel",
+        name :"チーズ工場",
         emoji: "🧀",
         baseCost: 500,
         multiplier: 1.09,
@@ -730,8 +732,9 @@ export default {
       },
       tomato: {
         key: "tomatoFarmLevel",
+        name :"トマト農場",
         emoji: "🍅",
-        baseCost: 800, // 800 -> 700予定
+        baseCost: 700, // 800 -> 700予定
         multiplier: 1.1,
         effect: 0.04,
         unlockPopulation: 100_0000,
@@ -739,8 +742,9 @@ export default {
       },
       mushroom: {
         key: "mushroomFarmLevel",
+        name :"マッシュルーム農場",
         emoji: "🍄",
-        baseCost: 1000, // 1000-> 900?
+        baseCost: 900, // 1000-> 900?
         multiplier: 1.105,
         effect: 0.03,
         unlockPopulation: 1000_0000,
@@ -748,42 +752,47 @@ export default {
       },
       anchovy: {
         key: "anchovyFactoryLevel",
+        name :"アンチョビ工場",
+        successName: "アンチョビ工場(ニボシじゃないよ！)",
         emoji: "🐟",
-        baseCost: 1500, // 1500->1100?
+        baseCost: 1100, // 1500->1100?
         multiplier: 1.11,
         effect: 0.02,
         unlockPopulation: 1_0000_0000,
         type: "multiplicative",
       },
-    },
-    //メモ：アンチョビ以降の乗算施設は構想段階　まだカラム作らないけど
-    // keyは新しいカラム名と一致させる
-    olive: {
-      key: "oliveFarmLevel",
-      emoji: "🫒",
-      baseCost: 1300,
-      multiplier: 1.115,
-      effect: 0.02, //こっから下げると#5が弱くなりすぎる　悩む
-      unlockPopulation: 1_0000_0000_0000, // 人口1兆で解禁
-      type: "multiplicative2", //乗数施設（上位）#1や実績の効果が乗らない。未解禁時PPは乗らず、#5や工場試練のLvだけ精肉+^0.001は乗る
-    },
-    wheat: {
-      key: "wheatFarmLevel",
-      emoji: "🌾",
-      baseCost: 1500,
-      multiplier: 1.12,
-      effect: 0.02,
-      unlockPopulation: 1e16, // 人口1京(TP)で解禁
-      type: "multiplicative2",
-    },
-    pineapple: {
-      key: "pineappleFarmLevel",
-      emoji: "🍍",
-      baseCost: 1700,
-      multiplier: 1.125,
-      effect: 0.02,
-      unlockPopulation: 1e30, // 人口1e30(工場の試練)で解禁
-      type: "multiplicative2",
+      //メモ：アンチョビ以降の乗算施設は構想段階　まだカラム作ってないよ
+      // keyは新しいカラム名と一致させる
+      olive: {
+        key: "oliveFarmLevel",
+        name :"オリーブ農園",
+        emoji: "🫒",
+        baseCost: 1300,
+        multiplier: 1.115,
+        effect: 0.02, //こっから下げると#5が弱くなりすぎる　悩む
+        unlockAchievementId: 73, //施設そのものとPP効果を解禁する（共通）
+        type: "multiplicative2", //乗数施設（上位）#1や実績の効果が乗らない。未解禁時PPは乗らず、#5や工場試練のLvだけ精肉+^0.001は乗る
+      },
+      wheat: {
+        key: "wheatFarmLevel",
+        name :"小麦の品種改良",
+        emoji: "🌾",
+        baseCost: 1500,
+        multiplier: 1.12,
+        effect: 0.02,
+        type: "multiplicative2",
+        unlockAchievementId: 74,
+      },
+      pineapple: {
+        key: "pineappleFarmLevel",
+        name :"パイナップル農園",
+        emoji: "🍍",
+        baseCost: 1700,
+        multiplier: 1.125,
+        effect: 0.02,
+        unlockAchievementId: 66,
+        type: "multiplicative2",
+      },
     },
     //ここからいつものアイツ
     meat: {
@@ -1257,11 +1266,21 @@ export default {
         id: 66,
         name: "工場の試練",
         description: "インフィニティ前の4つの試練を制覇してから実績を見る",
-        effect: "精肉以外の工場Lv10につき、指数+0.01", //1につき0.001
+        effect:
+          "精肉以外の工場Lv10につき指数+0.01、パイナップル農場とそのPP効果を解禁", //1につき0.001
         reward: {
           type: "exponentBonusPerFactoryLevel",
           value: 0.001,
-          targetFactories: ["oven", "cheese", "tomato", "mushroom", "anchovy"], // 英語キーに
+          targetFactories: [
+            "oven",
+            "cheese",
+            "tomato",
+            "mushroom",
+            "anchovy",
+            "olive",
+            "wheat",
+            "pineapple",
+          ],
         },
       },
       {
@@ -1306,7 +1325,22 @@ export default {
         effect: "ニョボチップ入手量+5000%(未実装)", //ここに来たら実際5500~8000くらいなのでリセットされるの考えるとご褒美としてはこんなもの
         reward: {},
       },
-
+      //ここ順番滅茶苦茶だし実績表示機能の番号は配列の並び順で出すようにしてもいいかも
+      {
+        id: 73,
+        name: "超越に至る道",
+        description: "PPが12に到達する", //1兆
+        effect: "オリーブ農園とそのPP効果を解禁",
+        reward: {},
+      },
+      {
+        id: 74,
+        name: "原点への回帰",
+        description:
+          "人口1e+16以上かつピザ窯のLvが80に達した状態でプレステージする",
+        effect: "小麦の品種改良とそのPP効果を解禁",
+        reward: {},
+      },
       // 今後、ここに実績をどんどん追加していきます
       // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
     ],

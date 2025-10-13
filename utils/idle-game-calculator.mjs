@@ -33,7 +33,7 @@ export function calculateDiscountMultiplier(skillLevel6 = 0) {
 
 //TPスキル#5によるベース強化を考慮した強化を入れる
 //ゲームが進んできたらここもDicimal検討しよう
-export function calculateFactoryEffects(idleGame, pp) {
+export function calculateFactoryEffects(idleGame, pp, unlockedSet = new Set()) {
   const effects = {};
   const s5_level = idleGame.skillLevel5 || 0;
   const s5_config = config.idle.tp_skills.skill5;
@@ -43,17 +43,30 @@ export function calculateFactoryEffects(idleGame, pp) {
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
     // configに定義された 'key' を使って、idleGameオブジェクトからレベルを取得
     const level = idleGame[factoryConfig.key] || 0;
+    // --- この施設の計算にPPを含めるかどうかを判定 ---
+    let ppForThisFactory = pp; // デフォルトはPP効果あり
+    if (
+      factoryConfig.type === "multiplicative2" &&
+      factoryConfig.unlockAchievementId &&
+      !unlockedSet.has(factoryConfig.unlockAchievementId)
+    ) {
+      //追加乗算施設＋実績持ち＋未解禁の時、工場LVは0に
+      ppForThisFactory = 0;
+    }
 
     if (factoryConfig.type === "additive") {
       // ピザ窯の計算
       const ovenFinalEffect =
-        (level + pp) * (1 + baseLevelBonusPerLevel * level);
+        (level + ppForThisFactory) * (1 + baseLevelBonusPerLevel * level);
       effects[name] = ovenFinalEffect;
-    } else if (factoryConfig.type === "multiplicative") {
+    } else if (
+      factoryConfig.type === "multiplicative" ||
+      factoryConfig.type === "multiplicative2"
+    ) {
       // チーズ工場などの乗算施設の計算
       const base_effect = factoryConfig.effect;
       const boosted_effect = base_effect * (1 + baseLevelBonusPerLevel * level);
-      const finalEffect = 1 + boosted_effect * (level + pp);
+      const finalEffect = 1 + boosted_effect * (level + ppForThisFactory);
       effects[name] = finalEffect;
     }
   }
@@ -94,30 +107,21 @@ export function calculateFacilityCost(type, level, skillLevel6 = 0) {
  * @returns {object}
  */
 export function calculateAllCosts(idleGame) {
+  const costs = {};
   const skillLevel6 = idleGame.skillLevel6 || 0;
-  return {
-    oven: calculateFacilityCost("oven", idleGame.pizzaOvenLevel, skillLevel6),
-    cheese: calculateFacilityCost(
-      "cheese",
-      idleGame.cheeseFactoryLevel,
-      skillLevel6
-    ),
-    tomato: calculateFacilityCost(
-      "tomato",
-      idleGame.tomatoFarmLevel,
-      skillLevel6
-    ),
-    mushroom: calculateFacilityCost(
-      "mushroom",
-      idleGame.mushroomFarmLevel,
-      skillLevel6
-    ),
-    anchovy: calculateFacilityCost(
-      "anchovy",
-      idleGame.anchovyFactoryLevel,
-      skillLevel6
-    ),
-  };
+
+  // config.idle.factories をループで処理
+  for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
+    // configからDBカラム名を取得
+    const levelKey = factoryConfig.key;
+    // DBカラム名を使って、現在のレベルを取得
+    const currentLevel = idleGame[levelKey] || 0;
+
+    // 計算したコストを costs オブジェクトに格納
+    costs[name] = calculateFacilityCost(name, currentLevel, skillLevel6);
+  }
+
+  return costs;
 }
 
 /**
@@ -270,7 +274,7 @@ function calculateProductionRate(idleGameData, externalData) {
   const finalSkill2Effect = Math.pow(skill2Effect, 2); // 時間加速
 
   // 工場効果 (これもNumberでOK)
-  const factoryEffects = calculateFactoryEffects(idleGameData, pp);
+  const factoryEffects = calculateFactoryEffects(idleGameData, pp, unlockedSet);
 
   // バフ (これもNumberでOK)
   let buffMultiplier = 1.0;
@@ -287,7 +291,10 @@ function calculateProductionRate(idleGameData, externalData) {
     .times(factoryEffects.tomato)
     .times(factoryEffects.mushroom)
     .times(factoryEffects.anchovy)
-    .times(new Decimal(skill1Effect).pow(5));
+    .times(new Decimal(skill1Effect).pow(5))
+    .times(factoryEffects.olive || 1.0)
+    .times(factoryEffects.wheat || 1.0)
+    .times(factoryEffects.pineapple || 1.0);
 
   let finalProduction = baseProduction
     .pow(meatEffect) // ★実績ボーナスが含まれた新しい指数がここで使われる！
@@ -520,9 +527,13 @@ export async function getSingleUserUIData(userId) {
 
   // --- 5. UI表示に必要なデータを "全て" 計算してまとめる ---
   const pp = updatedIdleGame.prestigePower || 0;
-  const achievementExponentBonus = externalData.achievementCount;
+  //const achievementExponentBonus = externalData.achievementCount;
 
-  const factoryEffects = calculateFactoryEffects(updatedIdleGame, pp);
+  const factoryEffects = calculateFactoryEffects(
+    updatedIdleGame,
+    pp,
+    unlockedSet
+  );
   const skillLevels = {
     s1: updatedIdleGame.skillLevel1,
     s2: updatedIdleGame.skillLevel2,
@@ -539,10 +550,12 @@ export async function getSingleUserUIData(userId) {
       (1 + (skillLevels.s1 || 0)) *
       radianceMultiplier *
       (1.0 + externalData.achievementCount * 0.01),
-   meatEffect: (() => {
+    meatEffect: (() => {
       // 1. 基本的なmeatEffectを計算
-      const baseMeatEffect = 1 + config.idle.meat.effect * 
-        (externalData.mee6Level + pp + (externalData.achievementCount || 0));
+      const baseMeatEffect =
+        1 +
+        config.idle.meat.effect *
+          (externalData.mee6Level + pp + (externalData.achievementCount || 0));
       // 2. 新しいヘルパー関数で実績ボーナスを計算
       const bonus = calculateAchievement66Bonus(updatedIdleGame, unlockedSet);
       // 3. 合算して返す
