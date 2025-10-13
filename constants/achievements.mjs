@@ -568,7 +568,7 @@ export const hidden_achievements = [
         name: "逆さま",
         hint: "a>m>t>c>o",
         description:
-          "上位の施設のレベルが全ての下位よりも高くなりました\n薄れゆく達成感（本家）",
+          "基本5施設の、上位の施設のレベルが全ての下位よりも高くなりました\n薄れゆく達成感（本家）",
       },
       {
         id: 7,

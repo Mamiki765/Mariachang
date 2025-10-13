@@ -1686,12 +1686,21 @@ ${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
         components: [],
       });
     } else {
-      // タイムアウトエラー
-      await confirmationMessage.edit({
-        content:
-          "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
-        components: [],
-      });
+      try {
+        // タイムアウトエラー
+        await confirmationMessage.edit({
+          content:
+            "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
+          components: [],
+        });
+      } catch (editError) {
+        // メッセージの編集に失敗した場合 (すでに削除されている、トークンが失効しているなど)
+        // エラーをコンソールに警告として表示するが、ボットはクラッシュさせない
+        console.warn(
+          "タイムアウト後の確認メッセージの編集に失敗しました:",
+          editError.message
+        );
+      }
     }
   }
 }
