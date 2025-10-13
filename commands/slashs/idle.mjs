@@ -688,16 +688,16 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       // 3. 8つの施設がアンロックされているか (実績#78=全施設Lv1以上で代用)
       const canAscend =
         population_d.gte(requiredPopulation_d) &&
-        point.legacy_pizza >= requiredChips &&
-        unlockedAchievements.has(78); // 実績#78: 今こそ目覚めの時
-      if (canAscend) {
+        point.legacy_pizza >= requiredChips ;
+        //&& unlockedAchievements.has(78); // 実績#78: 今こそ目覚めの時
+      if (population_d.gte(requiredPopulation_d)) {
         advancedFacilityRow.addComponents(
           new ButtonBuilder()
             .setCustomId("idle_ascension") // 新しいID
             .setLabel(`アセンション (${requiredChips}©)`)
             .setStyle(ButtonStyle.Danger) // 重大なリセットなのでDanger
             .setEmoji("🚀") // 宇宙へ！
-            .setDisabled(isDisabled)
+            .setDisabled(isDisabled || !canAscend)
         );
       }
       //Lv6~8解禁でボタンの行を挿入
@@ -1440,6 +1440,13 @@ function generateProfileEmbed(uiData, user) {
   const formattedChipsEternity = formatNumberJapanese_Decimal(
     new Decimal(idleGame.chipsSpentThisEternity?.toString() || "0")
   );
+  //アセンション
+  const ascensionCount = idleGame.ascensionCount || 0;
+  let ascensionText = "";
+  if (ascensionCount > 0) {
+    ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
+  }
+  
   const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
   const factoryLevels = [];
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
@@ -1470,7 +1477,7 @@ function generateProfileEmbed(uiData, user) {
   // Descriptionを組み立てる
   const description = [
     `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
-    `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
+    `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length}${ascensionText} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
     `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}** | ∞⏳: ${formattedTime}`,

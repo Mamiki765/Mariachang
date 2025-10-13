@@ -16,6 +16,7 @@ import {
   calculatePotentialTP,
   calculateSpentSP,
   formatNumberJapanese_Decimal,
+  calculateAscensionRequirements,
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -812,6 +813,21 @@ export async function handleAscension(interaction) {
       .minus(requiredPopulation_d)
       .toString();
 
+    // 3-1b.チップを計上
+    const spentChipsBigInt = BigInt(Math.floor(requiredChips));
+    const currentSpentInfinity = BigInt(
+      latestIdleGame.chipsSpentThisInfinity || "0"
+    );
+    latestIdleGame.chipsSpentThisInfinity = (
+      currentSpentInfinity + spentChipsBigInt
+    ).toString();
+    const currentSpentEternity = BigInt(
+      latestIdleGame.chipsSpentThisEternity || "0"
+    );
+    latestIdleGame.chipsSpentThisEternity = (
+      currentSpentEternity + spentChipsBigInt
+    ).toString();
+
     // 3-2. アセンション回数を増やす
     latestIdleGame.ascensionCount += 1;
 
@@ -824,7 +840,7 @@ export async function handleAscension(interaction) {
 
     // 5. 成功メッセージと実績解除
     await interaction.followUp({
-      content: `🚀 **賃金として${requiredChips}チップを貰った${requiredPopulation_d}匹のニョワミヤ達は何処かへと旅立っていった… (現在: ${latestIdleGame.ascensionCount}回)`,
+      content: `🚀 **賃金として${requiredChips}チップを貰った${requiredPopulation_d}匹のニョワミヤ達は何処かへと旅立っていった… (現在: ${latestIdleGame.ascensionCount}回)**`,
       ephemeral: true,
     });
 
@@ -834,7 +850,7 @@ export async function handleAscension(interaction) {
       await unlockAchievements(interaction.client, userId, 80); // #80: ニョワミヤがニョワミヤを呼ぶ
     }
     if (latestIdleGame.ascensionCount >= 50) {
-      await unlockAchievements(interaction.client, userId, 80); // #81: ニョワミヤ永久機関
+      await unlockAchievements(interaction.client, userId, 81); // #81: ニョワミヤ永久機関
     }
 
     return true; // 成功
