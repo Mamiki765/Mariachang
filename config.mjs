@@ -707,8 +707,63 @@ export default {
     },
     infinityGenerators: [
       // 配列のインデックスが (ジェネレーター番号 - 1) に対応
-      { id: 1, baseCost: 1, costMultiplier: 10 },
-      { id: 2, baseCost: 100, costMultiplier: 100 },
+      // なお#2効果によってそれは加速し、n個買えば初期個数n 効果は2^(n-1)となる
+      {
+        id: 1,
+        name: "ピザ工場複製装置",
+        description: "毎分、GPを生産する",
+        baseCost: 1,
+        costMultiplier: 10,
+      },
+      {
+        id: 2,
+        name: "ピザ工場複製装置Ⅱ",
+        description: "毎分、ピザ工場複製装置を生産する",
+        baseCost: 100,
+        costMultiplier: 100,
+      },
+      {
+        id: 3,
+        name: "ピザ工場複製装置Ⅲ",
+        description: "毎分、ピザ工場複製装置Ⅱを生産する",
+        baseCost: 1e308,
+        costMultiplier: 1000,
+      },
+      {
+        id: 4,
+        name: "ピザ工場複製装置Ⅳ",
+        description: "毎分、ピザ工場複製装置Ⅲを生産する",
+        baseCost: 1e308,
+        costMultiplier: 10000,
+      },
+      {
+        id: 5,
+        name: "ピザ工場複製装置Ⅴ",
+        description: "毎分、ピザ工場複製装置Ⅳを生産する",
+        baseCost: 1e308,
+        costMultiplier: 1e5,
+      },
+      {
+        id: 6,
+        name: "ピザ工場複製装置Ⅵ",
+        description: "毎分、ピザ工場複製装置Ⅴを生産する",
+        baseCost: 1e308,
+        costMultiplier: 1e6,
+      },
+      {
+        id: 7,
+        name: "ピザ工場複製装置Ⅶ",
+        description: "毎分、ピザ工場複製装置Ⅵを生産する",
+        baseCost: 1e308,
+        costMultiplier: 1e7,
+      },
+      {
+        id: 8,
+        name: "ピザ工場複製装置Ⅷ",
+        description: "毎分、ピザ工場複製装置Ⅶを生産する",
+        baseCost: 1e308,
+        costMultiplier: 1e8,
+      },
     ],
     //constants\achievements.mjsにお引越し
     achievements: achievements,

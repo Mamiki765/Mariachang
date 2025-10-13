@@ -1428,7 +1428,30 @@ function generateProfileEmbed(uiData, user) {
 }
 
 
+/*
+実装草案
+G8はG7を生み、G7はG6を生み…G1はGPを生む
+GPの初期値は1。G2~G8は1個につき毎分1、G1のみ1個につき毎分∞だけのGPを生産する。　初期個数が増えn個購入されると1個あたりの生産速度は2^(n-1)倍になる
+GP^0.500が8つの工場に加算される。つまり最初は4乗
+### 実装タスクのまとめ
 
+1.  **DBマイグレーション:** `IdleGame` モデルに `generatorPower` (TEXT, defaultValue: '1') カラムを追加。
+2.  **`handleInfinity` (in `handlers.mjs`) 修正:**
+    -   `generatorPower` を `'1'` にリセット。
+    -   `ipUpgrades.generators` を初期化（初回は8個分の ` { amount: '0', bought: 0 } ` 配列を作成、2回目以降は各ジェネレーターの amount を、そのジェネレーターの bought と同じ値の文字列に設定する）。
+3.  **`calculateOfflineProgress` (in `calculator.mjs`) 修正:**
+    -   `if (idleGame.infinityCount > 0)` の分岐を追加。
+    -   中で、上位から下位へ (G8→G7, ..., G2→G1, G1→GP) と生産量を計算し、各`amount`を加算していくループ処理を実装。
+    -   `GP.pow(0.5).pow(8)` の効果を、最終的な工場生産量に乗算する処理を追加。
+4.  **`handleGeneratorPurchase` (in `handlers.mjs`) 新規作成:**
+    -   ボタンIDからジェネレーター番号を取得。
+    -   `config` からコストを計算。
+    -   IPが足りるかチェック。
+    -   IPを減算し、`ipUpgrades.generators[index].bought` をインクリメント。
+    -   DBに保存。
+5.  **`collector` (in `idle.mjs`) 修正:**
+    -   `if (i.customId.startsWith("idle_generator_buy_"))` の分岐を追加し、`handleGeneratorPurchase` を呼び出す。
+*/
 /**
  * インフィニティ画面のEmbedを生成する（ジェネレーター）
  * @param {object} idleGame - IdleGameモデルのインスタンス
@@ -1437,27 +1460,48 @@ function generateProfileEmbed(uiData, user) {
 function generateInfinityEmbed(idleGame) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
+  // 仮: GPはジェネレーター1が生み出して追加のカラム(dicimal)で管理する数値ですが、今は仮にG1のamountとします
+  const generator1Amount = new Decimal(idleGame.ipUpgrades?.generators?.[0]?.amount || '0');
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
-GP:1^0.5 = 1倍`; //GPはinfinityのたびに1にリセットされる…revoのパクリやんけ～～～！
+GP: ${formatNumberDynamic_Decimal(generator1Amount)} (仮)`;
 
   const embed = new EmbedBuilder()
-    .setTitle("🌌 インフィニティ 🌌")
+    .setTitle("🌌 インフィニティジェネレーター 🌌")
     .setColor("Aqua")
-    .setDescription(infinityDescription)
-    .addFields(
-      {
-        //ダミー
-        name: "Lv1.ピザ工場複製装置(1個)",
-        value:
-          "10コス。毎分、GPを1生産する。Lv1増やすと初期個数が1増え効果が2倍になる。\n生産速度は∞倍される", //revoの（ｒｙ
-      },
-      {
-        //ダミー
-        name: "Lv0.ピザ工場複製装置Ⅱ(0個)",
-        value:
-          "100コス。毎分、ピザ工場複製装置を1生産する。Lv1増やすと初期個数が1増え効果が2倍になる。", //アンチマターニョワミヤ
-      } // そしてジェネレーターのジェネレーターのジェネレーターへ…
+    .setDescription(infinityDescription);
+
+  // ユーザーのジェネレーター進行状況を取得 (データがない場合は空の配列)
+  const userGenerators = idleGame.ipUpgrades?.generators || [];
+
+  // configをループしてフィールドを動的に生成
+  for (const generatorConfig of config.idle.infinityGenerators) {
+    const index = generatorConfig.id - 1;
+    
+    // --- 表示条件のチェック ---
+    if (index > 0) { // ジェネレーターII (index=1) 以降が対象
+      const prevGeneratorData = userGenerators[index - 1];
+      // 1つ前のジェネレーターの購入数(bought)が0なら、このジェネレーターは表示しない
+      if (!prevGeneratorData || prevGeneratorData.bought === 0) {
+        break; // 以降のジェネレーターも表示しないのでループを抜ける
+      }
+    }
+
+    // --- 表示するデータを準備 ---
+    const generatorData = userGenerators[index] || { amount: '0', bought: 0 };
+    const amount_d = new Decimal(generatorData.amount);
+    const bought = generatorData.bought;
+    // 仮のコスト計算 (将来的にはcalculator.mjsに)
+    const cost = new Decimal(generatorConfig.baseCost).times(
+      new Decimal(generatorConfig.costMultiplier).pow(bought)
     );
+
+    embed.addFields({
+      name: `${generatorConfig.name} (購入: ${bought})`,
+      value: `所持数: ${formatNumberDynamic_Decimal(amount_d)}\nコスト: ${formatNumberDynamic_Decimal(cost)} IP`,
+      inline: false, // 見やすさのためにfalseが良いかも
+    });
+  }
+
   return embed;
 }
 
@@ -1467,13 +1511,59 @@ GP:1^0.5 = 1倍`; //GPはinfinityのたびに1にリセットされる…revoの
  * @returns {ActionRowBuilder[]}
  */
 function generateInfinityButtons(idleGame) {
-  // 将来的には、ここにジェネレーターやアップグレードの購入ボタンを追加します
+  const components = [];
+  let currentRow = new ActionRowBuilder();
+  const userGenerators = idleGame.ipUpgrades?.generators || [];
+  const ip_d = new Decimal(idleGame.infinityPoints);
+
+  for (const generatorConfig of config.idle.infinityGenerators) {
+    const index = generatorConfig.id - 1;
+
+    // --- 表示条件のチェック ---
+    if (index > 0) {
+      const prevGeneratorData = userGenerators[index - 1];
+      if (!prevGeneratorData || prevGeneratorData.bought === 0) {
+        break;
+      }
+    }
+
+    // --- ボタンのデータを準備 ---
+    const generatorData = userGenerators[index] || { amount: '0', bought: 0 };
+    // 仮のコスト計算
+    const cost = new Decimal(generatorConfig.baseCost).times(
+      new Decimal(generatorConfig.costMultiplier).pow(generatorData.bought)
+    );
+
+    currentRow.addComponents(
+      new ButtonBuilder()
+        // ★★★ IDの命名規則を意識 ★★★
+        .setCustomId(`idle_generator_buy_${generatorConfig.id}`)
+        .setLabel(`G${generatorConfig.id} 購入`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(ip_d.lt(cost)) // IPが足りなければ無効化
+    );
+
+    // 1行に4つのボタンを置く (5つだとスマホで詰まることがあるため)
+    if (currentRow.components.length === 4) {
+      components.push(currentRow);
+      currentRow = new ActionRowBuilder();
+    }
+  }
+
+  // ループ後、中途半端な行があればそれも追加
+  if (currentRow.components.length > 0) {
+    components.push(currentRow);
+  }
+
+  // 最後に「工場画面に戻る」ボタンを追加
   const utilityRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("idle_show_factory") // 工場画面に戻る
+      .setCustomId("idle_show_factory")
       .setLabel("工場画面に戻る")
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Primary) // 色を変えて目立たせる
       .setEmoji("🏭")
   );
-  return [utilityRow];
+  components.push(utilityRow);
+
+  return components;
 }
