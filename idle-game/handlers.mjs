@@ -11,6 +11,7 @@ import {
 import config from "../config.mjs";
 
 import {
+  calculateGainedIP, 
   calculateFacilityCost,
   calculateAllCosts,
   calculatePotentialTP,
@@ -899,7 +900,7 @@ export async function handleInfinity(interaction, collector) {
       newInfinityCount = latestIdleGame.infinityCount + 1;
 
       // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
-      gainedIP = new Decimal(1);
+      gainedIP = calculateGainedIP(latestIdleGame);
 
       // 4.ジェネレーターをリセットし
       const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];

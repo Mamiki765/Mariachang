@@ -561,7 +561,7 @@ export const achievements = [
     id: 84,
     name: "それはもはや目標ではない",
     description: "5回目のインフィニティに到達する",
-    effect: "IPx2",
+    effect: "IP獲得量x2",
     reward: {},
   },
   {
@@ -573,7 +573,7 @@ export const achievements = [
   {
     id: 86,
     name: "アンチマター・ディメンジョンズ",
-    description: "（未実装）2つ目のジェネレーターⅡを購入する",
+    description: "ジェネレーターⅡを購入する（無理）",
     effect: "ブレイクインフィニティを解禁…ホントはもっと後だけど",
     reward: {},
   },

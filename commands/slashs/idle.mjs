@@ -86,7 +86,8 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
       .addChoices(
         { name: "工場画面 (デフォルト)", value: "factory" },
-        { name: "スキル画面", value: "skill" }
+        { name: "スキル画面(プレステージ後)", value: "skill" },
+        { name: "ジェネレーター(infinity後)", value: "infinity" }
       )
   );
 
@@ -850,35 +851,63 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         });
         // currentViewは'factory'のまま
       }
+    } else if (viewChoice === "infinity") {
+      if (idleGame.infinityCount > 0) {
+        currentView = "infinity";
+      } else {
+        await interaction.followUp({
+          content:
+            "⚠️ ジェネレーター画面はインフィニティ後に解放されます。代わりに工場画面を表示します。",
+          ephemeral: true,
+        });
+      }
     }
 
     // --- 2. 決定した画面を描画する ---
-    if (currentView === "skill") {
-      // ★ スキル画面の描画はここだけ
-      await interaction.editReply({
-        content: " ",
-        embeds: [generateSkillEmbed(idleGame)],
-        components: generateSkillButtons(idleGame),
-      });
-    } else {
-      // ★ 工場画面の描画はここだけ
-      const remainingMs = idleGame.buffExpiresAt
-        ? idleGame.buffExpiresAt.getTime() - new Date().getTime()
-        : 0;
-      const remainingHours = remainingMs / (1000 * 60 * 60);
-      let content =
-        "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
-      if (remainingHours > 24) {
-        content =
-          "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
-      }
-      await interaction.editReply({
-        content: content,
-        embeds: [generateEmbed(uiData)], // ★ uiDataを渡す
-        components: generateButtons(uiData), // ★ uiDataを渡す
-      });
+    let replyOptions = {}; // このオブジェクトにembedsやcomponentsを設定する
+
+    switch (currentView) {
+      case "skill":
+        replyOptions = {
+          content: " ",
+          embeds: [generateSkillEmbed(uiData.idleGame)],
+          components: generateSkillButtons(uiData.idleGame),
+        };
+        break;
+
+      case "infinity":
+        replyOptions = {
+          content:
+            "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
+          embeds: [generateInfinityEmbed(uiData.idleGame)],
+          components: generateInfinityButtons(uiData.idleGame),
+        };
+        break;
+
+      case "factory":
+      default: // デフォルトの画面
+        const remainingMs = uiData.idleGame.buffExpiresAt
+          ? uiData.idleGame.buffExpiresAt.getTime() - new Date().getTime()
+          : 0;
+        const remainingHours = remainingMs / (1000 * 60 * 60);
+        let content =
+          "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
+        if (remainingHours > 24) {
+          content =
+            "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
+        }
+        replyOptions = {
+          content: content,
+          embeds: [generateEmbed(uiData)],
+          components: generateButtons(uiData),
+        };
+        break;
     }
 
+    // --- 3. 組み立てたオプションでメッセージを送信/編集 ---
+    await interaction.editReply(replyOptions);
+
+    // --- 4. コレクターのセットアップ ---
     const filter = (i) =>
       i.user.id === userId && i.customId.startsWith("idle_");
     const collector = initialReply.createMessageComponentCollector({
@@ -910,7 +939,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
 
       if (i.customId === "idle_show_infinity") {
         await interaction.editReply({
-          content: "ピザ工場に果ては無い（ジェネレーターは未実装です）",
+          content:
+            "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
           embeds: [generateInfinityEmbed(latestIdleGame)],
           components: generateInfinityButtons(latestIdleGame),
         });
@@ -1014,7 +1044,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
             break;
           case "infinity": // ★★★ インフィニティ画面の描画を追加 ★★★
             replyOptions = {
-              content: "ピザ工場に果ては無い（ジェネレーターは未実装です）",
+              content: "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
               embeds: [generateInfinityEmbed(newUiData.idleGame)],
               components: generateInfinityButtons(newUiData.idleGame),
             };
@@ -1454,8 +1484,33 @@ function generateProfileEmbed(uiData, user) {
   if (ascensionCount > 0) {
     ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
   }
+  //ジェネレーター
+    let generatorText = "";
+  // インフィニティを1回以上経験している場合のみ処理
+  if (idleGame.infinityCount > 0) {
+    const generators = idleGame.ipUpgrades?.generators || [];
+    const boughtCounts = [];
+
+    // ローマ数字の配列
+    const romanNumerals = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ"];
+
+    for (let i = 0; i < generators.length; i++) {
+      const bought = generators[i]?.bought || 0;
+      // 購入数が1以上の場合のみ表示リストに追加
+      if (bought > 0) {
+        boughtCounts.push(`${romanNumerals[i]}:**${bought}**`);
+      }
+    }
+    
+    // 表示するジェネレーターが1つ以上あれば、テキストを組み立てる
+    if (boughtCounts.length > 0) {
+      const gp_d = new Decimal(idleGame.generatorPower || "1");
+      generatorText = ` | GP:**${formatNumberDynamic_Decimal(gp_d, 0)}** | ${boughtCounts.join(" ")}`;
+    }
+  }
 
   const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
+  //工場
   const factoryLevels = [];
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
     // --- この施設が解禁されているかを判定 ---
@@ -1488,7 +1543,7 @@ function generateProfileEmbed(uiData, user) {
     `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length}${ascensionText} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
-    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}** | ∞⏳: ${formattedTime}`,
+    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}**${generatorText} | ∞⏳: ${formattedTime}`,
     `Eternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}**`,
   ].join("\n");
 

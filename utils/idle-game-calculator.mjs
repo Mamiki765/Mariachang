@@ -405,12 +405,15 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   }
 
   // --- 2.5 Infinityを超えたら直前で止める
-  if (true) {
-    //強制的にBreak infinity前
-    const INFINITY_THRESHOLD = new Decimal(config.idle.infinity); //この数値をInfinityボタン出現条件とする
-    if (population_d.gte(INFINITY_THRESHOLD)) {
+  const INFINITY_THRESHOLD = new Decimal(config.idle.infinity); //この数値をInfinityボタン出現条件とする
+  if (population_d.gte(INFINITY_THRESHOLD)) {
+    //infinityを超えたら
+    // ジェネレーターIIの購入数をチェック
+    const gen2Bought = idleGameData.ipUpgrades?.generators?.[1]?.bought || 0;
+    if (gen2Bought === 0) { //0ならInfinity is not broken.
       population_d = INFINITY_THRESHOLD;
     }
+    //1以上ならBreak Infinity
   }
 
   // --- 3. ピザボーナスの再計算 ---
@@ -625,7 +628,10 @@ export async function getSingleUserUIData(userId) {
 
   // ★表示に必要なデータを displayData オブジェクトに格納する
   const displayData = {
-    productionRate_d: calculateProductionRate(updatedIdleGame, externalData).times(gpEffect_d),
+    productionRate_d: calculateProductionRate(
+      updatedIdleGame,
+      externalData
+    ).times(gpEffect_d),
     factoryEffects: factoryEffects,
     skill1Effect:
       (1 + (skillLevels.s1 || 0)) *
@@ -789,4 +795,53 @@ export function calculateGeneratorCost(generatorId, currentBought) {
   const cost_d = baseCost_d.times(multiplier_d.pow(currentBought));
 
   return cost_d;
+}
+
+/**
+ * インフィニティ時に獲得できるIP量を計算する
+ * @param {object} idleGame - インフィニティ直前のIdleGameデータ
+ * @returns {Decimal} 獲得IP量
+ */
+export function calculateGainedIP(idleGame) {
+  const population_d = new Decimal(idleGame.population);
+
+  // 最低条件：インフィニティに到達しているか (念のため)
+  if (population_d.lt(config.idle.infinity)) {
+    return new Decimal(0);
+  }
+
+  // --- 1. 基本値の計算 ---
+  let baseIP = new Decimal(1);
+  const newInfinityCount = (idleGame.infinityCount || 0) + 1; // これから実行するのが何回目か
+
+  // 実績#84の効果: 5回目のインフィニティ以降、基礎値が2倍になる
+  if (newInfinityCount >= 5) {
+    baseIP = baseIP.times(2);
+  }
+
+  // --- 2. ジェネレーターII購入によるIP増加ロジック ---
+  const gen2Bought = idleGame.ipUpgrades?.generators?.[1]?.bought || 0;
+  if (gen2Bought > 0) {
+    // Antimatter Dimensionsの式を参考にする
+    // 10 ^ (log10(人口) / 308 - 0.75)
+
+    // log10(人口) は非常に大きな数値になるため、.mantissa と .exponent を使うと安全
+    const logPop = population_d.log10();
+
+    const exponentFactor = 308; // 308桁ごとにIPが10倍になる
+
+    // (log10(人口) / 308) - 0.75
+    const power = logPop / exponentFactor - 0.75;
+
+    // 10 ^ power
+    const formulaIP = Decimal.pow(10, power);
+
+    // 計算結果が基礎値より大きい場合のみ、その値を採用する
+    if (formulaIP.gt(baseIP)) {
+      baseIP = formulaIP;
+    }
+  }
+
+  // 最終的に、計算されたIPの小数点以下を切り捨てて返す
+  return baseIP.floor();
 }
