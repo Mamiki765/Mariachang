@@ -333,8 +333,9 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
     // ジェネレーター配列を安全に正規化
     const oldGenerators = idleGameData.ipUpgrades?.generators || [];
-    generators = Array.from({ length: 8 }, (_, i) => 
-      oldGenerators[i] || { amount: "0", bought: 0 }
+    generators = Array.from(
+      { length: 8 },
+      (_, i) => oldGenerators[i] || { amount: "0", bought: 0 }
     );
   }
 
@@ -598,7 +599,7 @@ export async function getSingleUserUIData(userId) {
   if (updatedIdleGame.wasChanged.ipUpgrades) {
     updateData.generatorPower = updatedIdleGame.generatorPower;
     updateData.ipUpgrades = updatedIdleGame.ipUpgrades;
-    //IdleGame.changed("ipUpgrades", true); 
+    //IdleGame.changed("ipUpgrades", true);
   }
 
   await IdleGame.update(updateData, { where: { userId } });
@@ -606,6 +607,8 @@ export async function getSingleUserUIData(userId) {
   // --- 5. UI表示に必要なデータを "全て" 計算してまとめる ---
   const pp = updatedIdleGame.prestigePower || 0;
   //const achievementExponentBonus = externalData.achievementCount;
+  const gp_d = new Decimal(updatedIdleGame.generatorPower || "1");
+  const gpEffect_d = gp_d.pow(4).max(1);
 
   const factoryEffects = calculateFactoryEffects(
     updatedIdleGame,
@@ -622,7 +625,7 @@ export async function getSingleUserUIData(userId) {
 
   // ★表示に必要なデータを displayData オブジェクトに格納する
   const displayData = {
-    productionRate_d: calculateProductionRate(updatedIdleGame, externalData),
+    productionRate_d: calculateProductionRate(updatedIdleGame, externalData).times(gpEffect_d),
     factoryEffects: factoryEffects,
     skill1Effect:
       (1 + (skillLevels.s1 || 0)) *
@@ -764,7 +767,6 @@ export function calculateAscensionRequirements(
   return { requiredPopulation_d, requiredChips };
 }
 
-
 /**
  * ジェネレーターの購入コストを計算する
  * @param {number} generatorId - ジェネレーターのID (1-8)
@@ -773,14 +775,16 @@ export function calculateAscensionRequirements(
  */
 export function calculateGeneratorCost(generatorId, currentBought) {
   // configから該当ジェネレーターの設定を探す
-  const genConfig = config.idle.infinityGenerators.find(g => g.id === generatorId);
+  const genConfig = config.idle.infinityGenerators.find(
+    (g) => g.id === generatorId
+  );
   if (!genConfig) {
     return new Decimal(Infinity); // 見つからなければ購入不可
   }
 
   const baseCost_d = new Decimal(genConfig.baseCost);
   const multiplier_d = new Decimal(genConfig.costMultiplier);
-  
+
   // コスト = 基本コスト * (コスト成長率 ^ 現在の購入回数)
   const cost_d = baseCost_d.times(multiplier_d.pow(currentBought));
 

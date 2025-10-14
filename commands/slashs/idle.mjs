@@ -22,7 +22,7 @@ import {
   handleSkillUpgrade,
   handleInfinity,
   handleAscension,
-  handleGeneratorPurchase
+  handleGeneratorPurchase,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
@@ -358,22 +358,26 @@ export async function execute(interaction) {
         ascensionCount > 0
           ? Math.pow(config.idle.ascension.effect, ascensionCount)
           : 1;
+      //ジェネレーター
+      const gp_d = new Decimal(idleGame.generatorPower || "1");
+      const gpEffect = gp_d.pow(0.5).max(1).toNumber();
       // 表示用の施設効果
       const effects_display = {};
       effects_display.oven =
-        factoryEffects.oven * skill1Effect * ascensionEffect;
+        factoryEffects.oven * skill1Effect * ascensionEffect * gpEffect;
       effects_display.cheese =
-        factoryEffects.cheese * skill1Effect * ascensionEffect;
+        factoryEffects.cheese * skill1Effect * ascensionEffect * gpEffect;
       effects_display.tomato =
-        factoryEffects.tomato * skill1Effect * ascensionEffect;
+        factoryEffects.tomato * skill1Effect * ascensionEffect * gpEffect;
       effects_display.mushroom =
-        factoryEffects.mushroom * skill1Effect * ascensionEffect;
+        factoryEffects.mushroom * skill1Effect * ascensionEffect * gpEffect;
       effects_display.anchovy =
-        factoryEffects.anchovy * skill1Effect * ascensionEffect;
+        factoryEffects.anchovy * skill1Effect * ascensionEffect * gpEffect;
       // 上位施設には skill1Effect を掛けない
-      effects_display.olive = factoryEffects.olive * ascensionEffect;
-      effects_display.wheat = factoryEffects.wheat * ascensionEffect;
-      effects_display.pineapple = factoryEffects.pineapple * ascensionEffect;
+      effects_display.olive = factoryEffects.olive * ascensionEffect * gpEffect;
+      effects_display.wheat = factoryEffects.wheat * ascensionEffect * gpEffect;
+      effects_display.pineapple =
+        factoryEffects.pineapple * ascensionEffect * gpEffect;
 
       // スキル#2の効果
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
@@ -689,7 +693,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       // 3. 8つの施設がアンロックされているか (実績#78=全施設Lv1以上で代用)
       const canAscend =
         population_d.gte(requiredPopulation_d) &&
-        point.legacy_pizza >= requiredChips && 
+        point.legacy_pizza >= requiredChips &&
         unlockedAchievements.has(78); // 実績#78: 今こそ目覚めの時
       if (population_d.gte(requiredPopulation_d)) {
         advancedFacilityRow.addComponents(
@@ -971,11 +975,10 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         return;
       } else if (i.customId === "idle_ascension") {
         success = await handleAscension(i);
-      } else if (i.customId.startsWith("idle_generator_buy_")) { 
-        const generatorId = parseInt(i.customId.split('_').pop(), 10);
+      } else if (i.customId.startsWith("idle_generator_buy_")) {
+        const generatorId = parseInt(i.customId.split("_").pop(), 10);
         success = await handleGeneratorPurchase(i, generatorId);
       }
-
 
       // --- 3. 処理が成功した場合にのみ、UIを更新する ---
       if (success || viewChanged) {
@@ -1451,7 +1454,7 @@ function generateProfileEmbed(uiData, user) {
   if (ascensionCount > 0) {
     ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
   }
-  
+
   const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
   const factoryLevels = [];
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
@@ -1528,7 +1531,7 @@ GP^0.500が8つの工場に加算される。つまり最初は4乗
 function generateInfinityEmbed(idleGame) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
-  //GPとその効果を計算するロジックを追加 
+  //GPとその効果を計算するロジックを追加
   const gp_d = new Decimal(idleGame.generatorPower || "1");
   // GPの効果を計算: GP ^ 0.5
   // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
