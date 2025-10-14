@@ -1058,6 +1058,8 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
 
     // 4-2. ジェネレーターの購入回数をインクリメント
     latestIdleGame.ipUpgrades.generators[generatorIndex].bought += 1;
+    //個数も
+    generatorData.amount = new Decimal(generatorData.amount).add(1).toString();
 
     // ★★★ ここでは .save() を使うので changed が必要！ ★★★
     latestIdleGame.changed("ipUpgrades", true);
