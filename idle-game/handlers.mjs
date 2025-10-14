@@ -17,7 +17,7 @@ import {
   calculateSpentSP,
   formatNumberJapanese_Decimal,
   calculateAscensionRequirements,
-  calculateGeneratorCost
+  calculateGeneratorCost,
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -878,6 +878,7 @@ export async function handleInfinity(interaction, collector) {
   try {
     let gainedIP = new Decimal(0);
     let isFirstInfinity = false;
+    let newInfinityCount = 0;
 
     // 2. トランザクションで安全にデータベースを更新
     await sequelize.transaction(async (t) => {
@@ -895,6 +896,7 @@ export async function handleInfinity(interaction, collector) {
       if (latestIdleGame.infinityCount === 0) {
         isFirstInfinity = true;
       }
+      newInfinityCount = latestIdleGame.infinityCount + 1;
 
       // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
       gainedIP = new Decimal(1);
@@ -952,7 +954,7 @@ export async function handleInfinity(interaction, collector) {
           infinityPoints: new Decimal(latestIdleGame.infinityPoints)
             .add(gainedIP)
             .toString(),
-          infinityCount: latestIdleGame.infinityCount + 1, // infinityCountはDouble型なので、JSのNumberでOK
+          infinityCount: newInfinityCount, // infinityCountはDouble型なので、JSのNumberでOK
           lastUpdatedAt: new Date(),
         },
         { transaction: t }
@@ -960,6 +962,12 @@ export async function handleInfinity(interaction, collector) {
     });
 
     await unlockAchievements(interaction.client, interaction.user.id, 72); //THE END
+    if (newInfinityCount === 2) {
+      await unlockAchievements(interaction.client, interaction.user.id, 83); // #83: 再び果てへ
+    }
+    if (newInfinityCount === 5) {
+      await unlockAchievements(interaction.client, interaction.user.id, 84); // #84: それはもはや目標ではない
+    }
 
     // 5. 成功メッセージを送信（初回かどうかで分岐）
     let successMessage;
@@ -1029,13 +1037,17 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
 
     // 2. コストを計算
     const generatorIndex = generatorId - 1;
-    const currentBought = latestIdleGame.ipUpgrades?.generators?.[generatorIndex]?.bought || 0;
+    const currentBought =
+      latestIdleGame.ipUpgrades?.generators?.[generatorIndex]?.bought || 0;
     const cost_d = calculateGeneratorCost(generatorId, currentBought);
-    
+
     // 3. IPが足りるかチェック
     const currentIp_d = new Decimal(latestIdleGame.infinityPoints);
     if (currentIp_d.lt(cost_d)) {
-      await interaction.followUp({ content: "IPが足りません！", ephemeral: true });
+      await interaction.followUp({
+        content: "IPが足りません！",
+        ephemeral: true,
+      });
       await t.rollback();
       return false;
     }
@@ -1043,31 +1055,56 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
     // 4. データベースを更新
     // 4-1. IPを減算
     latestIdleGame.infinityPoints = currentIp_d.minus(cost_d).toString();
-    
+
     // 4-2. ジェネレーターの購入回数をインクリメント
     latestIdleGame.ipUpgrades.generators[generatorIndex].bought += 1;
-    
+
     // ★★★ ここでは .save() を使うので changed が必要！ ★★★
-    latestIdleGame.changed('ipUpgrades', true);
+    latestIdleGame.changed("ipUpgrades", true);
 
     // 4-3. 変更を保存
     await latestIdleGame.save({ transaction: t });
 
     // 5. トランザクションをコミット
     await t.commit();
-    
-    // 6. 成功メッセージ
+
+    // ▼▼▼ 6. 実績解除処理を追加 ▼▼▼
+    const newBoughtCount =
+      latestIdleGame.ipUpgrades.generators[generatorIndex].bought;
+
+    // #85: ダブル・ジェネレーター (ジェネレーターIを2個購入)
+    if (generatorId === 1 && newBoughtCount === 2) {
+      await unlockAchievements(interaction.client, userId, 85);
+    }
+    // #86: アンチマター・ディメンジョンズ (ジェネレーターIIを2個購入)
+    if (generatorId === 2 && newBoughtCount === 2) {
+      await unlockAchievements(interaction.client, userId, 86);
+    }
+
+    // #82: 放置は革命だ (いずれかのジェネレーターを初めて購入)
+    // 全ジェネレーターの合計購入数を計算
+    const totalBought = latestIdleGame.ipUpgrades.generators.reduce(
+      (sum, gen) => sum + gen.bought,
+      0
+    );
+    if (totalBought === 1) {
+      await unlockAchievements(interaction.client, userId, 82);
+    }
+
+    // 7. 成功メッセージ
     await interaction.followUp({
       content: `✅ **${config.idle.infinityGenerators[generatorIndex].name}** を購入しました！`,
       ephemeral: true,
     });
 
     return true;
-
   } catch (error) {
     console.error("Generator Purchase Error:", error);
     await t.rollback();
-    await interaction.followUp({ content: "❌ 購入中にエラーが発生しました。", ephemeral: true });
+    await interaction.followUp({
+      content: "❌ 購入中にエラーが発生しました。",
+      ephemeral: true,
+    });
     return false;
   }
 }

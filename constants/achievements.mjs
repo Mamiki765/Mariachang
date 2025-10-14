@@ -545,6 +545,39 @@ export const achievements = [
     description: "アセンションを50回行う",
     reward: {},
   },
+  {
+    id: 82,
+    name: "放置は革命だ", //Revolution idleのパクリなので。いやあっちのRevoは回転の意味だけど
+    description: "はじめてジェネレーターを購入する",
+    reward: {},
+  },
+  {
+    id: 83,
+    name: "再び果てへ",
+    description: "2回目のインフィニティに到達する",
+    reward: {},
+  },
+  {
+    id: 84,
+    name: "それはもはや目標ではない",
+    description: "5回目のインフィニティに到達する",
+    effect: "IPx2",
+    reward: {},
+  },
+  {
+    id: 85,
+    name: "ダブル・ジェネレーター",
+    description: "2個目のジェネレーターⅠを購入する",
+    reward: {},
+  },
+  {
+    id: 86,
+    name: "アンチマター・ディメンジョンズ",
+    description: "（未実装）2つ目のジェネレーターⅡを購入する",
+    effect: "ブレイクインフィニティを解禁…ホントはもっと後だけど",
+    reward: {},
+  },
+
   // 今後、ここに実績をどんどん追加していきます
   // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
 ];

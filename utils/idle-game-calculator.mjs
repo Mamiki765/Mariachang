@@ -331,17 +331,11 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   // --- i2.∞>0で整える
   if (idleGameData.infinityCount > 0) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
-    generators = JSON.parse(
-      JSON.stringify(idleGameData.ipUpgrades?.generators || [])
+    // ジェネレーター配列を安全に正規化
+    const oldGenerators = idleGameData.ipUpgrades?.generators || [];
+    generators = Array.from({ length: 8 }, (_, i) => 
+      oldGenerators[i] || { amount: "0", bought: 0 }
     );
-    if (generators.length < 8) {
-      //念の為8個に整える
-      const oldGens = [...generators];
-      generators = Array.from(
-        { length: 8 },
-        (_, i) => oldGens[i] || { amount: "0", bought: 0 }
-      );
-    }
   }
 
   // --- 2. 経過時間に基づいた人口計算 ---

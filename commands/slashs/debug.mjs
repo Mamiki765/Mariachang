@@ -139,7 +139,7 @@ export async function execute(interaction) {
       if (updatedIdleGame.wasChanged.ipUpgrades) {
         updateData.generatorPower = updatedIdleGame.generatorPower;
         updateData.ipUpgrades = updatedIdleGame.ipUpgrades;
-        IdleGame.changed("ipUpgrades", true); 
+        IdleGame.changed("ipUpgrades", true);
       }
       await IdleGame.update(updateData, { where: { userId: targetUser.id } });
       await interaction.editReply(
@@ -171,6 +171,11 @@ export async function execute(interaction) {
     const sourceId = interaction.options.getString("source-id");
     const destinationId = interaction.user.id; // コマンド実行者
 
+    if (destinationId === config.administrator) {
+      return interaction.editReply(
+        "❌ あなたのデータが飛びますよ。"
+      );
+    }
     // 安全装置: コピー元が自分自身の場合はエラー
     if (sourceId === destinationId) {
       return interaction.editReply("❌ コピー元とコピー先が同じです。");
