@@ -598,7 +598,7 @@ export async function getSingleUserUIData(userId) {
   if (updatedIdleGame.wasChanged.ipUpgrades) {
     updateData.generatorPower = updatedIdleGame.generatorPower;
     updateData.ipUpgrades = updatedIdleGame.ipUpgrades;
-    IdleGame.changed("ipUpgrades", true); 
+    //IdleGame.changed("ipUpgrades", true); 
   }
 
   await IdleGame.update(updateData, { where: { userId } });

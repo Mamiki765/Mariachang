@@ -22,6 +22,7 @@ import {
   handleSkillUpgrade,
   handleInfinity,
   handleAscension,
+  handleGeneratorPurchase
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
