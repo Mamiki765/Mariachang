@@ -614,6 +614,17 @@ const IdleGame = sequelize.define(
       type: DataTypes.JSONB,
       defaultValue: { generators: {} },
     },
+    generatorPower: {// ジェネレーターパワー
+      type: DataTypes.TEXT,
+      defaultValue: "1",
+    },
+    ipUpgrades: {
+      type: DataTypes.JSONB,
+      defaultValue: {
+        generators: Array(8).fill({ amount: "0", bought: 0 }),
+      },
+    },
+    //統計
     eternityTime: {
       type: DataTypes.DOUBLE,
       defaultValue: 0.0,

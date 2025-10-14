@@ -296,7 +296,8 @@ function calculateProductionRate(idleGameData, externalData) {
     .times(factoryEffects.olive || 1.0)
     .times(factoryEffects.wheat || 1.0)
     .times(factoryEffects.pineapple || 1.0);
-  if (ascensionCount > 0) { //0でも1-8だけど軽量化のため
+  if (ascensionCount > 0) {
+    //0でも1-8だけど軽量化のため
     // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
     const ascensionFactor = Math.pow(
       config.idle.ascension.effect,
@@ -323,6 +324,25 @@ function calculateProductionRate(idleGameData, externalData) {
 export function calculateOfflineProgress(idleGameData, externalData) {
   // --- 1. Decimalオブジェクトへ変換 ---
   let population_d = new Decimal(idleGameData.population);
+  // --- i1.定義をする ---
+  let gp_d;
+  let generators;
+  let ipUpgradesChanged = false;
+  // --- i2.∞>0で整える
+  if (idleGameData.infinityCount > 0) {
+    gp_d = new Decimal(idleGameData.generatorPower || "1");
+    generators = JSON.parse(
+      JSON.stringify(idleGameData.ipUpgrades?.generators || [])
+    );
+    if (generators.length < 8) {
+      //念の為8個に整える
+      const oldGens = [...generators];
+      generators = Array.from(
+        { length: 8 },
+        (_, i) => oldGens[i] || { amount: "0", bought: 0 }
+      );
+    }
+  }
 
   // --- 2. 経過時間に基づいた人口計算 ---
   const now = new Date();
@@ -330,22 +350,61 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
   let newInfinityTime = idleGameData.infinityTime || 0;
   let newEternityTime = idleGameData.eternityTime || 0;
+  //251012 時間加速スキル効果を計算
+  //251024 ジェネ効果のためinTimeやetTime加算より上で先に計算
+  // (#2 * #4)^2倍速
+  const timeAccelerationMultiplier = Math.pow(
+    (1 + (idleGameData.skillLevel2 || 0)) *
+      (1.0 + (idleGameData.skillLevel4 || 0) * 0.1),
+    2
+  );
 
   if (elapsedSeconds > 0) {
+    //--- i3.ジェネの再計算をする
+    if (idleGameData.infinityCount > 0) {
+      ipUpgradesChanged = true;
+      //8号機から子供を増やす処理　Geneは非常に数が吹っ飛びやすいんでamountをdで見るのは大事…
+      for (let i = 7; i >= 0; i--) {
+        // G8 -> G1
+        const genData = generators[i];
+        const bought = genData.bought || 0;
+        if (bought === 0) continue;
+
+        const multiplier = Math.pow(2, bought - 1); //1個買う度に2倍
+        const amount_d = new Decimal(genData.amount);
+        const productionPerSecond = amount_d.times(multiplier).div(60);
+        const producedAmount = productionPerSecond
+          .times(elapsedSeconds)
+          .times(timeAccelerationMultiplier); //#2の「ゲームスピード加速」がここで生きてくる
+
+        if (i > 0) {
+          generators[i - 1].amount = new Decimal(generators[i - 1].amount)
+            .add(producedAmount)
+            .toString();
+        } else {
+          const firstProducedAmount = producedAmount.times(
+            idleGameData.infinityCount
+          ); // G1のみ∞数で乗算される
+          gp_d = gp_d.add(firstProducedAmount); // ここで gp_d が更新される。
+        }
+      }
+      //GPがe2000＝マルチe1000以上の時、SC関数を後々入れる（インフィニティがインフィニティしそうな頃の話）
+    }
+
+    // infinity前の処理
     const productionPerMinute_d = calculateProductionRate(
       idleGameData,
       externalData
     );
-    const productionPerSecond_d = productionPerMinute_d.div(60);
+    let finalProductionPerMinute_d = productionPerMinute_d;
+    if (idleGameData.infinityCount > 0) {
+      const gpEffect_d = gp_d.pow(4).max(1); //^0.5^8
+      finalProductionPerMinute_d = productionPerMinute_d.times(gpEffect_d);
+    }
+    const productionPerSecond_d = finalProductionPerMinute_d.div(60);
     const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
     population_d = population_d.add(addedPopulation_d);
 
-    //251012仮 時間加速スキル効果を計算
-    const timeAccelerationMultiplier = Math.pow(
-      (1 + (idleGameData.skillLevel2 || 0)) *
-        (1.0 + (idleGameData.skillLevel4 || 0) * 0.1),
-      2
-    );
     newInfinityTime += elapsedSeconds * timeAccelerationMultiplier;
     newEternityTime += elapsedSeconds * timeAccelerationMultiplier;
   }
@@ -365,12 +424,15 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   if (population_d.gte(1)) {
     // population_d.log10() は通常の Number を返すので、以降はNumber計算でOK
     const logPop = population_d.log10();
+    // infinity実績　chip + 5000%
+    const afterInfinity = idleGameData.infinityCount > 0 ? 5000 : 0;
     const skill3Effect =
       (1 + (idleGameData.skillLevel3 || 0)) *
       (1.0 + (idleGameData.skillLevel4 || 0) * 0.1);
     pizzaBonusPercentage =
       (100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect -
-      100;
+      100 +
+      afterInfinity;
   }
 
   // --- 4. 更新されたデータをオブジェクトとして返す ---
@@ -381,6 +443,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     pizzaBonusPercentage: pizzaBonusPercentage,
     infinityTime: newInfinityTime,
     eternityTime: newEternityTime,
+    generatorPower: gp_d ? gp_d.toString() : idleGameData.generatorPower,
+    ipUpgrades: { ...idleGameData.ipUpgrades, generators: generators },
+    wasChanged: {
+      // ★変更フラグをオブジェクトにまとめる
+      ipUpgrades: ipUpgradesChanged,
+    },
   };
 }
 
@@ -524,16 +592,22 @@ export async function getSingleUserUIData(userId) {
   const updatedIdleGame = calculateOfflineProgress(idleGameData, externalData);
 
   // 4. DBに保存する (注意: この関数はUI表示のたびに呼ばれるので、頻繁なDB書き込みになる。将来的には分離も検討)
-  await IdleGame.update(
-    {
-      population: updatedIdleGame.population,
-      lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
-      pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
-      infinityTime: updatedIdleGame.infinityTime,
-      eternityTime: updatedIdleGame.eternityTime,
-    },
-    { where: { userId } }
-  );
+  // updateに渡すオブジェクトを動的に構築
+  const updateData = {
+    population: updatedIdleGame.population,
+    lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
+    pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
+    infinityTime: updatedIdleGame.infinityTime,
+    eternityTime: updatedIdleGame.eternityTime,
+  };
+  // ジェネレーターが更新された場合のみ、updateDataに追加
+  if (updatedIdleGame.wasChanged.ipUpgrades) {
+    updateData.generatorPower = updatedIdleGame.generatorPower;
+    updateData.ipUpgrades = updatedIdleGame.ipUpgrades;
+    IdleGame.changed("ipUpgrades", true); 
+  }
+
+  await IdleGame.update(updateData, { where: { userId } });
 
   // --- 5. UI表示に必要なデータを "全て" 計算してまとめる ---
   const pp = updatedIdleGame.prestigePower || 0;
@@ -691,8 +765,30 @@ export function calculateAscensionRequirements(
     );
   }
 
-  // ★★★ ご指摘に基づき、10倍の乗算を削除 ★★★
   const requiredChips = totalChipCost;
 
   return { requiredPopulation_d, requiredChips };
+}
+
+
+/**
+ * ジェネレーターの購入コストを計算する
+ * @param {number} generatorId - ジェネレーターのID (1-8)
+ * @param {number} currentBought - そのジェネレーターの現在の購入回数
+ * @returns {Decimal} 購入に必要なIPコスト
+ */
+export function calculateGeneratorCost(generatorId, currentBought) {
+  // configから該当ジェネレーターの設定を探す
+  const genConfig = config.idle.infinityGenerators.find(g => g.id === generatorId);
+  if (!genConfig) {
+    return new Decimal(Infinity); // 見つからなければ購入不可
+  }
+
+  const baseCost_d = new Decimal(genConfig.baseCost);
+  const multiplier_d = new Decimal(genConfig.costMultiplier);
+  
+  // コスト = 基本コスト * (コスト成長率 ^ 現在の購入回数)
+  const cost_d = baseCost_d.times(multiplier_d.pow(currentBought));
+
+  return cost_d;
 }

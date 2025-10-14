@@ -17,6 +17,7 @@ import {
   calculateSpentSP,
   formatNumberJapanese_Decimal,
   calculateAscensionRequirements,
+  calculateGeneratorCost
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -898,7 +899,23 @@ export async function handleInfinity(interaction, collector) {
       // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
       gainedIP = new Decimal(1);
 
-      // 4. データベースの値をリセット＆更新
+      // 4.ジェネレーターをリセットし
+      const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];
+      const newGenerators = Array.from({ length: 8 }, (_, i) => {
+        // 既存のi番目のジェネレーターデータを取得。なければデフォルト値 { bought: 0 } を使う
+        const oldGen = oldGenerators[i] || { bought: 0 };
+        return {
+          amount: String(oldGen.bought), // 2回目以降: 購入数(bought)が初期所持数(amount)になる
+          bought: oldGen.bought,
+        };
+      });
+      const newIpUpgrades = {
+        ...(latestIdleGame.ipUpgrades || {}), // 既存のipUpgradesの全プロパティを展開
+        generators: newGenerators, // generatorsプロパティだけを新しいもので上書き
+      };
+      latestIdleGame.changed("ipUpgrades", true); //changedを入れないとjsonbは更新してくれない、めんどくさい！
+
+      // 5. データベースの値をリセット＆更新
       await latestIdleGame.update(
         {
           // --- リセットされる項目 ---
@@ -927,6 +944,8 @@ export async function handleInfinity(interaction, collector) {
           skillLevel8: 0,
           infinityTime: 0,
           chipsSpentThisInfinity: "0",
+          generatorPower: "1",
+          ipUpgrades: newIpUpgrades,
           buffMultiplier: 2.0,
 
           // --- 更新される項目 ---
@@ -986,6 +1005,70 @@ export async function handleInfinity(interaction, collector) {
       content: "❌ エラーによりインフィニティに失敗しました。",
       flags: 64,
     });
+  }
+}
+
+/**
+ * ジェネレーターを購入する処理
+ * @param {import("discord.js").ButtonInteraction} interaction - ボタンのインタラクション
+ * @param {number} generatorId - 購入するジェネレーターのID
+ * @returns {Promise<boolean>} 成功した場合はtrue、失敗した場合はfalseを返す
+ */
+export async function handleGeneratorPurchase(interaction, generatorId) {
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction();
+
+  try {
+    // 1. 最新データを取得
+    const latestIdleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!latestIdleGame) throw new Error("ユーザーデータが見つかりません。");
+
+    // 2. コストを計算
+    const generatorIndex = generatorId - 1;
+    const currentBought = latestIdleGame.ipUpgrades?.generators?.[generatorIndex]?.bought || 0;
+    const cost_d = calculateGeneratorCost(generatorId, currentBought);
+    
+    // 3. IPが足りるかチェック
+    const currentIp_d = new Decimal(latestIdleGame.infinityPoints);
+    if (currentIp_d.lt(cost_d)) {
+      await interaction.followUp({ content: "IPが足りません！", ephemeral: true });
+      await t.rollback();
+      return false;
+    }
+
+    // 4. データベースを更新
+    // 4-1. IPを減算
+    latestIdleGame.infinityPoints = currentIp_d.minus(cost_d).toString();
+    
+    // 4-2. ジェネレーターの購入回数をインクリメント
+    latestIdleGame.ipUpgrades.generators[generatorIndex].bought += 1;
+    
+    // ★★★ ここでは .save() を使うので changed が必要！ ★★★
+    latestIdleGame.changed('ipUpgrades', true);
+
+    // 4-3. 変更を保存
+    await latestIdleGame.save({ transaction: t });
+
+    // 5. トランザクションをコミット
+    await t.commit();
+    
+    // 6. 成功メッセージ
+    await interaction.followUp({
+      content: `✅ **${config.idle.infinityGenerators[generatorIndex].name}** を購入しました！`,
+      ephemeral: true,
+    });
+
+    return true;
+
+  } catch (error) {
+    console.error("Generator Purchase Error:", error);
+    await t.rollback();
+    await interaction.followUp({ content: "❌ 購入中にエラーが発生しました。", ephemeral: true });
+    return false;
   }
 }
 

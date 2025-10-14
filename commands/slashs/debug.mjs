@@ -128,17 +128,20 @@ export async function execute(interaction) {
         externalData
       );
 
-      // 4. 計算結果をDBに保存
-      await IdleGame.update(
-        {
-          population: updatedIdleGame.population,
-          lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
-          pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
-          infinityTime: updatedIdleGame.infinityTime,
-          eternityTime: updatedIdleGame.eternityTime,
-        },
-        { where: { userId: targetUser.id } }
-      );
+      // 4. 計算結果をDBに保存 (動的オブジェクト構築)
+      const updateData = {
+        population: updatedIdleGame.population,
+        lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
+        pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
+        infinityTime: updatedIdleGame.infinityTime,
+        eternityTime: updatedIdleGame.eternityTime,
+      };
+      if (updatedIdleGame.wasChanged.ipUpgrades) {
+        updateData.generatorPower = updatedIdleGame.generatorPower;
+        updateData.ipUpgrades = updatedIdleGame.ipUpgrades;
+        IdleGame.changed("ipUpgrades", true); 
+      }
+      await IdleGame.update(updateData, { where: { userId: targetUser.id } });
       await interaction.editReply(
         `✅ ${targetUser.username} の時間を **${hoursToAdvance}時間** 進めて、データを再計算しました。`
       );

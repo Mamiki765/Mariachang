@@ -970,7 +970,11 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         return;
       } else if (i.customId === "idle_ascension") {
         success = await handleAscension(i);
+      } else if (i.customId.startsWith("idle_generator_buy_")) { 
+        const generatorId = parseInt(i.customId.split('_').pop(), 10);
+        success = await handleGeneratorPurchase(i, generatorId);
       }
+
 
       // --- 3. 処理が成功した場合にのみ、UIを更新する ---
       if (success || viewChanged) {
@@ -1523,12 +1527,13 @@ GP^0.500が8つの工場に加算される。つまり最初は4乗
 function generateInfinityEmbed(idleGame) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
-  // 仮: GPはジェネレーター1が生み出して追加のカラム(dicimal)で管理する数値ですが、今は仮にG1のamountとします
-  const generator1Amount = new Decimal(
-    idleGame.ipUpgrades?.generators?.[0]?.amount || "0"
-  );
+  //GPとその効果を計算するロジックを追加 
+  const gp_d = new Decimal(idleGame.generatorPower || "1");
+  // GPの効果を計算: GP ^ 0.5
+  // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
+  const gpEffect_d = gp_d.pow(0.5).max(1);
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
-GP: ${formatNumberDynamic_Decimal(generator1Amount)} (仮)`;
+GP: ${formatNumberDynamic_Decimal(gp_d)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)`;
 
   const embed = new EmbedBuilder()
     .setTitle("🌌 インフィニティジェネレーター 🌌")
@@ -1562,7 +1567,7 @@ GP: ${formatNumberDynamic_Decimal(generator1Amount)} (仮)`;
     );
 
     embed.addFields({
-      name: `${generatorConfig.name} (購入: ${bought})`,
+      name: `G${generatorConfig.id} ${generatorConfig.name} (購入: ${bought})`,
       value: `所持数: ${formatNumberDynamic_Decimal(amount_d)}\nコスト: ${formatNumberDynamic_Decimal(cost)} IP`,
       inline: false, // 見やすさのためにfalseが良いかも
     });
@@ -1602,7 +1607,7 @@ function generateInfinityButtons(idleGame) {
 
     currentRow.addComponents(
       new ButtonBuilder()
-        // ★★★ IDの命名規則を意識 ★★★
+        // IDの命名規則を意識
         .setCustomId(`idle_generator_buy_${generatorConfig.id}`)
         .setLabel(`G${generatorConfig.id} 購入`)
         .setStyle(ButtonStyle.Secondary)
