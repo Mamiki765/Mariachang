@@ -705,7 +705,7 @@ export default {
         description: "TP獲得量を+100%増加させる",
       },
     },
-    ascension :{
+    ascension: {
       //アセンション
       basePopulation: "1e40", // Decimalで扱うため文字列にしておくのが安全
       populationMultiplier: 10, // 2回目以降は要求人口が10倍になる
@@ -771,6 +771,33 @@ export default {
         costMultiplier: 1e8,
       },
     ],
+    infinityUpgrades: {
+      IU11: {
+        name: "ゴーストチップ Lv1",
+        cost: 0,
+        description: "リセット時に最大5000チップを得てその範囲内で工場を自動強化する。余ったチップは消滅する",
+      },
+      IU12: {
+        name: "自動調理器",
+        cost: 1,
+        description: "プレステージ時にTPを自動で割り振る。",
+      },
+      IU13: {
+        name: "肉干しレンガ",
+        cost: 1,
+        description: "精肉工場の指数に+0.05ボーナス。",
+      },
+      IU14: {
+        name: "業務用品の購入",
+        cost: 1,
+        description: "全チップ消費量が10%減少する。",
+      },
+      IU21: {
+        name: "パインパワー",
+        cost: 3,
+        description: "PP獲得量が10%増加する。",
+      }, // Tier2なのでコストは仮
+    },
     //constants\achievements.mjsにお引越し
     achievements: achievements,
     hidden_achievements: hidden_achievements,

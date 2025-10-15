@@ -845,3 +845,16 @@ export function calculateGainedIP(idleGame) {
   // 最終的に、計算されたIPの小数点以下を切り捨てて返す
   return baseIP.floor();
 }
+
+
+/**
+ * 【新規】指定されたTPスキルの次のレベルのコストを計算する
+ * @param {number} skillNum - スキルの番号 (5-8)
+ * @param {number} currentLevel - そのスキルの現在のレベル
+ * @returns {number} 次のレベルのコスト
+ */
+export function calculateTPSkillCost(skillNum, currentLevel) {
+  const skillConfig = config.idle.tp_skills[`skill${skillNum}`];
+  if (!skillConfig) return Infinity;
+  return skillConfig.baseCost * Math.pow(skillConfig.costMultiplier, currentLevel);
+}

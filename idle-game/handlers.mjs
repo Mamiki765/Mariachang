@@ -19,6 +19,7 @@ import {
   formatNumberJapanese_Decimal,
   calculateAscensionRequirements,
   calculateGeneratorCost,
+  calculateTPSkillCost,
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -534,6 +535,16 @@ async function executePrestigeTransaction(userId, client) {
         latestIdleGame.skillLevel8
       );
 
+      latestIdleGame.transcendencePoints += gainedTP; //TPだけ先に加算
+
+      // IU12「自動調理器」の処理
+      if (
+        latestIdleGame.ipUpgrades.upgrades.includes("IU12") &&
+        latestIdleGame.transcendencePoints > 0
+      ) {
+        autoAssignTP(latestIdleGame); // オブジェクトが直接変更される
+      }
+
       await latestIdleGame.update(
         {
           population: "0",
@@ -549,7 +560,7 @@ async function executePrestigeTransaction(userId, client) {
           prestigePower: newPrestigePower,
           skillPoints: newSkillPoints,
           highestPopulation: currentPopulation_d.toString(),
-          transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
+          transcendencePoints: latestIdleGame.transcendencePoints, //既に足してるのでここだけ
           lastUpdatedAt: new Date(),
           challenges,
         },
@@ -571,6 +582,16 @@ async function executePrestigeTransaction(userId, client) {
         latestIdleGame.skillLevel8
       );
 
+      latestIdleGame.transcendencePoints += gainedTP; //TPだけ先に加算
+
+      // IU12「自動調理器」の処理
+      if (
+        latestIdleGame.ipUpgrades.upgrades.includes("IU12") &&
+        latestIdleGame.transcendencePoints > 0
+      ) {
+        autoAssignTP(latestIdleGame); // オブジェクトが直接変更される
+      }
+
       await latestIdleGame.update(
         {
           population: "0",
@@ -582,7 +603,7 @@ async function executePrestigeTransaction(userId, client) {
           oliveFarmLevel: 0,
           wheatFarmLevel: 0,
           pineappleFarmLevel: 0,
-          transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
+          transcendencePoints: latestIdleGame.transcendencePoints, //既に足している
           lastUpdatedAt: new Date(),
           challenges,
         },
@@ -1318,6 +1339,74 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
   }
 }
 
+/**
+ * インフィニティアップグレードを購入する処理
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @param {string} upgradeId - 購入するアップグレードのID (例: "IU13")
+ * @returns {Promise<boolean>} 成功した場合はtrue
+ */
+export async function handleInfinityUpgradePurchase(interaction, upgradeId) {
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction();
+
+  try {
+    const latestIdleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!latestIdleGame) throw new Error("ユーザーデータが見つかりません。");
+
+    // 設定ファイルからアップグレード情報を取得
+    const upgradeConfig = config.idle.infinityUpgrades[upgradeId];
+    if (!upgradeConfig) throw new Error("存在しないアップグレードです。");
+
+    // 既に購入済みかチェック
+    if (latestIdleGame.ipUpgrades.upgrades.includes(upgradeId)) {
+      await interaction.followUp({
+        content: "既に購入済みのアップグレードです。",
+        ephemeral: true,
+      });
+      await t.rollback();
+      return false;
+    }
+
+    const cost_d = new Decimal(upgradeConfig.cost);
+    const currentIp_d = new Decimal(latestIdleGame.infinityPoints);
+
+    if (currentIp_d.lt(cost_d)) {
+      await interaction.followUp({
+        content: "IPが足りません！",
+        ephemeral: true,
+      });
+      await t.rollback();
+      return false;
+    }
+
+    // IPを減算し、購入済みリストに追加
+    latestIdleGame.infinityPoints = currentIp_d.minus(cost_d).toString();
+    latestIdleGame.ipUpgrades.upgrades.push(upgradeId);
+    latestIdleGame.changed("ipUpgrades", true); // JSONBの変更を通知
+
+    await latestIdleGame.save({ transaction: t });
+    await t.commit();
+
+    await interaction.followUp({
+      content: `✅ **${upgradeConfig.name}** を購入しました！`,
+      ephemeral: true,
+    });
+    return true;
+  } catch (error) {
+    await t.rollback();
+    console.error("Infinity Upgrade Purchase Error:", error);
+    await interaction.followUp({
+      content: "❌ 購入中にエラーが発生しました。",
+      ephemeral: true,
+    });
+    return false;
+  }
+}
+
 //-------------------------
 //ここからは補助的なもの
 //--------------------------
@@ -1383,4 +1472,74 @@ function simulatePurchases(initialIdleGame, budget, unlockedSet) {
   }
 
   return { purchases, totalCost, purchasedCount };
+}
+
+/**
+ * IU12の効果。TPを自動で割り振る。
+ * @param {object} idleGame - IdleGameのインスタンス (または素のオブジェクト)
+ * @returns {object} 更新されたidleGameオブジェクト
+ */
+function autoAssignTP(idleGame) {
+  let availableTP = idleGame.transcendencePoints;
+
+  // 1. #8のコストを基準に、#5~#7に使える予算を決める
+  const skill8Cost = calculateTPSkillCost(8, idleGame.skillLevel8);
+  let budget = skill8Cost * 0.5;
+
+  // 2. 予算内で、#5~#7の最も安いものを買い続ける
+  while (true) {
+    const costs = [
+      { id: 5, cost: calculateTPSkillCost(5, idleGame.skillLevel5) },
+      { id: 6, cost: calculateTPSkillCost(6, idleGame.skillLevel6) },
+      { id: 7, cost: calculateTPSkillCost(7, idleGame.skillLevel7) },
+    ];
+    // コストで昇順ソートして、一番安いものを取得
+    costs.sort((a, b) => a.cost - b.cost);
+    const cheapest = costs[0];
+
+    if (cheapest.cost > budget || cheapest.cost > availableTP) {
+      break; // 予算オーバー or TP不足ならループ終了
+    }
+
+    availableTP -= cheapest.cost;
+    budget -= cheapest.cost;
+    idleGame[`skillLevel${cheapest.id}`]++;
+  }
+
+  // 3. 最後に、#8が買えるだけ買う
+  while (true) {
+    const finalSkill8Cost = calculateTPSkillCost(8, idleGame.skillLevel8);
+    if (availableTP < finalSkill8Cost) break;
+
+    availableTP -= finalSkill8Cost;
+    idleGame.skillLevel8++;
+  }
+
+  idleGame.transcendencePoints = availableTP;
+  return idleGame;
+}
+
+/**
+ * 【新規】IU11「ゴーストチップ」の効果を適用するヘルパー関数
+ * @param {object} idleGameState - リセット直後の状態を持つIdleGameの素のJSオブジェクト
+ * @param {string} userId - ユーザーID
+ * @returns {Promise<object>} ゴーストチップによる購入が適用された後のIdleGameオブジェクト
+ */
+async function applyGhostChipBonus(idleGameState, userId) {
+  // UserAchievementは別途取得が必要
+  const userAchievement = await UserAchievement.findOne({ where: { userId }, raw: true });
+  const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
+
+  const budget = 5000;
+
+  // simulatePurchasesを呼び出して購入プランを得る
+  const { purchases } = simulatePurchases(idleGameState, budget, unlockedSet);
+  
+  // 購入結果をidleGameStateオブジェクトに直接反映させる
+  for (const [facilityName, count] of purchases.entries()) {
+      const levelKey = config.idle.factories[facilityName].key;
+      idleGameState[levelKey] += count;
+  }
+
+  return idleGameState; // 変更が適用されたオブジェクトを返す
 }

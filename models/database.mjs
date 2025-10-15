@@ -623,6 +623,7 @@ const IdleGame = sequelize.define(
       type: DataTypes.JSONB,
       defaultValue: {
         generators: Array(8).fill({ amount: "0", bought: 0 }),
+        upgrades: [],
       },
     },
     //統計

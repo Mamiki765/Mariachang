@@ -24,6 +24,7 @@ import {
   handleAscension,
   handleGeneratorPurchase,
   handleSettings,
+  handleInfinityUpgradePurchase
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
