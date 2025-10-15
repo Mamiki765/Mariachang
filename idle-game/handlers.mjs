@@ -11,7 +11,7 @@ import {
 import config from "../config.mjs";
 
 import {
-  calculateGainedIP, 
+  calculateGainedIP,
   calculateFacilityCost,
   calculateAllCosts,
   calculatePotentialTP,
@@ -22,7 +22,138 @@ import {
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  LabelBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+} from "discord.js";
+
+/**
+ * 【新規】放置ゲームの設定モーダルを表示し、更新処理を行う
+ * @param {import("discord.js").Interaction} interaction - コマンドまたはボタンのインタラクション
+ */
+export async function handleSettings(interaction) {
+  const userId = interaction.user.id;
+  const idleGame = await IdleGame.findOne({ where: { userId } });
+
+  if (!idleGame) {
+    await interaction.reply({
+      content: "まだ放置ゲームのデータがありません。",
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // 1. 現在の設定を読み込む (データがなければデフォルト値)
+  const currentSettings = idleGame.settings || {
+    skipPrestigeConfirmation: false,
+    skipSkillResetConfirmation: false,
+  };
+
+  // 2. 現在の設定から、セレクトメニューのどの値が選択されているべきかを判断
+  let defaultValue = "none"; // デフォルトは「両方しない」
+  if (
+    currentSettings.skipPrestigeConfirmation &&
+    currentSettings.skipSkillResetConfirmation
+  ) {
+    defaultValue = "both";
+  } else if (currentSettings.skipPrestigeConfirmation) {
+    defaultValue = "prestige_only";
+  } else if (currentSettings.skipSkillResetConfirmation) {
+    defaultValue = "reset_only";
+  }
+
+  // 3. モーダルを構築
+  const modal = new ModalBuilder()
+    .setCustomId("idle_settings_modal") // 固有名詞のID
+    .setTitle("放置ゲーム 設定")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("確認スキップ設定")
+        .setDescription(
+          "周回時、プレステージやスキルリセットの確認画面をスキップします。"
+        )
+        .setStringSelectMenuComponent(
+          new StringSelectMenuBuilder()
+            .setCustomId("skip_confirmation_select") // このモーダル内でのID
+            .setPlaceholder("設定を選択してください...")
+            .addOptions(
+              new StringSelectMenuOptionBuilder()
+                .setLabel("プレステージとスキルリセットの両方をスキップ")
+                .setValue("both")
+                .setDefault(defaultValue === "both"), // 4. デフォルト値を設定
+              new StringSelectMenuOptionBuilder()
+                .setLabel("プレステージのみスキップ")
+                .setValue("prestige_only")
+                .setDefault(defaultValue === "prestige_only"),
+              new StringSelectMenuOptionBuilder()
+                .setLabel("スキルリセットのみスキップ")
+                .setValue("reset_only")
+                .setDefault(defaultValue === "reset_only"),
+              new StringSelectMenuOptionBuilder()
+                .setLabel("スキップしない（通常）")
+                .setValue("none")
+                .setDefault(defaultValue === "none")
+            )
+        )
+    );
+
+  // 5. モーダルを表示
+  await interaction.showModal(modal);
+
+  // 6. ユーザーの送信を待つ
+  const submitted = await interaction
+    .awaitModalSubmit({ time: 60_000 })
+    .catch(() => null);
+
+  if (submitted) {
+    try {
+      const selectedValue = submitted.fields.getStringSelectValues(
+        "skip_confirmation_select"
+      )[0];
+
+      const newSettings = { ...currentSettings }; // 現在の設定をコピー
+
+      // 7. 選択された値に応じて設定を更新
+      switch (selectedValue) {
+        case "both":
+          newSettings.skipPrestigeConfirmation = true;
+          newSettings.skipSkillResetConfirmation = true;
+          break;
+        case "prestige_only":
+          newSettings.skipPrestigeConfirmation = true;
+          newSettings.skipSkillResetConfirmation = false;
+          break;
+        case "reset_only":
+          newSettings.skipPrestigeConfirmation = false;
+          newSettings.skipSkillResetConfirmation = true;
+          break;
+        case "none":
+          newSettings.skipPrestigeConfirmation = false;
+          newSettings.skipSkillResetConfirmation = false;
+          break;
+      }
+
+      // 8. データベースを更新
+      await IdleGame.update({ settings: newSettings }, { where: { userId } });
+
+      await submitted.reply({
+        content: "✅ 設定を保存しました！",
+        ephemeral: true,
+      });
+    } catch (error) {
+      console.error("Idle settings update error:", error);
+      await submitted.reply({
+        content: "❌ 設定の保存中にエラーが発生しました。",
+        ephemeral: true,
+      });
+    }
+  }
+}
 
 /**
  * 施設のアップグレード処理を担当する
@@ -328,327 +459,84 @@ export async function handleAutoAllocate(interaction) {
 }
 
 /**
- * プレステージの確認と実行を担当する関数
- * @param {import("discord.js").ButtonInteraction} interaction - プレステージボタンのインタラクション
- * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
+ * 【新規】プレステージのDB更新処理を実行する内部関数 (修正版)
+ * @param {string} userId
+ * @param {import("discord.js").Client} client - 実績解除に必要
+ * @returns {Promise<object>} プレステージの結果オブジェクト
  */
-export async function handlePrestige(interaction, collector) {
-  // 1. まず、現在のコレクターを止めて、ボタン操作を一旦リセットする
-  collector.stop();
+async function executePrestigeTransaction(userId, client) {
+  let prestigeResult = {};
 
-  // 2. 確認用のメッセージとボタンを作成
-  const confirmationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("prestige_confirm_yes")
-      .setLabel("はい、リセットします")
-      .setStyle(ButtonStyle.Success)
-      .setEmoji("🍍"),
-    new ButtonBuilder()
-      .setCustomId("prestige_confirm_no")
-      .setLabel("いいえ、やめておきます")
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  // ✅ ここで先に宣言しておく！
-  let confirmationInteraction = null;
-
-  const confirmationMessage = await interaction.followUp({
-    content:
-      "# ⚠️パイナップル警報！ \n### **本当にプレステージを実行しますか？**\n精肉工場以外の工場レベルと人口がリセットされます。この操作は取り消せません！",
-    components: [confirmationRow],
-    flags: 64, // 本人にだけ見える確認
-    fetchReply: true, // 送信したメッセージオブジェクトを取得するため
-  });
-
-  try {
-    // 3. ユーザーの応答を待つ (60秒)
-    //    .awaitMessageComponent() は、ボタンが押されるまでここで処理を「待機」します
-    confirmationInteraction = await confirmationMessage.awaitMessageComponent({
-      filter: (i) => i.user.id === interaction.user.id,
-      time: 60_000,
+  await sequelize.transaction(async (t) => {
+    const latestIdleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
     });
 
-    // 4. 押されたボタンに応じて処理を分岐
-    if (confirmationInteraction.customId === "prestige_confirm_no") {
-      // 「いいえ」が押された場合
-      await confirmationInteraction.update({
-        content: "プレステージをキャンセルしました。工場は無事です！",
-        components: [], // ボタンを消す
-      });
-      return; // 処理を終了
+    const currentPopulation_d = new Decimal(latestIdleGame.population);
+    const highestPopulation_d = new Decimal(latestIdleGame.highestPopulation);
+
+    // #65 充足の試練チェック
+    if (latestIdleGame.skillLevel1 === 0 && currentPopulation_d.gte("1e27")) {
+      // ★修正: interaction.client -> client, interaction.user.id -> userId
+      await unlockAchievements(client, userId, 65);
+    }
+    // #62 虚無の試練チェック
+    const areFactoriesLevelZero =
+      latestIdleGame.pizzaOvenLevel === 0 &&
+      latestIdleGame.cheeseFactoryLevel === 0 &&
+      latestIdleGame.tomatoFarmLevel === 0 &&
+      latestIdleGame.mushroomFarmLevel === 0 &&
+      latestIdleGame.anchovyFactoryLevel === 0;
+    if (areFactoriesLevelZero && currentPopulation_d.gte("1e24")) {
+      // ★修正: interaction.client -> client, interaction.user.id -> userId
+      await unlockAchievements(client, userId, 62);
+    }
+    // #64 忍耐の試練記録
+    const challenges = latestIdleGame.challenges || {};
+    if (!challenges.trial64?.isCleared) {
+      challenges.trial64 = {
+        lastPrestigeTime: latestIdleGame.infinityTime,
+        isCleared: false, // リセットなので未クリア状態に戻す
+      };
+      latestIdleGame.changed("challenges", true);
     }
 
-    // --- 「はい」が押された場合の処理 ---
-    await confirmationInteraction.deferUpdate(); // 「考え中...」の状態にする
+    // 「原点への回帰」実績のチェック
+    if (
+      latestIdleGame.pizzaOvenLevel >= 80 &&
+      currentPopulation_d.gte("1e16")
+    ) {
+      // ★修正: interaction.client -> client, interaction.user.id -> userId
+      await unlockAchievements(client, userId, 74);
+    }
 
-    let currentPopulation;
-    let prestigeResult = {};
-    // 5. トランザクションを使って、安全にデータベースを更新
-    await sequelize.transaction(async (t) => {
-      const latestIdleGame = await IdleGame.findOne({
-        where: { userId: interaction.user.id },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-
-      // ★★★ 1. Decimalに変換 ★★★
-      const currentPopulation_d = new Decimal(latestIdleGame.population);
-      const highestPopulation_d = new Decimal(latestIdleGame.highestPopulation);
-
-      // #65 充足の試練チェック
-      if (latestIdleGame.skillLevel1 === 0 && currentPopulation_d.gte("1e27")) {
-        await unlockAchievements(interaction.client, interaction.user.id, 65);
-      }
-      // #62 虚無の試練チェック
-      const areFactoriesLevelZero =
-        latestIdleGame.pizzaOvenLevel === 0 &&
-        latestIdleGame.cheeseFactoryLevel === 0 &&
-        latestIdleGame.tomatoFarmLevel === 0 &&
-        latestIdleGame.mushroomFarmLevel === 0 &&
-        latestIdleGame.anchovyFactoryLevel === 0;
-      if (areFactoriesLevelZero && currentPopulation_d.gte("1e24")) {
-        await unlockAchievements(interaction.client, interaction.user.id, 62);
-      }
-      // #64 忍耐の試練記録
-      const challenges = latestIdleGame.challenges || {};
-      if (!challenges.trial64?.isCleared) {
-        challenges.trial64 = {
-          lastPrestigeTime: latestIdleGame.infinityTime,
-          isCleared: false, // リセットなので未クリア状態に戻す
-        };
-        latestIdleGame.changed("challenges", true);
+    if (currentPopulation_d.gt(highestPopulation_d)) {
+      // --- PP/SPプレステージ (既存のロジック) ---
+      if (currentPopulation_d.lte(config.idle.prestige.unlockPopulation)) {
+        throw new Error("プレステージの最低人口条件を満たしていません。");
       }
 
-      // 「原点への回帰」実績のチェック
-      if (
-        latestIdleGame.pizzaOvenLevel >= 80 &&
-        currentPopulation_d.gte("1e16")
-      ) {
-        // トランザクションの外で実行した方が安全
-        unlockAchievements(interaction.client, interaction.user.id, 74);
-      }
+      const newPrestigePower = currentPopulation_d.log10();
+      let newSkillPoints = latestIdleGame.skillPoints;
 
-      // ▼▼▼ ここから分岐ロジック ▼▼▼
-      if (currentPopulation_d.gt(highestPopulation_d)) {
-        // --- PP/SPプレステージ (既存のロジック) ---
-        if (currentPopulation_d.lte(config.idle.prestige.unlockPopulation)) {
-          // .lte() = less than or equal
-          throw new Error("プレステージの最低人口条件を満たしていません。");
-        }
-
-        const newPrestigePower = currentPopulation_d.log10();
-        let newSkillPoints = latestIdleGame.skillPoints;
-
-        if (latestIdleGame.prestigeCount === 0) {
-          const deduction = config.idle.prestige.spBaseDeduction;
-          newSkillPoints = Math.max(0, newPrestigePower - deduction);
-        } else {
-          const powerGain = newPrestigePower - latestIdleGame.prestigePower;
-          newSkillPoints += powerGain;
-        }
-
-        const gainedTP = calculatePotentialTP(
-          currentPopulation_d,
-          latestIdleGame.skillLevel8
-        );
-
-        await latestIdleGame.update(
-          {
-            population: "0",
-            pizzaOvenLevel: 0,
-            cheeseFactoryLevel: 0,
-            tomatoFarmLevel: 0,
-            mushroomFarmLevel: 0,
-            anchovyFactoryLevel: 0,
-            oliveFarmLevel: 0,
-            wheatFarmLevel: 0,
-            pineappleFarmLevel: 0,
-            prestigeCount: latestIdleGame.prestigeCount + 1,
-            prestigePower: newPrestigePower,
-            skillPoints: newSkillPoints,
-            highestPopulation: currentPopulation_d.toString(), // 最高記録を更新
-            transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
-            lastUpdatedAt: new Date(),
-            challenges,
-          },
-          { transaction: t }
-        );
-
-        // プレステージ実績
-        await unlockAchievements(interaction.client, interaction.user.id, 11);
-        prestigeResult = {
-          type: "PP_SP",
-          population_d: currentPopulation_d,
-          gainedTP: gainedTP,
-        };
-      } else if (currentPopulation_d.gte("1e16")) {
-        // --- TPプレステージ (新しいロジック) ---
-        const gainedTP = calculatePotentialTP(
-          currentPopulation_d,
-          latestIdleGame.skillLevel8
-        );
-
-        await latestIdleGame.update(
-          {
-            population: "0",
-            pizzaOvenLevel: 0,
-            cheeseFactoryLevel: 0,
-            tomatoFarmLevel: 0,
-            mushroomFarmLevel: 0,
-            anchovyFactoryLevel: 0,
-            oliveFarmLevel: 0,
-            wheatFarmLevel: 0,
-            pineappleFarmLevel: 0,
-            transcendencePoints: latestIdleGame.transcendencePoints + gainedTP, // TPを加算
-            // PP, SP, highestPopulation は更新しない！
-            lastUpdatedAt: new Date(),
-            challenges,
-          },
-          { transaction: t }
-        );
-        prestigeResult = {
-          type: "TP_ONLY",
-          population_d: currentPopulation_d,
-          gainedTP: gainedTP,
-        };
+      if (latestIdleGame.prestigeCount === 0) {
+        const deduction = config.idle.prestige.spBaseDeduction;
+        newSkillPoints = Math.max(0, newPrestigePower - deduction);
       } else {
-        // どちらの条件も満たさない場合 (ボタン表示ロジックのおかげで通常はありえない)
-        throw new Error("プレステージの条件を満たしていません。");
-      }
-    });
-
-    // 6. トランザクション成功後、結果に応じてメッセージを送信
-    if (prestigeResult.type === "PP_SP") {
-      await confirmationInteraction.editReply({
-        content: `●プレステージ
-# なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！
-凄まじい地響きと共に${formatNumberJapanese_Decimal(prestigeResult.population_d)}匹のニョワミヤ達が押し寄せてきます！
-彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！
-狂った様にパイナップルピザを求めたニョワミヤ達によって、今までのピザ工場は藻屑のように吹き飛ばされてしまいました……
--# そしてなぜか次の工場は強化されました。`,
-        components: [], // ボタンを消す
-      });
-    } else if (prestigeResult.type === "TP_ONLY") {
-      await confirmationInteraction.editReply({
-        content: `●TPプレステージ
-# そうだ、サイドメニュー作ろう。
-あなた達は${formatNumberJapanese_Decimal(prestigeResult.population_d)}匹のニョワミヤ達と一緒にサイドメニューを作ることにしました。
-美味しそうなポテトやナゲット、そして何故か天ぷらの数々が揚がっていきます・　・　・　・　・　・。
--# 何故か終わる頃には工場は蜃気楼のように消えてしまっていました。
-${prestigeResult.gainedTP.toFixed(2)}TPを手に入れました。`,
-        components: [], // ボタンを消す
-      });
-    }
-  } catch (error) {
-    console.error("Prestige Error:", error); // エラー内容はコンソールに出力
-
-    if (confirmationInteraction) {
-      // ボタン操作後のエラー (DBエラーなど)
-      await confirmationInteraction.editReply({
-        content: "❌ データベースエラーにより、プレステージに失敗しました。",
-        components: [],
-      });
-    } else {
-      try {
-        // タイムアウトエラー
-        await confirmationMessage.edit({
-          content:
-            "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
-          components: [],
-        });
-      } catch (editError) {
-        // メッセージの編集に失敗した場合 (すでに削除されている、トークンが失効しているなど)
-        // エラーをコンソールに警告として表示するが、ボットはクラッシュさせない
-        console.warn(
-          "タイムアウト後の確認メッセージの編集に失敗しました:",
-          editError.message
-        );
-      }
-    }
-  }
-}
-
-/**
- * スキルと工場のリセットを担当する関数
- * @param {import("discord.js").ButtonInteraction} interaction - リセットボタンのインタラクション
- * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
- */
-export async function handleSkillReset(interaction, collector) {
-  // 1. コレクターを止めて、ボタン操作をリセット
-  collector.stop();
-
-  // 2. 確認メッセージを作成
-  const confirmationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("skill_reset_confirm_yes")
-      .setLabel("はい、リセットします")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId("skill_reset_confirm_no")
-      .setLabel("いいえ、やめておきます")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  // ★★★ .followUp() を使うのが重要！ ★★★
-  const confirmationMessage = await interaction.followUp({
-    content:
-      "### ⚠️ **本当にスキルをリセットしますか？**\n消費したSPは全て返還されますが、精肉工場以外の工場レベルと人口も含めて**全てリセット**されます。この操作は取り消せません！",
-    components: [confirmationRow],
-    flags: 64,
-    fetchReply: true,
-  });
-
-  try {
-    // 3. ユーザーの応答を待つ
-    const confirmationInteraction =
-      await confirmationMessage.awaitMessageComponent({
-        filter: (i) => i.user.id === interaction.user.id,
-        time: 60_000,
-      });
-
-    if (confirmationInteraction.customId === "skill_reset_confirm_no") {
-      await confirmationInteraction.update({
-        content: "スキルリセットをキャンセルしました。",
-        components: [],
-      });
-      return;
-    }
-
-    // --- 「はい」が押された場合 ---
-    await confirmationInteraction.deferUpdate();
-
-    let refundedSP = 0;
-
-    // 4. トランザクションで安全にデータベースを更新
-    await sequelize.transaction(async (t) => {
-      const latestIdleGame = await IdleGame.findOne({
-        where: { userId: interaction.user.id },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-
-      // 5. 返還するSPを計算
-      const spent1 = calculateSpentSP(latestIdleGame.skillLevel1);
-      const spent2 = calculateSpentSP(latestIdleGame.skillLevel2);
-      const spent3 = calculateSpentSP(latestIdleGame.skillLevel3);
-      const spent4 = calculateSpentSP(latestIdleGame.skillLevel4);
-      const totalRefundSP = spent1 + spent2 + spent3 + spent4;
-      refundedSP = totalRefundSP; // メッセージ表示用に保存
-
-      // #64 忍耐の試練記録
-      const challenges = latestIdleGame.challenges || {};
-      if (!challenges.trial64?.isCleared) {
-        challenges.trial64 = {
-          lastPrestigeTime: latestIdleGame.infinityTime,
-          isCleared: false, // リセットなので未クリア状態に戻す
-        };
-        latestIdleGame.changed("challenges", true);
+        const powerGain = newPrestigePower - latestIdleGame.prestigePower;
+        newSkillPoints += powerGain;
       }
 
-      // 6. データベースの値を更新
+      const gainedTP = calculatePotentialTP(
+        currentPopulation_d,
+        latestIdleGame.skillLevel8
+      );
+
       await latestIdleGame.update(
         {
-          population: 0,
+          population: "0",
           pizzaOvenLevel: 0,
           cheeseFactoryLevel: 0,
           tomatoFarmLevel: 0,
@@ -657,32 +545,346 @@ export async function handleSkillReset(interaction, collector) {
           oliveFarmLevel: 0,
           wheatFarmLevel: 0,
           pineappleFarmLevel: 0,
-          skillLevel1: 0,
-          skillLevel2: 0,
-          skillLevel3: 0,
-          skillLevel4: 0,
-          skillPoints: latestIdleGame.skillPoints + totalRefundSP,
-          challenges,
+          prestigeCount: latestIdleGame.prestigeCount + 1,
+          prestigePower: newPrestigePower,
+          skillPoints: newSkillPoints,
+          highestPopulation: currentPopulation_d.toString(),
+          transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
           lastUpdatedAt: new Date(),
+          challenges,
         },
         { transaction: t }
       );
+
+      // プレステージ実績
+      // ★修正: interaction.client -> client, interaction.user.id -> userId
+      await unlockAchievements(client, userId, 11);
+      prestigeResult = {
+        type: "PP_SP",
+        population_d: currentPopulation_d,
+        gainedTP: gainedTP,
+      };
+    } else if (currentPopulation_d.gte("1e16")) {
+      // --- TPプレステージ (新しいロジック) ---
+      const gainedTP = calculatePotentialTP(
+        currentPopulation_d,
+        latestIdleGame.skillLevel8
+      );
+
+      await latestIdleGame.update(
+        {
+          population: "0",
+          pizzaOvenLevel: 0,
+          cheeseFactoryLevel: 0,
+          tomatoFarmLevel: 0,
+          mushroomFarmLevel: 0,
+          anchovyFactoryLevel: 0,
+          oliveFarmLevel: 0,
+          wheatFarmLevel: 0,
+          pineappleFarmLevel: 0,
+          transcendencePoints: latestIdleGame.transcendencePoints + gainedTP,
+          lastUpdatedAt: new Date(),
+          challenges,
+        },
+        { transaction: t }
+      );
+      prestigeResult = {
+        type: "TP_ONLY",
+        population_d: currentPopulation_d,
+        gainedTP: gainedTP,
+      };
+    } else {
+      throw new Error("プレステージの条件を満たしていません。");
+    }
+  });
+
+  return prestigeResult;
+}
+
+/**
+ * プレステージの確認と実行を担当する司令塔関数
+ * @param {import("discord.js").ButtonInteraction} interaction - プレステージボタンのインタラクション
+ * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
+ * @returns {Promise<boolean>} UIの再描画が必要な場合はtrue、不要な場合はfalseを返す
+ */
+export async function handlePrestige(interaction, collector) {
+  const userId = interaction.user.id;
+  const client = interaction.client; // 実績解除用にclientオブジェクトを取得
+
+  // 1. ユーザーの設定をDBから読み込む
+  // (トランザクションの外なのでロックは不要)
+  const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+  if (!latestIdleGame) {
+    // 念のためデータ存在チェック
+    await interaction.followUp({
+      content: "エラー: ユーザーデータが見つかりません。",
+      ephemeral: true,
+    });
+    return false;
+  }
+  const skipConfirmation =
+    latestIdleGame.settings?.skipPrestigeConfirmation || false;
+
+  // 2. 設定値に応じて処理を分岐
+  if (skipConfirmation) {
+    // --- 【A】確認をスキップするルート ---
+    try {
+      // プレステージの本体処理を呼び出す
+      const result = await executePrestigeTransaction(userId, client);
+
+      // 短い成功通知をユーザーに送信
+      await interaction.followUp({
+        content: `✅ プレステージを即時実行しました！`,
+        ephemeral: true,
+      });
+
+      // UI更新が必要なことを呼び出し元に伝える
+      return true;
+    } catch (error) {
+      console.error("Prestige (skip confirmation) Error:", error);
+      await interaction.followUp({
+        content: `❌ プレステージの実行中にエラーが発生しました: ${error.message}`,
+        ephemeral: true,
+      });
+      return false; // 失敗したのでUI更新は不要
+    }
+  } else {
+    // --- 【B】従来通りの確認ルート ---
+    collector.stop(); // 親コレクターを停止
+
+    // 確認用のメッセージとボタンを作成
+    const confirmationRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("prestige_confirm_yes")
+        .setLabel("はい、リセットします")
+        .setStyle(ButtonStyle.Success)
+        .setEmoji("🍍"),
+      new ButtonBuilder()
+        .setCustomId("prestige_confirm_no")
+        .setLabel("いいえ、やめておきます")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    let confirmationInteraction = null;
+    const confirmationMessage = await interaction.followUp({
+      content:
+        "# ⚠️パイナップル警報！ \n### **本当にプレステージを実行しますか？**\n精肉工場以外の工場レベルと人口がリセットされます。この操作は取り消せません！",
+      components: [confirmationRow],
+      flags: 64, // 本人にだけ見える確認
+      fetchReply: true,
     });
 
-    //スキルリセット実績
-    await unlockAchievements(interaction.client, interaction.user.id, 15);
+    try {
+      // ユーザーの応答を待つ
+      confirmationInteraction = await confirmationMessage.awaitMessageComponent(
+        {
+          filter: (i) => i.user.id === userId,
+          time: 60_000,
+        }
+      );
 
-    // 7. 成功メッセージを送信
-    await confirmationInteraction.editReply({
-      content: `🔄 **スキルと工場をリセットしました！**\n**${refundedSP.toFixed(2)} SP** が返還されました。`,
-      components: [],
+      if (confirmationInteraction.customId === "prestige_confirm_no") {
+        await confirmationInteraction.update({
+          content: "プレステージをキャンセルしました。工場は無事です！",
+          components: [],
+        });
+        return false; // UI更新は不要
+      }
+
+      // 「はい」が押されたら、プレステージの本体処理を呼び出す
+      await confirmationInteraction.deferUpdate();
+      const result = await executePrestigeTransaction(userId, client);
+
+      // 結果に応じたストーリー付きの成功メッセージを送信
+      if (result.type === "PP_SP") {
+        await confirmationInteraction.editReply({
+          content: `●プレステージ\n# なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！\n凄まじい地響きと共に${formatNumberJapanese_Decimal(result.population_d)}匹のニョワミヤ達が押し寄せてきます！\n彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！\n狂った様にパイナップルピザを求めたニョワミヤ達によって、今までのピザ工場は藻屑のように吹き飛ばされてしまいました……\n-# そしてなぜか次の工場は強化されました。`,
+          components: [],
+        });
+      } else if (result.type === "TP_ONLY") {
+        await confirmationInteraction.editReply({
+          content: `●TPプレステージ\n# そうだ、サイドメニュー作ろう。\nあなた達は${formatNumberJapanese_Decimal(result.population_d)}匹のニョワミヤ達と一緒にサイドメニューを作ることにしました。\n美味しそうなポテトやナゲット、そして何故か天ぷらの数々が揚がっていきます・　・　・　・　・　・。\n-# 何故か終わる頃には工場は蜃気楼のように消えてしまっていました。\n${result.gainedTP.toFixed(2)}TPを手に入れました。`,
+          components: [],
+        });
+      }
+    } catch (error) {
+      console.error("Prestige (with confirmation) Error:", error);
+      if (confirmationInteraction) {
+        // DBエラーなど、ボタン操作後のエラー
+        await confirmationInteraction.editReply({
+          content: `❌ データベースエラーにより、プレステージに失敗しました: ${error.message}`,
+          components: [],
+        });
+      } else {
+        // タイムアウトエラー
+        await confirmationMessage.edit({
+          content:
+            "タイムアウトまたは内部エラーにより、プレステージはキャンセルされました。",
+          components: [],
+        });
+      }
+    }
+
+    // このルートは親コレクターが停止しており、UI更新は不要
+    return false;
+  }
+}
+
+/**
+ * 【新規】スキルリセットのDB更新処理を実行する内部関数
+ * @param {string} userId
+ * @param {import("discord.js").Client} client - 実績解除に必要
+ * @returns {Promise<number>} 返還されたSPの量
+ */
+async function executeSkillResetTransaction(userId, client) {
+  let refundedSP = 0;
+
+  await sequelize.transaction(async (t) => {
+    const latestIdleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
     });
-  } catch (error) {
-    // タイムアウトなどのエラー処理
-    await interaction.editReply({
-      content: "タイムアウトしました。リセットはキャンセルされました。",
-      components: [],
+
+    // 返還するSPを計算
+    const spent1 = calculateSpentSP(latestIdleGame.skillLevel1);
+    const spent2 = calculateSpentSP(latestIdleGame.skillLevel2);
+    const spent3 = calculateSpentSP(latestIdleGame.skillLevel3);
+    const spent4 = calculateSpentSP(latestIdleGame.skillLevel4);
+    const totalRefundSP = spent1 + spent2 + spent3 + spent4;
+    refundedSP = totalRefundSP;
+
+    // #64 忍耐の試練記録
+    const challenges = latestIdleGame.challenges || {};
+    if (!challenges.trial64?.isCleared) {
+      challenges.trial64 = {
+        lastPrestigeTime: latestIdleGame.infinityTime,
+        isCleared: false,
+      };
+      latestIdleGame.changed("challenges", true);
+    }
+
+    // データベースの値を更新
+    await latestIdleGame.update(
+      {
+        population: 0,
+        pizzaOvenLevel: 0,
+        cheeseFactoryLevel: 0,
+        tomatoFarmLevel: 0,
+        mushroomFarmLevel: 0,
+        anchovyFactoryLevel: 0,
+        oliveFarmLevel: 0,
+        wheatFarmLevel: 0,
+        pineappleFarmLevel: 0,
+        skillLevel1: 0,
+        skillLevel2: 0,
+        skillLevel3: 0,
+        skillLevel4: 0,
+        skillPoints: latestIdleGame.skillPoints + totalRefundSP,
+        challenges,
+        lastUpdatedAt: new Date(),
+      },
+      { transaction: t }
+    );
+  });
+
+  // スキルリセット実績
+  await unlockAchievements(client, userId, 15);
+
+  return refundedSP;
+}
+
+/**
+ * スキルと工場のリセットを担当する司令塔関数
+ * @param {import("discord.js").ButtonInteraction} interaction - リセットボタンのインタラクション
+ * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
+ * @returns {Promise<{success: boolean}>} UI更新の要否を返すオブジェクト
+ */
+export async function handleSkillReset(interaction, collector) {
+  const userId = interaction.user.id;
+  const client = interaction.client;
+
+  const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+  if (!latestIdleGame) {
+    await interaction.followUp({
+      content: "エラー: ユーザーデータが見つかりません。",
+      flags: 64,
     });
+    return false;
+  }
+  const skipConfirmation =
+    latestIdleGame.settings?.skipSkillResetConfirmation || false;
+
+  if (skipConfirmation) {
+    // --- 【A】確認をスキップするルート ---
+    try {
+      const refundedSP = await executeSkillResetTransaction(userId, client);
+      await interaction.followUp({
+        content: `✅ スキルと工場を即時リセットし、${refundedSP.toFixed(2)} SP が返還されました。`,
+        flags: 64,
+      });
+      return true;
+    } catch (error) {
+      console.error("Skill Reset (skip confirmation) Error:", error);
+      await interaction.followUp({
+        content: `❌ スキルリセット中にエラーが発生しました: ${error.message}`,
+        flags: 64,
+      });
+      return false;
+    }
+  } else {
+    // --- 【B】従来通りの確認ルート ---
+    collector.stop();
+
+    const confirmationRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("skill_reset_confirm_yes")
+        .setLabel("はい、リセットします")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("skill_reset_confirm_no")
+        .setLabel("いいえ、やめておきます")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    const confirmationMessage = await interaction.followUp({
+      content:
+        "### ⚠️ **本当にスキルをリセットしますか？**\n消費したSPは全て返還されますが、精肉工場以外の工場レベルと人口も含めて**全てリセット**されます。この操作は取り消せません！",
+      components: [confirmationRow],
+      flags: 64,
+      fetchReply: true,
+    });
+    try {
+      const confirmationInteraction =
+        await confirmationMessage.awaitMessageComponent({
+          filter: (i) => i.user.id === userId,
+          time: 60_000,
+        });
+
+      if (confirmationInteraction.customId === "skill_reset_confirm_no") {
+        await confirmationInteraction.update({
+          content: "スキルリセットをキャンセルしました。",
+          components: [],
+        });
+        return false;
+      }
+
+      await confirmationInteraction.deferUpdate();
+      const refundedSP = await executeSkillResetTransaction(userId, client);
+
+      await confirmationInteraction.editReply({
+        content: `🔄 **スキルと工場をリセットしました！**\n**${refundedSP.toFixed(2)} SP** が返還されました。`,
+        components: [],
+      });
+    } catch (error) {
+      // タイムアウトなどのエラー処理
+      await interaction.editReply({
+        content: "タイムアウトしました。リセットはキャンセルされました。",
+        components: [],
+      });
+    }
+
+    return false;
   }
 }
 
@@ -1060,7 +1262,11 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
     // 4-2. ジェネレーターの購入回数をインクリメント
     latestIdleGame.ipUpgrades.generators[generatorIndex].bought += 1;
     //個数も
-    latestIdleGame.ipUpgrades.generators[generatorIndex].amount = new Decimal(latestIdleGame.ipUpgrades.generators[generatorIndex].amount).add(1).toString();
+    latestIdleGame.ipUpgrades.generators[generatorIndex].amount = new Decimal(
+      latestIdleGame.ipUpgrades.generators[generatorIndex].amount
+    )
+      .add(1)
+      .toString();
 
     // ★★★ ここでは .save() を使うので changed が必要！ ★★★
     latestIdleGame.changed("ipUpgrades", true);

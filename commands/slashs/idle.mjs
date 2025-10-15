@@ -23,6 +23,7 @@ import {
   handleInfinity,
   handleAscension,
   handleGeneratorPurchase,
+  handleSettings,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
@@ -825,6 +826,14 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
             .setDisabled(isDisabled)
         );
       }
+      infinityRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId("idle_show_settings") // 新しいID
+          .setLabel("設定")
+          .setStyle(ButtonStyle.Secondary) // 他のユーティリティボタンと統一
+          .setEmoji("⚙️") // 設定の定番絵文字
+          .setDisabled(isDisabled)
+      );
       // infinityRowにボタンが1つでも追加されていたら、components配列にpushする
       if (infinityRow.components.length > 0) {
         components.push(infinityRow);
@@ -916,8 +925,15 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
     });
 
     collector.on("collect", async (i) => {
-      await i.deferUpdate();
       collector.resetTimer(); // 操作があるたびにタイマーをリセット
+      //modalなどdefer前にやるやつ
+      if (i.customId === "idle_show_settings") {
+        await handleSettings(i);
+        // handleSettingsはモーダルの表示と処理を自己完結で行うため、
+        // この後のUI更新は不要。returnしてコレクターの処理を抜ける。
+        return;
+      }
+      await i.deferUpdate();
       let success = false; // 処理が成功したかを記録するフラグ
       let viewChanged = false; // ★画面切り替えかどうかのフラグ
 
@@ -994,12 +1010,12 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         success = await handleAutoAllocate(i);
       } else if (i.customId === "idle_prestige") {
         // ここで処理して、下の施設強化ロジックには進ませない
-        await handlePrestige(i, collector); // プレステージ処理関数を呼び出す
-        return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
+        success = await handlePrestige(i, collector);
+        if (!success) return; // handlePrestigeが終わったら、このcollectイベントの処理は終了
       } else if (i.customId === "idle_skill_reset") {
         // スキルリセット
-        await handleSkillReset(i, collector);
-        return;
+        success = await handleSkillReset(i, collector);
+        if (!success) return;
       } else if (i.customId === "idle_infinity") {
         await handleInfinity(i, collector);
         return;
@@ -1044,7 +1060,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
             break;
           case "infinity": // ★★★ インフィニティ画面の描画を追加 ★★★
             replyOptions = {
-              content: "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
+              content:
+                "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
               embeds: [generateInfinityEmbed(newUiData.idleGame)],
               components: generateInfinityButtons(newUiData.idleGame),
             };
@@ -1485,7 +1502,7 @@ function generateProfileEmbed(uiData, user) {
     ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
   }
   //ジェネレーター
-    let generatorText = "";
+  let generatorText = "";
   // インフィニティを1回以上経験している場合のみ処理
   if (idleGame.infinityCount > 0) {
     const generators = idleGame.ipUpgrades?.generators || [];
@@ -1501,7 +1518,7 @@ function generateProfileEmbed(uiData, user) {
         boughtCounts.push(`${romanNumerals[i]}:**${bought}**`);
       }
     }
-    
+
     // 表示するジェネレーターが1つ以上あれば、テキストを組み立てる
     if (boughtCounts.length > 0) {
       const gp_d = new Decimal(idleGame.generatorPower || "1");

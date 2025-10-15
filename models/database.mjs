@@ -614,7 +614,8 @@ const IdleGame = sequelize.define(
       type: DataTypes.JSONB,
       defaultValue: { generators: {} },
     },
-    generatorPower: {// ジェネレーターパワー
+    generatorPower: {
+      // ジェネレーターパワー
       type: DataTypes.TEXT,
       defaultValue: "1",
     },
@@ -638,6 +639,15 @@ const IdleGame = sequelize.define(
       type: DataTypes.JSONB,
       allowNull: false,
       defaultValue: {}, // デフォルトは空のオブジェクト
+    },
+    settings: {
+      // 確認スキップなど、ユーザーごとの設定を保存
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {
+        skipPrestigeConfirmation: false,
+        skipSkillResetConfirmation: false,
+      },
     },
     buffMultiplier: {
       //ブースト(最終結果に対する乗算)
