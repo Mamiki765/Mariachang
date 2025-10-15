@@ -68,6 +68,8 @@ export async function handleSettings(interaction) {
   } else if (currentSettings.skipSkillResetConfirmation) {
     defaultValue = "reset_only";
   }
+
+  const isAutoTpEnabled = currentSettings.autoAssignTpEnabled === true;
   // 3. モーダルを構築
   const modal = new ModalBuilder()
     .setCustomId("idle_settings_modal") // 固有名詞のID
@@ -116,11 +118,11 @@ export async function handleSettings(interaction) {
               new StringSelectMenuOptionBuilder()
                 .setLabel("有効 (ON)")
                 .setValue("on")
-                .setDefault(currentSettings.autoAssignTpEnabled), // 現在の設定を反映
+                .setDefault(isAutoTpEnabled), // 現在の設定を反映
               new StringSelectMenuOptionBuilder()
                 .setLabel("無効 (OFF)")
                 .setValue("off")
-                .setDefault(!currentSettings.autoAssignTpEnabled) // 現在の設定を反映
+                .setDefault(!isAutoTpEnabled) // 現在の設定を反映
             )
         )
     );
