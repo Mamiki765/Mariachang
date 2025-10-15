@@ -648,6 +648,7 @@ const IdleGame = sequelize.define(
       defaultValue: {
         skipPrestigeConfirmation: false,
         skipSkillResetConfirmation: false,
+        autoAssignTpEnabled: false,
       },
     },
     buffMultiplier: {

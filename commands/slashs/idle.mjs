@@ -24,7 +24,7 @@ import {
   handleAscension,
   handleGeneratorPurchase,
   handleSettings,
-  handleInfinityUpgradePurchase
+  handleInfinityUpgradePurchase,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
@@ -952,6 +952,9 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       } else if (i.customId === "idle_show_infinity") {
         currentView = "infinity";
         viewChanged = true;
+      } else if (i.customId === "idle_show_iu_upgrades") {
+        currentView = "infinity_upgrades";
+        viewChanged = true;
       }
 
       if (i.customId === "idle_show_infinity") {
@@ -1025,6 +1028,10 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       } else if (i.customId.startsWith("idle_generator_buy_")) {
         const generatorId = parseInt(i.customId.split("_").pop(), 10);
         success = await handleGeneratorPurchase(i, generatorId);
+      } else if (i.customId.startsWith("idle_iu_purchase_")) {
+        // ◀◀◀ 追加
+        const upgradeId = i.customId.substring("idle_iu_purchase_".length);
+        success = await handleInfinityUpgradePurchase(i, upgradeId);
       }
 
       // --- 3. 処理が成功した場合にのみ、UIを更新する ---
@@ -1062,9 +1069,16 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           case "infinity": // ★★★ インフィニティ画面の描画を追加 ★★★
             replyOptions = {
               content:
-                "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
+                "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。",
               embeds: [generateInfinityEmbed(newUiData.idleGame)],
               components: generateInfinityButtons(newUiData.idleGame),
+            };
+            break;
+          case "infinity_upgrades":
+            replyOptions = {
+              content: " ",
+              embeds: [generateInfinityUpgradesEmbed(uiData.idleGame)],
+              components: generateInfinityUpgradesButtons(uiData.idleGame),
             };
             break;
           case "factory":
@@ -1709,9 +1723,133 @@ function generateInfinityButtons(idleGame) {
       .setCustomId("idle_show_factory")
       .setLabel("工場画面に戻る")
       .setStyle(ButtonStyle.Primary) // 色を変えて目立たせる
-      .setEmoji("🏭")
+      .setEmoji("🏭"),
+    new ButtonBuilder()
+      .setCustomId("idle_show_iu_upgrades") // 新しいID
+      .setLabel("アップグレード")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("💡")
   );
   components.push(utilityRow);
+
+  return components;
+}
+
+/**
+ * 【新規】インフィニティアップグレード画面のEmbedを生成する
+ * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @returns {EmbedBuilder}
+ */
+function generateInfinityUpgradesEmbed(idleGame) {
+  const ip_d = new Decimal(idleGame.infinityPoints);
+  const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
+
+  // --- 購入済みのアップグレード一覧を作成 ---
+  const purchasedList =
+    config.idle.infinityUpgrades.tiers
+      .flatMap((tier) => Object.entries(tier.upgrades)) // 全てのアップグレードを平坦化
+      .filter(([id]) => purchasedUpgrades.has(id)) // 購入済みのものだけフィルタ
+      .map(([id, config]) => `✅ ${config.name}`)
+      .join("\n") || "まだありません";
+
+  const embed = new EmbedBuilder()
+    .setTitle("🌌 インフィニティアップグレード 🌌")
+    .setColor("Aqua")
+    .setDescription(
+      `IP: **${formatNumberDynamic_Decimal(ip_d)}**\n\n**【取得済み】**\n${purchasedList}`
+    );
+
+  // --- 表示すべきTierを決定するロジック ---
+  let displayTier = null;
+  for (const tier of config.idle.infinityUpgrades.tiers) {
+    const tierUpgradeIds = Object.keys(tier.upgrades);
+    const isTierComplete = tierUpgradeIds.every((id) =>
+      purchasedUpgrades.has(id)
+    );
+    if (!isTierComplete) {
+      displayTier = tier;
+      break; // 未完了のTierが見つかったら、それを表示対象とする
+    }
+  }
+  // 全て完了していたら、最後のTierを表示する
+  if (!displayTier) {
+    displayTier = config.idle.infinityUpgrades.tiers.at(-1);
+  }
+
+  // --- 購入可能なアップグレードをFieldとして追加 ---
+  embed.addFields({
+    name: `\n--- Tier ${displayTier.id} ---`,
+    value: "\u200B",
+  });
+
+  for (const [id, upgradeConfig] of Object.entries(displayTier.upgrades)) {
+    const status = purchasedUpgrades.has(id)
+      ? "✅ 購入済み"
+      : `**${upgradeConfig.cost} IP**`;
+    embed.addFields({
+      name: `${upgradeConfig.name} [${status}]`,
+      value: upgradeConfig.description,
+      inline: false,
+    });
+  }
+
+  return embed;
+}
+
+/**
+ * 【新規】インフィニティアップグレード画面のボタンを生成する
+ * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @returns {ActionRowBuilder[]}
+ */
+function generateInfinityUpgradesButtons(idleGame) {
+  const components = [];
+  const ip_d = new Decimal(idleGame.infinityPoints);
+  const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
+
+  // Embed生成時と同じロジックで表示Tierを決定
+  let displayTier = null;
+  // ... (generateInfinityUpgradesEmbedと同じTier決定ロジックをここにコピー) ...
+  for (const tier of config.idle.infinityUpgrades.tiers) {
+    const tierUpgradeIds = Object.keys(tier.upgrades);
+    const isTierComplete = tierUpgradeIds.every((id) =>
+      purchasedUpgrades.has(id)
+    );
+    if (!isTierComplete) {
+      displayTier = tier;
+      break;
+    }
+  }
+  if (!displayTier) {
+    displayTier = config.idle.infinityUpgrades.tiers.at(-1);
+  }
+
+  // --- 購入ボタンの行を作成 ---
+  const purchaseRow = new ActionRowBuilder();
+  for (const [id, upgradeConfig] of Object.entries(displayTier.upgrades)) {
+    purchaseRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`idle_iu_purchase_${id}`)
+        .setLabel(`「${upgradeConfig.name}」購入`)
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(purchasedUpgrades.has(id) || ip_d.lt(upgradeConfig.cost))
+    );
+  }
+  if (purchaseRow.components.length > 0) components.push(purchaseRow);
+
+  // --- ナビゲーションボタンの行を作成 ---
+  const navigationRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_show_factory")
+      .setLabel("工場画面へ")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🏭"),
+    new ButtonBuilder()
+      .setCustomId("idle_show_infinity")
+      .setLabel("ジェネレーター画面へ")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🌌")
+  );
+  components.push(navigationRow);
 
   return components;
 }

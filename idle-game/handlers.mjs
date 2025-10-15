@@ -53,6 +53,7 @@ export async function handleSettings(interaction) {
   const currentSettings = idleGame.settings || {
     skipPrestigeConfirmation: false,
     skipSkillResetConfirmation: false,
+    autoAssignTpEnabled: false,
   };
 
   // 2. 現在の設定から、セレクトメニューのどの値が選択されているべきかを判断
@@ -67,7 +68,6 @@ export async function handleSettings(interaction) {
   } else if (currentSettings.skipSkillResetConfirmation) {
     defaultValue = "reset_only";
   }
-
   // 3. モーダルを構築
   const modal = new ModalBuilder()
     .setCustomId("idle_settings_modal") // 固有名詞のID
@@ -101,8 +101,29 @@ export async function handleSettings(interaction) {
                 .setDefault(defaultValue === "none")
             )
         )
+    )
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("IU12「自動調理器」の効果")
+        .setDescription(
+          "プレステージ時のTP自動割り振りを有効にするか選択します。"
+        )
+        .setStringSelectMenuComponent(
+          new StringSelectMenuBuilder()
+            .setCustomId("auto_tp_assign_select") // 新しいID
+            .setPlaceholder("設定を選択...")
+            .addOptions(
+              new StringSelectMenuOptionBuilder()
+                .setLabel("有効 (ON)")
+                .setValue("on")
+                .setDefault(currentSettings.autoAssignTpEnabled), // 現在の設定を反映
+              new StringSelectMenuOptionBuilder()
+                .setLabel("無効 (OFF)")
+                .setValue("off")
+                .setDefault(!currentSettings.autoAssignTpEnabled) // 現在の設定を反映
+            )
+        )
     );
-
   // 5. モーダルを表示
   await interaction.showModal(modal);
 
@@ -116,6 +137,7 @@ export async function handleSettings(interaction) {
       const selectedValue = submitted.fields.getStringSelectValues(
         "skip_confirmation_select"
       )[0];
+      const autoAssignChoice = submitted.fields.getStringSelectValues("auto_tp_assign_select")[0];
 
       const newSettings = { ...currentSettings }; // 現在の設定をコピー
 
@@ -138,7 +160,11 @@ export async function handleSettings(interaction) {
           newSettings.skipSkillResetConfirmation = false;
           break;
       }
-
+      if (autoAssignChoice === 'on') {
+        newSettings.autoAssignTpEnabled = true;
+      } else if (autoAssignChoice === 'off') {
+        newSettings.autoAssignTpEnabled = false;
+      }
       // 8. データベースを更新
       await IdleGame.update({ settings: newSettings }, { where: { userId } });
 
@@ -540,32 +566,39 @@ async function executePrestigeTransaction(userId, client) {
       // IU12「自動調理器」の処理
       if (
         latestIdleGame.ipUpgrades.upgrades.includes("IU12") &&
-        latestIdleGame.transcendencePoints > 0
+        latestIdleGame.transcendencePoints > 0 &&
+        latestIdleGame.settings?.autoAssignTpEnabled === true 
       ) {
         autoAssignTP(latestIdleGame); // オブジェクトが直接変更される
       }
 
-      await latestIdleGame.update(
-        {
-          population: "0",
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          oliveFarmLevel: 0,
-          wheatFarmLevel: 0,
-          pineappleFarmLevel: 0,
-          prestigeCount: latestIdleGame.prestigeCount + 1,
-          prestigePower: newPrestigePower,
-          skillPoints: newSkillPoints,
-          highestPopulation: currentPopulation_d.toString(),
-          transcendencePoints: latestIdleGame.transcendencePoints, //既に足してるのでここだけ
-          lastUpdatedAt: new Date(),
-          challenges,
-        },
-        { transaction: t }
-      );
+      // 3. DBに書き込むための「設計図」を作成
+      let updateData = {
+        population: "0",
+        pizzaOvenLevel: 0,
+        cheeseFactoryLevel: 0,
+        tomatoFarmLevel: 0,
+        mushroomFarmLevel: 0,
+        anchovyFactoryLevel: 0,
+        oliveFarmLevel: 0,
+        wheatFarmLevel: 0,
+        pineappleFarmLevel: 0,
+        prestigeCount: latestIdleGame.prestigeCount + 1,
+        prestigePower: newPrestigePower,
+        skillPoints: newSkillPoints,
+        highestPopulation: currentPopulation_d.toString(),
+        transcendencePoints: latestIdleGame.transcendencePoints,
+        lastUpdatedAt: new Date(),
+        challenges: latestIdleGame.challenges,
+      };
+
+      // 4. IU11「ゴーストチップ」の処理
+      if (latestIdleGame.ipUpgrades.upgrades.includes("IU11")) {
+        updateData = await applyGhostChipBonus(updateData, userId);
+      }
+
+      // 5. 最終的な設計図でDBを更新
+      await latestIdleGame.update(updateData, { transaction: t });
 
       // プレステージ実績
       // ★修正: interaction.client -> client, interaction.user.id -> userId
@@ -587,28 +620,36 @@ async function executePrestigeTransaction(userId, client) {
       // IU12「自動調理器」の処理
       if (
         latestIdleGame.ipUpgrades.upgrades.includes("IU12") &&
-        latestIdleGame.transcendencePoints > 0
+        latestIdleGame.transcendencePoints > 0 &&
+        latestIdleGame.settings?.autoAssignTpEnabled === true 
       ) {
         autoAssignTP(latestIdleGame); // オブジェクトが直接変更される
       }
 
-      await latestIdleGame.update(
-        {
-          population: "0",
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          oliveFarmLevel: 0,
-          wheatFarmLevel: 0,
-          pineappleFarmLevel: 0,
-          transcendencePoints: latestIdleGame.transcendencePoints, //既に足している
-          lastUpdatedAt: new Date(),
-          challenges,
-        },
-        { transaction: t }
-      );
+      // 3. DBに書き込むための「設計図」を作成
+      let updateData = {
+        population: "0",
+        pizzaOvenLevel: 0,
+        cheeseFactoryLevel: 0,
+        tomatoFarmLevel: 0,
+        mushroomFarmLevel: 0,
+        anchovyFactoryLevel: 0,
+        oliveFarmLevel: 0,
+        wheatFarmLevel: 0,
+        pineappleFarmLevel: 0,
+        transcendencePoints: latestIdleGame.transcendencePoints,
+        lastUpdatedAt: new Date(),
+        challenges: latestIdleGame.challenges,
+      };
+
+      // 4. IU11「ゴーストチップ」の処理
+      if (latestIdleGame.ipUpgrades.upgrades.includes("IU11")) {
+        updateData = await applyGhostChipBonus(updateData, userId);
+      }
+
+      // 5. 最終的な設計図でDBを更新
+      await latestIdleGame.update(updateData, { transaction: t });
+
       prestigeResult = {
         type: "TP_ONLY",
         population_d: currentPopulation_d,
@@ -1357,8 +1398,18 @@ export async function handleInfinityUpgradePurchase(interaction, upgradeId) {
     });
     if (!latestIdleGame) throw new Error("ユーザーデータが見つかりません。");
 
+    if (!latestIdleGame.ipUpgrades.upgrades) {
+      latestIdleGame.ipUpgrades.upgrades = [];
+    }
+
     // 設定ファイルからアップグレード情報を取得
-    const upgradeConfig = config.idle.infinityUpgrades[upgradeId];
+    let upgradeConfig = null;
+    for (const tier of config.idle.infinityUpgrades.tiers) {
+      if (tier.upgrades[upgradeId]) {
+        upgradeConfig = tier.upgrades[upgradeId];
+        break; // 見つかったらループを抜ける
+      }
+    }
     if (!upgradeConfig) throw new Error("存在しないアップグレードです。");
 
     // 既に購入済みかチェック
@@ -1527,18 +1578,21 @@ function autoAssignTP(idleGame) {
  */
 async function applyGhostChipBonus(idleGameState, userId) {
   // UserAchievementは別途取得が必要
-  const userAchievement = await UserAchievement.findOne({ where: { userId }, raw: true });
+  const userAchievement = await UserAchievement.findOne({
+    where: { userId },
+    raw: true,
+  });
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
 
   const budget = 5000;
 
   // simulatePurchasesを呼び出して購入プランを得る
   const { purchases } = simulatePurchases(idleGameState, budget, unlockedSet);
-  
+
   // 購入結果をidleGameStateオブジェクトに直接反映させる
   for (const [facilityName, count] of purchases.entries()) {
-      const levelKey = config.idle.factories[facilityName].key;
-      idleGameState[levelKey] += count;
+    const levelKey = config.idle.factories[facilityName].key;
+    idleGameState[levelKey] += count;
   }
 
   return idleGameState; // 変更が適用されたオブジェクトを返す
