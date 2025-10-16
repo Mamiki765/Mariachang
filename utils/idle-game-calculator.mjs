@@ -858,3 +858,38 @@ export function calculateTPSkillCost(skillNum, currentLevel) {
   if (!skillConfig) return Infinity;
   return skillConfig.baseCost * Math.pow(skillConfig.costMultiplier, currentLevel);
 }
+
+/**
+ * 【改訂版】ゴーストチップのレベルに応じた予算を計算する
+ */
+export function calculateGhostChipBudget(level) {
+  // ▼▼▼ この関数をシンプルにする ▼▼▼
+  const effectiveLevel = level || 0; // undefinedなら0として扱う
+  const budgetPerLevel = config.idle.ghostChip.budgetPerLevel;
+  return effectiveLevel * budgetPerLevel; // レベル0なら予算0、レベル1なら予算5000
+}
+
+/**
+ * 【最終改訂版】ゴーストチップの次のレベルへのアップグレードコストを計算する
+ */
+export function calculateGhostChipUpgradeCost(level) {
+  const currentLevel = level || 0;
+  
+  // レベル0から1への強化は、既存ユーザーへの救済として無料にする
+  if (currentLevel === 0) {
+    return 0;
+  }
+  // ▲▲▲ 安全策ここまで ▲▲▲
+
+  // レベル1以上の場合は、通常のコスト計算を行う
+  const ghostConfig = config.idle.ghostChip;
+  const budgetPerLevel = ghostConfig.budgetPerLevel;
+  const costConfig = ghostConfig.cost;
+
+  // ★あなたの最初の案「currentLevel - 1」はここで活かすのが最適です！
+  // レベル1の時、比例倍率は0に。レベル2の時、比例倍率は1倍になる。
+  const linearCost = budgetPerLevel * (costConfig.baseMultiplier + costConfig.levelMultiplier * (currentLevel - 1));
+  const cap = budgetPerLevel * costConfig.capMultiplier;
+  
+  return Math.min(linearCost, cap);
+}

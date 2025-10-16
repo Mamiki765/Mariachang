@@ -778,22 +778,54 @@ export default {
           // Tier 1
           id: 1,
           upgrades: {
-            IU11: { name: "ゴーストチップ Lv1", cost: 0, description: "プレステージの度に5000チップを得る。それは得た範囲で工場を自動強化し、余ったチップは消滅する" },
-            IU12: { name: "自動調理器", cost: 1, description: "プレステージ時にTPを自動で割り振る。" },
-            IU13: { name: "肉干しレンガ(未実装)", cost: 1, description: "精肉工場の指数に+0.05を加算する。" },
-            IU14: { name: "業務用品の購入(未実装)", cost: 1, description: "工場とアセンションが10%割引" },
+            IU11: {
+              name: "ゴーストチップ",
+              cost: 0,
+              description:
+                "プレステージの度にIU11のレベルに応じた幻のチップを得る。それは得た範囲で工場を自動強化し、残りは消滅する",
+            },
+            IU12: {
+              name: "自動調理器",
+              cost: 1,
+              description: "プレステージ時にTPを自動で割り振る。",
+            },
+            IU13: {
+              name: "肉干しレンガ(未実装)",
+              cost: 1,
+              description: "精肉工場の指数に+0.05を加算する。",
+            },
+            IU14: {
+              name: "業務用品の購入(未実装)",
+              cost: 1,
+              description: "工場とアセンションが10%割引",
+            },
           },
         },
         {
           // Tier 2
           id: 2,
           upgrades: {
-            IU21: { name: "パインパワー(未実装)", cost: 3, description: "PP獲得量が10%増加する。" },
+            IU21: {
+              name: "パインパワー(未実装)",
+              cost: 3,
+              description: "PP獲得量が10%増加する。",
+            },
             // 将来ここに IU22, IU23 などを追加していく
           },
         },
         // Tier 3, 4 ... と将来追加できる
       ],
+    },
+    ghostChip: {
+      // 予算計算式: budgetPerLevel * Lv
+      budgetPerLevel: 5000,
+      levelCap: 200,
+      // コスト計算式: min(budgetPerLevel * (base + level * perLevel), budgetPerLevel * cap)
+      cost: {
+        baseMultiplier: 100, // スタート時の倍率
+        levelMultiplier: 100, // 1レベルごとに加算される倍率
+        capMultiplier: 1000, // 上限の倍率
+      },
     },
     //constants\achievements.mjsにお引越し
     achievements: achievements,

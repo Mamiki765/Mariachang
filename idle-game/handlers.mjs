@@ -20,6 +20,8 @@ import {
   calculateAscensionRequirements,
   calculateGeneratorCost,
   calculateTPSkillCost,
+  calculateGhostChipBudget,
+  calculateGhostChipUpgradeCost,
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -139,7 +141,9 @@ export async function handleSettings(interaction) {
       const selectedValue = submitted.fields.getStringSelectValues(
         "skip_confirmation_select"
       )[0];
-      const autoAssignChoice = submitted.fields.getStringSelectValues("auto_tp_assign_select")[0];
+      const autoAssignChoice = submitted.fields.getStringSelectValues(
+        "auto_tp_assign_select"
+      )[0];
 
       const newSettings = { ...currentSettings }; // 現在の設定をコピー
 
@@ -162,9 +166,9 @@ export async function handleSettings(interaction) {
           newSettings.skipSkillResetConfirmation = false;
           break;
       }
-      if (autoAssignChoice === 'on') {
+      if (autoAssignChoice === "on") {
         newSettings.autoAssignTpEnabled = true;
-      } else if (autoAssignChoice === 'off') {
+      } else if (autoAssignChoice === "off") {
         newSettings.autoAssignTpEnabled = false;
       }
       // 8. データベースを更新
@@ -569,7 +573,7 @@ async function executePrestigeTransaction(userId, client) {
       if (
         latestIdleGame.ipUpgrades.upgrades.includes("IU12") &&
         latestIdleGame.transcendencePoints > 0 &&
-        latestIdleGame.settings?.autoAssignTpEnabled === true 
+        latestIdleGame.settings?.autoAssignTpEnabled === true
       ) {
         autoAssignTP(latestIdleGame); // オブジェクトが直接変更される
       }
@@ -596,7 +600,13 @@ async function executePrestigeTransaction(userId, client) {
 
       // 4. IU11「ゴーストチップ」の処理
       if (latestIdleGame.ipUpgrades.upgrades.includes("IU11")) {
-        updateData = await applyGhostChipBonus(updateData, userId);
+        const currentGhostLevel =
+          latestIdleGame.ipUpgrades?.ghostChipLevel || 0;
+        updateData = await applyGhostChipBonus(
+          updateData,
+          userId,
+          currentGhostLevel
+        );
       }
 
       // 5. 最終的な設計図でDBを更新
@@ -623,7 +633,7 @@ async function executePrestigeTransaction(userId, client) {
       if (
         latestIdleGame.ipUpgrades.upgrades.includes("IU12") &&
         latestIdleGame.transcendencePoints > 0 &&
-        latestIdleGame.settings?.autoAssignTpEnabled === true 
+        latestIdleGame.settings?.autoAssignTpEnabled === true
       ) {
         autoAssignTP(latestIdleGame); // オブジェクトが直接変更される
       }
@@ -646,7 +656,13 @@ async function executePrestigeTransaction(userId, client) {
 
       // 4. IU11「ゴーストチップ」の処理
       if (latestIdleGame.ipUpgrades.upgrades.includes("IU11")) {
-        updateData = await applyGhostChipBonus(updateData, userId);
+        const currentGhostLevel =
+          latestIdleGame.ipUpgrades?.ghostChipLevel || 0;
+        updateData = await applyGhostChipBonus(
+          updateData,
+          userId,
+          currentGhostLevel
+        );
       }
 
       // 5. 最終的な設計図でDBを更新
@@ -1439,6 +1455,16 @@ export async function handleInfinityUpgradePurchase(interaction, upgradeId) {
     // IPを減算し、購入済みリストに追加
     latestIdleGame.infinityPoints = currentIp_d.minus(cost_d).toString();
     latestIdleGame.ipUpgrades.upgrades.push(upgradeId);
+    //IU11はLv1を入れる
+    if (upgradeId === "IU11") {
+      if (latestIdleGame.ipUpgrades.ghostChipLevel === undefined) {
+        latestIdleGame.ipUpgrades.ghostChipLevel = 0; // 安全策としてまず初期化
+      }
+      // 既にレベルがある場合は何もしないが、初回購入時は必ず1にする
+      if (latestIdleGame.ipUpgrades.ghostChipLevel < 1) {
+        latestIdleGame.ipUpgrades.ghostChipLevel = 1;
+      }
+    }
     latestIdleGame.changed("ipUpgrades", true); // JSONBの変更を通知
 
     await latestIdleGame.save({ transaction: t });
@@ -1455,6 +1481,69 @@ export async function handleInfinityUpgradePurchase(interaction, upgradeId) {
     await interaction.followUp({
       content: "❌ 購入中にエラーが発生しました。",
       ephemeral: true,
+    });
+    return false;
+  }
+}
+
+/**
+ * 【新規】ゴーストチップを強化する処理
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @returns {Promise<boolean>}
+ */
+export async function handleGhostChipUpgrade(interaction) {
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction();
+  try {
+    const [latestIdleGame, latestPoint] = await Promise.all([
+      IdleGame.findOne({
+        where: { userId },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      }),
+      Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
+    ]);
+
+    if (!latestIdleGame || !latestPoint)
+      throw new Error("ユーザーデータが見つかりません。");
+
+    // 安全策：ipUpgradesにghostChipLevelキーがなければ初期化
+    if (latestIdleGame.ipUpgrades.ghostChipLevel === undefined) {
+      latestIdleGame.ipUpgrades.ghostChipLevel = 0;
+    }
+
+    const currentLevel = latestIdleGame.ipUpgrades.ghostChipLevel;
+    const cost = calculateGhostChipUpgradeCost(currentLevel);
+
+    if (latestPoint.legacy_pizza < cost) {
+      await t.rollback();
+      await interaction.followUp({
+        content: "チップが足りません！",
+        flags: 64,
+      });
+      return false;
+    }
+
+    // チップを消費し、レベルを上げる
+    await latestPoint.decrement("legacy_pizza", { by: cost, transaction: t });
+    latestIdleGame.ipUpgrades.ghostChipLevel++;
+    latestIdleGame.changed("ipUpgrades", true); // JSONBの変更を通知
+
+    await latestIdleGame.save({ transaction: t });
+    // Pointの変更はdecrementで完了しているのでsaveは不要
+
+    await t.commit();
+    await interaction.followUp({
+      content: `✅ **ゴーストチップ**が **Lv.${currentLevel + 1}** になりました！`,
+      flags: 64,
+    });
+    return true;
+  } catch (error) {
+    await t.rollback();
+    console.error("Ghost Chip Upgrade Error:", error);
+    await interaction.followUp({
+      content: `❌ 強化中にエラーが発生しました。`,
+      flags: 64,
     });
     return false;
   }
@@ -1578,24 +1667,21 @@ function autoAssignTP(idleGame) {
  * @param {string} userId - ユーザーID
  * @returns {Promise<object>} ゴーストチップによる購入が適用された後のIdleGameオブジェクト
  */
-async function applyGhostChipBonus(idleGameState, userId) {
-  // UserAchievementは別途取得が必要
+async function applyGhostChipBonus(idleGameState, userId, ghostLevel = 1) {
   const userAchievement = await UserAchievement.findOne({
     where: { userId },
     raw: true,
   });
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
 
-  const budget = 5000;
+  // 新しい計算関数を呼び出す
+  const budget = calculateGhostChipBudget(ghostLevel);
 
-  // simulatePurchasesを呼び出して購入プランを得る
   const { purchases } = simulatePurchases(idleGameState, budget, unlockedSet);
 
-  // 購入結果をidleGameStateオブジェクトに直接反映させる
   for (const [facilityName, count] of purchases.entries()) {
     const levelKey = config.idle.factories[facilityName].key;
     idleGameState[levelKey] += count;
   }
-
-  return idleGameState; // 変更が適用されたオブジェクトを返す
+  return idleGameState;
 }

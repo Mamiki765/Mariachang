@@ -25,6 +25,7 @@ import {
   handleGeneratorPurchase,
   handleSettings,
   handleInfinityUpgradePurchase,
+  handleGhostChipUpgrade,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
@@ -37,6 +38,8 @@ import {
   getSingleUserUIData,
   formatInfinityTime,
   calculateAscensionRequirements,
+  calculateGhostChipBudget,
+  calculateGhostChipUpgradeCost,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -1032,6 +1035,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         // ◀◀◀ 追加
         const upgradeId = i.customId.substring("idle_iu_purchase_".length);
         success = await handleInfinityUpgradePurchase(i, upgradeId);
+      } else if (i.customId === "idle_iu_upgrade_ghostchip") {
+        success = await handleGhostChipUpgrade(i);
       }
 
       // --- 3. 処理が成功した場合にのみ、UIを更新する ---
@@ -1077,8 +1082,16 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           case "infinity_upgrades":
             replyOptions = {
               content: " ",
-              embeds: [generateInfinityUpgradesEmbed(uiData.idleGame)],
-              components: generateInfinityUpgradesButtons(uiData.idleGame),
+              embeds: [
+                generateInfinityUpgradesEmbed(
+                  newUiData.idleGame,
+                  newUiData.point
+                ),
+              ],
+              components: generateInfinityUpgradesButtons(
+                newUiData.idleGame,
+                newUiData.point
+              ),
             };
             break;
           case "factory":
@@ -1740,15 +1753,15 @@ function generateInfinityButtons(idleGame) {
  * @param {object} idleGame - IdleGameモデルのインスタンス
  * @returns {EmbedBuilder}
  */
-function generateInfinityUpgradesEmbed(idleGame) {
+function generateInfinityUpgradesEmbed(idleGame, point) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
 
-  // --- 購入済みのアップグレード一覧を作成 ---
+  // 【取得済み】リストの作成 (変更なし)
   const purchasedList =
     config.idle.infinityUpgrades.tiers
-      .flatMap((tier) => Object.entries(tier.upgrades)) // 全てのアップグレードを平坦化
-      .filter(([id]) => purchasedUpgrades.has(id)) // 購入済みのものだけフィルタ
+      .flatMap((tier) => Object.entries(tier.upgrades))
+      .filter(([id]) => purchasedUpgrades.has(id))
       .map(([id, config]) => `✅ ${config.name}`)
       .join("\n") || "まだありません";
 
@@ -1756,8 +1769,17 @@ function generateInfinityUpgradesEmbed(idleGame) {
     .setTitle("🌌 インフィニティアップグレード 🌌")
     .setColor("Aqua")
     .setDescription(
-      `IP: **${formatNumberDynamic_Decimal(ip_d)}**\n\n**【取得済み】**\n${purchasedList}`
+      `IP: **${formatNumberDynamic_Decimal(ip_d)}** | ${config.casino.currencies.legacy_pizza.emoji}: **${Math.floor(point.legacy_pizza).toLocaleString()}枚**\n\n**【取得済み】**\n${purchasedList}`
     );
+
+  if (purchasedUpgrades.has("IU11")) {
+    const currentLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
+    const budget = calculateGhostChipBudget(currentLevel);
+    embed.addFields({
+      name: `\n--- ${config.idle.infinityUpgrades.tiers[0].upgrades.IU11.name} ---`, // Configから名前を取得
+      value: `プレステージの度に幻のチップを得て工場を自動強化します。\n**現在Lv.${currentLevel} | 次回リセット時の予算: ${budget.toLocaleString()}©**`,
+    });
+  }
 
   // --- 表示すべきTierを決定するロジック ---
   let displayTier = null;
@@ -1782,6 +1804,7 @@ function generateInfinityUpgradesEmbed(idleGame) {
     value: "\u200B",
   });
 
+  // forループの中から、IU11に関する特別処理を削除するだけでOK
   for (const [id, upgradeConfig] of Object.entries(displayTier.upgrades)) {
     const status = purchasedUpgrades.has(id)
       ? "✅ 購入済み"
@@ -1801,7 +1824,7 @@ function generateInfinityUpgradesEmbed(idleGame) {
  * @param {object} idleGame - IdleGameモデルのインスタンス
  * @returns {ActionRowBuilder[]}
  */
-function generateInfinityUpgradesButtons(idleGame) {
+function generateInfinityUpgradesButtons(idleGame, point) {
   const components = [];
   const ip_d = new Decimal(idleGame.infinityPoints);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
@@ -1824,6 +1847,26 @@ function generateInfinityUpgradesButtons(idleGame) {
   }
 
   // --- 購入ボタンの行を作成 ---
+  // ゴーストチップ
+  if (purchasedUpgrades.has("IU11")) {
+    const ghostChipRow = new ActionRowBuilder();
+    const currentLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
+    const cost = calculateGhostChipUpgradeCost(currentLevel);
+
+    ghostChipRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("idle_iu_upgrade_ghostchip") // 新しい固有名詞ID
+        .setLabel(
+          `ゴーストチップ強化(Lv.${currentLevel} -> ${currentLevel + 1})  ${cost.toLocaleString()}©`
+        )
+        .setStyle(ButtonStyle.Primary) // IP購入ボタン(Success)と区別
+        .setEmoji(config.casino.currencies.legacy_pizza.emoji)
+        .setDisabled(point.legacy_pizza < cost)
+    );
+    // 強化ボタンの行をcomponents配列の先頭に追加
+    components.unshift(ghostChipRow);
+  }
+  //IP
   const purchaseRow = new ActionRowBuilder();
   for (const [id, upgradeConfig] of Object.entries(displayTier.upgrades)) {
     purchaseRow.addComponents(
