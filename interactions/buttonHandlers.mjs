@@ -330,9 +330,9 @@ export default async function handleButtonInteraction(interaction) {
 
       let mee6MessagePart = "";
       if (mee6Info) {
-        const levelBonus = mee6Info.level * 10;
+        const levelBonus = mee6Info.level * pizzaConfig.bounsPerMee6Level;
         const xpProgress = mee6Info.xpInLevel / mee6Info.xpForNextLevel;
-        const xpBonus = Math.floor(xpProgress * 10); // 10%ごとに1枚 -> 進捗率(0-1) * 10
+        const xpBonus = Math.floor(xpProgress * pizzaConfig.bounsPerMee6Level); // 10%ごとに1枚 -> 進捗率(0-1) * 10
         mee6Bonus = levelBonus + xpBonus;
 
         const xpPercentage = Math.floor(xpProgress * 100);
