@@ -150,7 +150,7 @@ export const data = new SlashCommandBuilder()
             .setName("legacy_pizza")
             .setDescription("ニョボチップを賭けます（最大10,000枚）")
             .setMinValue(1)
-            .setMaxValue(10000) // ニョボチップの最大ベット額
+            .setMaxValue(100000000) // ニョボチップの最大ベット額
       )
   )
   .addSubcommand((subcommand) =>
