@@ -801,14 +801,15 @@ export default {
               description: "プレステージ時にTPを自動で割り振る。",
             },
             IU13: {
-              name: "肉干しレンガ(未実装)",
+              name: "肉干しレンガ",
               cost: 1,
-              description: "精肉工場の指数に+0.05を加算する。",
+              description: "精肉工場の指数に+0.05を加算する。(ソフトキャップ後)",
             },
             IU14: {
-              name: "業務用品の購入(未実装)",
+              name: "業務用品の購入",
               cost: 1,
               description: "工場とアセンションが10%割引",
+              discount: 0.1,
             },
           },
         },
@@ -817,9 +818,10 @@ export default {
           id: 2,
           upgrades: {
             IU21: {
-              name: "パインパワー(未実装)",
+              name: "パインパワー",
               cost: 3,
               description: "PP獲得量が10%増加する。",
+              bonus: 0.1, // 10%
             },
             // 将来ここに IU22, IU23 などを追加していく
           },

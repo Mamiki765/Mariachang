@@ -704,10 +704,15 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         );
       }
       //アセンションは9個目みたいなノリで入る
+      const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
       // アセンションの要件を計算する
       const ascensionCount = idleGame.ascensionCount || 0;
       const { requiredPopulation_d, requiredChips } =
-        calculateAscensionRequirements(ascensionCount, idleGame.skillLevel6);
+        calculateAscensionRequirements(
+          ascensionCount,
+          idleGame.skillLevel6,
+          purchasedIUs
+        );
       // アセンションボタンを表示する条件を定義
       // 1. 人口が要件を満たしている
       // 2. チップが要件を満たしている
@@ -762,7 +767,16 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         population_d.gte(config.idle.prestige.unlockPopulation)
       ) {
         // --- ケース1: PP/SP/(e16でTP)が手に入る通常のプレステージ ---
-        const newPrestigePower = population_d.log10();
+        // 1. purchasedIUsを準備（アセンションコスト計算から流用、またはここで再度定義）
+        const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
+        // 2. 基本となるPPを計算し、変数をletに変更
+        let newPrestigePower = population_d.log10();
+        // 3. IU21を所持しているかチェックし、ボーナスを乗算
+        if (purchasedIUs.has("IU21")) {
+          const bonus =
+            config.idle.infinityUpgrades.tiers[1].upgrades.IU21.bonus;
+          newPrestigePower *= 1 + bonus;
+        }
         const powerGain = newPrestigePower - idleGame.prestigePower;
         let prestigeButtonLabel;
         if (idleGame.prestigeCount === 0) {
@@ -906,7 +920,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       case "infinity":
         replyOptions = {
           content:
-            "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
+            "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。",
           embeds: [generateInfinityEmbed(uiData.idleGame)],
           components: generateInfinityButtons(uiData.idleGame),
         };
@@ -978,7 +992,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       if (i.customId === "idle_show_infinity") {
         await interaction.editReply({
           content:
-            "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。\n（インフィニティスキルは未実装です）",
+            "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。",
           embeds: [generateInfinityEmbed(latestIdleGame)],
           components: generateInfinityButtons(latestIdleGame),
         });
@@ -1206,7 +1220,7 @@ async function executeRankingCommand(interaction, isPrivate) {
           : "";
 
         return {
-          name: `**${rank}位**`,
+          name: `**${rank}位**${displayName}`,
           value: `└ ${ipText}<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)} 匹`,
           inline: false,
         };

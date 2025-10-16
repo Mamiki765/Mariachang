@@ -75,30 +75,49 @@ export function calculateFactoryEffects(idleGame, pp, unlockedSet = new Set()) {
 }
 
 /**
- * 施設のアップグレードコストを計算する (Decimal版)
+ * 【修正版】施設のアップグレードコストを計算する (numberを返す)
  * @param {string} type
  * @param {number} level
  * @param {number} skillLevel6 - TPスキル#6のレベル
+ * @param {Set<string>} purchasedIUs - 購入済みのIU IDのSet
  * @returns {number}
  */
-export function calculateFacilityCost(type, level, skillLevel6 = 0) {
+export function calculateFacilityCost(
+  type,
+  level,
+  skillLevel6 = 0,
+  purchasedIUs = new Set()
+) {
   const facility = config.idle.factories[type];
   if (!facility) return Infinity;
 
-  // 1. 計算に使う数値をDecimalオブジェクトに変換
+  // --- 計算は内部的にDecimalで行うのが巨大数に対して最も安全 ---
   const baseCost_d = new Decimal(facility.baseCost);
   const multiplier_d = new Decimal(facility.multiplier);
   const discountMultiplier_d = new Decimal(
     calculateDiscountMultiplier(skillLevel6)
   );
 
-  // 2. 全ての計算をDecimalメソッドで行う
-  const finalCost_d = baseCost_d
-    .times(multiplier_d.pow(level)) // .times() は * (乗算), .pow() はべき乗
-    .times(discountMultiplier_d);
+  let finalDiscountMultiplier_d = discountMultiplier_d;
 
-  // 3. 最終結果を通常の数値に戻して返す (コストがe308を超えることはないので安全)
-  return finalCost_d.floor().toNumber(); // .floor()で小数点以下を切り捨て、.toNumber()で数値に変換
+  if (purchasedIUs.has("IU14")) {
+    const iu14Discount =
+      config.idle.infinityUpgrades.tiers[0].upgrades.IU14.discount;
+    finalDiscountMultiplier_d = finalDiscountMultiplier_d.times(
+      1 - iu14Discount
+    );
+  }
+
+  const finalCost_d = baseCost_d
+    .times(multiplier_d.pow(level))
+    .times(finalDiscountMultiplier_d);
+
+  // --- 最終結果をnumberとして返す ---
+  // コストが安全な範囲を超えたらInfinityを返すのが最も安全な挙動
+  if (finalCost_d.gte(Number.MAX_VALUE)) {
+    return Infinity;
+  }
+  return finalCost_d.floor().toNumber();
 }
 
 /**
@@ -109,7 +128,7 @@ export function calculateFacilityCost(type, level, skillLevel6 = 0) {
 export function calculateAllCosts(idleGame) {
   const costs = {};
   const skillLevel6 = idleGame.skillLevel6 || 0;
-
+  const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
   // config.idle.factories をループで処理
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
     // configからDBカラム名を取得
@@ -118,7 +137,12 @@ export function calculateAllCosts(idleGame) {
     const currentLevel = idleGame[levelKey] || 0;
 
     // 計算したコストを costs オブジェクトに格納
-    costs[name] = calculateFacilityCost(name, currentLevel, skillLevel6);
+    costs[name] = calculateFacilityCost(
+      name,
+      currentLevel,
+      skillLevel6,
+      purchasedIUs
+    );
   }
 
   return costs;
@@ -400,7 +424,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     //infinityを超えたら
     // ジェネレーターIIの購入数をチェック
     const gen2Bought = idleGameData.ipUpgrades?.generators?.[1]?.bought || 0;
-    if (gen2Bought === 0) { //0ならInfinity is not broken.
+    if (gen2Bought === 0) {
+      //0ならInfinity is not broken.
       population_d = INFINITY_THRESHOLD;
     }
     //1以上ならBreak Infinity
@@ -720,11 +745,13 @@ function calculateAchievement66Bonus(idleGameData, unlockedSet) {
  * アセンションの要件（必要人口、必要チップ）を計算する
  * @param {number} currentAscensionCount - 現在のアセンション回数 (0から始まる)
  * @param {number} skillLevel6 - TPスキル#6のレベル
+ * @param {Set<string>} purchasedIUs - 購入済みのIU IDのSet
  * @returns {{requiredPopulation_d: Decimal, requiredChips: number}}
  */
 export function calculateAscensionRequirements(
   currentAscensionCount,
-  skillLevel6 = 0
+  skillLevel6 = 0,
+  purchasedIUs = new Set() //もらって…
 ) {
   const ascensionConfig = config.idle.ascension;
 
@@ -744,7 +771,8 @@ export function calculateAscensionRequirements(
     totalChipCost += calculateFacilityCost(
       facilityName,
       targetLevel,
-      skillLevel6
+      skillLevel6,
+      purchasedIUs //そのままIU14用に流す！
     );
   }
 
@@ -826,7 +854,6 @@ export function calculateGainedIP(idleGame) {
   return baseIP.floor();
 }
 
-
 /**
  * 【新規】指定されたTPスキルの次のレベルのコストを計算する
  * @param {number} skillNum - スキルの番号 (5-8)
@@ -836,7 +863,9 @@ export function calculateGainedIP(idleGame) {
 export function calculateTPSkillCost(skillNum, currentLevel) {
   const skillConfig = config.idle.tp_skills[`skill${skillNum}`];
   if (!skillConfig) return Infinity;
-  return skillConfig.baseCost * Math.pow(skillConfig.costMultiplier, currentLevel);
+  return (
+    skillConfig.baseCost * Math.pow(skillConfig.costMultiplier, currentLevel)
+  );
 }
 
 /**
@@ -854,7 +883,7 @@ export function calculateGhostChipBudget(level) {
  */
 export function calculateGhostChipUpgradeCost(level) {
   const currentLevel = level || 0;
-  
+
   // レベル0から1への強化は、既存ユーザーへの救済として無料にする
   if (currentLevel === 0) {
     return 0;
@@ -868,9 +897,12 @@ export function calculateGhostChipUpgradeCost(level) {
 
   // ★あなたの最初の案「currentLevel - 1」はここで活かすのが最適です！
   // レベル1の時、比例倍率は0に。レベル2の時、比例倍率は1倍になる。
-  const linearCost = budgetPerLevel * (costConfig.baseMultiplier + costConfig.levelMultiplier * (currentLevel - 1));
+  const linearCost =
+    budgetPerLevel *
+    (costConfig.baseMultiplier +
+      costConfig.levelMultiplier * (currentLevel - 1));
   const cap = budgetPerLevel * costConfig.capMultiplier;
-  
+
   return Math.min(linearCost, cap);
 }
 
@@ -886,12 +918,16 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
   const mee6Level = externalData.mee6Level || 0;
   const achievementCount = externalData.achievementCount || 0;
   const unlockedSet = externalData.unlockedSet || new Set();
-  
+
   // --- 2. キャップ対象の指数を計算 ---
-  const achievement66Bonus = calculateAchievement66Bonus(idleGameData, unlockedSet);
+  const achievement66Bonus = calculateAchievement66Bonus(
+    idleGameData,
+    unlockedSet
+  );
   const meatFactoryLevel = mee6Level + pp + achievementCount;
-  
-  let capTargetExponent = 1 + (config.idle.meat.effect * meatFactoryLevel) + achievement66Bonus;
+
+  let capTargetExponent =
+    1 + config.idle.meat.effect * meatFactoryLevel + achievement66Bonus;
 
   // --- 3. ソフトキャップを順番に適用 ---
   for (const cap of config.idle.meat.softCapsBeforeInfinity) {
@@ -906,6 +942,6 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
   if (idleGameData.ipUpgrades?.upgrades?.includes("IU13")) {
     finalExponent += config.idle.meat.iu13bonus;
   }
-  
+
   return finalExponent;
 }

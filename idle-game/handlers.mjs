@@ -209,10 +209,11 @@ export async function handleFacilityUpgrade(interaction, facilityName) {
   }
 
   // 2. コストを計算
+  const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
   const skillLevel6 = latestIdleGame.skillLevel6 || 0;
   const currentLevel =
     latestIdleGame[config.idle.factories[facilityName].key] || 0;
-  const cost = calculateFacilityCost(facilityName, currentLevel, skillLevel6);
+  const cost = calculateFacilityCost(facilityName, currentLevel, skillLevel6, purchasedIUs);
 
   // 3. チップが足りるかチェック
   if (latestPoint.legacy_pizza < cost) {
@@ -551,7 +552,14 @@ async function executePrestigeTransaction(userId, client) {
         throw new Error("プレステージの最低人口条件を満たしていません。");
       }
 
-      const newPrestigePower = currentPopulation_d.log10();
+      let newPrestigePower = currentPopulation_d.log10();
+      //IU21で+10%
+      if (latestIdleGame.ipUpgrades.upgrades.includes("IU21")) {
+        // configからボーナス値を取得
+        const bonus = config.idle.infinityUpgrades.tiers[1].upgrades.IU21.bonus;
+        newPrestigePower *= 1 + bonus; // newPrestigePower = newPrestigePower * 1.1
+      }
+
       let newSkillPoints = latestIdleGame.skillPoints;
 
       if (latestIdleGame.prestigeCount === 0) {
@@ -1080,10 +1088,12 @@ export async function handleAscension(interaction) {
 
     // 2. アセンション要件を再計算して最終チェック
     const ascensionCount = latestIdleGame.ascensionCount || 0;
+    const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
     const { requiredPopulation_d, requiredChips } =
       calculateAscensionRequirements(
         ascensionCount,
-        latestIdleGame.skillLevel6
+        latestIdleGame.skillLevel6,
+        purchasedIUs
       );
 
     if (
