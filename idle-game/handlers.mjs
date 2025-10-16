@@ -1523,6 +1523,14 @@ export async function handleGhostChipUpgrade(interaction) {
       });
       return false;
     }
+    const costBigInt = BigInt(Math.floor(cost));
+    //infinityスキルの強化なのでEternityのみ
+    const currentSpentEternity = BigInt(
+      latestIdleGame.chipsSpentThisEternity || "0"
+    );
+    latestIdleGame.chipsSpentThisEternity = (
+      currentSpentEternity + costBigInt
+    ).toString();
 
     // チップを消費し、レベルを上げる
     await latestPoint.decrement("legacy_pizza", { by: cost, transaction: t });
