@@ -594,6 +594,10 @@ async function executePrestigeTransaction(userId, client) {
         skillPoints: newSkillPoints,
         highestPopulation: currentPopulation_d.toString(),
         transcendencePoints: latestIdleGame.transcendencePoints,
+        skillLevel5: latestIdleGame.skillLevel5,
+        skillLevel6: latestIdleGame.skillLevel6,
+        skillLevel7: latestIdleGame.skillLevel7,
+        skillLevel8: latestIdleGame.skillLevel8,
         lastUpdatedAt: new Date(),
         challenges: latestIdleGame.challenges,
       };
@@ -650,6 +654,10 @@ async function executePrestigeTransaction(userId, client) {
         wheatFarmLevel: 0,
         pineappleFarmLevel: 0,
         transcendencePoints: latestIdleGame.transcendencePoints,
+        skillLevel5: latestIdleGame.skillLevel5,
+        skillLevel6: latestIdleGame.skillLevel6,
+        skillLevel7: latestIdleGame.skillLevel7,
+        skillLevel8: latestIdleGame.skillLevel8,
         lastUpdatedAt: new Date(),
         challenges: latestIdleGame.challenges,
       };

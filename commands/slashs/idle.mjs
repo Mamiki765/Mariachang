@@ -200,6 +200,21 @@ export async function execute(interaction) {
         id: 59,
         condition: BigInt(idleGame.chipsSpentThisInfinity || "0") >= 10000000,
       },
+      // ニョボチップ総消費量(Eternity)
+      {
+        id: 87,
+        condition: BigInt(idleGame.chipsSpentThisEternity || "0") >= 100000000n, // 1億
+      },
+      {
+        id: 88,
+        condition:
+          BigInt(idleGame.chipsSpentThisEternity || "0") >= 1000000000n, // 10億
+      },
+      {
+        id: 89,
+        condition:
+          BigInt(idleGame.chipsSpentThisEternity || "0") >= 2147483647n, // 21億4748万3647
+      },
       //チップ倍率
       { id: 67, condition: idleGame.pizzaBonusPercentage >= 518 },
       { id: 68, condition: idleGame.pizzaBonusPercentage >= 815 },
@@ -1143,7 +1158,12 @@ async function executeRankingCommand(interaction, isPrivate) {
   // ★★★ 攻略法１：sequelize.cast を使って、TEXTを数字としてソートする ★★★
   const allIdleGames = await IdleGame.findAll({
     where: { userId: { [Op.ne]: excludedUserId } },
-    order: [[sequelize.cast(sequelize.col("population"), "DECIMAL"), "DESC"]], // ← これが魔法の呪文！
+    order: [
+      // 優先度1: infinityPointsを数値として扱い、降順（多い順）に並べる
+      [sequelize.cast(sequelize.col("infinityPoints"), "DECIMAL"), "DESC"],
+      // 優先度2: infinityPointsが同じ場合は、populationを数値として扱い、降順に並べる
+      [sequelize.cast(sequelize.col("population"), "DECIMAL"), "DESC"],
+    ], // ← これが魔法の呪文！
     limit: 100,
     raw: true, // ★ .findAll() には raw: true を付けると高速になります
   });
@@ -1177,13 +1197,17 @@ async function executeRankingCommand(interaction, isPrivate) {
           displayName = "(退会したユーザー)";
         }
 
-        // ★★★ 攻略法２：Decimalに変換し、新しいフォーマッターを使う ★★★
+        const ip_d = new Decimal(game.infinityPoints);
         const population_d = new Decimal(game.population);
-        const population = formatNumberJapanese_Decimal(population_d);
+
+        // infinityPointsが0より大きい場合のみIPを表示する
+        const ipText = ip_d.gt(0)
+          ? `IP: **${formatNumberDynamic_Decimal(ip_d)}** | `
+          : "";
 
         return {
           name: `**${rank}位**`,
-          value: `${displayName}\n└ ${population} 匹`,
+          value: `└ ${ipText}<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)} 匹`,
           inline: false,
         };
       })
@@ -1196,9 +1220,13 @@ async function executeRankingCommand(interaction, isPrivate) {
     if (myIndex !== -1) {
       const myRank = myIndex + 1;
       // ★★★ 攻略法２（自分用） ★★★
+      const myIp_d = new Decimal(allIdleGames[myIndex].infinityPoints);
       const myPopulation_d = new Decimal(allIdleGames[myIndex].population);
-      const myPopulation = formatNumberJapanese_Decimal(myPopulation_d);
-      myRankText = `**${myRank}位** └ ${myPopulation} 匹`;
+
+      const myIpText = myIp_d.gt(0)
+        ? `IP: **${formatNumberDynamic_Decimal(myIp_d)}** | `
+        : "";
+      myRankText = `**${myRank}位** └ ${myIpText}<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
     }
 
     return new EmbedBuilder()
