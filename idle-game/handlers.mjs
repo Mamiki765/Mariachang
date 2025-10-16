@@ -1384,7 +1384,7 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
       await unlockAchievements(interaction.client, userId, 85);
     }
     // #86: アンチマター・ディメンジョンズ (ジェネレーターIIを2個購入)
-    if (generatorId === 2 && newBoughtCount === 2) {
+    if (generatorId === 2 && newBoughtCount === 1) {
       await unlockAchievements(interaction.client, userId, 86);
     }
 
