@@ -245,18 +245,8 @@ function calculateProductionRate(idleGameData, externalData) {
   const ascensionCount = idleGameData.ascensionCount || 0;
   // 1. externalDataからunlockedSetを取り出す
   const unlockedSet = externalData.unlockedSet || new Set();
-  // 2. 実績による指数ボーナスを計算する
-  const exponentBonusFromAchievements = calculateAchievement66Bonus(
-    idleGameData,
-    unlockedSet
-  );
-  // 3. 最終的な精肉工場の効果(指数)を計算する
-  const meatFactoryLevel =
-    (externalData.mee6Level || 0) + pp + achievementCount;
-  const meatEffect =
-    1 +
-    config.idle.meat.effect * meatFactoryLevel +
-    exponentBonusFromAchievements; // ★計算したボーナスを加算！
+  // 2. 肉効果を計算する
+  const meatEffect = calculateFinalMeatEffect(idleGameData, externalData);
 
   // --- これ以降の計算は、修正済みのmeatEffectが使われるので変更不要 ---
   const achievementMultiplier = 1.0 + achievementCount * 0.01;
@@ -637,17 +627,7 @@ export async function getSingleUserUIData(userId) {
       (1 + (skillLevels.s1 || 0)) *
       radianceMultiplier *
       (1.0 + externalData.achievementCount * 0.01),
-    meatEffect: (() => {
-      // 1. 基本的なmeatEffectを計算
-      const baseMeatEffect =
-        1 +
-        config.idle.meat.effect *
-          (externalData.mee6Level + pp + (externalData.achievementCount || 0));
-      // 2. 新しいヘルパー関数で実績ボーナスを計算
-      const bonus = calculateAchievement66Bonus(updatedIdleGame, unlockedSet);
-      // 3. 合算して返す
-      return baseMeatEffect + bonus;
-    })(),
+    meatEffect: calculateFinalMeatEffect(updatedIdleGame, externalData),
   };
 
   // --- 6. 最終的なデータを返す ---
@@ -892,4 +872,40 @@ export function calculateGhostChipUpgradeCost(level) {
   const cap = budgetPerLevel * costConfig.capMultiplier;
   
   return Math.min(linearCost, cap);
+}
+
+/**
+ * 【新規】最終的な肉効果（指数）をソフトキャップとボーナス込みで計算する
+ * @param {object} idleGameData - IdleGameの生データ
+ * @param {object} externalData - Mee6レベルなど外部から与えるデータ
+ * @returns {number} 計算後の最終的な肉効果
+ */
+function calculateFinalMeatEffect(idleGameData, externalData) {
+  // --- 1. 基礎となる値を準備 ---
+  const pp = idleGameData.prestigePower || 0;
+  const mee6Level = externalData.mee6Level || 0;
+  const achievementCount = externalData.achievementCount || 0;
+  const unlockedSet = externalData.unlockedSet || new Set();
+  
+  // --- 2. キャップ対象の指数を計算 ---
+  const achievement66Bonus = calculateAchievement66Bonus(idleGameData, unlockedSet);
+  const meatFactoryLevel = mee6Level + pp + achievementCount;
+  
+  let capTargetExponent = 1 + (config.idle.meat.effect * meatFactoryLevel) + achievement66Bonus;
+
+  // --- 3. ソフトキャップを順番に適用 ---
+  for (const cap of config.idle.meat.softCapsBeforeInfinity) {
+    if (capTargetExponent > cap.base) {
+      const excess = capTargetExponent - cap.base;
+      capTargetExponent = cap.base + Math.pow(excess, cap.power);
+    }
+  }
+
+  // --- 4. キャップ対象外のボーナスを加算 ---
+  let finalExponent = capTargetExponent;
+  if (idleGameData.ipUpgrades?.upgrades?.includes("IU13")) {
+    finalExponent += config.idle.meat.iu13bonus;
+  }
+  
+  return finalExponent;
 }

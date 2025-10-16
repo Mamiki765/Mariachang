@@ -671,10 +671,18 @@ export default {
     },
     //ここからいつものアイツ
     meat: {
+      //指数施設（サラミ）
       emoji: "🍖",
       effect: 0.01, // 1レベルあたりの効果 (^1.01)
       type: "power", //指数施設。素は違う表にあるmee6レベルなのでカラムは無し
+      //infinity前の要素(PP、実績、Mee6)のソフトキャップ
+      softCapsBeforeInfinity: [
+        { base: 10, power: 0.5 },
+        { base: 12, power: 0.33 },
+      ],
+      iu13bonus: 0.05,
     },
+
     prestige: {
       emoji: "🍍",
       unlockPopulation: 1_0000_0000, // 人口1億で解禁
