@@ -22,6 +22,7 @@ import {
   calculateTPSkillCost,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
+  
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -213,7 +214,12 @@ export async function handleFacilityUpgrade(interaction, facilityName) {
   const skillLevel6 = latestIdleGame.skillLevel6 || 0;
   const currentLevel =
     latestIdleGame[config.idle.factories[facilityName].key] || 0;
-  const cost = calculateFacilityCost(facilityName, currentLevel, skillLevel6, purchasedIUs);
+  const cost = calculateFacilityCost(
+    facilityName,
+    currentLevel,
+    skillLevel6,
+    purchasedIUs
+  );
 
   // 3. チップが足りるかチェック
   if (latestPoint.legacy_pizza < cost) {
@@ -1180,6 +1186,7 @@ export async function handleInfinity(interaction, collector) {
     let gainedIP = new Decimal(0);
     let isFirstInfinity = false;
     let newInfinityCount = 0;
+    let infinityPopulation_d = new Decimal(0);
 
     // 2. トランザクションで安全にデータベースを更新
     await sequelize.transaction(async (t) => {
@@ -1193,6 +1200,8 @@ export async function handleInfinity(interaction, collector) {
       if (new Decimal(latestIdleGame.population).lt(config.idle.infinity)) {
         throw new Error("インフィニティの条件を満たしていません。");
       }
+      //break後に備えて人口を記録
+      infinityPopulation_d = new Decimal(latestIdleGame.population);
 
       if (latestIdleGame.infinityCount === 0) {
         isFirstInfinity = true;
@@ -1272,7 +1281,16 @@ export async function handleInfinity(interaction, collector) {
 
     // 5. 成功メッセージを送信（初回かどうかで分岐）
     let successMessage;
-    if (isFirstInfinity) {
+    if (infinityPopulation_d.gt("1.8e+308")) { //break infinity以降
+successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Break Infinity
+## ――ニョワミヤはどこまで増えるのだろう。
+数え切れぬチップと時間を注ぎ込み、あなたはついに果てであるべき"無限"すら打ち倒した。
+どうやら、宇宙一美味しいピザを作るこの旅はまだまだ終わりそうに無いようだ。
+
+ならば、無限に広がるこの宇宙すら無限で埋め尽くしてしまおう。
+**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
+`;
+    } else if (isFirstInfinity) {
       successMessage = `# ●1.79e+308 Infinity
 ## ――あなたは果てにたどり着いた。
 終わりは意外とあっけないものだった。
@@ -1290,7 +1308,7 @@ export async function handleInfinity(interaction, collector) {
 **${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
 ピザ生産ジェネレーターが解禁された。`;
     } else {
-      successMessage = `# ●1.79e+308 Infinity
+      successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Infinity
 ## ――あなたは果てにたどり着いた。
 終わりは意外とあっけないものだった。
 ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、

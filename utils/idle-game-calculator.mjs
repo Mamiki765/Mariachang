@@ -820,37 +820,33 @@ export function calculateGainedIP(idleGame) {
 
   // --- 1. 基本値の計算 ---
   let baseIP = new Decimal(1);
-  const newInfinityCount = (idleGame.infinityCount || 0) + 1; // これから実行するのが何回目か
+  const newInfinityCount = (idleGame.infinityCount || 0) + 1;
 
-  // 実績#84の効果: 5回目のインフィニティ以降、基礎値が2倍になる
   if (newInfinityCount >= 5) {
     baseIP = baseIP.times(2);
   }
+  // (ここに将来的にICクリア数ボーナスなどを追加していく)
 
-  // --- 2. ジェネレーターII購入によるIP増加ロジック ---
+
+  // --- 2. ジェネレーターII購入によるIP増加ロジック (ブレイク後) ---
   const gen2Bought = idleGame.ipUpgrades?.generators?.[1]?.bought || 0;
   if (gen2Bought > 0) {
-    // Antimatter Dimensionsの式を参考にする
-    // 10 ^ (log10(人口) / 308 - 0.75)
-
-    // log10(人口) は非常に大きな数値になるため、.mantissa と .exponent を使うと安全
+    // 仕様書通りの計算式: 基本値 × 10 ^ (log10(人口) / 308 - 0.75)
     const logPop = population_d.log10();
+    const exponent = logPop / 308 - 0.75;
+    
+    // 10のべき乗を計算
+    const formulaIP = Decimal.pow(10, exponent);
 
-    const exponentFactor = 308; // 308桁ごとにIPが10倍になる
-
-    // (log10(人口) / 308) - 0.75
-    const power = logPop / exponentFactor - 0.75;
-
-    // 10 ^ power
-    const formulaIP = Decimal.pow(10, power);
-
-    // 計算結果が基礎値より大きい場合のみ、その値を採用する
-    if (formulaIP.gt(baseIP)) {
-      baseIP = formulaIP;
-    }
+    // 計算結果と基本値を乗算する
+    // これにより、実績#84などの基本値ボーナスがブレイク後のIPにも乗るようになります
+    const finalIP = baseIP.times(formulaIP);
+    
+    // 最終的に、計算されたIPの小数点以下を切り捨てて返す
+    return finalIP.floor();
   }
 
-  // 最終的に、計算されたIPの小数点以下を切り捨てて返す
+  // ブレイクしていない場合は、今までの基本値だけを返す
   return baseIP.floor();
 }
 

@@ -596,6 +596,13 @@ export const achievements = [
     effect: "しかしニョボチップ消費記録の上限は922京であった。",
     reward: {},
   },
+  {
+    id: 90,
+    name: "Infinity is broken.",
+    description: "ニョワミヤの数が1e+400に到達",
+    effect: "それは本当の終わりか、あるいは始まりか",
+    reward: {},
+  },
   /*
   {
     id: 87,

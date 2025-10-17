@@ -40,6 +40,7 @@ import {
   calculateAscensionRequirements,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
+  calculateGainedIP
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -187,6 +188,7 @@ export async function execute(interaction) {
       { id: 61, condition: population_d.gte(4.482e61) }, //infinity^0.20
       { id: 70, condition: population_d.gte(2.9613e92) }, //infinity^0.30
       { id: 71, condition: population_d.gte(1.3407e154) }, //infinity^0.50
+      { id: 90, condition: population_d.gte("1e400") },
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -850,10 +852,13 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       }
       // 人口がインフィニティに到達した場合、「インフィニティ実行」ボタンを追加
       if (population_d.gte(config.idle.infinity)) {
+        const potentialIP = calculateGainedIP(idleGame);
+        const buttonLabel = `インフィニット ${formatNumberDynamic_Decimal(potentialIP)} IP`;
+
         infinityRow.addComponents(
           new ButtonBuilder()
             .setCustomId("idle_infinity")
-            .setLabel("インフィニティ")
+            .setLabel(buttonLabel) // ★生成したラベルをここに設定
             .setStyle(ButtonStyle.Danger)
             .setEmoji("💥")
             .setDisabled(isDisabled)
@@ -1804,7 +1809,7 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
     config.idle.infinityUpgrades.tiers
       .flatMap((tier) => Object.entries(tier.upgrades))
       .filter(([id]) => purchasedUpgrades.has(id))
-      .map(([id, config]) => `✅ ${config.name}`)
+      .map(([id, config]) => `✅${config.name}: ${config.text}`)
       .join("\n") || "まだありません";
 
   const embed = new EmbedBuilder()

@@ -794,22 +794,26 @@ export default {
               cost: 0,
               description:
                 "プレステージの度にIU11のレベルに応じた幻のチップを得る。それは得た範囲で工場を自動強化し、残りは消滅する",
+              text: "PS時工場自動強化",
             },
             IU12: {
               name: "自動調理器",
               cost: 1,
               description: "プレステージ時にTPを自動で割り振る。",
+              text: "TP自動配分",
             },
             IU13: {
               name: "肉干しレンガ",
               cost: 1,
               description: "精肉工場の指数に+0.05を加算する。(ソフトキャップ後)",
+              text: "指数+0.05",
             },
             IU14: {
               name: "業務用品の購入",
               cost: 1,
               description: "工場とアセンションが10%割引",
               discount: 0.1,
+              text: "工場/Asc 10%OFF",
             },
           },
         },
@@ -822,6 +826,7 @@ export default {
               cost: 3,
               description: "PP獲得量が10%増加する。",
               bonus: 0.1, // 10%
+              text: "PP+10%",
             },
             // 将来ここに IU22, IU23 などを追加していく
           },
