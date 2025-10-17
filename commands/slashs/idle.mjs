@@ -1903,7 +1903,7 @@ function generateInfinityUpgradesButtons(idleGame, point) {
         )
         .setStyle(ButtonStyle.Primary) // IP購入ボタン(Success)と区別
         .setEmoji(config.casino.currencies.legacy_pizza.emoji)
-        .setDisabled(point.legacy_pizza < cost)
+        .setDisabled(point.legacy_pizza < cost || currentLevel > 199)//後でconfigと置き換える
     );
     // 強化ボタンの行をcomponents配列の先頭に追加
     components.unshift(ghostChipRow);
