@@ -603,6 +603,13 @@ export const achievements = [
     effect: "それは本当の終わりか、あるいは始まりか",
     reward: {},
   },
+  {
+    id: 91,
+    name: "無限の試練",
+    description: "ICを1つクリアする",
+    effect: "(クリアしたIC + 1)倍だけ獲得IP上昇",
+    reward: {},
+  },
   /*
   {
     id: 87,

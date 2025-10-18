@@ -708,6 +708,7 @@ export default {
         costMultiplier: 1.8,
         exponentPerLevel: 0.1, // スキルレベル1あたり、べき指数がこれだけ上昇する
         description: "ブーストが∞中累計消費チップに応じて強化される",
+        descriptionIc1: "ブーストがΣ中累計消費チップに応じて強化される",
       },
       skill8: {
         baseCost: 40,
@@ -805,7 +806,8 @@ export default {
             IU13: {
               name: "肉干しレンガ",
               cost: 1,
-              description: "精肉工場の指数に+0.05を加算する。(ソフトキャップ後)",
+              description:
+                "精肉工場の指数に+0.05を加算する。(ソフトキャップ後)",
               text: "指数+0.05",
             },
             IU14: {
@@ -828,6 +830,13 @@ export default {
               bonus: 0.1, // 10%
               text: "PP+10%",
             },
+            IU22: {
+              name: "無限の試練",
+              cost: 2, 
+              description:
+                "インフィニティ・チャレンジが解禁される。",
+              text: "IC解禁",
+            },
             // 将来ここに IU22, IU23 などを追加していく
           },
         },
@@ -845,6 +854,9 @@ export default {
         capMultiplier: 1000, // 上限の倍率
       },
     },
+    infinityChallenges: [
+      { id: "IC1", name: "ニョボシの夏休み", description: "#7は機能せず、ブーストは(2/∞中の消費チップ)倍となる", bonus: "エタニティ中の消費チップが#7効果に乗ります" }, //使用チップだけニョワミヤの増加が減る
+    ],
     //constants\achievements.mjsにお引越し
     achievements: achievements,
     hidden_achievements: hidden_achievements,

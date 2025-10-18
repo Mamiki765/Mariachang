@@ -22,7 +22,6 @@ import {
   calculateTPSkillCost,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
-  
 } from "../utils/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -1188,6 +1187,9 @@ export async function handleInfinity(interaction, collector) {
     let newInfinityCount = 0;
     let infinityPopulation_d = new Decimal(0);
 
+    let challengeWasCleared = false;
+    let activeChallenge = null;
+
     // 2. トランザクションで安全にデータベースを更新
     await sequelize.transaction(async (t) => {
       const latestIdleGame = await IdleGame.findOne({
@@ -1202,14 +1204,40 @@ export async function handleInfinity(interaction, collector) {
       }
       //break後に備えて人口を記録
       infinityPopulation_d = new Decimal(latestIdleGame.population);
+      //チャレンジクリア処理
+      activeChallenge = latestIdleGame.challenges?.activeChallenge;
+      const currentChallenges = latestIdleGame.challenges || {};
 
+      if (activeChallenge) {
+        // ここに将来的に「失敗条件」を追加できる （●●時間以内にクリアなど縛れない時）
+        let challengeSuccess = true;
+
+        if (challengeSuccess) {
+          if (!currentChallenges.completedChallenges) {
+            currentChallenges.completedChallenges = [];
+          }
+          // 重複を防ぎつつ、クリア済みリストに追加
+          if (
+            !currentChallenges.completedChallenges.includes(activeChallenge)
+          ) {
+            currentChallenges.completedChallenges.push(activeChallenge);
+            challengeWasCleared = true;
+          }
+        }
+        // 成功・失敗に関わらず、アクティブなチャレンジはリセット
+        delete currentChallenges.activeChallenge;
+        latestIdleGame.changed("challenges", true);
+      }
+      const completedCount = currentChallenges.completedChallenges?.length || 0;
+
+      //∞を1増やす
       if (latestIdleGame.infinityCount === 0) {
         isFirstInfinity = true;
       }
       newInfinityCount = latestIdleGame.infinityCount + 1;
 
       // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
-      gainedIP = calculateGainedIP(latestIdleGame);
+      gainedIP = calculateGainedIP(latestIdleGame, completedCount);
 
       // 4.ジェネレーターをリセットし
       const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];
@@ -1265,6 +1293,7 @@ export async function handleInfinity(interaction, collector) {
             .add(gainedIP)
             .toString(),
           infinityCount: newInfinityCount, // infinityCountはDouble型なので、JSのNumberでOK
+          challenges: currentChallenges,
           lastUpdatedAt: new Date(),
         },
         { transaction: t }
@@ -1279,10 +1308,20 @@ export async function handleInfinity(interaction, collector) {
       await unlockAchievements(interaction.client, interaction.user.id, 84); // #84: それはもはや目標ではない
     }
 
+    //ICクリア
+    if (challengeWasCleared) {
+      await unlockAchievements(interaction.client, interaction.user.id, 91); //#91 無限の試練
+      await interaction.followUp({
+        content: `🎉 **インフィニティチャレンジ **${activeChallenge}** を達成しました！`,
+        ephemeral: true,
+      });
+    }
+
     // 5. 成功メッセージを送信（初回かどうかで分岐）
     let successMessage;
-    if (infinityPopulation_d.gt("1.8e+308")) { //break infinity以降
-successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Break Infinity
+    if (infinityPopulation_d.gt("1.8e+308")) {
+      //break infinity以降
+      successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Break Infinity
 ## ――ニョワミヤはどこまで増えるのだろう。
 数え切れぬチップと時間を注ぎ込み、あなたはついに果てであるべき"無限"すら打ち倒した。
 どうやら、宇宙一美味しいピザを作るこの旅はまだまだ終わりそうに無いようだ。
@@ -1588,6 +1627,235 @@ export async function handleGhostChipUpgrade(interaction) {
     await interaction.followUp({
       content: `❌ 強化中にエラーが発生しました。`,
       flags: 64,
+    });
+    return false;
+  }
+}
+
+/**
+ * 【新規】インフィニティチャレンジを開始する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @param {import("discord.js").InteractionCollector} collector
+ * @param {string} challengeId - 開始するチャレンジのID
+ * @returns {Promise<boolean>} UI更新が必要な場合はtrue
+ */
+export async function handleStartChallenge(
+  interaction,
+  collector,
+  challengeId
+) {
+  collector.stop();
+
+  const challengeConfig = config.idle.infinityChallenges.find(
+    (c) => c.id === challengeId
+  );
+  if (!challengeConfig) {
+    await interaction.followUp({
+      content: "存在しないチャレンジです。",
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  const confirmationRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`confirm_start_${challengeId}`)
+      .setLabel("はい、開始します")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId("cancel_challenge")
+      .setLabel("いいえ")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  const confirmationMessage = await interaction.followUp({
+    content: `### ⚔️ **${challengeConfig.name}** を開始しますか？\n**縛り:** ${challengeConfig.description}\n\n⚠️ **警告:** 現在の進行は全て失われ、強制的にインフィニティリセットが実行されます。この操作は取り消せません！`,
+    components: [confirmationRow],
+    ephemeral: true,
+    fetchReply: true,
+  });
+
+  try {
+    const confirmationInteraction =
+      await confirmationMessage.awaitMessageComponent({
+        // ▼▼▼ 修正点1: フィルター条件を修正 ▼▼▼
+        filter: (i) =>
+          i.user.id === interaction.user.id &&
+          (i.customId === `confirm_start_${challengeId}` ||
+            i.customId === "cancel_challenge"),
+        time: 60_000,
+      });
+
+    if (confirmationInteraction.customId === "cancel_challenge") {
+      await confirmationInteraction.update({
+        content: "チャレンジ開始をキャンセルしました。",
+        components: [],
+      });
+      return false;
+    }
+
+    await confirmationInteraction.deferUpdate();
+
+    await sequelize.transaction(async (t) => {
+      const idleGame = await IdleGame.findOne({
+        where: { userId: interaction.user.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      const currentChallenges = idleGame.challenges || {};
+      currentChallenges.activeChallenge = challengeId;
+      idleGame.changed("challenges", true);
+
+      // ▼▼▼ 修正点2: newIpUpgradesの定義を追加 ▼▼▼
+      const oldGenerators = idleGame.ipUpgrades?.generators || [];
+      const newGenerators = Array.from({ length: 8 }, (_, i) => {
+        const oldGen = oldGenerators[i] || { bought: 0 };
+        return {
+          amount: String(oldGen.bought),
+          bought: oldGen.bought,
+        };
+      });
+      const newIpUpgrades = {
+        ...(idleGame.ipUpgrades || {}),
+        generators: newGenerators,
+      };
+      // ▲▲▲ ここまで追加 ▲▲▲
+
+      await idleGame.update(
+        {
+          population: "0",
+          highestPopulation: "0",
+          pizzaOvenLevel: 0,
+          cheeseFactoryLevel: 0,
+          tomatoFarmLevel: 0,
+          mushroomFarmLevel: 0,
+          anchovyFactoryLevel: 0,
+          oliveFarmLevel: 0,
+          wheatFarmLevel: 0,
+          pineappleFarmLevel: 0,
+          ascensionCount: 0,
+          prestigeCount: 0,
+          prestigePower: 0,
+          skillPoints: 0,
+          skillLevel1: 0,
+          skillLevel2: 0,
+          skillLevel3: 0,
+          skillLevel4: 0,
+          transcendencePoints: 0,
+          skillLevel5: 0,
+          skillLevel6: 0,
+          skillLevel7: 0,
+          skillLevel8: 0,
+          infinityTime: 0,
+          chipsSpentThisInfinity: "0",
+          generatorPower: "1",
+          ipUpgrades: newIpUpgrades,
+          buffMultiplier: 2.0,
+          challenges: currentChallenges,
+          lastUpdatedAt: new Date(),
+        },
+        { transaction: t }
+      );
+    });
+
+    await confirmationInteraction.editReply({
+      content: `**${challengeConfig.name}** を開始しました。健闘を祈ります！`,
+      components: [],
+    });
+    return true;
+  } catch (error) {
+    console.error("Challenge Start Error:", error);
+    await interaction.editReply({
+      content:
+        "タイムアウトまたは内部エラーにより、チャレンジ開始はキャンセルされました。",
+      components: [],
+    });
+    return false;
+  }
+}
+
+/**
+ * 【改訂】挑戦中のインフィニティチャレンジを中止する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @param {import("discord.js").InteractionCollector} collector // 親コレクターはもう不要ですが、呼び出し元の互換性のために残します
+ * @returns {Promise<boolean>} UI更新が必要な場合はtrue
+ */
+export async function handleAbortChallenge(interaction) {
+  // ★コレクターは停止しない！★
+
+  // --- 確認メッセージ ---
+  const confirmationRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`confirm_abort_challenge`)
+      .setLabel("はい、縛りを解きます")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("cancel_abort")
+      .setLabel("いいえ")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  const confirmationMessage = await interaction.followUp({
+    content: `### ⚔️ **本当にチャレンジを中止しますか？**\n\n現在の進行状況は **リセットされません** が、この周回ではチャレンジを再開できなくなります。`,
+    components: [confirmationRow],
+    ephemeral: true,
+    fetchReply: true,
+  });
+
+  try {
+    const confirmationInteraction =
+      await confirmationMessage.awaitMessageComponent({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 60_000,
+      });
+
+    if (confirmationInteraction.customId === "cancel_abort") {
+      await confirmationInteraction.update({
+        content: "チャレンジ中止をキャンセルしました。",
+        components: [],
+      });
+      return false; // UI更新不要
+    }
+
+    // --- 「はい」が押されたらDB更新 ---
+    await confirmationInteraction.deferUpdate();
+
+    // ▼▼▼ チャレンジ中止トランザクション ▼▼▼
+    await sequelize.transaction(async (t) => {
+      const idleGame = await IdleGame.findOne({
+        where: { userId: interaction.user.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      const currentChallenges = idleGame.challenges || {};
+      const abortedChallenge = currentChallenges.activeChallenge; // どのチャレンジを中止したか記録しておく
+      delete currentChallenges.activeChallenge; // activeChallengeを削除
+      idleGame.changed("challenges", true);
+
+      // ★★★ リセットは行わず、challengesフィールドとlastUpdatedAtのみを更新 ★★★
+      await idleGame.update(
+        {
+          challenges: currentChallenges,
+          lastUpdatedAt: new Date(),
+        },
+        { transaction: t }
+      );
+    });
+
+    await confirmationInteraction.editReply({
+      content: `チャレンジを中止しました。縛りが解除されます。`,
+      components: [],
+    });
+
+    // ★★★ UIを再描画して縛りが解けたことを反映させるため、trueを返す ★★★
+    return true;
+  } catch (error) {
+    // タイムアウトなどのエラー処理
+    await interaction.editReply({
+      content: "タイムアウトしました。チャレンジは継続されます。",
+      components: [],
     });
     return false;
   }

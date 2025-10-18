@@ -808,9 +808,10 @@ export function calculateGeneratorCost(generatorId, currentBought) {
 /**
  * インフィニティ時に獲得できるIP量を計算する
  * @param {object} idleGame - インフィニティ直前のIdleGameデータ
+ * @param {number} [completedChallengeCount=0] - （クリア直後のものを含む）達成済みICの数
  * @returns {Decimal} 獲得IP量
  */
-export function calculateGainedIP(idleGame) {
+export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   const population_d = new Decimal(idleGame.population);
 
   // 最低条件：インフィニティに到達しているか (念のため)
@@ -821,12 +822,15 @@ export function calculateGainedIP(idleGame) {
   // --- 1. 基本値の計算 ---
   let baseIP = new Decimal(1);
   const newInfinityCount = (idleGame.infinityCount || 0) + 1;
-
+  //5回無限実績
   if (newInfinityCount >= 5) {
     baseIP = baseIP.times(2);
   }
-  // (ここに将来的にICクリア数ボーナスなどを追加していく)
-
+  // ICクリア数に応じた補正
+  if (completedChallengeCount > 0) {
+    baseIP = baseIP.times(completedChallengeCount + 1);
+  }
+    // (ここに将来的にボーナスなどを追加していく)
 
   // --- 2. ジェネレーターII購入によるIP増加ロジック (ブレイク後) ---
   const gen2Bought = idleGame.ipUpgrades?.generators?.[1]?.bought || 0;
