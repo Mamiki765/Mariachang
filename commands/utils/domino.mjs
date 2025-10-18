@@ -230,7 +230,7 @@ export async function dominoeffect(message, client, id, username, dpname) {
           flags: [4096],
           content: `# __★★【特別賞】0枚で終わった回数：${await DominoLog.count({
             where: { totalCount: 0 },
-          })}回目__`,
+          }) + 1}回目__`,
         });
       }
       // 最高記録の更新通知 (DominoLog から取得)
