@@ -404,6 +404,21 @@ export async function execute(interaction) {
       //ジェネレーター
       const gp_d = new Decimal(idleGame.generatorPower || "1");
       const gpEffect = gp_d.pow(0.5).max(1).toNumber();
+
+     // スキル#2の効果
+      const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
+      const finalSkill2Effect = Math.pow(skill2Effect, 2);
+      const skill2EffectDisplay =
+        finalSkill2Effect > 1 ? ` × ${finalSkill2Effect.toFixed(1)}` : "";
+
+      //IC2ボーナス
+      let ic2BonusForOne = 1.0;
+      const completedChallenges = uiData.idleGame.challenges?.completedChallenges || [];
+      if (completedChallenges.includes('IC2')) {
+          ic2BonusForOne = Math.pow(skill2Effect, 0.5);
+          if (ic2BonusForOne < 1.0) ic2BonusForOne = 1.0;
+      }
+
       // 表示用の施設効果
       const effects_display = {};
       effects_display.oven =
@@ -417,16 +432,10 @@ export async function execute(interaction) {
       effects_display.anchovy =
         factoryEffects.anchovy * skill1Effect * ascensionEffect * gpEffect;
       // 上位施設には skill1Effect を掛けない
-      effects_display.olive = factoryEffects.olive * ascensionEffect * gpEffect;
-      effects_display.wheat = factoryEffects.wheat * ascensionEffect * gpEffect;
+      effects_display.olive = factoryEffects.olive * ascensionEffect * gpEffect * ic2BonusForOne;
+      effects_display.wheat = factoryEffects.wheat * ascensionEffect * gpEffect * ic2BonusForOne;
       effects_display.pineapple =
-        factoryEffects.pineapple * ascensionEffect * gpEffect;
-
-      // スキル#2の効果
-      const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
-      const finalSkill2Effect = Math.pow(skill2Effect, 2);
-      const skill2EffectDisplay =
-        finalSkill2Effect > 1 ? ` × ${finalSkill2Effect.toFixed(1)}` : "";
+        factoryEffects.pineapple * ascensionEffect * gpEffect * ic2BonusForOne;
 
       // ★ バフ残り時間計算
       let buffField = null;
@@ -729,11 +738,13 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
       // アセンションの要件を計算する
       const ascensionCount = idleGame.ascensionCount || 0;
+      const activeChallenge = idleGame.challenges?.activeChallenge;
       const { requiredPopulation_d, requiredChips } =
         calculateAscensionRequirements(
           ascensionCount,
           idleGame.skillLevel6,
-          purchasedIUs
+          purchasedIUs,
+          activeChallenge
         );
       // アセンションボタンを表示する条件を定義
       // 1. 人口が要件を満たしている

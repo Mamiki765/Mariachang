@@ -288,6 +288,21 @@ function calculateProductionRate(idleGameData, externalData) {
   const skill2Effect = (1 + (skillLevels.s2 || 0)) * radianceMultiplier;
   const finalSkill2Effect = Math.pow(skill2Effect, 2); // 時間加速
 
+  //IC2報酬
+  let ic2Bonus = 1.0;
+  if (idleGameData.infinityCount > 0) {
+    //infinity前では無用
+    const completedChallenges =
+      idleGameData.challenges?.completedChallenges || [];
+    if (completedChallenges.includes("IC2")) {
+      // 報酬#2効果の^0.25を3つの工場（オリーブ、小麦、パイナップル）に乗算
+      // (ベース効果^2)^0.25^3 = ベース効果^1.5
+      ic2Bonus = Math.pow(skill2Effect, 1.5); //3つ分かけておく
+      // 念のため、効果が1未満にならないようにする（#2がLv0の場合など）
+      if (ic2Bonus < 1.0) ic2Bonus = 1.0;
+    }
+  }
+
   // 工場効果 (これもNumberでOK)
   const factoryEffects = calculateFactoryEffects(idleGameData, pp, unlockedSet);
 
@@ -309,14 +324,24 @@ function calculateProductionRate(idleGameData, externalData) {
     .times(new Decimal(skill1Effect).pow(5))
     .times(factoryEffects.olive || 1.0)
     .times(factoryEffects.wheat || 1.0)
-    .times(factoryEffects.pineapple || 1.0);
+    .times(factoryEffects.pineapple || 1.0)
+    .times(ic2Bonus);
   if (ascensionCount > 0) {
     //0でも1-8だけど軽量化のため
+    let ascensionBaseEffect = config.idle.ascension.effect; // 1.125
+    if (idleGameData.infinityCount > 0) {
+      //infinity後のアセ強化系
+      const completedChallenges =
+        idleGameData.challenges?.completedChallenges || [];
+      if (completedChallenges.includes("IC7")) {
+        ascensionBaseEffect += 0.025;
+      }
+      if (completedChallenges.includes("IC8")) {
+        ascensionBaseEffect *= 1.1;
+      }
+    }
     // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
-    const ascensionFactor = Math.pow(
-      config.idle.ascension.effect,
-      ascensionCount
-    );
+    const ascensionFactor = Math.pow(ascensionBaseEffect, ascensionCount);
     // 8つの工場すべてに適用されるため、その効果を8乗したものを baseProduction に乗算する
     baseProduction = baseProduction.times(new Decimal(ascensionFactor).pow(8));
   }
@@ -746,23 +771,42 @@ function calculateAchievement66Bonus(idleGameData, unlockedSet) {
  * @param {number} currentAscensionCount - 現在のアセンション回数 (0から始まる)
  * @param {number} skillLevel6 - TPスキル#6のレベル
  * @param {Set<string>} purchasedIUs - 購入済みのIU IDのSet
+ * @param {string|null} activeChallenge - 実行中のチャレンジID
  * @returns {{requiredPopulation_d: Decimal, requiredChips: number}}
  */
 export function calculateAscensionRequirements(
   currentAscensionCount,
   skillLevel6 = 0,
-  purchasedIUs = new Set() //もらって…
+  purchasedIUs = new Set(),
+  activeChallenge = null
 ) {
   const ascensionConfig = config.idle.ascension;
 
-  // 1. 要求人口を計算 (これは変更なし)
-  const requiredPopulation_d = new Decimal(
-    ascensionConfig.basePopulation
-  ).times(
-    new Decimal(ascensionConfig.populationMultiplier).pow(currentAscensionCount)
+  // --- 1. チャレンジに応じて基礎値と倍率を決定 ---
+  let basePopulation_d = new Decimal(ascensionConfig.basePopulation);
+  let populationMultiplier_d = new Decimal(
+    ascensionConfig.populationMultiplier
   );
 
-  // 2. 要求チップ数を計算
+  // activeChallengeの値に応じて、設定を上書き
+  switch (activeChallenge) {
+    case "IC7":
+      basePopulation_d = new Decimal(1);
+      populationMultiplier_d = new Decimal("1e10");
+      break;
+    case "IC8":
+      // 事実上のアセンション禁止
+      basePopulation_d = new Decimal("1e308");
+      populationMultiplier_d = new Decimal("1e1");
+      break;
+  }
+
+  // --- 2. 要求人口を計算 ---
+  const requiredPopulation_d = basePopulation_d.times(
+    populationMultiplier_d.pow(currentAscensionCount)
+  );
+
+  // 3. 要求チップ数を計算
   let totalChipCost = 0;
   const targetLevel = currentAscensionCount; // 0回目はLv0->1, 1回目はLv1->2 ...
 
@@ -829,6 +873,12 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   // ICクリア数に応じた補正
   if (completedChallengeCount > 0) {
     baseIP = baseIP.times(completedChallengeCount + 1);
+  }
+  if (completedChallengeCount >= 4) {
+    baseIP = baseIP.times(2);
+  }
+  if (completedChallengeCount >= 9) { //IC9クリア時点で9個達成している必要があり、クリアしていれば2倍されているので。
+    baseIP = baseIP.times(2);
   }
   // (ここに将来的にボーナスなどを追加していく)
 
@@ -950,10 +1000,10 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
     finalExponent += config.idle.meat.iu13bonus;
   }
   // IC4 +0.10
-    const ic4Config = config.idle.infinityChallenges.find(c => c.id === 'IC4');
-    if (ic4Config && ic4Config.rewardValue) {
-        finalExponent += ic4Config.rewardValue; 
-    }
+  const ic4Config = config.idle.infinityChallenges.find((c) => c.id === "IC4");
+  if (ic4Config && ic4Config.rewardValue) {
+    finalExponent += ic4Config.rewardValue;
+  }
 
   return finalExponent;
 }

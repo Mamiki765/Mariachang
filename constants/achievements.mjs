@@ -614,14 +614,14 @@ export const achievements = [
     id: 92,
     name: "意外と簡単かも？",
     description: "ICを4つクリアする",
-    effect: "IPが、2倍になる。",
+    effect: "IPが再び2倍になる。",
     reward: {},
   },
   {
     id: 93,
     name: "どうだ、見たか！",
     description: "IC9をクリアする",
-    effect: "全てのジェネレーターの効果が2倍になる",
+    effect: "全てのジェネレーターの効果が2倍になる（未実装）",
     reward: {},
   },
 

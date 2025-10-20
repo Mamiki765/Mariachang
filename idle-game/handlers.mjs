@@ -1094,11 +1094,13 @@ export async function handleAscension(interaction) {
     // 2. アセンション要件を再計算して最終チェック
     const ascensionCount = latestIdleGame.ascensionCount || 0;
     const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
+    const activeChallenge = latestIdleGame.challenges?.activeChallenge;
     const { requiredPopulation_d, requiredChips } =
       calculateAscensionRequirements(
         ascensionCount,
         latestIdleGame.skillLevel6,
-        purchasedIUs
+        purchasedIUs,
+        activeChallenge
       );
 
     if (
@@ -1188,6 +1190,7 @@ export async function handleInfinity(interaction, collector) {
     let infinityPopulation_d = new Decimal(0);
 
     let challengeWasCleared = false;
+    let challengeWasFailed = false; //IC2
     let activeChallenge = null;
 
     // 2. トランザクションで安全にデータベースを更新
@@ -1209,8 +1212,16 @@ export async function handleInfinity(interaction, collector) {
       const currentChallenges = latestIdleGame.challenges || {};
 
       if (activeChallenge) {
-        // ここに将来的に「失敗条件」を追加できる （●●時間以内にクリアなど縛れない時）
         let challengeSuccess = true;
+        // ここに将来的に「失敗条件」を追加できる （●●時間以内にクリアなど縛れない時）
+        //IC2
+        if (activeChallenge === "IC2") {
+          const GAME_HOURS_12_IN_SECONDS = 12 * 60 * 60;
+          if (latestIdleGame.infinityTime > GAME_HOURS_12_IN_SECONDS) {
+            challengeSuccess = false; // 12時間を超えていたら失敗
+            challengeWasFailed = true; // 失敗したことを記録
+          }
+        }
 
         if (challengeSuccess) {
           if (!currentChallenges.completedChallenges) {
@@ -1308,11 +1319,18 @@ export async function handleInfinity(interaction, collector) {
       await unlockAchievements(interaction.client, interaction.user.id, 84); // #84: それはもはや目標ではない
     }
 
+    //IC失敗（２）
+    if (challengeWasFailed) {
+      await interaction.followUp({
+        content: `⌛ **インフィニティチャレンジ ${activeChallenge}** に失敗しました… (条件: ゲーム内時間12時間以内)`,
+        ephemeral: true,
+      });
+    }
     //ICクリア
     if (challengeWasCleared) {
       await unlockAchievements(interaction.client, interaction.user.id, 91); //#91 無限の試練
       await interaction.followUp({
-        content: `🎉 **インフィニティチャレンジ **${activeChallenge}** を達成しました！`,
+        content: `🎉 **インフィニティチャレンジ ${activeChallenge}** を達成しました！`,
         ephemeral: true,
       });
     }
