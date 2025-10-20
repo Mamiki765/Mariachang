@@ -27,7 +27,7 @@ import {
   handleInfinityUpgradePurchase,
   handleGhostChipUpgrade,
   handleStartChallenge,
-   handleAbortChallenge, 
+  handleAbortChallenge,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import {
@@ -387,6 +387,7 @@ export async function execute(interaction) {
         userAchievement?.achievements?.unlocked || []
       );
       const meatFactoryLevel = mee6Level;
+      const activeChallenge = idleGame.challenges?.activeChallenge;
       const skillLevels = {
         s1: idleGame.skillLevel1,
         s2: idleGame.skillLevel2,
@@ -513,7 +514,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       embed.addFields(
         {
           name: `${config.idle.meat.emoji}精肉工場 (Mee6)`,
-          value: `Lv. ${meatFactoryLevel} (${meatEffect.toFixed(2)})`,
+          value: `Lv. ${activeChallenge === 'IC4' ? '**0**' : meatFactoryLevel} (${meatEffect.toFixed(2)})`,
           inline: true,
         },
         {
@@ -1167,7 +1168,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
               ),
             };
             break;
-          case "challenges": 
+          case "challenges":
             replyOptions = {
               content: " ", // 古いcontentをクリア
               embeds: [generateChallengeEmbed(newUiData.idleGame)],
@@ -1453,17 +1454,21 @@ function generateSkillEmbed(idleGame) {
     const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
     // BigInt を Decimal に変換し、新しいフォーマッターを使い、更にIC1のクリアでeternity依存になる
-    const completedChallenges = new Set(idleGame.challenges?.completedChallenges || []);
+    const completedChallenges = new Set(
+      idleGame.challenges?.completedChallenges || []
+    );
     const isIc1Completed = completedChallenges.has("IC1");
     const spentChipsForDisplay_d = isIc1Completed
-        ? new Decimal(idleGame.chipsSpentThisEternity?.toString() || "0")
-        : new Decimal(idleGame.chipsSpentThisInfinity?.toString() || "0");
+      ? new Decimal(idleGame.chipsSpentThisEternity?.toString() || "0")
+      : new Decimal(idleGame.chipsSpentThisInfinity?.toString() || "0");
     const descriptionForSkill7 = isIc1Completed
-        ? tp_configs.skill7.descriptionIc1 // IC1クリア後の説明文
-        : tp_configs.skill7.description;    // 通常の説明文
-        
+      ? tp_configs.skill7.descriptionIc1 // IC1クリア後の説明文
+      : tp_configs.skill7.description; // 通常の説明文
+
     // 3. 表示用にフォーマット
-    const spentChipsFormatted = formatNumberJapanese_Decimal(spentChipsForDisplay_d);
+    const spentChipsFormatted = formatNumberJapanese_Decimal(
+      spentChipsForDisplay_d
+    );
     const skill7power = 0.1 * tp_levels.s7;
 
     embed.addFields(
@@ -1476,7 +1481,7 @@ function generateSkillEmbed(idleGame) {
         name: `#6 スパイシーコーラ x${tp_levels.s6}`,
         value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(tp_costs.s6, 1)} TP`,
       },
-       {
+      {
         name: `#7 山盛りのチキンナゲット x${tp_levels.s7}`,
         value: `${descriptionForSkill7}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(tp_costs.s7, 1)} TP`,
       },
@@ -2017,11 +2022,20 @@ function generateChallengeEmbed(idleGame) {
     .setTitle("⚔️ インフィニティチャレンジ ⚔️")
     .setColor("DarkRed")
     .setDescription(
-      "呪い(縛り)を受けながらインフィニティを目指す試練です。\nチャレンジを開始すると、強制的にインフィニティリセットが行われます。"
+      "呪い(縛り)を受けながらインフィニティを目指す試練です。\nチャレンジを開始すると、強制的にインフィニティリセットが行われます。\n【注意】現在ICは難易度調整期間です。クリアは保障されていません"
     );
 
-  // ▼▼▼ config.mjs からチャレンジ定義を読み込む ▼▼▼
-  for (const chal of config.idle.infinityChallenges) {
+  const completedCount = completed.size;
+  const challengesToShow = config.idle.infinityChallenges.filter((chal) => {
+    // もしチャレンジがIC9なら、クリア数が8以上の時だけ表示する
+    if (chal.id === "IC9") {
+      return completedCount >= 8;
+    }
+    // それ以外のチャレンジは常に表示
+    return true;
+  });
+
+  for (const chal of challengesToShow) {
     let status = "未挑戦";
     if (active === chal.id) status = "挑戦中";
     else if (completed.has(chal.id)) status = "✅ 達成済み";
@@ -2033,7 +2047,6 @@ function generateChallengeEmbed(idleGame) {
   }
   return embed;
 }
-
 /**
  * 【改訂】インフィニティチャレンジ画面のボタンを生成する
  */
@@ -2042,41 +2055,52 @@ function generateChallengeButtons(idleGame) {
   const active = idleGame.challenges?.activeChallenge || null;
   const components = [];
 
-  // ▼▼▼ config.mjs からボタンを動的に生成 ▼▼▼
-  // 1行に4つまでボタンを配置するロジック
-  const challenges = config.idle.infinityChallenges;
-  for (let i = 0; i < challenges.length; i += 4) {
+  // ▼▼▼ 1. 表示するチャレンジを動的にフィルタリング ▼▼▼
+  const completedCount = completed.size;
+  const challengesToShow = config.idle.infinityChallenges.filter((chal) => {
+    if (chal.id === "IC9") {
+      return completedCount >= 8;
+    }
+    return true;
+  });
+
+  // ▼▼▼ 2. フィルタリングされたリストでボタンを生成 ▼▼▼
+  for (let i = 0; i < challengesToShow.length; i += 4) {
     const row = new ActionRowBuilder();
-    const chunk = challenges.slice(i, i + 4); // 4つずつチャレンジを取り出す
+    const chunk = challengesToShow.slice(i, i + 4);
 
     for (const chal of chunk) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`idle_start_challenge_${chal.id}`)
           .setLabel(`${chal.id} 開始`)
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(completed.has(chal.id) || !!active) // 達成済みか、何か挑戦中なら無効
+          .setStyle(
+            chal.id === "IC9" ? ButtonStyle.Success : ButtonStyle.Primary
+          ) // IC9だけ色を変えて特別感を出す
+          .setDisabled(completed.has(chal.id) || !!active)
       );
     }
     components.push(row);
   }
 
-  // アクティブなチャレンジがある場合、「チャレンジ中止」ボタンを追加
+  // 挑戦中のチャレンジがある場合、「中止ボタン」の行を追加
   if (active) {
     const abortRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("idle_abort_challenge")
-        .setLabel("チャレンジを中止する")
-        .setStyle(ButtonStyle.Danger) // 危険な操作なので赤
+        .setCustomId('idle_abort_challenge')
+        .setLabel('チャレンジを中止する')
+        .setStyle(ButtonStyle.Danger)
     );
     components.push(abortRow);
   }
 
+  // 「戻るボタン」の行を追加
   const navigationRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("idle_show_infinity")
       .setLabel("ジェネレーター画面へ戻る")
       .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🌌")
   );
   components.push(navigationRow);
 

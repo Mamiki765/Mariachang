@@ -610,43 +610,20 @@ export const achievements = [
     effect: "(クリアしたIC + 1)倍だけ獲得IP上昇",
     reward: {},
   },
-  /*
   {
-    id: 87,
-    name: "【IC1】祝福無き道",
-    description: "#7を使用せずインフィニティに到達する",
-    effect: "#7の計算にエタニティチップを加算する　IP+100%",
+    id: 92,
+    name: "意外と簡単かも？",
+    description: "ICを4つクリアする",
+    effect: "IPが、2倍になる。",
     reward: {},
   },
   {
-    id: 88,
-    name: "【IC2】崩壊寸前の世界",
-    description: "現実時間12時間以内にインフィニティに到達する",
-    effect: "IP+100%",
+    id: 93,
+    name: "どうだ、見たか！",
+    description: "IC9をクリアする",
+    effect: "全てのジェネレーターの効果が2倍になる",
     reward: {},
   },
-  {
-    id: 89,
-    name: "【IC3】貧者の嫉妬",
-    description: "1000万チップ以内でインフィニティに到達する",
-    effect: "チップ獲得量x1.1　IP+100%",
-    reward: {},
-  },
-  {
-    id: 90,
-    name: "【IC4】忍び寄る影",
-    description: "ニョワミヤ減少の呪いを受けてインフィニティに到達する",
-    effect: "　IP+100%",
-    reward: {},
-  },
-  {
-    id: 91,
-    name: "【IC5】平等な才",
-    description: "Lv30固定の呪いを受けてインフィニティに到達する",
-    effect: "IP+100%、更に2倍",
-    reward: {},
-  },
-  */
 
   // 今後、ここに実績をどんどん追加していきます
   // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },

@@ -830,7 +830,7 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   if (completedChallengeCount > 0) {
     baseIP = baseIP.times(completedChallengeCount + 1);
   }
-    // (ここに将来的にボーナスなどを追加していく)
+  // (ここに将来的にボーナスなどを追加していく)
 
   // --- 2. ジェネレーターII購入によるIP増加ロジック (ブレイク後) ---
   const gen2Bought = idleGame.ipUpgrades?.generators?.[1]?.bought || 0;
@@ -838,14 +838,14 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
     // 仕様書通りの計算式: 基本値 × 10 ^ (log10(人口) / 308 - 0.75)
     const logPop = population_d.log10();
     const exponent = logPop / 308 - 0.75;
-    
+
     // 10のべき乗を計算
     const formulaIP = Decimal.pow(10, exponent);
 
     // 計算結果と基本値を乗算する
     // これにより、実績#84などの基本値ボーナスがブレイク後のIPにも乗るようになります
     const finalIP = baseIP.times(formulaIP);
-    
+
     // 最終的に、計算されたIPの小数点以下を切り捨てて返す
     return finalIP.floor();
   }
@@ -915,9 +915,15 @@ export function calculateGhostChipUpgradeCost(level) {
 function calculateFinalMeatEffect(idleGameData, externalData) {
   // --- 1. 基礎となる値を準備 ---
   const pp = idleGameData.prestigePower || 0;
-  const mee6Level = externalData.mee6Level || 0;
+  let mee6Level = externalData.mee6Level || 0;
   const achievementCount = externalData.achievementCount || 0;
   const unlockedSet = externalData.unlockedSet || new Set();
+
+  // --- 1.5 IC4中ならMee6Lv=0
+  const activeChallenge = idleGameData.challenges?.activeChallenge;
+  if (activeChallenge === "IC4") {
+    mee6Level = 0; // Mee6レベルを強制的に0にする
+  }
 
   // --- 2. キャップ対象の指数を計算 ---
   const achievement66Bonus = calculateAchievement66Bonus(
@@ -939,9 +945,15 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
 
   // --- 4. キャップ対象外のボーナスを加算 ---
   let finalExponent = capTargetExponent;
+  //IU13 +0.05
   if (idleGameData.ipUpgrades?.upgrades?.includes("IU13")) {
     finalExponent += config.idle.meat.iu13bonus;
   }
+  // IC4 +0.10
+    const ic4Config = config.idle.infinityChallenges.find(c => c.id === 'IC4');
+    if (ic4Config && ic4Config.rewardValue) {
+        finalExponent += ic4Config.rewardValue; 
+    }
 
   return finalExponent;
 }
