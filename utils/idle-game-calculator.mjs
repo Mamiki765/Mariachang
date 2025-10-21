@@ -38,6 +38,7 @@ export function calculateFactoryEffects(idleGame, pp, unlockedSet = new Set()) {
   const s5_level = idleGame.skillLevel5 || 0;
   const s5_config = config.idle.tp_skills.skill5;
   const baseLevelBonusPerLevel = s5_level * s5_config.effect;
+  const activeChallenge = idleGame.challenges?.activeChallenge;
 
   // config.idle.factories をループで処理
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
@@ -60,6 +61,12 @@ export function calculateFactoryEffects(idleGame, pp, unlockedSet = new Set()) {
         (level + ppForThisFactory) * (1 + baseLevelBonusPerLevel * level);
       effects[name] = ovenFinalEffect;
     } else if (
+      activeChallenge === "IC9" &&
+      factoryConfig.type === "multiplicative2"
+    ) {
+      //IC9なら容赦なく"1"
+      effects[name] = 1.0;
+    } else if (
       factoryConfig.type === "multiplicative" ||
       factoryConfig.type === "multiplicative2"
     ) {
@@ -80,16 +87,22 @@ export function calculateFactoryEffects(idleGame, pp, unlockedSet = new Set()) {
  * @param {number} level
  * @param {number} skillLevel6 - TPスキル#6のレベル
  * @param {Set<string>} purchasedIUs - 購入済みのIU IDのSet
+ * @param {string|null} [activeChallenge=null] - 現在実行中のインフィニティ・チャレンジのID
  * @returns {number}
  */
 export function calculateFacilityCost(
   type,
   level,
   skillLevel6 = 0,
-  purchasedIUs = new Set()
+  purchasedIUs = new Set(),
+  activeChallenge = null
 ) {
   const facility = config.idle.factories[type];
   if (!facility) return Infinity;
+
+  if (activeChallenge === "IC9" && facility.type === "multiplicative2") {
+    return Infinity;
+  }
 
   // --- 計算は内部的にDecimalで行うのが巨大数に対して最も安全 ---
   const baseCost_d = new Decimal(facility.baseCost);
@@ -129,6 +142,7 @@ export function calculateAllCosts(idleGame) {
   const costs = {};
   const skillLevel6 = idleGame.skillLevel6 || 0;
   const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
+  const activeChallenge = idleGame.challenges?.activeChallenge; 
   // config.idle.factories をループで処理
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
     // configからDBカラム名を取得
@@ -141,7 +155,8 @@ export function calculateAllCosts(idleGame) {
       name,
       currentLevel,
       skillLevel6,
-      purchasedIUs
+      purchasedIUs,
+      activeChallenge
     );
   }
 
@@ -164,29 +179,34 @@ export function calculateSpentSP(level) {
  * ★ Decimal対応版 ★
  * @param {Decimal} population_d - 現在の人口 (Decimalオブジェクト)
  * @param {number} skillLevel8 - スキル#8の現在のレベル (これはNumberでOK)
+ * @param {object} [challenges={}] - チャレンジの状態オブジェクト
  * @returns {number} 獲得できるTPの量 (TPはNumberで十分なのでNumberを返す)
  */
-export function calculatePotentialTP(population_d, skillLevel8 = 0) {
-  // --- 1. 比較もDecimalのメソッドで行う ---
+export function calculatePotentialTP(
+  population_d,
+  skillLevel8 = 0,
+  challenges = {}
+) {
   const threshold = new Decimal("1e16");
   if (population_d.lt(threshold)) {
-    // .lt() は "less than" (<)
     return 0;
   }
 
-  // --- 2. 基礎TPの計算をDecimalで行う ---
-  // population_d.log10() は Number を返すので、それをDecimalに変換し直す
+  let exponent = 2.5; // デフォルト値
+  const activeChallenge = challenges?.activeChallenge;
+  const completedChallenges = challenges?.completedChallenges || [];
+
+  if (activeChallenge === "IC3") {
+    exponent = 2.0; // IC3中は^2.0
+  } else if (completedChallenges.includes("IC3")) {
+    exponent = 2.7; // IC3クリア後は^2.7
+  }
+
   const logPop_d = new Decimal(population_d.log10());
+  const baseTP_d = logPop_d.minus(15).pow(exponent);
 
-  // (log10(人口) - 15) ^ 2.5
-  const baseTP_d = logPop_d.minus(15).pow(2.5);
-  // .minus() は引き算, .pow() はべき乗
-
-  // --- 3. スキル倍率を計算し、最終結果を求める ---
   const multiplier =
     1 + skillLevel8 * config.idle.tp_skills.skill8.effectMultiplier;
-
-  // 最後に .toNumber() で通常の数値に戻して返す
   return baseTP_d.times(multiplier).toNumber();
 }
 
@@ -267,6 +287,9 @@ function calculateProductionRate(idleGameData, externalData) {
   const pp = idleGameData.prestigePower || 0;
   const achievementCount = externalData.achievementCount || 0;
   const ascensionCount = idleGameData.ascensionCount || 0;
+  const activeChallenge = idleGameData.challenges?.activeChallenge;
+  const completedChallenges =
+    idleGameData.challenges?.completedChallenges || [];
   // 1. externalDataからunlockedSetを取り出す
   const unlockedSet = externalData.unlockedSet || new Set();
   // 2. 肉効果を計算する
@@ -290,10 +313,9 @@ function calculateProductionRate(idleGameData, externalData) {
 
   //IC2報酬
   let ic2Bonus = 1.0;
-  if (idleGameData.infinityCount > 0) {
+  if (idleGameData.infinityCount > 0 && activeChallenge !== "IC9") {
+    //infinity済みでありIC9中でなければ
     //infinity前では無用
-    const completedChallenges =
-      idleGameData.challenges?.completedChallenges || [];
     if (completedChallenges.includes("IC2")) {
       // 報酬#2効果の^0.25を3つの工場（オリーブ、小麦、パイナップル）に乗算
       // (ベース効果^2)^0.25^3 = ベース効果^1.5
@@ -331,21 +353,23 @@ function calculateProductionRate(idleGameData, externalData) {
     let ascensionBaseEffect = config.idle.ascension.effect; // 1.125
     if (idleGameData.infinityCount > 0) {
       //infinity後のアセ強化系
-      const completedChallenges =
-        idleGameData.challenges?.completedChallenges || [];
       if (completedChallenges.includes("IC7")) {
         ascensionBaseEffect += 0.025;
       }
       if (completedChallenges.includes("IC8")) {
-        ascensionBaseEffect *= 1.1;
+        ascensionBaseEffect *= 1.2;
       }
     }
     // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
     const ascensionFactor = Math.pow(ascensionBaseEffect, ascensionCount);
     // 8つの工場すべてに適用されるため、その効果を8乗したものを baseProduction に乗算する
-    baseProduction = baseProduction.times(new Decimal(ascensionFactor).pow(8));
+    const ascensionPower = activeChallenge === "IC9" ? 5 : 8; //IC9は５乗
+    baseProduction = baseProduction.times(
+      new Decimal(ascensionFactor).pow(ascensionPower)
+    );
   }
 
+  //指数処理
   let finalProduction = baseProduction
     .pow(meatEffect) // ★実績ボーナスが含まれた新しい指数がここで使われる！
     .times(buffMultiplier)
@@ -397,6 +421,14 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     //--- i3.ジェネの再計算をする
     if (idleGameData.infinityCount > 0) {
       ipUpgradesChanged = true;
+      // IC9のクリア状況を取得
+      const completedChallenges =
+        idleGameData.challenges?.completedChallenges || [];
+      let generatorMultiplier = 1.0;
+      if (completedChallenges.includes("IC9")) {
+        generatorMultiplier = 2.0;
+      }
+
       //8号機から子供を増やす処理　Geneは非常に数が吹っ飛びやすいんでamountをdで見るのは大事…
       for (let i = 7; i >= 0; i--) {
         // G8 -> G1
@@ -409,7 +441,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         const productionPerSecond = amount_d.times(multiplier).div(60);
         const producedAmount = productionPerSecond
           .times(elapsedSeconds)
-          .times(timeAccelerationMultiplier); //#2の「ゲームスピード加速」がここで生きてくる
+          .times(timeAccelerationMultiplier) //#2の「ゲームスピード加速」がここで生きてくる
+          .times(generatorMultiplier); //IC9
 
         if (i > 0) {
           generators[i - 1].amount = new Decimal(generators[i - 1].amount)
@@ -432,7 +465,11 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     );
     let finalProductionPerMinute_d = productionPerMinute_d;
     if (idleGameData.infinityCount > 0) {
-      const gpEffect_d = gp_d.pow(4).max(1); //^0.5^8
+      //IC9挑戦中ならGP効果を弱体化
+      const activeChallenge = idleGameData.challenges?.activeChallenge;
+      const gpPower = activeChallenge === "IC9" ? 2.5 : 4.0;
+      //そうでなければ^0.5^8＝４乗をかける
+      const gpEffect_d = gp_d.pow(gpPower).max(1);
       finalProductionPerMinute_d = productionPerMinute_d.times(gpEffect_d);
     }
     const productionPerSecond_d = finalProductionPerMinute_d.div(60);
@@ -617,6 +654,12 @@ export async function getSingleUserUIData(userId) {
   ]);
   if (!idleGameData) return null; // ユーザーデータがなければ終了
 
+  let uiContext = {
+    //UIコンテキスト系(/idleで表示される)
+    messages: [], // 表示用メッセージ
+    challengeFailed: false,
+  };
+
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
 
   // 2. externalData(道具箱)を準備
@@ -628,6 +671,23 @@ export async function getSingleUserUIData(userId) {
 
   // 3. 計算エンジンを呼び出して、最新の状態にする
   const updatedIdleGame = calculateOfflineProgress(idleGameData, externalData);
+
+  // 3.5.インフィニティチャレンジ関連のUIメッセージを生成
+  const activeChallenge = updatedIdleGame.challenges?.activeChallenge;
+  if (activeChallenge) {
+    const challengeConfig = config.idle.infinityChallenges.find(
+      (c) => c.id === activeChallenge
+    );
+    if (challengeConfig) {
+      uiContext.messages.push(
+        `**⚔️ チャレンジ挑戦中: ${challengeConfig.name}**`
+      );
+    }
+    // IC6
+    if (activeChallenge === "IC6") {
+      uiContext = processIC6Rival(updatedIdleGame, uiContext);
+    }
+  }
 
   // 4. DBに保存する (注意: この関数はUI表示のたびに呼ばれるので、頻繁なDB書き込みになる。将来的には分離も検討)
   // updateに渡すオブジェクトを動的に構築
@@ -687,6 +747,7 @@ export async function getSingleUserUIData(userId) {
     achievementCount: externalData.achievementCount,
     userAchievement: userAchievement,
     displayData: displayData, // ★計算済みの表示用データも一緒に返す！
+    uiContext: uiContext,
   };
 }
 
@@ -816,7 +877,8 @@ export function calculateAscensionRequirements(
       facilityName,
       targetLevel,
       skillLevel6,
-      purchasedIUs //そのままIU14用に流す！
+      purchasedIUs, //そのままIU14用に流す！
+      null 
     );
   }
 
@@ -877,7 +939,8 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   if (completedChallengeCount >= 4) {
     baseIP = baseIP.times(2);
   }
-  if (completedChallengeCount >= 9) { //IC9クリア時点で9個達成している必要があり、クリアしていれば2倍されているので。
+  if (completedChallengeCount >= 9) {
+    //IC9クリア時点で9個達成している必要があり、クリアしていれば2倍されているので。
     baseIP = baseIP.times(2);
   }
   // (ここに将来的にボーナスなどを追加していく)
@@ -1006,4 +1069,45 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
   }
 
   return finalExponent;
+}
+
+/**
+ * 【IC6専用】ライバルとの人口を比較し、UIコンテキストを更新する (修正版)
+ * @param {object} idleGameData - 最新のIdleGameデータ
+ * @param {object} uiContext - 更新対象のUIコンテキストオブジェクト
+ * @returns {object} 更新されたUIコンテキストオブジェクト
+ */
+function processIC6Rival(idleGameData, uiContext) {
+  if (!idleGameData.challenges.IC6?.startTime) {
+    return uiContext;
+  }
+
+  const rivalStartTime = new Date(idleGameData.challenges.IC6.startTime);
+  const now = new Date();
+  const realSecondsElapsed = (now.getTime() - rivalStartTime.getTime()) / 1000;
+  const rivalUpdates = Math.floor(realSecondsElapsed / 60);
+
+  if (rivalUpdates > 0) {
+    const rivalPop_d = Decimal.pow(10, rivalUpdates);
+    const playerPop_d = new Decimal(idleGameData.population);
+
+    // ▼▼▼【ここからが修正箇所です】▼▼▼
+    if (playerPop_d.lt(rivalPop_d)) {
+      // --- 敗北時の処理 ---
+      uiContext.challengeFailed = true;
+      const failureReason = `ライバルに抜かれました…\n- **あなたの人口:** ${formatNumberJapanese_Decimal(playerPop_d)}\n- **ライバル人口:<:nyo_wa:1430006900489060423>** ${formatNumberJapanese_Decimal(rivalPop_d)}`;
+
+      // 既存のメッセージをクリアし、詳細な敗北メッセージだけを追加する
+      uiContext.messages = [`**🚨 ${failureReason}**`];
+    } else {
+      // --- 継続中の処理 ---
+      // 既存のメッセージはそのままに、ライバルの人口だけを追加
+      uiContext.messages.push(
+        `- ライバル人口<:nyo_wa:1430006900489060423>: ${formatNumberJapanese_Decimal(rivalPop_d)}`
+      );
+    }
+    // ▲▲▲【修正箇所ここまで】▲▲▲
+  }
+
+  return uiContext;
 }

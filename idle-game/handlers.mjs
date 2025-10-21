@@ -577,7 +577,8 @@ async function executePrestigeTransaction(userId, client) {
 
       const gainedTP = calculatePotentialTP(
         currentPopulation_d,
-        latestIdleGame.skillLevel8
+        latestIdleGame.skillLevel8,
+        latestIdleGame.challenges
       );
 
       latestIdleGame.transcendencePoints += gainedTP; //TPだけ先に加算
@@ -641,7 +642,8 @@ async function executePrestigeTransaction(userId, client) {
       // --- TPプレステージ (新しいロジック) ---
       const gainedTP = calculatePotentialTP(
         currentPopulation_d,
-        latestIdleGame.skillLevel8
+        latestIdleGame.skillLevel8,
+        latestIdleGame.challenges
       );
 
       latestIdleGame.transcendencePoints += gainedTP; //TPだけ先に加算
@@ -1235,11 +1237,23 @@ export async function handleInfinity(interaction, collector) {
             currentChallenges.completedChallenges.push(activeChallenge);
             challengeWasCleared = true;
           }
+          if (activeChallenge === "IC9") {
+          // 1. チャレンジ開始時の現実時間を取得
+          const startTime = new Date(currentChallenges.IC9.startTime);
+          // 2. 現在の現実時間を取得
+          const endTime = new Date();
+          // 3. 差を計算して、秒単位に変換
+          const completionTimeInSeconds = (endTime.getTime() - startTime.getTime()) / 1000;
+          const bestTime = currentChallenges.IC9?.bestTime || Infinity;
+          if (completionTimeInSeconds < bestTime) {
+            currentChallenges.IC9.bestTime = completionTimeInSeconds;
+          }
+          delete currentChallenges.IC9.startTime;
+          }
         }
         // 成功・失敗に関わらず、アクティブなチャレンジはリセット
         delete currentChallenges.activeChallenge;
         latestIdleGame.changed("challenges", true);
-        
       }
       newCompletedCount = currentChallenges.completedChallenges?.length || 0;
 
@@ -1731,6 +1745,18 @@ export async function handleStartChallenge(
 
       const currentChallenges = idleGame.challenges || {};
       currentChallenges.activeChallenge = challengeId;
+      if (challengeId === "IC6") {
+        currentChallenges.IC6 = {
+          startTime: new Date().toISOString(),
+        };
+      }
+      if (challengeId === "IC9") {
+        //9は再プレイに備えて開始時間（現実）と以前のデータを入れる
+        currentChallenges.IC9 = {
+          ...currentChallenges.IC9,
+          startTime: new Date().toISOString(),
+        };
+      }
       idleGame.changed("challenges", true);
 
       // ▼▼▼ 修正点2: newIpUpgradesの定義を追加 ▼▼▼

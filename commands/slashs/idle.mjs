@@ -154,6 +154,54 @@ export async function execute(interaction) {
       });
       return;
     }
+
+    // IC6などのインフィニティチャレンジ失敗判定と自動中止処理
+    if (uiData.uiContext?.challengeFailed) {
+      const failureMessage =
+        `**⚔️ インフィニティチャレンジ失敗…**\n` +
+        `----------------------------------------\n` +
+        uiData.uiContext.messages.join("\n") +
+        `\n----------------------------------------\n` +
+        `縛りは解除されました。この周回ではチャレンジを再開できません。`;
+
+      try {
+        await sequelize.transaction(async (t) => {
+          const idleGameInstance = await IdleGame.findOne({
+            where: { userId },
+            transaction: t,
+            lock: t.LOCK.UPDATE,
+          });
+
+          if (
+            idleGameInstance &&
+            idleGameInstance.challenges?.activeChallenge === "IC6"
+          ) {
+            const currentChallenges = idleGameInstance.challenges;
+            delete currentChallenges.activeChallenge;
+            delete currentChallenges.IC6; // IC6関連データも削除
+            idleGameInstance.challenges = currentChallenges;
+            idleGameInstance.changed("challenges", true);
+            await idleGameInstance.save({ transaction: t });
+          }
+        });
+
+        await interaction.editReply({
+          content: failureMessage,
+          embeds: [],
+          components: [],
+        });
+        return; // これ以降の処理を中断
+      } catch (error) {
+        console.error("IC6 Auto-Abort Error:", error);
+        await interaction.editReply({
+          content: "チャレンジの自動中止処理中にエラーが発生しました。",
+          embeds: [],
+          components: [],
+        });
+        return;
+      }
+    }
+
     uiData.point = point;
     // 取得したデータを分かりやすい変数に展開
     const { achievementCount, userAchievement } = uiData;
@@ -405,7 +453,7 @@ export async function execute(interaction) {
       const gp_d = new Decimal(idleGame.generatorPower || "1");
       const gpEffect = gp_d.pow(0.5).max(1).toNumber();
 
-     // スキル#2の効果
+      // スキル#2の効果
       const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
       const finalSkill2Effect = Math.pow(skill2Effect, 2);
       const skill2EffectDisplay =
@@ -413,10 +461,11 @@ export async function execute(interaction) {
 
       //IC2ボーナス
       let ic2BonusForOne = 1.0;
-      const completedChallenges = uiData.idleGame.challenges?.completedChallenges || [];
-      if (completedChallenges.includes('IC2')) {
-          ic2BonusForOne = Math.pow(skill2Effect, 0.5);
-          if (ic2BonusForOne < 1.0) ic2BonusForOne = 1.0;
+      const completedChallenges =
+        uiData.idleGame.challenges?.completedChallenges || [];
+      if (completedChallenges.includes("IC2")) {
+        ic2BonusForOne = Math.pow(skill2Effect, 0.5);
+        if (ic2BonusForOne < 1.0) ic2BonusForOne = 1.0;
       }
 
       // 表示用の施設効果
@@ -432,10 +481,21 @@ export async function execute(interaction) {
       effects_display.anchovy =
         factoryEffects.anchovy * skill1Effect * ascensionEffect * gpEffect;
       // 上位施設には skill1Effect を掛けない
-      effects_display.olive = factoryEffects.olive * ascensionEffect * gpEffect * ic2BonusForOne;
-      effects_display.wheat = factoryEffects.wheat * ascensionEffect * gpEffect * ic2BonusForOne;
-      effects_display.pineapple =
-        factoryEffects.pineapple * ascensionEffect * gpEffect * ic2BonusForOne;
+      if (activeChallenge === "IC9") {
+        effects_display.olive = 1;
+        effects_display.wheat = 1;
+        effects_display.pineapple = 1;
+      } else {
+        effects_display.olive =
+          factoryEffects.olive * ascensionEffect * gpEffect * ic2BonusForOne;
+        effects_display.wheat =
+          factoryEffects.wheat * ascensionEffect * gpEffect * ic2BonusForOne;
+        effects_display.pineapple =
+          factoryEffects.pineapple *
+          ascensionEffect *
+          gpEffect *
+          ic2BonusForOne;
+      }
 
       // ★ バフ残り時間計算
       let buffField = null;
@@ -523,7 +583,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       embed.addFields(
         {
           name: `${config.idle.meat.emoji}精肉工場 (Mee6)`,
-          value: `Lv. ${activeChallenge === 'IC4' ? '**0**' : meatFactoryLevel} (${meatEffect.toFixed(2)})`,
+          value: `Lv. ${activeChallenge === "IC4" ? "**0**" : meatFactoryLevel} (${meatEffect.toFixed(2)})`,
           inline: true,
         },
         {
@@ -823,7 +883,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           // 条件3: それ以外 (populationが1e16以上) の場合
           const potentialTP = calculatePotentialTP(
             population_d,
-            idleGame.skillLevel8
+            idleGame.skillLevel8,
+            idleGame.challenges
           ); // 先に計算しておくとスッキリします
           prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
         }
@@ -843,7 +904,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
         // --- ケース2: TPだけ手に入る新しいプレステージ ---
         const potentialTP = calculatePotentialTP(
           population_d,
-          idleGame.skillLevel8
+          idleGame.skillLevel8,
+          idleGame.challenges
         );
 
         boostRow.addComponents(
@@ -969,15 +1031,24 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
 
       case "factory":
       default: // デフォルトの画面
+        let content = "";
+        if (
+          uiData.uiContext?.messages &&
+          uiData.uiContext.messages.length > 0
+        ) {
+          // メッセージを改行で連結し、他のテキストとの間にスペースを空ける
+          content += uiData.uiContext.messages.join("\n") + "\n";
+        }
         const remainingMs = uiData.idleGame.buffExpiresAt
           ? uiData.idleGame.buffExpiresAt.getTime() - new Date().getTime()
           : 0;
         const remainingHours = remainingMs / (1000 * 60 * 60);
-        let content =
-          "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
         if (remainingHours > 24) {
-          content =
+          content +=
             "ニョボシが働いている(残り24時間以上)時はブーストは延長されません。";
+        } else {
+          content +=
+            "⏫ ピザ窯を覗いてから **24時間** はニョワミヤの流入量が **2倍** になります！";
         }
         replyOptions = {
           content: content,
@@ -1547,6 +1618,8 @@ function generateSkillButtons(idleGame) {
       Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
   };
 
+  const activeChallenge = idleGame.challenges?.activeChallenge;
+
   const skillRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("idle_upgrade_skill_1")
@@ -1567,7 +1640,9 @@ function generateSkillButtons(idleGame) {
       .setCustomId("idle_upgrade_skill_4")
       .setLabel("#4強化")
       .setStyle(ButtonStyle.Primary)
-      .setDisabled(idleGame.skillPoints < costs.s4),
+      .setDisabled(
+        idleGame.skillPoints < costs.s4 || activeChallenge === "IC5"
+      ), //IC5でも押せない
     new ButtonBuilder()
       .setCustomId("idle_skill_reset") // 新しいID
       .setLabel("SPリセット")
@@ -2050,10 +2125,19 @@ function generateChallengeEmbed(idleGame) {
     let status = "未挑戦";
     if (active === chal.id) status = "挑戦中";
     else if (completed.has(chal.id)) status = "✅ 達成済み";
+    let bonusText = `**報酬:** ${chal.bonus}`;
+    // チャレンジがIC9で、かつベストタイムが記録されている場合
+    if (chal.id === "IC9" && idleGame.challenges?.IC9?.bestTime) {
+      const bestTimeFormatted = formatInfinityTime(
+        idleGame.challenges.IC9.bestTime
+      );
+      // 報酬テキストにベストタイムを追記
+      bonusText += `\n**自己ベスト（現実時間):** ${bestTimeFormatted}`;
+    }
 
     embed.addFields({
       name: `${chal.id}: ${chal.name} [${status}]`,
-      value: `**縛り:** ${chal.description}\n**報酬:** ${chal.bonus}`,
+      value: `**縛り:** ${chal.description}\n**報酬:** ${bonusText}`,
     });
   }
   return embed;
@@ -2088,7 +2172,10 @@ function generateChallengeButtons(idleGame) {
           .setStyle(
             chal.id === "IC9" ? ButtonStyle.Success : ButtonStyle.Primary
           ) // IC9だけ色を変えて特別感を出す
-          .setDisabled(completed.has(chal.id) || !!active)
+          //クリア済み(ただしIC9を除く)、あるいはプレイ中は押せない
+          .setDisabled(
+            (completed.has(chal.id) && chal.id !== "IC9") || !!active
+          )
       );
     }
     components.push(row);
@@ -2098,8 +2185,8 @@ function generateChallengeButtons(idleGame) {
   if (active) {
     const abortRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('idle_abort_challenge')
-        .setLabel('チャレンジを中止する')
+        .setCustomId("idle_abort_challenge")
+        .setLabel("チャレンジを中止する")
         .setStyle(ButtonStyle.Danger)
     );
     components.push(abortRow);
