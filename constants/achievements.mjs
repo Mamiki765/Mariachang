@@ -396,14 +396,14 @@ export const achievements = [
   {
     id: 62,
     name: "虚無の試練",
-    description: "全ての工場がLv0で1e+24を目指す",
+    description: "全ての工場がLv0、かつ人口1e+24以上の状態でプレステージをする",
     effect: "工場の試練1/4",
     reward: {},
   },
   {
     id: 63,
     name: "散財の試練",
-    description: "1,000,000ニョボチップを一気に消し飛ばす",
+    description: "1,000,000ニョボチップを適当強化で一気に消費する",
     effect: "工場の試練2/4",
     reward: {},
   },
@@ -418,7 +418,7 @@ export const achievements = [
   {
     id: 65,
     name: "充足の試練",
-    description: "#1スキルを使用せず、e27を達成する",
+    description: "#1スキルLv0の状態で人口1e+27を達成しプレステージを行う",
     effect: "工場の試練4/4",
     reward: {},
   },
@@ -520,7 +520,6 @@ export const achievements = [
     reward: {},
   },
   {
-    //ここから未実装
     id: 78,
     name: "今こそ目覚めの時",
     description: "8つの工場を全てLv1にする",

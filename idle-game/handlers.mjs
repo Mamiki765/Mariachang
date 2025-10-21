@@ -1192,6 +1192,7 @@ export async function handleInfinity(interaction, collector) {
     let challengeWasCleared = false;
     let challengeWasFailed = false; //IC2
     let activeChallenge = null;
+    let newCompletedCount = 0;
 
     // 2. トランザクションで安全にデータベースを更新
     await sequelize.transaction(async (t) => {
@@ -1238,8 +1239,9 @@ export async function handleInfinity(interaction, collector) {
         // 成功・失敗に関わらず、アクティブなチャレンジはリセット
         delete currentChallenges.activeChallenge;
         latestIdleGame.changed("challenges", true);
+        
       }
-      const completedCount = currentChallenges.completedChallenges?.length || 0;
+      newCompletedCount = currentChallenges.completedChallenges?.length || 0;
 
       //∞を1増やす
       if (latestIdleGame.infinityCount === 0) {
@@ -1248,7 +1250,7 @@ export async function handleInfinity(interaction, collector) {
       newInfinityCount = latestIdleGame.infinityCount + 1;
 
       // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
-      gainedIP = calculateGainedIP(latestIdleGame, completedCount);
+      gainedIP = calculateGainedIP(latestIdleGame, newCompletedCount);
 
       // 4.ジェネレーターをリセットし
       const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];
@@ -1329,6 +1331,12 @@ export async function handleInfinity(interaction, collector) {
     //ICクリア
     if (challengeWasCleared) {
       await unlockAchievements(interaction.client, interaction.user.id, 91); //#91 無限の試練
+      if (newCompletedCount === 4) {
+        await unlockAchievements(interaction.client, interaction.user.id, 92); // #92 意外と簡単かも？
+      }
+      if (newCompletedCount === 9) {
+        await unlockAchievements(interaction.client, interaction.user.id, 93); // #93 どうだ、見たか！
+      }
       await interaction.followUp({
         content: `🎉 **インフィニティチャレンジ ${activeChallenge}** を達成しました！`,
         ephemeral: true,
