@@ -1238,17 +1238,18 @@ export async function handleInfinity(interaction, collector) {
             challengeWasCleared = true;
           }
           if (activeChallenge === "IC9") {
-          // 1. チャレンジ開始時の現実時間を取得
-          const startTime = new Date(currentChallenges.IC9.startTime);
-          // 2. 現在の現実時間を取得
-          const endTime = new Date();
-          // 3. 差を計算して、秒単位に変換
-          const completionTimeInSeconds = (endTime.getTime() - startTime.getTime()) / 1000;
-          const bestTime = currentChallenges.IC9?.bestTime || Infinity;
-          if (completionTimeInSeconds < bestTime) {
-            currentChallenges.IC9.bestTime = completionTimeInSeconds;
-          }
-          delete currentChallenges.IC9.startTime;
+            // 1. チャレンジ開始時の現実時間を取得
+            const startTime = new Date(currentChallenges.IC9.startTime);
+            // 2. 現在の現実時間を取得
+            const endTime = new Date();
+            // 3. 差を計算して、秒単位に変換
+            const completionTimeInSeconds =
+              (endTime.getTime() - startTime.getTime()) / 1000;
+            const bestTime = currentChallenges.IC9?.bestTime || Infinity;
+            if (completionTimeInSeconds < bestTime) {
+              currentChallenges.IC9.bestTime = completionTimeInSeconds;
+            }
+            delete currentChallenges.IC9.startTime;
           }
         }
         // 成功・失敗に関わらず、アクティブなチャレンジはリセット
@@ -1266,6 +1267,16 @@ export async function handleInfinity(interaction, collector) {
       // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
       gainedIP = calculateGainedIP(latestIdleGame, newCompletedCount);
 
+      // IC6クリア報酬.初期#1~4LvをIPを元に決定
+      let initialSkillLevel = 0; // デフォルトの初期スキルレベル
+      const completedChallenges = currentChallenges.completedChallenges || [];
+      if (completedChallenges.includes("IC6")) {
+        // 6-1. 「得られる」IPの桁数を計算 (これがボーナスSPとなる)
+        const bonusSP = Math.max(1, Math.floor(gainedIP.abs().log10()) + 1);
+        // 6-2. log2の公式でボーナスレベルを計算
+        // (小数点以下は切り捨て)
+        initialSkillLevel = Math.floor(Math.log2(bonusSP + 1));
+      }
       // 4.ジェネレーターをリセットし
       const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];
       const newGenerators = Array.from({ length: 8 }, (_, i) => {
@@ -1300,10 +1311,10 @@ export async function handleInfinity(interaction, collector) {
           prestigeCount: 0,
           prestigePower: 0,
           skillPoints: 0,
-          skillLevel1: 0,
-          skillLevel2: 0,
-          skillLevel3: 0,
-          skillLevel4: 0,
+          skillLevel1: initialSkillLevel,
+          skillLevel2: initialSkillLevel,
+          skillLevel3: initialSkillLevel,
+          skillLevel4: initialSkillLevel,
           transcendencePoints: 0,
           skillLevel5: 0,
           skillLevel6: 0,

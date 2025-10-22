@@ -379,7 +379,8 @@ function calculateProductionRate(idleGameData, externalData) {
 }
 
 /**
- * 【新規】2. オフライン進行の計算エンジン (新しい心臓部)
+ * 【改訂版】オフライン進行の計算エンジン
+ * ジェネレーター計算に始値と終値の平均を用いることで精度を向上させる。
  * @param {object} idleGameData - Sequelizeから取得したidleGameの生データ
  * @param {object} externalData - Mee6レベルなど外部から与えるデータ
  * @returns {object} - 計算後の更新されたidleGameの生データ (プレーンなJSオブジェクト)
@@ -387,14 +388,12 @@ function calculateProductionRate(idleGameData, externalData) {
 export function calculateOfflineProgress(idleGameData, externalData) {
   // --- 1. Decimalオブジェクトへ変換 ---
   let population_d = new Decimal(idleGameData.population);
-  // --- i1.定義をする ---
   let gp_d;
   let generators;
   let ipUpgradesChanged = false;
-  // --- i2.∞>0で整える
+
   if (idleGameData.infinityCount > 0) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
-    // ジェネレーター配列を安全に正規化
     const oldGenerators = idleGameData.ipUpgrades?.generators || [];
     generators = Array.from(
       { length: 8 },
@@ -402,15 +401,13 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     );
   }
 
-  // --- 2. 経過時間に基づいた人口計算 ---
+  // --- 2. 経過時間に基づいた計算 ---
   const now = new Date();
   const lastUpdate = new Date(idleGameData.lastUpdatedAt);
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
   let newInfinityTime = idleGameData.infinityTime || 0;
   let newEternityTime = idleGameData.eternityTime || 0;
-  //251012 時間加速スキル効果を計算
-  //251024 ジェネ効果のためinTimeやetTime加算より上で先に計算
-  // (#2 * #4)^2倍速
+
   const timeAccelerationMultiplier = Math.pow(
     (1 + (idleGameData.skillLevel2 || 0)) *
       (1.0 + (idleGameData.skillLevel4 || 0) * 0.1),
@@ -418,57 +415,53 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   );
 
   if (elapsedSeconds > 0) {
-    //--- i3.ジェネの再計算をする
+    //--- 2.1. ジェネレーターの再計算（平均値を用いた高精度版） ---
+    // GP 1e2000以上の時はSCを入れたいね
     if (idleGameData.infinityCount > 0) {
       ipUpgradesChanged = true;
-      // IC9のクリア状況を取得
-      const completedChallenges =
-        idleGameData.challenges?.completedChallenges || [];
-      let generatorMultiplier = 1.0;
-      if (completedChallenges.includes("IC9")) {
-        generatorMultiplier = 2.0;
-      }
+      const completedChallenges = idleGameData.challenges?.completedChallenges || [];
+      
+      // IC9(全チャレンジ)クリア報酬: 全ジェネレーターの性能が2倍になる。
+      const generatorMultiplier = completedChallenges.includes("IC9") ? 2.0 : 1.0;
 
-      //8号機から子供を増やす処理　Geneは非常に数が吹っ飛びやすいんでamountをdで見るのは大事…
-      for (let i = 7; i >= 0; i--) {
-        // G8 -> G1
+      let amountProducedByParent_d = new Decimal(0);
+
+      for (let i = 7; i >= 0; i--) { // G8からG1へ
         const genData = generators[i];
         const bought = genData.bought || 0;
-        if (bought === 0) continue;
+        
+        const initialAmount_d = new Decimal(genData.amount);
+        const finalAmount_d = initialAmount_d.add(amountProducedByParent_d);
+        genData.amount = finalAmount_d.toString();
 
-        const multiplier = Math.pow(2, bought - 1); //1個買う度に2倍
-        const amount_d = new Decimal(genData.amount);
-        const productionPerSecond = amount_d.times(multiplier).div(60);
-        const producedAmount = productionPerSecond
-          .times(elapsedSeconds)
-          .times(timeAccelerationMultiplier) //#2の「ゲームスピード加速」がここで生きてくる
-          .times(generatorMultiplier); //IC9
-
-        if (i > 0) {
-          generators[i - 1].amount = new Decimal(generators[i - 1].amount)
-            .add(producedAmount)
-            .toString();
-        } else {
-          const firstProducedAmount = producedAmount.times(
-            idleGameData.infinityCount
-          ); // G1のみ∞数で乗算される
-          gp_d = gp_d.add(firstProducedAmount); // ここで gp_d が更新される。
+        if (bought === 0) {
+          amountProducedByParent_d = new Decimal(0);
+          continue;
         }
+
+        const averageAmount_d = initialAmount_d.add(amountProducedByParent_d.div(2));
+        const multiplier = Math.pow(2, bought - 1);
+        const productionPerSecond_d = averageAmount_d.times(multiplier).div(60);
+        
+        const producedAmount_d = productionPerSecond_d
+          .times(elapsedSeconds)
+          .times(timeAccelerationMultiplier)
+          .times(generatorMultiplier);
+
+        amountProducedByParent_d = producedAmount_d;
       }
-      //GPがe2000＝マルチe1000以上の時、SC関数を後々入れる（インフィニティがインフィニティしそうな頃の話）
+      
+      const finalGpProduction_d = amountProducedByParent_d.times(idleGameData.infinityCount);
+      gp_d = gp_d.add(finalGpProduction_d);
     }
 
-    // infinity前の処理
-    const productionPerMinute_d = calculateProductionRate(
-      idleGameData,
-      externalData
-    );
+    //--- 2.2. 人口増加の計算 ---
+    const productionPerMinute_d = calculateProductionRate(idleGameData, externalData);
     let finalProductionPerMinute_d = productionPerMinute_d;
     if (idleGameData.infinityCount > 0) {
-      //IC9挑戦中ならGP効果を弱体化
       const activeChallenge = idleGameData.challenges?.activeChallenge;
+      // IC9挑戦中は稼働施設が5つになるため、GPの指数が 4.0 (8*0.5) -> 2.5 (5*0.5) に弱体化する。
       const gpPower = activeChallenge === "IC9" ? 2.5 : 4.0;
-      //そうでなければ^0.5^8＝４乗をかける
       const gpEffect_d = gp_d.pow(gpPower).max(1);
       finalProductionPerMinute_d = productionPerMinute_d.times(gpEffect_d);
     }
@@ -476,30 +469,24 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
     population_d = population_d.add(addedPopulation_d);
 
+    //--- 2.3. ゲーム内時間の加算 ---
     newInfinityTime += elapsedSeconds * timeAccelerationMultiplier;
     newEternityTime += elapsedSeconds * timeAccelerationMultiplier;
   }
 
-  // --- 2.5 Infinityを超えたら直前で止める
-  const INFINITY_THRESHOLD = new Decimal(config.idle.infinity); //この数値をInfinityボタン出現条件とする
+  // --- 3. Infinity上限処理 ---
+  const INFINITY_THRESHOLD = new Decimal(config.idle.infinity);
   if (population_d.gte(INFINITY_THRESHOLD)) {
-    //infinityを超えたら
-    // ジェネレーターIIの購入数をチェック
     const gen2Bought = idleGameData.ipUpgrades?.generators?.[1]?.bought || 0;
-    if (gen2Bought === 0) {
-      //0ならInfinity is not broken.
+    if (gen2Bought === 0) { // Break Infinity未達成
       population_d = INFINITY_THRESHOLD;
     }
-    //1以上ならBreak Infinity
   }
 
-  // --- 3. ピザボーナスの再計算 ---
+  // --- 4. ピザボーナス（チップ獲得量ボーナス）の再計算 ---
   let pizzaBonusPercentage = 0;
-  // populationが1以上の場合のみ計算
   if (population_d.gte(1)) {
-    // population_d.log10() は通常の Number を返すので、以降はNumber計算でOK
     const logPop = population_d.log10();
-    // infinity実績　chip + 5000%
     const afterInfinity = idleGameData.infinityCount > 0 ? 5000 : 0;
     const skill3Effect =
       (1 + (idleGameData.skillLevel3 || 0)) *

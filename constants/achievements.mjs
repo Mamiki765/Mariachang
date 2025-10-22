@@ -376,7 +376,7 @@ export const achievements = [
     id: 59,
     name: "ニョボシ・ブラックホール",
     description:
-      "インフィニティ中に消費されたニョボチップが1000万を超える(チャレンジ)",
+      "インフィニティ中に消費されたニョボチップが1000万を超える",
     reward: {},
   },
   {
@@ -389,7 +389,7 @@ export const achievements = [
   {
     id: 61,
     name: "無限への二合目",
-    description: "ニョワミヤの数が4.482e+61に到達(infinityの20%)(チャレンジ)",
+    description: "ニョワミヤの数が4.482e+61に到達(infinityの20%)",
     effect: "無駄かもしれないが、ニョワミヤ達はあなたを尊敬するだろう",
     reward: {},
   },
@@ -572,8 +572,8 @@ export const achievements = [
   {
     id: 86,
     name: "アンチマター・ディメンジョンズ",
-    description: "ジェネレーターⅡを購入する（無理）",
-    effect: "ブレイクインフィニティを解禁…ホントはもっと後だけど",
+    description: "ジェネレーターⅡを購入する",
+    effect: "ブレイクインフィニティを解禁、人口条件はもはや1.79e+308ではない。",
     reward: {},
   },
   {
@@ -620,7 +620,7 @@ export const achievements = [
     id: 93,
     name: "どうだ、見たか！",
     description: "IC9をクリアする",
-    effect: "全てのジェネレーターの効果が2倍になる（未実装）",
+    effect: "全てのジェネレーターの効果が2倍になる",
     reward: {},
   },
 
