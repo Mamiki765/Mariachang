@@ -142,7 +142,7 @@ export function calculateAllCosts(idleGame) {
   const costs = {};
   const skillLevel6 = idleGame.skillLevel6 || 0;
   const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
-  const activeChallenge = idleGame.challenges?.activeChallenge; 
+  const activeChallenge = idleGame.challenges?.activeChallenge;
   // config.idle.factories をループで処理
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
     // configからDBカラム名を取得
@@ -389,11 +389,13 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   // --- 1. Decimalオブジェクトへ変換 ---
   let population_d = new Decimal(idleGameData.population);
   let gp_d;
+  let initial_gp_d;
   let generators;
   let ipUpgradesChanged = false;
 
   if (idleGameData.infinityCount > 0) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
+    initial_gp_d = gp_d;
     const oldGenerators = idleGameData.ipUpgrades?.generators || [];
     generators = Array.from(
       { length: 8 },
@@ -419,17 +421,21 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     // GP 1e2000以上の時はSCを入れたいね
     if (idleGameData.infinityCount > 0) {
       ipUpgradesChanged = true;
-      const completedChallenges = idleGameData.challenges?.completedChallenges || [];
-      
+      const completedChallenges =
+        idleGameData.challenges?.completedChallenges || [];
+
       // IC9(全チャレンジ)クリア報酬: 全ジェネレーターの性能が2倍になる。
-      const generatorMultiplier = completedChallenges.includes("IC9") ? 2.0 : 1.0;
+      const generatorMultiplier = completedChallenges.includes("IC9")
+        ? 2.0
+        : 1.0;
 
       let amountProducedByParent_d = new Decimal(0);
 
-      for (let i = 7; i >= 0; i--) { // G8からG1へ
+      for (let i = 7; i >= 0; i--) {
+        // G8からG1へ
         const genData = generators[i];
         const bought = genData.bought || 0;
-        
+
         const initialAmount_d = new Decimal(genData.amount);
         const finalAmount_d = initialAmount_d.add(amountProducedByParent_d);
         genData.amount = finalAmount_d.toString();
@@ -439,10 +445,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           continue;
         }
 
-        const averageAmount_d = initialAmount_d.add(amountProducedByParent_d.div(2));
+        const averageAmount_d = initialAmount_d.add(
+          amountProducedByParent_d.div(2)
+        );
         const multiplier = Math.pow(2, bought - 1);
         const productionPerSecond_d = averageAmount_d.times(multiplier).div(60);
-        
+
         const producedAmount_d = productionPerSecond_d
           .times(elapsedSeconds)
           .times(timeAccelerationMultiplier)
@@ -450,20 +458,33 @@ export function calculateOfflineProgress(idleGameData, externalData) {
 
         amountProducedByParent_d = producedAmount_d;
       }
-      
-      const finalGpProduction_d = amountProducedByParent_d.times(idleGameData.infinityCount);
+
+      const finalGpProduction_d = amountProducedByParent_d.times(
+        idleGameData.infinityCount
+      );
       gp_d = gp_d.add(finalGpProduction_d);
     }
 
     //--- 2.2. 人口増加の計算 ---
-    const productionPerMinute_d = calculateProductionRate(idleGameData, externalData);
+    const productionPerMinute_d = calculateProductionRate(
+      idleGameData,
+      externalData
+    );
     let finalProductionPerMinute_d = productionPerMinute_d;
     if (idleGameData.infinityCount > 0) {
       const activeChallenge = idleGameData.challenges?.activeChallenge;
       // IC9挑戦中は稼働施設が5つになるため、GPの指数が 4.0 (8*0.5) -> 2.5 (5*0.5) に弱体化する。
       const gpPower = activeChallenge === "IC9" ? 2.5 : 4.0;
-      const gpEffect_d = gp_d.pow(gpPower).max(1);
-      finalProductionPerMinute_d = productionPerMinute_d.times(gpEffect_d);
+      // 1. オフライン期間「開始時」のGPの効果を計算
+      const initialGpEffect_d = initial_gp_d.pow(gpPower).max(1);
+      // 2. ジェネレーター生産後の「終了時」のGPの効果を計算
+      const finalGpEffect_d = gp_d.pow(gpPower).max(1);
+      // 3. 開始時と終了時の効果の「平均効果」を算出する
+      //    これにより、GPが線形的に増加したと仮定した場合の、より正確な人口増加量を求められる
+      const averageGpEffect_d = initialGpEffect_d.add(finalGpEffect_d).div(2);
+      // 4. ベース生産量に、この「平均効果」を乗算する
+      finalProductionPerMinute_d =
+        productionPerMinute_d.times(averageGpEffect_d);
     }
     const productionPerSecond_d = finalProductionPerMinute_d.div(60);
     const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
@@ -478,7 +499,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   const INFINITY_THRESHOLD = new Decimal(config.idle.infinity);
   if (population_d.gte(INFINITY_THRESHOLD)) {
     const gen2Bought = idleGameData.ipUpgrades?.generators?.[1]?.bought || 0;
-    if (gen2Bought === 0) { // Break Infinity未達成
+    if (gen2Bought === 0) {
+      // Break Infinity未達成
       population_d = INFINITY_THRESHOLD;
     }
   }
@@ -865,7 +887,7 @@ export function calculateAscensionRequirements(
       targetLevel,
       skillLevel6,
       purchasedIUs, //そのままIU14用に流す！
-      null 
+      null
     );
   }
 
