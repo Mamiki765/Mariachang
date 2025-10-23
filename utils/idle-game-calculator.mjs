@@ -290,6 +290,7 @@ function calculateProductionRate(idleGameData, externalData) {
   const activeChallenge = idleGameData.challenges?.activeChallenge;
   const completedChallenges =
     idleGameData.challenges?.completedChallenges || [];
+  const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
   // 1. externalDataからunlockedSetを取り出す
   const unlockedSet = externalData.unlockedSet || new Set();
   // 2. 肉効果を計算する
@@ -355,6 +356,11 @@ function calculateProductionRate(idleGameData, externalData) {
       //infinity後のアセ強化系
       if (completedChallenges.includes("IC7")) {
         ascensionBaseEffect += 0.025;
+      }
+      if (purchasedIUs.has("IU23")) {
+        // configからボーナス値を取得して加算
+        ascensionBaseEffect +=
+          config.idle.infinityUpgrades.tiers[1].upgrades.IU23.bonus;
       }
       if (completedChallenges.includes("IC8")) {
         ascensionBaseEffect *= 1.2;
@@ -428,7 +434,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       const generatorMultiplier = completedChallenges.includes("IC9")
         ? 2.0
         : 1.0;
-
+      // 購入済みIUをここで取得しておく
+      const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
       let amountProducedByParent_d = new Decimal(0);
 
       for (let i = 7; i >= 0; i--) {
@@ -450,6 +457,32 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         );
         const multiplier = Math.pow(2, bought - 1);
         const productionPerSecond_d = averageAmount_d.times(multiplier).div(60);
+
+        //IU31,32
+        // ジェネレーターIDは (i + 1) で取得できる
+        if (i + 1 === 1 && purchasedIUs.has("IU31")) {
+          const bonusMultiplier =
+            config.idle.infinityUpgrades.tiers[2].upgrades.IU31.bonus;
+          productionPerSecond_d = productionPerSecond_d.times(bonusMultiplier);
+        }
+        if (i + 1 === 2 && purchasedIUs.has("IU32")) {
+          const bonusMultiplier =
+            config.idle.infinityUpgrades.tiers[2].upgrades.IU32.bonus;
+          productionPerSecond_d = productionPerSecond_d.times(bonusMultiplier);
+        }
+        //33,34
+        if (generatorId === 1 && purchasedIUs.has("IU33")) {
+          const bonus = calculateIPBonusMultiplier("IU33", currentIp_d); // ★新しい関数を呼び出す
+          productionPerSecond_d = productionPerSecond_d.times(bonus);
+        }
+        if (generatorId === 2 && purchasedIUs.has("IU34")) {
+          const bonus = calculateIPBonusMultiplier("IU34", currentIp_d); // ★新しい関数を呼び出す
+          productionPerSecond_d = productionPerSecond_d.times(bonus);
+        }
+        if (generatorId === 2 && purchasedIUs.has("IU41")) {
+          const bonus = calculateInfinityCountBonus(infinityCount); // ★新しい関数を呼び出す
+          productionPerSecond_d = productionPerSecond_d.times(bonus);
+        }
 
         const producedAmount_d = productionPerSecond_d
           .times(elapsedSeconds)
@@ -1119,4 +1152,139 @@ function processIC6Rival(idleGameData, uiContext) {
   }
 
   return uiContext;
+}
+
+/**
+ * 【新規】所持IPとアップグレードIDに基づき、ジェネレーター等へのボーナス倍率を計算する
+ * @param {string} upgradeId - アップグレードのID ("IU33" or "IU34")
+ * @param {Decimal} ip_d - 現在の所持IP (Decimalオブジェクト)
+ * @returns {number} 計算されたボーナス倍率
+ */
+export function calculateIPBonusMultiplier(upgradeId, ip_d) {
+  // IPが0またはマイナスの場合、log10でエラーになるのを防ぐ
+  if (ip_d.lte(0)) {
+    return 1.0; // ボーナスなし
+  }
+
+  const logIp = ip_d.log10();
+  let multiplier = 1.0;
+
+  switch (upgradeId) {
+    case "IU33": {
+      // 仕様: max(log10(IP)*4/3, 1.5)
+      const baseMultiplier = (logIp * 4) / 3;
+      multiplier = Math.max(baseMultiplier, 1.5);
+      break;
+    }
+    case "IU34": {
+      // 仕様: max(log10(IP)*4/5, 1.2)
+      const baseMultiplier = (logIp * 4) / 5;
+      multiplier = Math.max(baseMultiplier, 1.2);
+      break;
+    }
+    default:
+      // 対象外のIDならボーナスなし
+      return 1.0;
+  }
+
+  return multiplier;
+}
+
+/**
+ * 【新規】インフィニティ回数に基づき、IU41によるG2へのボーナス倍率を計算する
+ * @param {number} infinityCount - 現在のインフィニティ回数
+ * @returns {number} 計算されたボーナス倍率
+ */
+export function calculateInfinityCountBonus(infinityCount) {
+  if (infinityCount < 10) {
+    return 1.0; // 10回未満ならボーナスなし
+  }
+  // 仕様書通り: √(インフィニティ回数 / 10)
+  return Math.sqrt(infinityCount / 10);
+}
+
+/**
+ * 【表示用】各ジェネレーターの現在の毎分生産量を計算する
+ * @param {object} idleGameData - IdleGameの生データ
+ * @returns {Decimal[]} G8からG1までの毎分生産量（GP含む）の配列
+ */
+export function calculateGeneratorProductionRates(idleGameData) {
+  const rates = Array(8).fill(new Decimal(0));
+  if (idleGameData.infinityCount === 0) return rates;
+
+  // 必要なデータを準備
+  const userGenerators = idleGameData.ipUpgrades?.generators || [];
+  const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
+  const completedChallenges = new Set(
+    idleGameData.challenges?.completedChallenges || []
+  );
+  const currentIp_d = new Decimal(idleGameData.infinityPoints);
+  const infinityCount = idleGameData.infinityCount || 0;
+
+  // 全体に掛かる倍率
+  const globalMultiplier = completedChallenges.has("IC9") ? 2.0 : 1.0;
+
+  let productionFromParent = new Decimal(0); // 上位からの生産量
+
+  // G8からG1へ計算
+  for (let i = 7; i >= 0; i--) {
+    const genData = userGenerators[i] || { amount: "0", bought: 0 };
+    const bought = genData.bought || 0;
+
+    // このジェネレーターの現在の総量 = 初期量 + 上位からの生産量
+    const currentAmount_d = new Decimal(genData.amount).add(
+      productionFromParent
+    );
+
+    if (bought === 0) {
+      rates[i] = new Decimal(0);
+      productionFromParent = new Decimal(0);
+      continue;
+    }
+
+    // このジェネレーターが生み出す、1つ下のジェネレーターの毎分生産量
+    let productionPerMinute_d = new Decimal(currentAmount_d).times(
+      Math.pow(2, bought - 1)
+    );
+
+    // --- 各種ボーナスを適用 ---
+    productionPerMinute_d = productionPerMinute_d.times(globalMultiplier);
+    const generatorId = i + 1;
+
+    if (generatorId === 1 && purchasedIUs.has("IU31")) {
+      productionPerMinute_d = productionPerMinute_d.times(
+        config.idle.infinityUpgrades.tiers[2].upgrades.IU31.bonus
+      );
+    }
+    if (generatorId === 2 && purchasedIUs.has("IU32")) {
+      productionPerMinute_d = productionPerMinute_d.times(
+        config.idle.infinityUpgrades.tiers[2].upgrades.IU32.bonus
+      );
+    }
+    if (generatorId === 1 && purchasedIUs.has("IU33")) {
+      productionPerMinute_d = productionPerMinute_d.times(
+        calculateIPBonusMultiplier("IU33", currentIp_d)
+      );
+    }
+    if (generatorId === 2 && purchasedIUs.has("IU34")) {
+      productionPerMinute_d = productionPerMinute_d.times(
+        calculateIPBonusMultiplier("IU34", currentIp_d)
+      );
+    }
+    if (generatorId === 2 && purchasedIUs.has("IU41")) {
+      productionPerMinute_d = productionPerMinute_d.times(
+        calculateInfinityCountBonus(infinityCount)
+      );
+    }
+
+    // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算
+    if (generatorId === 1) {
+      productionPerMinute_d = productionPerMinute_d.times(infinityCount);
+    }
+
+    rates[i] = productionPerMinute_d;
+    productionFromParent = productionPerMinute_d; // 次のループ（下位ジェネレーター）のために生産量を渡す
+  }
+
+  return rates.reverse(); // [G1レート, G2レート, ...] の順に並べ替えて返す
 }

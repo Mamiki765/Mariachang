@@ -43,6 +43,9 @@ import {
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
   calculateGainedIP,
+  calculateIPBonusMultiplier,
+  calculateInfinityCountBonus,
+  calculateGeneratorProductionRates,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -94,8 +97,10 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
       .addChoices(
         { name: "工場画面 (デフォルト)", value: "factory" },
-        { name: "スキル画面(プレステージ後)", value: "skill" },
-        { name: "ジェネレーター(infinity後)", value: "infinity" }
+        { name: "スキル画面", value: "skill" },
+        { name: "ジェネレーター", value: "infinity" },
+        { name: "アップグレード", value: "infinity_upgrades" },
+        { name: "チャレンジ", value: "challenges" }
       )
   );
 
@@ -1006,6 +1011,26 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           ephemeral: true,
         });
       }
+    } else if (viewChoice === "infinity_upgrades") {
+      if (idleGame.infinityCount > 0) {
+        currentView = "infinity_upgrades";
+      } else {
+        await interaction.followUp({
+          content:
+            "⚠️ アップグレード画面はインフィニティ後に解放されます。代わりに工場画面を表示します。",
+          ephemeral: true,
+        });
+      }
+    } else if (viewChoice === "challenges") {
+      if (idleGame.ipUpgrades?.upgrades?.includes("IU22")) {
+        currentView = "challenges";
+      } else {
+        await interaction.followUp({
+          content:
+            "⚠️ チャレンジはIU22「無限の試練」購入後に解放されます。代わりに工場画面を表示します。",
+          ephemeral: true,
+        });
+      }
     }
 
     // --- 2. 決定した画面を描画する ---
@@ -1829,7 +1854,7 @@ function generateInfinityEmbed(idleGame) {
   const gpEffect_d = gp_d.pow(0.5).max(1);
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
 GP: ${formatNumberDynamic_Decimal(gp_d)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)`;
-
+  const productionRates = calculateGeneratorProductionRates(idleGame);
   const embed = new EmbedBuilder()
     .setTitle("🌌 インフィニティジェネレーター 🌌")
     .setColor("Aqua")
@@ -1861,10 +1886,19 @@ GP: ${formatNumberDynamic_Decimal(gp_d)} (全工場効果 x${formatNumberDynamic
       new Decimal(generatorConfig.costMultiplier).pow(bought)
     );
 
+    //レートを取得
+    // productionRatesは[G1レート, G2レート,...]の順なので、(id-1)でアクセス
+    const rate_d = productionRates[generatorConfig.id - 1] || new Decimal(0);
+    const targetName =
+      generatorConfig.id === 1 ? "GP" : `G${generatorConfig.id - 1}`;
+
     embed.addFields({
       name: `G${generatorConfig.id} ${generatorConfig.name} (購入: ${bought})`,
-      value: `所持数: ${formatNumberDynamic_Decimal(amount_d)}\nコスト: ${formatNumberDynamic_Decimal(cost)} IP`,
-      inline: false, // 見やすさのためにfalseが良いかも
+      value:
+        `所持数: ${formatNumberDynamic_Decimal(amount_d)}` +
+        ` | 生産速度: **${formatNumberDynamic_Decimal(rate_d)} ${targetName}/分**` +
+        `\nコスト: ${formatNumberDynamic_Decimal(cost)} IP`,
+      inline: false,
     });
   }
 
@@ -1956,13 +1990,30 @@ function generateInfinityButtons(idleGame) {
 function generateInfinityUpgradesEmbed(idleGame, point) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
-
+  const currentLevel = idleGame.ipUpgrades?.ghostChipLevel || 0; //IU11のLVをあらかじめ取る
   // 【取得済み】リストの作成 (変更なし)
   const purchasedList =
     config.idle.infinityUpgrades.tiers
       .flatMap((tier) => Object.entries(tier.upgrades))
       .filter(([id]) => purchasedUpgrades.has(id))
-      .map(([id, config]) => `✅${config.name}: ${config.text}`)
+      .map(([id, config]) => {
+        // まず基本となるテキストを生成
+        let displayText = `✅${config.name}: ${config.text}`;
+
+        // もしIDがIU33かIU34なら、動的な倍率情報を付け加える
+        if (id === "IU11") {
+          displayText += ` Lv.${currentLevel}`;
+        } else if (id === "IU33" || id === "IU34") {
+          const multiplier = calculateIPBonusMultiplier(id, ip_d);
+          displayText += ` (現在x${multiplier.toFixed(3)}倍)`;
+        } else if (id === "IU41") {
+          const bonus = calculateInfinityCountBonus(idleGame.infinityCount);
+          displayText += ` (現在x${bonus.toFixed(3)}倍)`;
+        }
+
+        // 最終的に生成したテキストを返す
+        return displayText;
+      })
       .join("\n") || "まだありません";
 
   const embed = new EmbedBuilder()
@@ -1973,11 +2024,10 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
     );
 
   if (purchasedUpgrades.has("IU11")) {
-    const currentLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
     const budget = calculateGhostChipBudget(currentLevel);
     embed.addFields({
       name: `\n--- ${config.idle.infinityUpgrades.tiers[0].upgrades.IU11.name} ---`, // Configから名前を取得
-      value: `プレステージの度に幻のチップを得て工場を自動強化します。\n**現在Lv.${currentLevel} | 次回リセット時の予算: ${budget.toLocaleString()}©**`,
+      value: `プレステージの度に幻のチップを得て工場を自動強化します。\n**現在Lv.${currentLevel} / 200  | 次回リセット時の予算: ${budget.toLocaleString()}©**`,
     });
   }
 
