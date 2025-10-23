@@ -52,6 +52,9 @@ export default async (message) => {
   //ロスアカステシ詳細表示用正規表現
   const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
   // コンパクト表示のトリガー
+  const rev2detailCompactWithEquipmentMatch = message.content.match(
+    /^(r2[pn][0-9]{6})\?\?$/
+  );
   const rev2detailCompactMatch = message.content.match(/^(r2[pn][0-9]{6})\?$/);
   //ロスアカ短縮形
   const rev2urlmatch = message.content.match(
@@ -202,6 +205,16 @@ export default async (message) => {
     const characterId = rev2detailMatch[1];
     await message.channel.sendTyping();
     const replyMessage = await getCharacterSummary(characterId);
+    await message.reply({
+      content: replyMessage,
+      allowedMentions: { repliedUser: false },
+    });
+    //コンパクト（装備付き）
+  } else if (rev2detailCompactWithEquipmentMatch) {
+    const characterId = rev2detailCompactWithEquipmentMatch[1];
+    await message.channel.sendTyping();
+    // getCharacterSummaryCompact の第2引数に `true` を渡して装備品を表示させる
+    const replyMessage = await getCharacterSummaryCompact(characterId, true);
     await message.reply({
       content: replyMessage,
       allowedMentions: { repliedUser: false },

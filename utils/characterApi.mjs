@@ -422,9 +422,13 @@ function formatSkillNames(skillArray) {
  * 【NEW】コンパクトサマリを生成する高レベル関数
  * ゲージをなくし、ステータスをグループ化して表示します。
  * @param {string} characterId
+ * @param {boolean} [showEquipment=false] - trueの場合、装備品情報を追加で表示する
  * @returns {Promise<string>}
  */
-export async function getCharacterSummaryCompact(characterId) {
+export async function getCharacterSummaryCompact(
+  characterId,
+  showEquipment = false // ★★★ 1. 引数を追加 ★★★
+) {
   try {
     const apiData = await getCharacterDetail(characterId);
 
@@ -433,16 +437,61 @@ export async function getCharacterSummaryCompact(characterId) {
     }
     const { character } = apiData; // status_rangeは今回不要
 
+    // --- NPCの場合 ---
     if (character.character_id.startsWith("r2n")) {
       let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
       }
+
+      // ★★★ NPC用のスキル・装備セクションを追加 ★★★
+      const skillsSection = createSkillsAndClassesSection(character);
+      const equipmentSection = showEquipment
+        ? createEquipmentSection(character)
+        : "";
+
+      if (skillsSection || equipmentSection) {
+        let detailBlock = "```\n";
+        if (skillsSection) {
+          detailBlock += skillsSection;
+        }
+        if (skillsSection && equipmentSection) {
+          detailBlock += "\n---\n"; // 区切り線
+        }
+        if (equipmentSection) {
+          detailBlock += equipmentSection;
+        }
+        detailBlock += "```";
+        reply += detailBlock;
+      }
       return reply;
+      // --- EXPCの場合 ---
     } else if (character.owner) {
-      const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
+      const licenseDisplay = formatLicenseDisplay(character.licenses);
       let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
+
+      // ★★★ EXPC用のスキル・装備セクションを追加 ★★★
+      const skillsSection = createSkillsAndClassesSection(character);
+      const equipmentSection = showEquipment
+        ? createEquipmentSection(character)
+        : "";
+
+      if (skillsSection || equipmentSection) {
+        let detailBlock = "```\n";
+        if (skillsSection) {
+          detailBlock += skillsSection;
+        }
+        if (skillsSection && equipmentSection) {
+          detailBlock += "\n---\n"; // 区切り線
+        }
+        if (equipmentSection) {
+          detailBlock += equipmentSection;
+        }
+        detailBlock += "```";
+        reply += detailBlock;
+      }
       return reply;
+      // --- PCの場合 ---
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
@@ -494,45 +543,6 @@ export async function getCharacterSummaryCompact(characterId) {
             reply += `${ability.name}: ${displayValue}  `;
           }
         }
-        /*長くなるので一旦省略
-        // アクティブスキル情報のセクションを追加
-        // character.skills.a が存在し、配列の長さが0より大きいことを確認
-        if (
-          character.skills &&
-          Array.isArray(character.skills.a) &&
-          character.skills.a.length > 0
-        ) {
-          // 前のセクションと区別するために、改行を2つ入れる
-          reply += `\n・アクティブスキル\n`;
-
-          // 各スキルをループ処理
-          for (const skill of character.skills.a) {
-            // 'active'プロパティが存在しない場合に備え、空のオブジェクトをデフォルト値とする
-            const activeProps = skill.active || {};
-
-            // 各パラメータを取得（存在しない場合は 'N/A' とする）
-            const ticks = activeProps.ticks ?? "N/A";
-            const ap = activeProps.ap_cost ?? "N/A";
-            const power = activeProps.power ?? "N/A";
-            const hit = activeProps.hit ?? "N/A";
-            const critical = activeProps.critical ?? "N/A";
-            const fumble = activeProps.fumble ?? "N/A";
-
-            // スキルの基本情報を一行にまとめる
-            let skillLine = `・${skill.name} (行動値:${ticks} AP:${ap} 威力:${power} 命中:${hit} CT:${critical} FB:${fumble})`;
-
-            // 'display_effects' があれば、インデントして追加
-            if (skill.display_effects) {
-              const cleanedEffects = stripXmlTags(skill.display_effects);
-              skillLine += `\n  └ 効果: ${cleanedEffects}`;
-            }
-            skillLine += `\n`;
-            reply += skillLine;
-          }
-        }
-        // ★★★ アクティブスキル情報の追加はここまで ★★★
-        */
-        //代わりにスキル名だけを表示するセクションを追加
         //クラス・エスプリ表記
         // 'classes' または 'esprits' が存在する場合のみ、セクションを表示
         // 新しい関数を呼び出して、スキル情報の文字列を取得
@@ -545,7 +555,15 @@ export async function getCharacterSummaryCompact(characterId) {
           // (ここでは、前の```を消して、最後にまとめて囲むのが綺麗)
           reply += `\n${skillsSection}`;
         }
-
+        // showEquipmentがtrueの時だけ、装備品セクションを追加する
+        if (showEquipment) {
+          const equipmentSection = createEquipmentSection(character);
+          if (equipmentSection) {
+            // スキルセクションと装備セクションの間に区切り線を入れると見やすい
+            reply += `\n---`;
+            reply += `\n${equipmentSection}`;
+          }
+        }
         reply += `\`\`\``;
       }
       return reply;
@@ -651,4 +669,84 @@ function calculateRealLevelFromTotalXp(totalXp, startLevel = 2) {
     }
     level++;
   }
+}
+
+/**
+ * 【NEW - 改訂版】キャラクターの装備品情報を整形して、
+ * Discordのコードブロックで表示するための文字列を生成します。
+ * itemsとitem_attachmentsの両方を処理します。
+ * @param {object} character - APIから取得したキャラクターオブジェクト
+ * @returns {string} 整形された装備情報の文字列。表示すべき情報がなければ空文字列を返す。
+ */
+function createEquipmentSection(character) {
+  // ★★★ 1. character.items と character.item_attachments を合体させる ★★★
+  const allItems = [
+    ...(character.items || []),
+    ...(character.item_attachments || []),
+  ];
+
+  // 合体させた結果、アイテムが1つもなければ何もせずに終了
+  if (allItems.length === 0) {
+    return "";
+  }
+
+  // 2. 装備品をカテゴリごとに分類するための入れ物を準備（DESIREを追加）
+  const equipmentGroups = {
+    HAND_BOTH: [], // 両手武器
+    HAND_1: [], // 主武装
+    HAND_2: [], // 副武装
+    SUB_WEAPON: [], // 追加武装
+    ARMOR: [], // 防具
+    ACCESSORY: [], // アクセサリ
+    DESIRE: [], // ★★★ デザイアを追加 ★★★
+  };
+
+  // 3. 全てのアイテム（合体済み）をループして、カテゴリに分類していく
+  for (const item of allItems) {
+    let formattedName = item.name;
+    if (item.specialization_base && item.specialization_base.name) {
+      formattedName = `${item.name}（${item.specialization_base.name}）`;
+    }
+
+    if (item.slot_type === "HAND_1" && item.ex_slot_type === "HAND_2") {
+      equipmentGroups.HAND_BOTH.push(formattedName);
+    } else if (item.slot_type === "HAND_1") {
+      equipmentGroups.HAND_1.push(formattedName);
+    } else if (item.slot_type === "HAND_2") {
+      equipmentGroups.HAND_2.push(formattedName);
+    } else if (item.slot_type === "SUB_WEAPON") {
+      equipmentGroups.SUB_WEAPON.push(formattedName);
+    } else if (item.slot_type === "ARMOR") {
+      equipmentGroups.ARMOR.push(formattedName);
+    } else if (item.slot_type === "ACCESSORY") {
+      equipmentGroups.ACCESSORY.push(formattedName);
+    } else if (item.slot_type === "DESIRE") {
+      // ★★★ デザイアの分類を追加 ★★★
+      equipmentGroups.DESIRE.push(formattedName);
+    }
+  }
+
+  // 4. 表示用の文字列を組み立てる
+  const lines = [];
+
+  // 表示順とラベル名を定義（DESIREを追加し、桁揃えを調整）
+  const displayOrder = [
+    { key: "HAND_BOTH", label: "両手武器　" }, // 全角5文字分の幅に調整
+    { key: "HAND_1", label: "主武装　　" },
+    { key: "HAND_2", label: "副武装　　" },
+    { key: "SUB_WEAPON", label: "追加武装　" },
+    { key: "ARMOR", label: "防具　　　" },
+    { key: "ACCESSORY", label: "アクセサリ" },
+    { key: "DESIRE", label: "デザイア　" }, // ★★★ デザイアの表示を追加 ★★★
+  ];
+
+  for (const { key, label } of displayOrder) {
+    const items = equipmentGroups[key];
+    if (items.length > 0) {
+      const itemsString = items.join("、");
+      lines.push(`・${label}：${itemsString}`);
+    }
+  }
+
+  return lines.length > 0 ? lines.join("\n") : "";
 }
