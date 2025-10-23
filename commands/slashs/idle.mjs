@@ -46,6 +46,7 @@ import {
   calculateIPBonusMultiplier,
   calculateInfinityCountBonus,
   calculateGeneratorProductionRates,
+   calculateIC9TimeBonus,
 } from "../../utils/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -2009,6 +2010,9 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
         } else if (id === "IU41") {
           const bonus = calculateInfinityCountBonus(idleGame.infinityCount);
           displayText += ` (現在x${bonus.toFixed(3)}倍)`;
+        } else if (id === "IU51") {
+          const multiplier = calculateIC9TimeBonus(idleGame);
+          displayText += ` (現在x${multiplier.toFixed(3)}倍)`;
         }
 
         // 最終的に生成したテキストを返す

@@ -885,8 +885,37 @@ export default {
             IU41: {
               name: "古びた発電機",
               cost: 1024,
-              description: "インフィニティ回数に応じて、ジェネレーター2号機が微量に強化",
-              text: "∞に応じてG2微強化",// max(√(∞/10)倍,1)
+              description:
+                "インフィニティ回数に応じて、ジェネレーター2号機が微量に強化",
+              text: "∞に応じてG2微強化", // max(√(∞/10)倍,1)
+            },
+          },
+        },
+        {
+          // Tier 5
+          id: 5,
+          upgrades: {
+            IU51: {
+              name: "IPメガキャノン",
+              cost: 2048,
+              description: "IC9の最短クリア時間に応じてIPが大幅に増加する",
+              text: "IC9時間→IP乗算",
+              max: 15,
+              min: 1.5, //IC9未クリアなら1
+              baseTime: 60,
+            },
+          },
+        },
+        {
+          // Tier 6
+          id: 6,
+          upgrades: {
+            IU61: {
+              name: "大型発電機",
+              cost: 100_0000,
+              description: "ジェネレーター1号機の出力が10倍強化",
+              bonus: 10, // x10
+              text: "G1Power x10",
             },
           },
         },

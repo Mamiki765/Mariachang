@@ -435,13 +435,16 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         ? 2.0
         : 1.0;
       // 購入済みIUをここで取得しておく
+      const infinityCount = idleGameData.infinityCount || 0;
       const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
+      const currentIp_d = new Decimal(idleGameData.infinityPoints || "0");
       let amountProducedByParent_d = new Decimal(0);
 
       for (let i = 7; i >= 0; i--) {
         // G8からG1へ
         const genData = generators[i];
         const bought = genData.bought || 0;
+        const generatorId = i + 1;
 
         const initialAmount_d = new Decimal(genData.amount);
         const finalAmount_d = initialAmount_d.add(amountProducedByParent_d);
@@ -456,16 +459,16 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           amountProducedByParent_d.div(2)
         );
         const multiplier = Math.pow(2, bought - 1);
-        const productionPerSecond_d = averageAmount_d.times(multiplier).div(60);
+        let productionPerSecond_d = averageAmount_d.times(multiplier).div(60);
 
         //IU31,32
         // ジェネレーターIDは (i + 1) で取得できる
-        if (i + 1 === 1 && purchasedIUs.has("IU31")) {
+        if (generatorId === 1 && purchasedIUs.has("IU31")) {
           const bonusMultiplier =
             config.idle.infinityUpgrades.tiers[2].upgrades.IU31.bonus;
           productionPerSecond_d = productionPerSecond_d.times(bonusMultiplier);
         }
-        if (i + 1 === 2 && purchasedIUs.has("IU32")) {
+        if (generatorId === 2 && purchasedIUs.has("IU32")) {
           const bonusMultiplier =
             config.idle.infinityUpgrades.tiers[2].upgrades.IU32.bonus;
           productionPerSecond_d = productionPerSecond_d.times(bonusMultiplier);
@@ -482,6 +485,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         if (generatorId === 2 && purchasedIUs.has("IU41")) {
           const bonus = calculateInfinityCountBonus(infinityCount); // ★新しい関数を呼び出す
           productionPerSecond_d = productionPerSecond_d.times(bonus);
+        }
+        //61
+        if (generatorId === 1 && purchasedIUs.has("IU61")) {
+          productionPerSecond_d = productionPerSecond_d.times(
+            config.idle.infinityUpgrades.tiers[5].upgrades.IU61.bonus
+          );
         }
 
         const producedAmount_d = productionPerSecond_d
@@ -961,6 +970,10 @@ export function calculateGeneratorCost(generatorId, currentBought) {
  */
 export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   const population_d = new Decimal(idleGame.population);
+  const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
+  const ic9TimeBonus = purchasedIUs.has("IU51")
+    ? calculateIC9TimeBonus(idleGame)
+    : 1.0;
 
   // 最低条件：インフィニティに到達しているか (念のため)
   if (population_d.lt(config.idle.infinity)) {
@@ -985,6 +998,8 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
     //IC9クリア時点で9個達成している必要があり、クリアしていれば2倍されているので。
     baseIP = baseIP.times(2);
   }
+  //IU51
+  baseIP = baseIP.times(ic9TimeBonus);
   // (ここに将来的にボーナスなどを追加していく)
 
   // --- 2. ジェネレーターII購入によるIP増加ロジック (ブレイク後) ---
@@ -1224,28 +1239,22 @@ export function calculateGeneratorProductionRates(idleGameData) {
   // 全体に掛かる倍率
   const globalMultiplier = completedChallenges.has("IC9") ? 2.0 : 1.0;
 
-  let productionFromParent = new Decimal(0); // 上位からの生産量
-
-  // G8からG1へ計算
-  for (let i = 7; i >= 0; i--) {
+  // G1からG8まで、順番に計算する
+  for (let i = 0; i < 8; i++) {
     const genData = userGenerators[i] || { amount: "0", bought: 0 };
     const bought = genData.bought || 0;
 
-    // このジェネレーターの現在の総量 = 初期量 + 上位からの生産量
-    const currentAmount_d = new Decimal(genData.amount).add(
-      productionFromParent
-    );
-
+    // 購入数が0なら生産しない
     if (bought === 0) {
       rates[i] = new Decimal(0);
-      productionFromParent = new Decimal(0);
       continue;
     }
 
-    // このジェネレーターが生み出す、1つ下のジェネレーターの毎分生産量
-    let productionPerMinute_d = new Decimal(currentAmount_d).times(
-      Math.pow(2, bought - 1)
-    );
+    // 生産速度は、純粋に「自身の所持数」にのみ依存する
+    const currentAmount_d = new Decimal(genData.amount);
+
+    // 基本生産量 = 所持数 * (2 ^ (購入数 - 1))
+    let productionPerMinute_d = currentAmount_d.times(Math.pow(2, bought - 1));
 
     // --- 各種ボーナスを適用 ---
     productionPerMinute_d = productionPerMinute_d.times(globalMultiplier);
@@ -1276,6 +1285,11 @@ export function calculateGeneratorProductionRates(idleGameData) {
         calculateInfinityCountBonus(infinityCount)
       );
     }
+    if (generatorId === 1 && purchasedIUs.has("IU61")) {
+      productionPerMinute_d = productionPerMinute_d.times(
+        config.idle.infinityUpgrades.tiers[5].upgrades.IU61.bonus
+      );
+    }
 
     // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算
     if (generatorId === 1) {
@@ -1283,8 +1297,36 @@ export function calculateGeneratorProductionRates(idleGameData) {
     }
 
     rates[i] = productionPerMinute_d;
-    productionFromParent = productionPerMinute_d; // 次のループ（下位ジェネレーター）のために生産量を渡す
   }
 
-  return rates.reverse(); // [G1レート, G2レート, ...] の順に並べ替えて返す
+  // .reverse() を削除！ 配列はすでに正しい順序 [G1, G2, ...] になっている
+  return rates;
+}
+
+/**
+ * 【小数点対応版】IC9のクリアタイムに基づき、IU51のIPボーナス倍率を計算する
+ * @param {object} idleGame - IdleGameのデータオブジェクト
+ * @returns {number} 計算されたIPボーナス倍率
+ */
+export function calculateIC9TimeBonus(idleGame) {
+  // configからIU51の設定を直接取得
+  const iu51Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU51;
+  const bestTime = idleGame.challenges?.IC9?.bestTime;
+  // 1. IC9を一度もクリアしていない場合、ボーナスは1倍
+  if (!bestTime || bestTime === Infinity) {
+    return 1.0;
+  }
+  // 2. 最速タイム（60秒以内）の場合、最大の15倍
+  if (bestTime <= iu51Config.baseTime) {
+    return iu51Config.max;
+  }
+  // 3. それ以降の場合、対数（log）を使って「時間の倍化回数」を計算
+  const timeRatio = bestTime / iu51Config.baseTime;
+  const doublings = Math.log2(timeRatio);
+
+  const reduction = doublings; // 小数点以下の倍化回数もそのまま減少量として扱う
+  // 4. 最大倍率から、倍化回数分だけ引く
+  const multiplier = iu51Config.max - reduction;
+  // 5. 計算結果が最低倍率（1.5倍）を下回らないようにする
+  return Math.max(iu51Config.min, multiplier);
 }
