@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import fs from "fs";
 
+/*
 export const help = {
   category: "slash",
   subcommands: [
@@ -18,6 +19,10 @@ export const help = {
 };
 
 export const scope = "guild"; // 指定ギルドでのみ使用可
+*/
+// 'debug'スコープを指定することで、開発環境でのみ登録されるようにする
+export const help = {};
+export const scope = "debug";
 
 export const data = new SlashCommandBuilder()
   .setName("gacha")
