@@ -141,6 +141,7 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   const { productionRate_d, factoryEffects, skill1Effect, meatEffect } =
     displayData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
+  const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
   const meatFactoryLevel = mee6Level;
   const activeChallenge = idleGame.challenges?.activeChallenge;
   const skillLevels = {
@@ -158,7 +159,11 @@ function generateFactoryEmbed(uiData, isFinal = false) {
       : 1;
   //ジェネレーター
   const gp_d = new Decimal(idleGame.generatorPower || "1");
-  const gpEffect = gp_d.pow(0.5).max(1).toNumber();
+  let baseGpExponent = 0.5;
+  if (purchasedUpgrades.has("IU42")) {
+    baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
+  }
+  const gpEffect = gp_d.pow(baseGpExponent).max(1).toNumber();
 
   // スキル#2の効果
   const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
@@ -948,10 +953,16 @@ function generateInfinityEmbed(idleGame) {
   //GPとその効果を計算するロジックを追加
   const gp_d = new Decimal(idleGame.generatorPower || "1");
   // GPの効果を計算: GP ^ 0.5
+  const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
+  let baseGpExponent = 0.5;
+  if (purchasedUpgrades.has("IU42")) {
+    //0.5 -> 0.75
+    baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
+  }
   // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
-  const gpEffect_d = gp_d.pow(0.5).max(1);
+  const gpEffect_d = gp_d.pow(baseGpExponent).max(1);
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
-GP: ${formatNumberDynamic_Decimal(gp_d)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)`;
+GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)`;
   const productionRates = calculateGeneratorProductionRates(idleGame);
   const embed = new EmbedBuilder()
     .setTitle("🌌 インフィニティジェネレーター 🌌")

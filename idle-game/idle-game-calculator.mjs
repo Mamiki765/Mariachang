@@ -399,6 +399,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   let initial_gp_d;
   let generators;
   let ipUpgradesChanged = false;
+  let purchasedIUs;
 
   if (idleGameData.infinityCount > 0) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
@@ -436,7 +437,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         : 1.0;
       // 購入済みIUをここで取得しておく
       const infinityCount = idleGameData.infinityCount || 0;
-      const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
+      purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
       const currentIp_d = new Decimal(idleGameData.infinityPoints || "0");
       let amountProducedByParent_d = new Decimal(0);
 
@@ -516,7 +517,13 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     if (idleGameData.infinityCount > 0) {
       const activeChallenge = idleGameData.challenges?.activeChallenge;
       // IC9挑戦中は稼働施設が5つになるため、GPの指数が 4.0 (8*0.5) -> 2.5 (5*0.5) に弱体化する。
-      const gpPower = activeChallenge === "IC9" ? 2.5 : 4.0;
+      let baseGpExponent = 0.5;
+      if (purchasedIUs.has("IU42")) {
+        baseGpExponent +=
+          config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus; // configから値を取得
+      }
+      const gpPower =
+        activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
       // 1. オフライン期間「開始時」のGPの効果を計算
       const initialGpEffect_d = initial_gp_d.pow(gpPower).max(1);
       // 2. ジェネレーター生産後の「終了時」のGPの効果を計算
@@ -761,7 +768,15 @@ export async function getSingleUserUIData(userId) {
   const pp = updatedIdleGame.prestigePower || 0;
   //const achievementExponentBonus = externalData.achievementCount;
   const gp_d = new Decimal(updatedIdleGame.generatorPower || "1");
-  const gpEffect_d = gp_d.pow(4).max(1);
+
+  const purchasedIUs = new Set(updatedIdleGame.ipUpgrades?.upgrades || []);
+  let baseGpExponent = 0.5;
+  if (purchasedIUs.has("IU42")) {
+    baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
+  }
+  const totalGpPower =
+    activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
+  const gpEffect_d = gp_d.pow(totalGpPower).max(1);
 
   const factoryEffects = calculateFactoryEffects(
     updatedIdleGame,

@@ -139,7 +139,6 @@ export async function execute(interaction) {
       if (updatedIdleGame.wasChanged.ipUpgrades) {
         updateData.generatorPower = updatedIdleGame.generatorPower;
         updateData.ipUpgrades = updatedIdleGame.ipUpgrades;
-        IdleGame.changed("ipUpgrades", true);
       }
       await IdleGame.update(updateData, { where: { userId: targetUser.id } });
       await interaction.editReply(
