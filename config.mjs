@@ -612,8 +612,8 @@ export default {
     rewards: {
       coin: 5,
       nyobo_bank: {
-        min: 240,
-        max: 360,
+        min: 360,
+        max: 540,
       },
     },
     // 正解時に付けるリアクション
