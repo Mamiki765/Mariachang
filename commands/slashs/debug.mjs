@@ -172,9 +172,7 @@ export async function execute(interaction) {
     const destinationId = interaction.user.id; // コマンド実行者
 
     if (destinationId === config.administrator) {
-      return interaction.editReply(
-        "❌ あなたのデータが飛びますよ。"
-      );
+      return interaction.editReply("❌ あなたのデータが飛びますよ。");
     }
     // 安全装置: コピー元が自分自身の場合はエラー
     if (sourceId === destinationId) {

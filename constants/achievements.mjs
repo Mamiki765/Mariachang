@@ -375,8 +375,7 @@ export const achievements = [
   {
     id: 59,
     name: "ニョボシ・ブラックホール",
-    description:
-      "インフィニティ中に消費されたニョボチップが1000万を超える",
+    description: "インフィニティ中に消費されたニョボチップが1000万を超える",
     reward: {},
   },
   {

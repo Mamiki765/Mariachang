@@ -1,3 +1,4 @@
+//idle-game\handlers.mjs
 import {
   sequelize,
   Point,
@@ -22,7 +23,7 @@ import {
   calculateTPSkillCost,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
-} from "../idle-game/idle-game-calculator.mjs";
+} from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
 import {

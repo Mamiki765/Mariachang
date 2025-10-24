@@ -129,7 +129,7 @@ async function updateAllUsersIdleGame() {
         "pizzaBonusPercentage",
         "infinityTime",
         "eternityTime",
-        "generatorPower", 
+        "generatorPower",
         "ipUpgrades",
       ],
     });

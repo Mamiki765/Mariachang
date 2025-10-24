@@ -1,5 +1,5 @@
 //config.mjs
-import idleGameConfig from "./idle-game/game-settings.mjs"; 
+import idleGameConfig from "./idle-game/game-settings.mjs";
 import {
   roulettePockets,
   rouletteBets,

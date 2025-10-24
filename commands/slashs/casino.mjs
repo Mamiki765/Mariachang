@@ -6,11 +6,7 @@ import {
   ButtonStyle,
   ActionRowBuilder,
 } from "discord.js";
-import {
-  Point,
-  CasinoStats,
-  sequelize,
-} from "../../models/database.mjs";
+import { Point, CasinoStats, sequelize } from "../../models/database.mjs";
 import config from "../../config.mjs";
 import {
   unlockAchievements,

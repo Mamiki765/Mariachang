@@ -241,7 +241,9 @@ export default async function handleButtonInteraction(interaction) {
             where: { userId: interaction.user.id },
           });
           //ニョワ人口
-          const population_d = idleGame ? new Decimal(idleGame.population) : new Decimal(0);
+          const population_d = idleGame
+            ? new Decimal(idleGame.population)
+            : new Decimal(0);
           //ブースト
           let boostMessage = "🔥なし";
           if (idleGame) {

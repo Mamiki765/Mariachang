@@ -1,4 +1,5 @@
 //idle-game\game-settings.mjs
+//この中身はconfig.mjsでimportしてconfig.idleとしてexportされ吐き出される
 import {
   achievements,
   hidden_achievements,
@@ -389,7 +390,7 @@ export default {
       name: "パッシブ光輝は禁止！禁止です！",
       description: "スキル#4を取得できない",
       bonus: "スキル#4が20％強化される",
-    }, 
+    },
     {
       id: "IC6",
       name: "ライバル現る！？",
