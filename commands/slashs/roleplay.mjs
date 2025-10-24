@@ -8,10 +8,10 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-    LabelBuilder, 
-  StringSelectMenuBuilder, 
-  StringSelectMenuOptionBuilder, 
-  FileUploadBuilder, 
+  LabelBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  FileUploadBuilder,
 } from "discord.js";
 import { Op } from "sequelize";
 import { createRpDeleteRequestButton } from "../../components/buttons.mjs";
@@ -37,8 +37,13 @@ export const help = {
     {
       name: "post",
       description: "登録したキャラクターとして、メッセージを投稿します。",
+      notes: "アイコンは発言のたびにアップロードして更新する事も可能です。",
+    },
+    {
+      name: "post_old",
+      description: "登録したキャラクターとして、メッセージを投稿します。(旧式)",
       notes:
-        "最後に登録したアイコンが使われます、発言のたびにアップロードして更新する事も可能です。",
+        "必ず最後に登録したアイコンが使われ、変更はできません。権利表記の省略のみできます。",
     },
     {
       name: "display",
@@ -102,65 +107,44 @@ export const data = new SlashCommandBuilder()
       .setNameLocalizations({ ja: "キャラ登録" })
       .setDescription("新しいキャラクターを登録します。")
   )
-  // 発言
+  // 発言 (新しいモーダル版)
+  .addSubcommand(
+    (subcommand) =>
+      subcommand
+        .setName("post")
+        .setNameLocalizations({ ja: "発言" })
+        .setDescription("モーダルを開き、キャラクターとして発言します。")
+    // ★ オプションは全てモーダルに移行するため、ここでは不要
+  )
+  // 旧式の発言 (軽量版)
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("post")
-      .setNameLocalizations({
-        ja: "発言",
-      })
+      .setName("post_old")
+      .setNameLocalizations({ ja: "旧式発言" })
       .setDescription(
-        "登録したキャラデータと最後に使用したアイコンでRPします。"
+        "【軽量版】登録キャラとして即座にメッセージを投稿します。"
       )
       .addStringOption((option) =>
         option
           .setName("message")
-          .setNameLocalizations({
-            ja: "内容",
-          })
-          // 250818 modal 対応のため空欄でも可に
-          .setDescription(
-            "発言内容(空欄で別途入力欄表示)(改行は\n、<br>、@@@でも可)"
-          )
+          .setNameLocalizations({ ja: "内容" })
+          .setDescription("発言内容（改行は \\n または <br>）")
+          .setRequired(true)
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName("slot")
+          .setNameLocalizations({ ja: "セーブデータ" })
+          .setDescription("発言するキャラクタースロットを選択（未入力は0)")
           .setRequired(false)
-      )
-      .addIntegerOption(
-        (option) =>
-          option
-            .setName("slot")
-            .setNameLocalizations({
-              ja: "セーブデータ",
-            })
-            .setDescription("発言するキャラクタースロットを選択（未入力は0)")
-            .setRequired(false) // 必須ではなくす（postの場合）
-            .setAutocomplete(true) // 250731オートコンプリート形式に変更
-      )
-      .addAttachmentOption((option) =>
-        option
-          .setName("icon")
-          .setNameLocalizations({
-            ja: "アイコン変更",
-          })
-          .setDescription(
-            "アイコンを変更する時はこちら（別ILのアイコンにした時は権利表記オプションもつけること！）"
-          )
-      )
-      .addStringOption((option) =>
-        option
-          .setName("illustrator")
-          .setDescription(
-            "（アイコンのILを変えたときのみ）IL名、権利表記を自分で書く時はフルで"
-          )
+          .setAutocomplete(true)
       )
       .addBooleanOption((option) =>
         option
           .setName("nocredit")
-          .setNameLocalizations({
-            ja: "権利表記省略",
-          })
-          .setDescription(
-            "【非推奨】権利表記を非表示にします、RP中や自作品などに(デフォルトはfalse)"
-          )
+          .setNameLocalizations({ ja: "権利表記省略" })
+          .setDescription("権利表記を非表示にします (デフォルトはfalse)")
+          .setRequired(false)
       )
   )
   // 表示
@@ -263,7 +247,7 @@ export async function autocomplete(interaction) {
         firstEmptySlotFound = true;
       }
     }
-  } else if (subcommand === "post" || subcommand === "delete") {
+  } else if (subcommand === "post_old" || subcommand === "delete") {
     // === post と delete 兼用のロジック ===
     for (let i = 0; i < MAX_SLOTS; i++) {
       const charaslotId = potentialSlotIds[i];
@@ -294,15 +278,18 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === "register") {
-   // ==========================================================
+    // ==========================================================
     // ▼▼▼ 新しい /roleplay register の処理 ▼▼▼
     // ==========================================================
     try {
       // --- 1. スロット選択肢を動的に生成 ---
       // 以前autocompleteで使っていた効率的なデータ取得ロジックを流用します。
       const userId = interaction.user.id;
-      const potentialSlotIds = Array.from({ length: MAX_SLOTS }, (_, i) => `${userId}${i > 0 ? `-${i}` : ""}`);
-      
+      const potentialSlotIds = Array.from(
+        { length: MAX_SLOTS },
+        (_, i) => `${userId}${i > 0 ? `-${i}` : ""}`
+      );
+
       const existingCharacters = await Character.findAll({
         where: { userId: { [Op.in]: potentialSlotIds } },
       });
@@ -316,8 +303,8 @@ export async function execute(interaction) {
         const charaslotId = potentialSlotIds[i];
         const character = characterMap.get(charaslotId);
         const option = new StringSelectMenuOptionBuilder()
-            .setValue(String(i)) // modalHandlerで扱いやすいようにslot番号を文字列で渡す
-            .setEmoji(emojis[i]);
+          .setValue(String(i)) // modalHandlerで扱いやすいようにslot番号を文字列で渡す
+          .setEmoji(emojis[i]);
 
         if (character) {
           option.setLabel(`スロット${i}: ${character.name} に上書き`);
@@ -330,7 +317,7 @@ export async function execute(interaction) {
         }
         slotOptions.push(option);
       }
-      
+
       // --- 2. モーダルを構築 ---
       const modal = new ModalBuilder()
         .setCustomId("roleplay-register-modal") // 後でmodalHandlers.mjsで識別するためのID
@@ -358,17 +345,32 @@ export async function execute(interaction) {
               .setCustomId("register-pbw-select")
               .setPlaceholder("選択してください...")
               .addOptions(
-                new StringSelectMenuOptionBuilder().setLabel("ロスト・アーカディア").setValue("rev2"),
-                new StringSelectMenuOptionBuilder().setLabel("PandoraPartyProject").setValue("rev1"),
-                new StringSelectMenuOptionBuilder().setLabel("√EDEN").setValue("tw8"),
-                new StringSelectMenuOptionBuilder().setLabel("チェインパラドクス").setValue("tw7"),
-                new StringSelectMenuOptionBuilder().setLabel("第六猟兵").setValue("tw6"),
-                new StringSelectMenuOptionBuilder().setLabel("アルパカコネクト").setValue("alpaca").setDescription("イラストレーター名の欄にワールド名も入力"),
-                new StringSelectMenuOptionBuilder().setLabel("その他（権利表記を自分で書く）").setValue("other")
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("ロスト・アーカディア")
+                  .setValue("rev2"),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("PandoraPartyProject")
+                  .setValue("rev1"),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("√EDEN")
+                  .setValue("tw8"),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("チェインパラドクス")
+                  .setValue("tw7"),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("第六猟兵")
+                  .setValue("tw6"),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("アルパカコネクト")
+                  .setValue("alpaca")
+                  .setDescription("イラストレーター名の欄にワールド名も入力"),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("その他（権利表記を自分で書く）")
+                  .setValue("other")
               )
           )
       );
-      
+
       // 【3段目】アイコン登録
       modal.addLabelComponents(
         new LabelBuilder()
@@ -412,295 +414,189 @@ export async function execute(interaction) {
       await interaction.showModal(modal);
 
       // このコマンドの役目はここまで。実際の登録処理は modalHandlers.mjs に引き継がれます。
-
     } catch (error) {
-        console.error("キャラ登録モーダルの表示に失敗しました:", error);
-        // showModalで失敗することは稀ですが、念のためエラーハンドリング
-        if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ content: '登録モーダルの表示に失敗しました。', ephemeral: true });
-        }
+      console.error("キャラ登録モーダルの表示に失敗しました:", error);
+      // showModalで失敗することは稀ですが、念のためエラーハンドリング
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: "登録モーダルの表示に失敗しました。",
+          ephemeral: true,
+        });
+      }
     }
   } else if (subcommand === "post") {
-    // --- 1. オプションと基本情報の取得 ---
-
-    // スラッシュコマンドでユーザーが入力した各オプションを取得します。
-    const slot = interaction.options.getInteger("slot") || 0; // スロット番号。なければ0番。
-    const icon = interaction.options.getAttachment("icon"); // 添付されたアイコンファイル。
-    const illustrator = interaction.options.getString("illustrator"); // イラストレーター名。
-    const message = interaction.options.getString("message"); // 発言内容。
-    const nocredit = interaction.options.getBoolean("nocredit"); // 権利表記を省略するかどうか。
-
-    // ユーザーIDとスロット番号から、データベースで使う一意なIDを生成します。
-    const charaslot = dataslot(interaction.user.id, slot);
-
-    // --- 2. キャラクターデータの事前読み込み ---
-
-    // この後の処理で必ず使うキャラクター情報を先に読み込みます。
-    // try...catchで囲むことで、データベース接続エラーなどでBotが停止するのを防ぎます。
-    let loadchara, loadicon;
+    // ==========================================================
+    // ▼▼▼ 新しい /roleplay post の処理 (モーダル表示) ▼▼▼
+    // ==========================================================
     try {
-      loadchara = await Character.findOne({ where: { userId: charaslot } });
-      loadicon = await Icon.findOne({ where: { userId: charaslot } });
-    } catch (error) {
-      console.error("キャラデータのロードに失敗しました:", error);
-      // この時点ではまだ応答を返していないので、.reply()でエラーを伝えます。
-      return interaction.reply({
-        content:
-          "キャラクターデータの読み込み中にエラーが発生しました。しばらくしてからもう一度お試しください。",
-        ephemeral: true,
+      // --- 1. 投稿可能なキャラクターリストを作成 ---
+      const userId = interaction.user.id;
+      const potentialSlotIds = Array.from(
+        { length: MAX_SLOTS },
+        (_, i) => `${userId}${i > 0 ? `-${i}` : ""}`
+      );
+      const existingCharacters = await Character.findAll({
+        where: { userId: { [Op.in]: potentialSlotIds } },
       });
-    }
+      const characterMap = new Map(
+        existingCharacters.map((char) => [char.userId, char])
+      );
 
-    // 読み込んだキャラクターデータが存在しない場合、処理を中断します。
-    if (!loadchara) {
-      return interaction.reply({
-        content: `スロット${slot}にキャラデータがありません。先に\`/register\`で登録してください。`,
-        ephemeral: true,
-      });
-    }
-
-    // --- 3. 処理の分岐 ---
-    // ユーザーの意図に合わせて、3つのパターンに処理を分岐します。
-
-    // 【パターンA: アイコン更新 → Modal表示】
-    // `message`オプションが無く、`icon`か`illustrator`オプションが指定されている場合。
-    // ユーザーは「先にアイコン周りを更新してから、本文を入力したい」と考えています。
-    if (!message && (icon || illustrator)) {
-      // ファイルアップロードやDB更新は時間がかかる可能性があるため、まず応答を遅延させます。
-      await interaction.deferReply({ ephemeral: true });
-
-      try {
-        // ◆ `icon`オプション（新しいアイコンファイル）がある場合の処理 ◆
-        if (icon) {
-          // 1. DiscordのURLからファイルをフェッチし、Buffer形式（バイナリデータ）に変換します。
-          const fetched = await fetch(icon.url);
-          const buffer = Buffer.from(await fetched.arrayBuffer());
-
-          // 2. ファイルサイズのチェック（1MB = 1024 * 1024 bytes）
-          if (buffer.length > 1024 * 1024) {
-            return interaction.editReply({
-              content: "アイコンファイルのサイズが1MBを超えています。",
-            });
-          }
-
-          // 3. ファイル名から拡張子を取得します（例: "image.png" -> "png"）。
-          //    安全のためにオプショナルチェイニング(?.)と小文字化(.toLowerCase())を使います。
-          const fileExt = icon.name.split(".").pop()?.toLowerCase();
-
-          // 4. 許可された拡張子かどうかをチェックします。
-          if (!fileExt || !["png", "webp", "jpg", "jpeg"].includes(fileExt)) {
-            return interaction.editReply({
-              content:
-                "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
-            });
-          }
-
-          // 5. チェックをすべて通過後、もし古いアイコンがストレージにあれば削除します。
-          if (loadicon && loadicon.deleteHash) {
-            await deleteFile(loadicon.deleteHash);
-          }
-
-          // 6. 新しいアイコンをSupabase Storageなどにアップロードします。
-          const result = await uploadFile(
-            buffer,
-            interaction.user.id,
-            slot,
-            fileExt,
-            "icons"
+      const slotOptions = [];
+      for (let i = 0; i < MAX_SLOTS; i++) {
+        const character = characterMap.get(potentialSlotIds[i]);
+        if (character) {
+          // ★ 登録済みのキャラのみ選択肢に追加
+          slotOptions.push(
+            new StringSelectMenuOptionBuilder()
+              .setValue(String(i))
+              .setLabel(`スロット${i}: ${character.name}`)
+              .setEmoji(emojis[i])
           );
-          if (!result) {
-            return interaction.editReply({
-              content: "アイコンのアップロードに失敗しました。",
-            });
-          }
-
-          // 7. データベースの情報を新しいアイコンの情報で更新（または新規作成）します。
-          await Icon.upsert({
-            userId: charaslot,
-            iconUrl: result.url,
-            illustrator: illustrator || loadicon.illustrator, // illustrator指定があれば更新、なければ既存のまま
-            pbw: loadicon.pbw,
-            deleteHash: result.path,
-          });
-
-          // ◆ `illustrator`オプションだけがある場合の処理 ◆
-        } else if (illustrator) {
-          // アイコンファイルは変更せず、イラストレーター名だけを更新します。
-          await Icon.upsert({
-            userId: charaslot,
-            illustrator: illustrator,
-          });
         }
+      }
 
-        // 8. アイコン処理完了後、Modalを呼び出すためのボタンを作成します。
-        //    customIdにスロット番号などの情報を埋め込み、次のインタラクションに引き継ぎます。
-        const customId = `show-rp-modal_${slot}_${nocredit || false}`;
-        const button = new ButtonBuilder()
-          .setCustomId(customId)
-          .setLabel("続けてセリフを入力する")
-          .setStyle(ButtonStyle.Primary);
-        const row = new ActionRowBuilder().addComponents(button);
-
-        // 9. ユーザーに処理完了を知らせ、ボタンを表示します。
-        await interaction.editReply({
-          content: `**${loadchara.name}**（スロット${slot}）のアイコン情報を更新しました！\nボタンを押してセリフを入力してください。`,
-          components: [row],
-        });
-      } catch (error) {
-        console.error("アイコン更新処理中にエラー:", error);
-        return interaction.editReply({
-          content: "アイコンの更新中に予期せぬエラーが発生しました。",
+      // --- 2. 投稿できるキャラがいない場合はエラー ---
+      if (slotOptions.length === 0) {
+        return interaction.reply({
+          content:
+            "投稿できるキャラクターが登録されていません。\n`/roleplay register` から先にキャラクターを登録してください。",
+          ephemeral: true,
         });
       }
 
-      // 【パターンB: 即時Modal表示】
-      // `message`オプションが無く、アイコン系のオプションも指定されていない場合。
-      // ユーザーは「既存のキャラ設定のまま、すぐに長文を入力したい」と考えています。
-    } else if (!message) {
-      // この処理はDBアクセスもファイルI/Oも無いため非常に高速です。deferは不要です。
+      slotOptions[0].setDefault(true); // 最初のキャラをデフォルト選択
 
-      // 1. Modal（ポップアップウィンドウ）を作成します。
+      // --- 3. モーダルを構築 ---
       const modal = new ModalBuilder()
-        // customIdに情報を埋め込み、どのModalからの送信かを後で識別できるようにします。
-        .setCustomId(`roleplay-post-modal_${slot}_${nocredit || false}`)
-        .setTitle(`スロット${slot}: ${loadchara.name} で発言`);
+        .setCustomId("roleplay-post-modal")
+        .setTitle("キャラクター発言");
 
-      // 2. Modalの中に、複数行のテキスト入力欄を作成します。
-      //ここを弄ったらパターンAの時のmodalもbuttonHandler.mjs弄って調整してください
-      const messageInput = new TextInputBuilder()
-        .setCustomId("messageInput")
-        .setLabel("発言内容")
-        .setStyle(TextInputStyle.Paragraph) // Paragraphで複数行入力が可能になります。
-        .setMaxLength(1750) // ← これを追加！
-        .setPlaceholder(
-          "ここにセリフを入力してください。（最大1750文字)\n改行もそのまま反映されます。"
-        )
-        .setRequired(true);
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("キャラクター選択")
+          .setStringSelectMenuComponent(
+            new StringSelectMenuBuilder()
+              .setCustomId("post-slot-select")
+              .addOptions(slotOptions)
+          )
+      );
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("発言内容")
+          .setTextInputComponent(
+            new TextInputBuilder()
+              .setCustomId("post-message-input")
+              .setStyle(TextInputStyle.Paragraph)
+              .setMaxLength(1750)
+              .setRequired(true)
+          )
+      );
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("アイコンの更新 (任意)")
+          .setDescription(
+            "指定しない場合は、最後に使われたアイコンが使用されます。"
+          )
+          .setFileUploadComponent(
+            new FileUploadBuilder()
+              .setCustomId("post-icon-upload")
+              .setMaxValues(1)
+              .setRequired(false)
+          )
+      );
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("イラストレーター名 (変更時)")
+          .setTextInputComponent(
+            new TextInputBuilder()
+              .setCustomId("post-illustrator-input")
+              .setStyle(TextInputStyle.Short)
+              .setMaxLength(64)
+              .setRequired(false)
+          )
+      );
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("権利表記")
+          .setStringSelectMenuComponent(
+            new StringSelectMenuBuilder()
+              .setCustomId("post-credit-select")
+              .addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("権利表記をする")
+                  .setValue("display")
+                  .setDefault(true),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("権利表記をしない (非推奨)")
+                  .setValue("hide")
+              )
+          )
+      );
 
-      // 3. 入力欄をModalに追加します。
-      const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
-      modal.addComponents(firstActionRow);
-
-      // 4. ユーザーにModalを表示します。これでこのインタラクションへの応答は完了です。
       await interaction.showModal(modal);
+    } catch (error) {
+      console.error("発言モーダルの表示に失敗しました:", error);
+      await interaction.reply({
+        content: "発言モーダルの表示に失敗しました。",
+        ephemeral: true,
+      });
+    }
+  } else if (subcommand === "post_old") {
+    // ==========================================================
+    // ▼▼▼ 旧式の /roleplay post_old の処理 ▼▼▼
+    // ==========================================================
+    await interaction.deferReply({ ephemeral: true });
 
-      // 【パターンC: 従来の直接投稿】
-      // `message`オプションが指定されている場合。
-      // ユーザーは「短い文章を素早く投稿したい」または「従来通りの使い方をしたい」と考えています。
-    } else {
-      // Webhookの送信など、少し時間がかかる可能性があるので応答を遅延させます。
-      await interaction.deferReply({ flags: 64 });
+    try {
+      const slot = interaction.options.getInteger("slot") || 0;
+      const message = interaction.options.getString("message");
+      const nocredit = interaction.options.getBoolean("nocredit") || false; // 注意: こっちは true で省略
+      const charaslot = dataslot(interaction.user.id, slot);
 
-      try {
-        // アイコンの同時更新処理は、ここで行います
-        // `icon`か`illustrator`が指定されている場合のみ、更新処理を行う
-        if (icon || illustrator) {
-          if (icon) {
-            // 1. ファイルをフェッチしてBufferに変換
-            const fetched = await fetch(icon.url);
-            const buffer = Buffer.from(await fetched.arrayBuffer());
-
-            // 2. サイズと拡張子をチェック
-            if (buffer.length > 1024 * 1024) {
-              return interaction.editReply({
-                content: "アイコンファイルのサイズが1MBを超えています。",
-              });
-            }
-            const fileExt = icon.name.split(".").pop()?.toLowerCase();
-            if (!fileExt || !["png", "webp", "jpg", "jpeg"].includes(fileExt)) {
-              return interaction.editReply({
-                content:
-                  "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
-              });
-            }
-
-            // 3. 古いアイコンを削除
-            if (loadicon && loadicon.deleteHash) {
-              await deleteFile(loadicon.deleteHash);
-            }
-
-            // 4. 新しいアイコンをアップロード
-            const result = await uploadFile(
-              buffer,
-              interaction.user.id,
-              slot,
-              fileExt,
-              "icons"
-            );
-            if (!result) {
-              return interaction.editReply({
-                content: "アイコンのアップロードに失敗しました。",
-              });
-            }
-
-            // 5. データベースを更新
-            const newIllustrator =
-              illustrator || (loadicon ? loadicon.illustrator : "絵師様");
-            await Icon.upsert({
-              userId: charaslot,
-              iconUrl: result.url,
-              illustrator: newIllustrator,
-              pbw: loadicon ? loadicon.pbw : null,
-              deleteHash: result.path,
-            });
-
-            // 6. ★★★ 最重要ポイント ★★★
-            // DBだけでなく、メモリ上の`loadicon`の情報も、最新の状態に更新します！
-            if (!loadicon) {
-              // もしアイコンが今まで無かった場合
-              loadicon = { userId: charaslot }; // 新しいオブジェクトを作成
-            }
-            loadicon.iconUrl = result.url;
-            loadicon.illustrator = newIllustrator;
-          } else if (illustrator) {
-            // イラストレーター名だけを更新
-            await Icon.upsert({
-              userId: charaslot,
-              illustrator: illustrator,
-            });
-
-            // ★★★ こちらも同様に、メモリ上の情報を更新！ ★★★
-            if (loadicon) {
-              loadicon.illustrator = illustrator;
-            }
-          }
-        }
-
-        // これで、sendWebhookAsCharacterには、常に最新の情報が渡されます
-        const postedMessage = await sendWebhookAsCharacter(
-          interaction,
-          loadchara,
-          loadicon, // ★★★ ここには、更新済みの最新情報が入っている！ ★★★
-          message,
-          nocredit
-        );
-
-        // ★★★ 同じように、ポイント更新と削除ボタンを追加 ★★★
-        const rewardResult = await updatePoints(
-          interaction.user.id,
-          interaction.client
-        );
-
-        const deleteRequestButtonRow = createRpDeleteRequestButton(
-          postedMessage.id,
-          interaction.user.id
-        );
-        let replyMessage = "送信しました。";
-        if (rewardResult) {
-          if (rewardResult.rewardType === "rp") {
-            replyMessage += `\n💎 **RP**を1獲得しました！`;
-          } else if (rewardResult.rewardType === "pizza") {
-            replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**が**${rewardResult.amount.toLocaleString()}**枚、バンクに入金されました。`;
-          }
-        }
-        await interaction.editReply({
-          content: replyMessage,
-          components: [deleteRequestButtonRow], // ★★★ これを使う ★★★
+      const loadchara = await Character.findOne({
+        where: { userId: charaslot },
+      });
+      if (!loadchara) {
+        return interaction.editReply({
+          content: `スロット${slot}にキャラデータがありません。`,
         });
-      } catch (error) {
-        console.error("メッセージ送信に失敗しました:", error);
-        await interaction.editReply({ content: `エラーが発生しました。` });
       }
+      const loadicon = await Icon.findOne({ where: { userId: charaslot } });
+
+      const postedMessage = await sendWebhookAsCharacter(
+        interaction,
+        loadchara,
+        loadicon,
+        message,
+        nocredit
+      );
+
+      const rewardResult = await updatePoints(
+        interaction.user.id,
+        interaction.client
+      );
+      const deleteRequestButtonRow = createRpDeleteRequestButton(
+        postedMessage.id,
+        interaction.user.id
+      );
+
+      let replyMessage = "送信しました。";
+      if (rewardResult) {
+        if (rewardResult.rewardType === "rp") {
+          replyMessage += `\n💎 **RP**を1獲得しました！`;
+        } else if (rewardResult.rewardType === "pizza") {
+          replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**が**${rewardResult.amount.toLocaleString()}**枚、バンクに入金されました。`;
+        }
+      }
+
+      await interaction.editReply({
+        content: replyMessage,
+        components: [deleteRequestButtonRow],
+      });
+    } catch (error) {
+      console.error("旧式メッセージ送信に失敗しました:", error);
+      await interaction.editReply({ content: `エラーが発生しました。` });
     }
     //ここからセーブデータ表示の処理
   } else if (subcommand === "display") {
