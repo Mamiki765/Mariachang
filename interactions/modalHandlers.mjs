@@ -13,8 +13,9 @@ import {
 } from "../components/buttons.mjs";
 //RP機能周りimport
 import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
-import { Character, Icon } from "../models/database.mjs";
+import { Character, Icon,sequelize } from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
+import { uploadFile, deleteFile } from "../utils/supabaseStorage.mjs";
 //RP周りここまで
 
 export default async function handleModalInteraction(interaction) {
@@ -224,6 +225,8 @@ export default async function handleModalInteraction(interaction) {
       console.error("Modalからのメッセージ送信に失敗しました:", error);
       await interaction.editReply({ content: `エラーが発生しました。` });
     }
+  } else if (interaction.customId === "roleplay-register-modal") {
+    await handleRoleplayRegisterModal(interaction);
   } else {
     //モーダルが不明のとき
     return;
@@ -260,4 +263,153 @@ function parseAmount(amountStr, currentBalance) {
     throw new Error("両替/引き出し額が0です。");
   }
   return amount;
+}
+
+// ==========================================================
+// ▼▼▼ RP登録モーダル処理用の専用関数 ▼▼▼
+// ==========================================================
+/**
+ * /roleplay register のモーダル送信を処理します
+ * @param {import('discord.js').ModalSubmitInteraction} interaction
+ */
+async function handleRoleplayRegisterModal(interaction) {
+  // ファイル処理やDBアクセスには時間がかかるため、応答を遅延させます
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    // --- 1. モーダルから各コンポーネントの値を取得 ---
+    const name = interaction.fields.getTextInputValue("register-name-input");
+    const pbw = interaction.fields.getStringSelectValues(
+      "register-pbw-select"
+    )[0];
+    const illustratorInput = interaction.fields.getTextInputValue(
+      "register-illustrator-input"
+    );
+    const slot = parseInt(
+      interaction.fields.getStringSelectValues("register-slot-select")[0],
+      10
+    );
+    const files = interaction.fields.getUploadedFiles("register-icon-upload");
+
+    const charaslot = `${interaction.user.id}${slot > 0 ? `-${slot}` : ""}`;
+
+    // --- 2. 権利表記(pbwflag)を生成 ---
+    let illustrator = illustratorInput || "絵師様";
+    let copyright = illustratorInput || "";
+    let world = null;
+
+    if (pbw === "alpaca") {
+      if (!illustratorInput || !illustratorInput.includes(",")) {
+        // カンマがない、または入力自体が空の場合はエラーを投げて処理を中断
+        throw new Error(
+          "アルパカコネクトを選択した場合、イラストレーター名の欄に「ワールド名, イラストレーター名」の形式で入力してください。"
+        );
+      }
+      // 検証をパスした場合、ワールド名とIL名を分離
+      [world, illustrator] = illustratorInput.split(",").map((s) => s.trim());
+    }
+
+    let pbwflag = null;
+    // ... (権利表記のif-else if文、内容は前回のものと同じ)
+    if (pbw === "rev1") {
+      pbwflag = `『PandoraPartyProject』(c)<@${interaction.user.id}>/illustratorname/Re:version`;
+    } else if (pbw === "rev2") {
+      pbwflag = `『ロスト・アーカディア』(c)<@${interaction.user.id}>/illustratorname/Re:version`;
+    } else if (pbw === "tw6") {
+      pbwflag = `『第六猟兵』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
+    } else if (pbw === "tw7") {
+      pbwflag = `『チェインパラドクス』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
+    } else if (pbw === "tw8") {
+      pbwflag = `『√EDEN』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
+    } else if (pbw === "alpaca") {
+      pbwflag = `illustratorname/${world || "（ワールド名未設定）"}/(C)アルパカコネクト by <@${interaction.user.id}>`;
+    } else if (pbw === "other") {
+      pbwflag = `illustratorname by <@${interaction.user.id}>`;
+    }
+
+    // --- 3. アイコンファイルの処理 ---
+    let iconUrl = null;
+    let deleteHash = null;
+
+    const existingIcon = await Icon.findOne({ where: { userId: charaslot } });
+    if (existingIcon?.deleteHash) {
+      await deleteFile(existingIcon.deleteHash);
+    }
+
+    if (files && files.size > 0) {
+      const icon = files.first();
+      const fetched = await fetch(icon.url);
+      const buffer = Buffer.from(await fetched.arrayBuffer());
+
+      if (buffer.length > 1024 * 1024)
+        throw new Error("アイコンファイルのサイズが1MBを超えています。");
+
+      const fileExt = icon.name.split(".").pop()?.toLowerCase();
+      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt))
+        throw new Error(
+          "対応していないファイル形式です。PNG, WebP, JPG のいずれかでアップロードしてください。"
+        );
+
+      const result = await uploadFile(
+        buffer,
+        interaction.user.id,
+        slot,
+        fileExt,
+        "icons"
+      );
+      if (result) {
+        iconUrl = result.url;
+        deleteHash = result.path;
+      } else {
+        throw new Error("アイコンのアップロードに失敗しました。");
+      }
+    }
+
+    // --- 4. データベースにトランザクションで保存 ---
+    await sequelize.transaction(async (t) => {
+      // Characterテーブルへの書き込み
+      await Character.upsert(
+        {
+          userId: charaslot,
+          name: name,
+          pbwflag: pbwflag,
+        },
+        { transaction: t }
+      );
+
+      // Iconテーブルへの書き込み
+      await Icon.upsert(
+        {
+          userId: charaslot,
+          iconUrl,
+          // illustratorとcopyrightのどちらを使うかはpbwの値による
+          illustrator: pbw !== "other" ? illustrator : copyright,
+          pbw,
+          deleteHash,
+        },
+        { transaction: t }
+      );
+    });
+
+    // --- 5. ユーザーに成功を通知 ---
+    await interaction.editReply({
+      content: `✅ 登録完了！\nスロット${slot}に **${name}** を登録しました。`,
+    });
+  } catch (error) {
+    console.error("キャラクター登録処理でエラー:", error);
+    await interaction.editReply({
+      content: `❌ エラーが発生しました。\n${error.message}`,
+    });
+  }
+}
+
+// ==========================================================
+// ▼▼▼ RP投稿モーダル処理用の専用関数 (将来の実装用) ▼▼▼
+// ==========================================================
+/**
+ * /roleplay post のモーダル送信を処理します
+ * @param {import('discord.js').ModalSubmitInteraction} interaction
+ */
+async function handleRoleplayPostModal(interaction) {
+  // ここに /roleplay post 用のモーダル処理を実装します
 }
