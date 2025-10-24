@@ -5,11 +5,16 @@ import {
   ButtonStyle,
 } from "discord.js";
 
+/*
 export const help = {
   category: "slash",
   description: "マリアとじゃんけんができます",
   notes: "このBOTの大本にあった機能なので残してるだけの奴！",
 };
+*/
+// 'debug'スコープを指定することで、開発環境でのみ登録されるようにする
+export const help = {};
+export const scope = "debug";
 
 export const data = new SlashCommandBuilder()
   .setName("janken")

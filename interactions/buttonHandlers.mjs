@@ -181,38 +181,8 @@ export default async function handleButtonInteraction(interaction) {
     return timeout_confirm(interaction, Selftimeoutmatch[1]);
   } else if (interaction.customId === "cancel_selftimeout") {
     return timeout_cancel(interaction);
-    // ロールプレイコマンドからのModal呼び出しボタン
-  } else if (interaction.customId.startsWith("show-rp-modal_")) {
-    // 1. customIdからスロット番号とnocreditフラグを解析します。
-    const parts = interaction.customId.split("_");
-    const slot = parseInt(parts[1], 10);
-    const nocredit = parts[2] === "true";
-
-    // 2. この後のModal送信を処理するための、新しいcustomIdを生成します。
-    const modalCustomId = `roleplay-post-modal_${slot}_${nocredit}`;
-
-    // 3. ユーザーに表示するModalを構築します。
-    const modal = new ModalBuilder()
-      .setCustomId(modalCustomId)
-      .setTitle(`スロット${slot}で発言`);
-
-    const messageInput = new TextInputBuilder()
-      .setCustomId("messageInput")
-      .setLabel("発言内容")
-      .setStyle(TextInputStyle.Paragraph)
-      .setMaxLength(1750) // ← これを追加！
-      .setPlaceholder(
-        "ここにセリフを入力してください。（最大1750文字)\n改行もそのまま反映されます。"
-      )
-      .setRequired(true);
-
-    const actionRow = new ActionRowBuilder().addComponents(messageInput);
-    modal.addComponents(actionRow);
-
-    // 4. ボタンが押されたインタラクションへの応答として、Modalを表示します。
-    return interaction.showModal(modal);
-    // --- ここから下は、あまやどんぐりのログインボーナス処理 ---
   } else if (interaction.customId === "claim_acorn_login_bonus") {
+    // --- ここから下は、あまやどんぐりのログインボーナス処理 ---
     try {
       await interaction.deferReply({ ephemeral: true });
       const [pointEntry, created] = await Point.findOrCreate({
