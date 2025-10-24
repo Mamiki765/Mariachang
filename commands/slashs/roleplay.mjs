@@ -8,6 +8,10 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+    LabelBuilder, 
+  StringSelectMenuBuilder, 
+  StringSelectMenuOptionBuilder, 
+  FileUploadBuilder, 
 } from "discord.js";
 import { Op } from "sequelize";
 import { createRpDeleteRequestButton } from "../../components/buttons.mjs";
@@ -95,95 +99,8 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("register")
-      .setNameLocalizations({
-        ja: "キャラ登録",
-      })
-      .setDescription("ロールプレイをするキャラを登録します。")
-      .addStringOption((option) =>
-        option
-          .setName("chara")
-          .setNameLocalizations({
-            ja: "キャラ名",
-          })
-          .setDescription("キャラクター名")
-          .setRequired(true)
-      )
-      .addStringOption((option) =>
-        option
-          .setName("pbw")
-          .setDescription("アイコンの権利表記フォーマット")
-          .addChoices(
-            {
-              name: "ロスト・アーカディア",
-              value: "rev2",
-            },
-            {
-              name: "PandoraPartyProject",
-              value: "rev1",
-            },
-            {
-              name: "√EDEN",
-              value: "tw8",
-            },
-            {
-              name: "チェインパラドクス",
-              value: "tw7",
-            },
-            {
-              name: "第六猟兵",
-              value: "tw6",
-            },
-            {
-              name: "アルパカコネクト（ワールド名は別途記載）",
-              value: "alpaca",
-            },
-            {
-              name: "その他（権利表記は自分で書く）",
-              value: "other",
-            }
-          )
-          .setRequired(true)
-      )
-      .addIntegerOption(
-        (option) =>
-          option
-            .setName("slot")
-            .setNameLocalizations({
-              ja: "セーブデータ",
-            })
-            .setDescription("保存するキャラクタースロットを選択（未入力は0)")
-            .setAutocomplete(true) // ★★★ これが魔法の呪文 ★★★
-      )
-      .addAttachmentOption((option) =>
-        option
-          .setName("icon")
-          .setNameLocalizations({
-            ja: "アイコン",
-          })
-          .setDescription("アイコンをアップロードできます")
-      )
-      .addStringOption((option) =>
-        option
-          .setName("illustrator")
-          .setDescription(
-            "投稿アイコンのイラストレーター様(その他選択時は不要)"
-          )
-      )
-      .addStringOption((option) =>
-        option
-          .setName("world")
-          .setNameLocalizations({
-            ja: "ワールド",
-          })
-          .setDescription("【アルパカコネクト社のみ】所属ワールドを入力")
-      )
-      .addStringOption((option) =>
-        option
-          .setName("権利表記")
-          .setDescription(
-            "【その他選択時のみ】権利表記を記載してください。末尾にby（表示名)がつきます。"
-          )
-      )
+      .setNameLocalizations({ ja: "キャラ登録" })
+      .setDescription("新しいキャラクターを登録します。")
   )
   // 発言
   .addSubcommand((subcommand) =>
@@ -377,131 +294,131 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === "register") {
-    //登録
-    const name = interaction.options.getString("chara");
-    const pbw = interaction.options.getString("pbw");
-    const slot = interaction.options.getInteger("slot") || 0;
-    const icon = interaction.options.getAttachment("icon");
-    const world = interaction.options.getString("world");
-    const illustrator =
-      interaction.options.getString("illustrator") || "絵師様";
-    const copyright = interaction.options.getString("権利表記") || "";
-    //ファイル名決定
-    const charaslot = dataslot(interaction.user.id, slot);
-    //権利表記部
-    let pbwflag = null;
-    if (pbw === "rev1") {
-      pbwflag = `『PandoraPartyProject』(c)<@${interaction.user.id}>/illustratorname/Re:version`;
-    } else if (pbw === "rev2") {
-      pbwflag = `『ロスト・アーカディア』(c)<@${interaction.user.id}>/illustratorname/Re:version`;
-    } else if (pbw === "tw6") {
-      pbwflag = `『第六猟兵』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
-    } else if (pbw === "tw7") {
-      pbwflag = `『チェインパラドクス』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
-    } else if (pbw === "tw8") {
-      pbwflag = `『√EDEN』(c)<@${interaction.user.id}>/illustratorname/トミーウォーカー`;
-    } else if (pbw === "alpaca") {
-      pbwflag = `illustratorname/${world}/(C)アルパカコネクト by <@${interaction.user.id}>`;
-    } else if (pbw === "other") {
-      pbwflag = `illustratorname by <@${interaction.user.id}>`;
-    }
-
-    //アイコン
-    let iconUrl = null;
-    let deleteHash = null;
-    const existingIcon = await Icon.findOne({ where: { userId: charaslot } });
-    if (existingIcon?.deleteHash) await deleteFile(existingIcon.deleteHash);
-
-    if (icon) {
-      const fetched = await fetch(icon.url);
-      const buffer = Buffer.from(await fetched.arrayBuffer());
-      //    const result = await uploadToImgur(buffer);
-      // サイズチェックを追加
-      if (buffer.length > 1024 * 1024) {
-        await interaction.reply({
-          flags: [4096, 64], //silent,ephemeral
-          content: "アイコンファイルのサイズが1MBを超えています。",
-        });
-        return;
-      }
-
-      // 拡張子を取得
-      const fileExt = icon.name.split(".").pop();
-      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt.toLowerCase())) {
-        await interaction.reply({
-          flags: [4096, 64], //silent,ephemeral
-          content:
-            "対応していないファイル形式です。PNG, WebP, JPG のいずれかの形式でアップロードしてください。",
-        });
-        return;
-      }
-
-      const result = await uploadFile(
-        buffer,
-        interaction.user.id,
-        slot,
-        fileExt,
-        "icons"
-      );
-      if (result) {
-        iconUrl = result.url;
-        deleteHash = result.path;
-      }
-    }
-
+   // ==========================================================
+    // ▼▼▼ 新しい /roleplay register の処理 ▼▼▼
+    // ==========================================================
     try {
-      await Character.upsert({
-        userId: charaslot,
-        name: name,
-        pbwflag: pbwflag,
+      // --- 1. スロット選択肢を動的に生成 ---
+      // 以前autocompleteで使っていた効率的なデータ取得ロジックを流用します。
+      const userId = interaction.user.id;
+      const potentialSlotIds = Array.from({ length: MAX_SLOTS }, (_, i) => `${userId}${i > 0 ? `-${i}` : ""}`);
+      
+      const existingCharacters = await Character.findAll({
+        where: { userId: { [Op.in]: potentialSlotIds } },
       });
-      await Icon.upsert({
-        userId: charaslot,
-        iconUrl,
-        illustrator: pbw !== "other" ? illustrator : copyright,
-        pbw,
-        deleteHash,
-      });
-      /*
-      if (pbw !== "other") {
-        await Icon.upsert({
-          userId: charaslot,
-          iconUrl: iconUrl,
-          illustrator: illustrator,
-          pbw: pbw,
-        });
-      } else {
-        await Icon.upsert({
-          userId: charaslot,
-          iconUrl: iconUrl,
-          illustrator: copyright,
-          pbw: pbw,
-        }); //${copyright}が代わりに入る
-      }
-      */
-      const checkchara = await Character.findOne({
-        where: {
-          userId: charaslot,
-        },
-      });
-      const checkicon = await Icon.findOne({
-        where: {
-          userId: charaslot,
-        },
-      });
+      const characterMap = new Map(
+        existingCharacters.map((char) => [char.userId, char])
+      );
 
-      console.log("Character Data:", checkchara);
-      console.log("Icon Data:", checkicon);
-      interaction.reply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `スロット${slot}にキャラデータを登録しました`,
-      });
+      const slotOptions = [];
+      let firstEmptySlotFound = false;
+      for (let i = 0; i < MAX_SLOTS; i++) {
+        const charaslotId = potentialSlotIds[i];
+        const character = characterMap.get(charaslotId);
+        const option = new StringSelectMenuOptionBuilder()
+            .setValue(String(i)) // modalHandlerで扱いやすいようにslot番号を文字列で渡す
+            .setEmoji(emojis[i]);
+
+        if (character) {
+          option.setLabel(`スロット${i}: ${character.name} に上書き`);
+        } else {
+          option.setLabel(`スロット${i}: (ここに新しく保存)`);
+          if (!firstEmptySlotFound) {
+            option.setDefault(true); // 最初の空きスロットをデフォルト選択にする
+            firstEmptySlotFound = true;
+          }
+        }
+        slotOptions.push(option);
+      }
+      
+      // --- 2. モーダルを構築 ---
+      const modal = new ModalBuilder()
+        .setCustomId("roleplay-register-modal") // 後でmodalHandlers.mjsで識別するためのID
+        .setTitle("キャラクター登録");
+
+      // 【1段目】キャラクター名
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("キャラクター名")
+          .setTextInputComponent(
+            new TextInputBuilder()
+              .setCustomId("register-name-input")
+              .setStyle(TextInputStyle.Short)
+              .setPlaceholder("神谷 マリア")
+              .setRequired(true)
+          )
+      );
+
+      // 【2段目】所属PBW
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("所属PBW (権利表記テンプレート)")
+          .setStringSelectMenuComponent(
+            new StringSelectMenuBuilder()
+              .setCustomId("register-pbw-select")
+              .setPlaceholder("選択してください...")
+              .addOptions(
+                new StringSelectMenuOptionBuilder().setLabel("ロスト・アーカディア").setValue("rev2"),
+                new StringSelectMenuOptionBuilder().setLabel("PandoraPartyProject").setValue("rev1"),
+                new StringSelectMenuOptionBuilder().setLabel("√EDEN").setValue("tw8"),
+                new StringSelectMenuOptionBuilder().setLabel("チェインパラドクス").setValue("tw7"),
+                new StringSelectMenuOptionBuilder().setLabel("第六猟兵").setValue("tw6"),
+                new StringSelectMenuOptionBuilder().setLabel("アルパカコネクト").setValue("alpaca").setDescription("イラストレーター名の欄にワールド名も入力"),
+                new StringSelectMenuOptionBuilder().setLabel("その他（権利表記を自分で書く）").setValue("other")
+              )
+          )
+      );
+      
+      // 【3段目】アイコン登録
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("アイコン (任意)")
+          .setDescription("PNG, WebP, JPGで1MB以内。後からでも変更できます。")
+          .setFileUploadComponent(
+            new FileUploadBuilder()
+              .setCustomId("register-icon-upload")
+              .setMaxValues(1)
+              .setRequired(false) // 新規登録時はアイコンなしでもOK
+          )
+      );
+
+      // 【4段目】イラストレーター名
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("イラストレーター名 / ワールド名など")
+          .setDescription("アルパカの場合は「ワールド名,IL名」のように入力")
+          .setTextInputComponent(
+            new TextInputBuilder()
+              .setCustomId("register-illustrator-input")
+              .setStyle(TextInputStyle.Short)
+              .setPlaceholder("絵師様（その他選択時は権利表記全文）")
+              .setRequired(false) // 任意項目
+          )
+      );
+
+      // 【5段目】セーブデータ保存先
+      modal.addLabelComponents(
+        new LabelBuilder()
+          .setLabel("セーブデータ保存先")
+          .setStringSelectMenuComponent(
+            new StringSelectMenuBuilder()
+              .setCustomId("register-slot-select")
+              .setPlaceholder("保存するスロットを選択...")
+              .addOptions(slotOptions) // 動的に生成した選択肢をセット
+          )
+      );
+
+      // --- 3. モーダルを表示 ---
+      await interaction.showModal(modal);
+
+      // このコマンドの役目はここまで。実際の登録処理は modalHandlers.mjs に引き継がれます。
+
     } catch (error) {
-      console.error("キャラ登録に失敗しました。:", error);
-      interaction.reply({
-        flags: [4096, 64], //silent,ephemeral
-        content: `スロット${slot}へのキャラ登録でエラーが発生しました。`,
-      });
+        console.error("キャラ登録モーダルの表示に失敗しました:", error);
+        // showModalで失敗することは稀ですが、念のためエラーハンドリング
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: '登録モーダルの表示に失敗しました。', ephemeral: true });
+        }
     }
   } else if (subcommand === "post") {
     // --- 1. オプションと基本情報の取得 ---
