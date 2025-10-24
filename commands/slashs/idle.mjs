@@ -47,6 +47,7 @@ import {
   calculateInfinityCountBonus,
   calculateGeneratorProductionRates,
    calculateIC9TimeBonus,
+   calculateRadianceMultiplier,
 } from "../../idle-game/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
@@ -448,7 +449,7 @@ export async function execute(interaction) {
         s3: idleGame.skillLevel3,
         s4: idleGame.skillLevel4,
       };
-      const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
+      const radianceMultiplier = calculateRadianceMultiplier(idleGame);
       //アセンション回数
       const ascensionCount = idleGame.ascensionCount || 0;
       const ascensionEffect =
@@ -523,7 +524,7 @@ export async function execute(interaction) {
       if (idleGame.prestigeCount > 0) {
         descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
 最高人口: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**
-PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoints.toFixed(2)}** | TP: **${idleGame.transcendencePoints.toFixed(2)}**
+PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoints.toFixed(2)}** | TP: **${formatNumberDynamic(idleGame.transcendencePoints)}**
 #1:${skillLevels.s1} #2:${skillLevels.s2} #3:${skillLevels.s3} #4:${skillLevels.s4} / #5:${idleGame.skillLevel5} #6:${idleGame.skillLevel6} #7:${idleGame.skillLevel7} #8:${idleGame.skillLevel8}
 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍${ascensionText}`;
       } else {
@@ -892,7 +893,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
             idleGame.skillLevel8,
             idleGame.challenges
           ); // 先に計算しておくとスッキリします
-          prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${potentialTP.toFixed(1)}`;
+          prestigeButtonLabel = `Reset PP${newPrestigePower.toFixed(2)}(+${powerGain.toFixed(2)}) TP+${formatNumberDynamic(potentialTP)}`;
         }
 
         boostRow.addComponents(
@@ -918,7 +919,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
           new ButtonBuilder()
             .setCustomId(`idle_prestige`) // 同じIDでOK
             .setEmoji("🍤") // 天ぷらなのでエビフライ！
-            .setLabel(`TP獲得リセット (+${potentialTP.toFixed(2)} TP)`)
+            .setLabel(`TP獲得リセット (+${formatNumberDynamic(potentialTP)} TP)`)
             .setStyle(ButtonStyle.Success) // 報酬がもらえるのでポジティブな色
             .setDisabled(isDisabled)
         );
@@ -1487,7 +1488,7 @@ function generateSkillEmbed(idleGame) {
 
   const effects = {
     // 光輝の効果を先に計算
-    radianceMultiplier: 1 + skillLevels.s4 * 0.1,
+    radianceMultiplier: calculateRadianceMultiplier(idleGame),
   };
 
   // --- TPスキル計算 (新規) ---
@@ -1513,7 +1514,7 @@ function generateSkillEmbed(idleGame) {
       Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
   };
 
-  let descriptionText = `SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${idleGame.transcendencePoints.toFixed(2)}**`;
+  let descriptionText = `SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${formatNumberDynamic(idleGame.transcendencePoints)}**`;
 
   // TPをまだ獲得したことがない場合のみ、初心者向けメッセージを追加
   if (idleGame.transcendencePoints === 0) {
@@ -1531,7 +1532,7 @@ function generateSkillEmbed(idleGame) {
     .addFields(
       {
         name: `#1 燃え上がるピザ工場 x${skillLevels.s1}`,
-        value: `基本5施設の効果 **x${((1 + skillLevels.s1) * effects.radianceMultiplier).toFixed(1)}** → **x${((1 + skillLevels.s1 + 1) * effects.radianceMultiplier).toFixed(1)}**  (コスト: ${costs.s1} SP)`,
+        value: `基本5施設の効果 **x${((1 + skillLevels.s1) * effects.radianceMultiplier).toFixed(2)}** → **x${((1 + skillLevels.s1 + 1) * effects.radianceMultiplier).toFixed(2)}**  (コスト: ${costs.s1} SP)`,
       },
       {
         name: `#2 加速する時間 x${skillLevels.s2}`,
@@ -1550,11 +1551,11 @@ function generateSkillEmbed(idleGame) {
       },
       {
         name: `#3 ニョボシの怒り x${skillLevels.s3}`,
-        value: `ニョボチップ収量 **x${((1 + skillLevels.s3) * effects.radianceMultiplier).toFixed(1)}** → **x${((1 + skillLevels.s3 + 1) * effects.radianceMultiplier).toFixed(1)}**(コスト: ${costs.s3} SP)`,
+        value: `ニョボチップ収量 **x${((1 + skillLevels.s3) * effects.radianceMultiplier).toFixed(2)}** → **x${((1 + skillLevels.s3 + 1) * effects.radianceMultiplier).toFixed(2)}**(コスト: ${costs.s3} SP)`,
       },
       {
         name: `#4 【光輝10】 x${skillLevels.s4}`,
-        value: `スキル#1~3の効果 **x${effects.radianceMultiplier.toFixed(1)}** → **x${(effects.radianceMultiplier + 0.1).toFixed(1)}**(コスト: ${costs.s4} SP)`,
+        value: `スキル#1~3の効果 **x${effects.radianceMultiplier.toFixed(2)}** → **x${(effects.radianceMultiplier + 0.1).toFixed(2)}**(コスト: ${costs.s4} SP)`,
       }
     );
   if (idleGame.prestigePower >= 16) {
@@ -1767,9 +1768,12 @@ function generateProfileEmbed(uiData, user) {
     // 表示するジェネレーターが1つ以上あれば、テキストを組み立てる
     if (boughtCounts.length > 0) {
       const gp_d = new Decimal(idleGame.generatorPower || "1");
-      generatorText = ` | GP:**${formatNumberDynamic_Decimal(gp_d, 0)}** | ${boughtCounts.join(" ")}`;
+      generatorText = `GP:**${formatNumberDynamic_Decimal(gp_d, 0)}** | ${boughtCounts.join(" ")}`;
     }
   }
+  //ICクリア数
+  const completedICCount = uiData.idleGame.challenges?.completedChallenges?.length || 0;
+  const icCountText = completedICCount > 0 ? ` | ⚔️${completedICCount}/9` : "";
 
   const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
   //工場
@@ -1803,10 +1807,11 @@ function generateProfileEmbed(uiData, user) {
   const description = [
     `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
     `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length}${ascensionText} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
-    `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${(idleGame.transcendencePoints || 0).toFixed(2)}**`,
+    `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${formatNumberDynamic((idleGame.transcendencePoints || 0))}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
-    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}**${generatorText} | ∞⏳: ${formattedTime}`,
-    `Eternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}**`,
+    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}**${icCountText} | ∞⏳: ${formattedTime}`,
+    `${generatorText}`,
+    `Σternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}**`,
   ].join("\n");
 
   return new EmbedBuilder()

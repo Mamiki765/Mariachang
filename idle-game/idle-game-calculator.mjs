@@ -306,7 +306,7 @@ function calculateProductionRate(idleGameData, externalData) {
     s3: idleGameData.skillLevel3,
     s4: idleGameData.skillLevel4,
   };
-  const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
+  const radianceMultiplier = calculateRadianceMultiplier(idleGameData);
   const skill1Effect =
     (1 + (skillLevels.s1 || 0)) * radianceMultiplier * achievementMultiplier;
   const skill2Effect = (1 + (skillLevels.s2 || 0)) * radianceMultiplier;
@@ -392,6 +392,7 @@ function calculateProductionRate(idleGameData, externalData) {
  * @returns {object} - 計算後の更新されたidleGameの生データ (プレーンなJSオブジェクト)
  */
 export function calculateOfflineProgress(idleGameData, externalData) {
+  const radianceMultiplier = calculateRadianceMultiplier(idleGameData);
   // --- 1. Decimalオブジェクトへ変換 ---
   let population_d = new Decimal(idleGameData.population);
   let gp_d;
@@ -417,8 +418,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   let newEternityTime = idleGameData.eternityTime || 0;
 
   const timeAccelerationMultiplier = Math.pow(
-    (1 + (idleGameData.skillLevel2 || 0)) *
-      (1.0 + (idleGameData.skillLevel4 || 0) * 0.1),
+    (1 + (idleGameData.skillLevel2 || 0)) * radianceMultiplier,
     2
   );
 
@@ -553,8 +553,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     const logPop = population_d.log10();
     const afterInfinity = idleGameData.infinityCount > 0 ? 5000 : 0;
     const skill3Effect =
-      (1 + (idleGameData.skillLevel3 || 0)) *
-      (1.0 + (idleGameData.skillLevel4 || 0) * 0.1);
+      (1 + (idleGameData.skillLevel3 || 0)) * radianceMultiplier;
     pizzaBonusPercentage =
       (100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect -
       100 +
@@ -775,7 +774,7 @@ export async function getSingleUserUIData(userId) {
     s3: updatedIdleGame.skillLevel3,
     s4: updatedIdleGame.skillLevel4,
   };
-  const radianceMultiplier = 1.0 + (skillLevels.s4 || 0) * 0.1;
+  const radianceMultiplier = calculateRadianceMultiplier(updatedIdleGame);
 
   // ★表示に必要なデータを displayData オブジェクトに格納する
   const displayData = {
@@ -1329,4 +1328,27 @@ export function calculateIC9TimeBonus(idleGame) {
   const multiplier = iu51Config.max - reduction;
   // 5. 計算結果が最低倍率（1.5倍）を下回らないようにする
   return Math.max(iu51Config.min, multiplier);
+}
+
+/**
+ * スキル#4「光輝」の効果倍率を計算する
+ * IC5クリア報酬（効果+20%）も考慮する
+ * @param {object} idleGame - IdleGameのデータオブジェクト
+ * @returns {number} 計算された光輝の倍率 (例: 1.1, 1.22)
+ */
+export function calculateRadianceMultiplier(idleGame) {
+  const skillLevel4 = idleGame.skillLevel4 || 0;
+
+  // 1. 基本となる1レベルあたりの効果を決定する
+  let effectPerLevel = 0.1; // 通常は10%
+
+  // 2. IC5をクリア済みかチェックする
+  const completedChallenges = idleGame.challenges?.completedChallenges || [];
+  if (completedChallenges.includes("IC5")) {
+    // 仕様書案「#4効果+20%」は、元の10%が1.2倍されて12%になると解釈
+    effectPerLevel *= 1.2;
+  }
+
+  // 3. 最終的な倍率を計算して返す
+  return 1.0 + skillLevel4 * effectPerLevel;
 }
