@@ -13,7 +13,7 @@ import {
 } from "../components/buttons.mjs";
 //RP機能周りimport
 import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
-import { Character, Icon,sequelize } from "../models/database.mjs";
+import { Character, Icon, sequelize } from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 import { uploadFile, deleteFile } from "../utils/supabaseStorage.mjs";
 //RP周りここまで
@@ -166,67 +166,10 @@ export default async function handleModalInteraction(interaction) {
         content: `メッセージの送信に失敗しました: ${e.message}`,
       });
     }
-  } else if (interaction.customId.startsWith("roleplay-post-modal_")) {
-    // このモーダルからの送信には少し時間がかかるので、応答を遅延させます。
-    await interaction.deferReply({ ephemeral: true });
-
-    try {
-      // 1. customIdからスロット番号とnocreditフラグを解析します。
-      const parts = interaction.customId.split("_");
-      const slot = parseInt(parts[1], 10);
-      const nocredit = parts[2] === "true";
-
-      // 2. モーダルの入力欄からメッセージ内容を取得します。
-      const message = interaction.fields.getTextInputValue("messageInput");
-
-      // 3. データベースからキャラクター情報を読み込みます。
-      const charaslot = `${interaction.user.id}${slot > 0 ? `-${slot}` : ""}`;
-      const loadchara = await Character.findOne({
-        where: { userId: charaslot },
-      });
-      const loadicon = await Icon.findOne({ where: { userId: charaslot } });
-
-      if (!loadchara) {
-        return interaction.editReply({
-          content: `エラー：スロット${slot}のキャラクターが見つかりませんでした。`,
-        });
-      }
-
-      const postedMessage = await sendWebhookAsCharacter(
-        interaction,
-        loadchara,
-        loadicon,
-        message,
-        nocredit
-      );
-      const rewardResult = await updatePoints(
-        interaction.user.id,
-        interaction.client
-      );
-
-      const deleteRequestButtonRow = createRpDeleteRequestButton(
-        postedMessage.id,
-        interaction.user.id
-      );
-      let replyMessage = "送信しました。";
-      if (rewardResult) {
-        if (rewardResult.rewardType === "rp") {
-          // 実際の絵文字IDなどに合わせて変更してください
-          replyMessage += `\n💎 **RP**を1獲得しました！`;
-        } else if (rewardResult.rewardType === "pizza") {
-          replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)\n代わりに**ニョボチップ**が**${rewardResult.amount.toLocaleString()}**枚、バンクに入金されました。`;
-        }
-      }
-      await interaction.editReply({
-        content: replyMessage,
-        components: [deleteRequestButtonRow], // ★★★ これを使う ★★★
-      });
-    } catch (error) {
-      console.error("Modalからのメッセージ送信に失敗しました:", error);
-      await interaction.editReply({ content: `エラーが発生しました。` });
-    }
   } else if (interaction.customId === "roleplay-register-modal") {
     await handleRoleplayRegisterModal(interaction);
+  } else if (interaction.customId === "roleplay-post-modal") {
+    await handleRoleplayPostModal(interaction);
   } else {
     //モーダルが不明のとき
     return;
@@ -411,5 +354,124 @@ async function handleRoleplayRegisterModal(interaction) {
  * @param {import('discord.js').ModalSubmitInteraction} interaction
  */
 async function handleRoleplayPostModal(interaction) {
-  // ここに /roleplay post 用のモーダル処理を実装します
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    // --- 1. モーダルから値を取得 ---
+    const slot = parseInt(
+      interaction.fields.getStringSelectValues("post-slot-select")[0],
+      10
+    );
+    const message = interaction.fields.getTextInputValue("post-message-input");
+    const files = interaction.fields.getUploadedFiles("post-icon-upload");
+    const illustratorInput = interaction.fields.getTextInputValue(
+      "post-illustrator-input"
+    );
+    const creditChoice =
+      interaction.fields.getStringSelectValues("post-credit-select")[0];
+    const nocredit = creditChoice === "hide"; // "hide"ならtrue、"display"ならfalseになる
+
+    // --- 2. データベースからキャラクター情報を取得 ---
+    const charaslot = `${interaction.user.id}${slot > 0 ? `-${slot}` : ""}`;
+    const loadchara = await Character.findOne({ where: { userId: charaslot } });
+    let loadicon = await Icon.findOne({ where: { userId: charaslot } }); // letに変更
+
+    if (!loadchara) {
+      throw new Error(`スロット${slot}のキャラクターが見つかりませんでした。`);
+    }
+
+    // --- 3. アイコンやイラストレーターの更新処理 ---
+    // (トランザクションで囲むとより堅牢になります)
+    await sequelize.transaction(async (t) => {
+      // ▼ アイコンファイルの更新がある場合 ▼
+      if (files && files.size > 0) {
+        const icon = files.first();
+        const fetched = await fetch(icon.url);
+        const buffer = Buffer.from(await fetched.arrayBuffer());
+
+        // バリデーション
+        if (buffer.length > 1024 * 1024)
+          throw new Error("アイコンファイルのサイズが1MBを超えています。");
+        const fileExt = icon.name.split(".").pop()?.toLowerCase();
+        if (!["png", "webp", "jpg", "jpeg"].includes(fileExt))
+          throw new Error("対応していないファイル形式です。");
+
+        // 古いファイルを削除
+        if (loadicon?.deleteHash) await deleteFile(loadicon.deleteHash);
+
+        // 新しいファイルをアップロード
+        const result = await uploadFile(
+          buffer,
+          interaction.user.id,
+          slot,
+          fileExt,
+          "icons"
+        );
+        if (!result) throw new Error("アイコンのアップロードに失敗しました。");
+
+        // DB更新
+        await Icon.upsert(
+          {
+            userId: charaslot,
+            iconUrl: result.url,
+            deleteHash: result.path,
+            // IL名も同時指定があればそれ、なければ既存のものを維持
+            illustrator: illustratorInput || loadicon?.illustrator || "絵師様",
+            pbw: loadicon?.pbw, // PBW設定は引き継ぐ
+          },
+          { transaction: t }
+        );
+
+        // ▼ イラストレーター名のみの更新がある場合 ▼
+      } else if (illustratorInput) {
+        await Icon.upsert(
+          {
+            userId: charaslot,
+            illustrator: illustratorInput,
+          },
+          { transaction: t }
+        );
+      }
+    });
+
+    // --- 4. Webhook投稿のために最新のアイコン情報を再取得 ---
+    const updatedIcon = await Icon.findOne({ where: { userId: charaslot } });
+
+    // --- 5. Webhookで投稿 ---
+    const postedMessage = await sendWebhookAsCharacter(
+      interaction,
+      loadchara,
+      updatedIcon,
+      message,
+      nocredit
+    );
+
+    // --- 6. ポイント加算と完了通知 ---
+    const rewardResult = await updatePoints(
+      interaction.user.id,
+      interaction.client
+    );
+    const deleteRequestButtonRow = createRpDeleteRequestButton(
+      postedMessage.id,
+      interaction.user.id
+    );
+
+    let replyMessage = "送信しました。";
+    if (rewardResult) {
+      if (rewardResult.rewardType === "rp") {
+        replyMessage += `\n💎 **RP**を1獲得しました！`;
+      } else if (rewardResult.rewardType === "pizza") {
+        replyMessage += `\n<:nyobochip:1416912717725438013> 連投クールダウン中です。(あと${rewardResult.cooldown}秒)...`;
+      }
+    }
+    await interaction.editReply({
+      content: replyMessage,
+      components: [deleteRequestButtonRow],
+    });
+  } catch (error) {
+    console.error("RP投稿モーダル処理でエラー:", error);
+    await interaction.editReply({
+      content: `❌ エラーが発生しました。\n${error.message}`,
+    });
+  }
 }

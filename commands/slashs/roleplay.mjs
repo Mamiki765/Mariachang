@@ -16,7 +16,7 @@ import {
 import { Op } from "sequelize";
 import { createRpDeleteRequestButton } from "../../components/buttons.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
-import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
+import { deleteFile } from "../../utils/supabaseStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 import { unlockAchievements } from "../../utils/achievements.mjs";
 
@@ -113,16 +113,14 @@ export const data = new SlashCommandBuilder()
       subcommand
         .setName("post")
         .setNameLocalizations({ ja: "発言" })
-        .setDescription("モーダルを開き、キャラクターとして発言します。")
-    // ★ オプションは全てモーダルに移行するため、ここでは不要
+        .setDescription("登録したキャラクターで発言します。")
   )
   // 旧式の発言 (軽量版)
   .addSubcommand((subcommand) =>
     subcommand
       .setName("post_old")
-      .setNameLocalizations({ ja: "旧式発言" })
       .setDescription(
-        "【軽量版】登録キャラとして即座にメッセージを投稿します。"
+        "【旧式・軽量版】登録キャラとして即座にメッセージを投稿します。"
       )
       .addStringOption((option) =>
         option
