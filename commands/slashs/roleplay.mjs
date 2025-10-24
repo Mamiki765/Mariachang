@@ -15,7 +15,6 @@ import { Character, Icon, Point } from "../../models/database.mjs";
 import { uploadFile, deleteFile } from "../../utils/supabaseStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 import { unlockAchievements } from "../../utils/achievements.mjs";
-import { applyPizzaBonus } from "../../utils/idle-game-calculator.mjs";
 
 export const help = {
   category: "slash",

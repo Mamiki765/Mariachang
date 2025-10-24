@@ -4,7 +4,7 @@ import { activeUsersForPizza } from "../handlers/messageCreate.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
 import { IdleGame, Mee6Level, UserAchievement } from "../models/database.mjs";
-import { calculateOfflineProgress } from "../utils/idle-game-calculator.mjs";
+import { calculateOfflineProgress } from "../idle-game/idle-game-calculator.mjs";
 
 /**
  * 定期的にピザを配布するタスクを開始する

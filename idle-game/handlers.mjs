@@ -22,7 +22,7 @@ import {
   calculateTPSkillCost,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
-} from "../utils/idle-game-calculator.mjs";
+} from "../idle-game/idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
 import {

@@ -1,4 +1,4 @@
-//utils/idle-game-calculator.mjs
+//idle-game/idle-game-calculator.mjs
 //commands/slashs/idle.mjsの各種計算や、処理部分を移植する
 //UIとかユーザーが直接操作する部分は今のところidle.mjsに残す
 import Decimal from "break_infinity.js";

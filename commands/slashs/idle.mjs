@@ -47,7 +47,7 @@ import {
   calculateInfinityCountBonus,
   calculateGeneratorProductionRates,
    calculateIC9TimeBonus,
-} from "../../utils/idle-game-calculator.mjs";
+} from "../../idle-game/idle-game-calculator.mjs";
 /**
  * 具材メモ　(基本*乗算)^指数 *ブースト
  * 基本施設：ピザ窯

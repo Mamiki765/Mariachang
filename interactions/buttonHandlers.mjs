@@ -21,9 +21,8 @@ import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 import {
   getSingleUserUIData,
   formatNumberJapanese_Decimal,
-  formatNumberDynamic_Decimal,
   formatNumberDynamic,
-} from "../utils/idle-game-calculator.mjs";
+} from "../idle-game/idle-game-calculator.mjs";
 import Decimal from "break_infinity.js";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";

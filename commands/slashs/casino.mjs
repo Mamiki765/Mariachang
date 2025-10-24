@@ -5,19 +5,13 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
 } from "discord.js";
 import {
   Point,
   CasinoStats,
   sequelize,
-  IdleGame,
 } from "../../models/database.mjs";
-import { getPizzaBonusMultiplier } from "../../utils/idle-game-calculator.mjs";
 import config from "../../config.mjs";
-import { getSupabaseClient } from "../../utils/supabaseClient.mjs";
 import {
   unlockAchievements,
   unlockHiddenAchievements,

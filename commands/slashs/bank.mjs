@@ -15,7 +15,7 @@ import { Point, IdleGame, sequelize } from "../../models/database.mjs";
 import {
   getPizzaBonusMultiplier,
   applyPizzaBonus,
-} from "../../utils/idle-game-calculator.mjs";
+} from "../../idle-game/idle-game-calculator.mjs";
 import { unlockAchievements } from "../../utils/achievements.mjs";
 import config from "../../config.mjs";
 

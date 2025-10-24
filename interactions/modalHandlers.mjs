@@ -11,14 +11,11 @@ import {
   replyfromDM,
   createRpDeleteRequestButton,
 } from "../components/buttons.mjs";
-import { unlockAchievements } from "../utils/achievements.mjs";
 //RP機能周りimport
 import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
-import { Character, Icon, sequelize, Point } from "../models/database.mjs";
+import { Character, Icon } from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 //RP周りここまで
-import { applyPizzaBonus } from "../utils/idle-game-calculator.mjs";
-//コイン→ピザ交換
 
 export default async function handleModalInteraction(interaction) {
   //モーダル

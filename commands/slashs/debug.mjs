@@ -5,7 +5,7 @@ import {
   Mee6Level,
   UserAchievement,
 } from "../../models/database.mjs";
-import { calculateOfflineProgress } from "../../utils/idle-game-calculator.mjs";
+import { calculateOfflineProgress } from "../../idle-game/idle-game-calculator.mjs";
 import config from "../../config.mjs";
 
 // このコマンドはデバッグ専用なので、helpには表示しない
