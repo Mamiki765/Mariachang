@@ -1460,9 +1460,8 @@ async function postInfinityTasks(
   if (newInfinityCount === 5) await unlockAchievements(client, userId, 84);
 
   // --- チャレンジ結果の通知 (followUpは複数回可能) ---
-  const followUpTarget = isEditing ? interaction.channel : interaction; // 編集時はchannelに直接送信
   if (challengeWasFailed) {
-    await followUpTarget.send({
+    await interaction.followUp({
       content: `⌛ **インフィニティチャレンジ ${activeChallenge}** に失敗しました… (条件: ゲーム内時間12時間以内)`,
       ephemeral: true,
     });
@@ -1471,7 +1470,7 @@ async function postInfinityTasks(
     await unlockAchievements(client, userId, 91);
     if (newCompletedCount === 4) await unlockAchievements(client, userId, 92);
     if (newCompletedCount === 9) await unlockAchievements(client, userId, 93);
-    await followUpTarget.send({
+    await interaction.followUp({
       content: `🎉 **インフィニティチャレンジ ${activeChallenge}** を達成しました！`,
       ephemeral: true,
     });
