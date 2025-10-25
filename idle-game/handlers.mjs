@@ -1178,211 +1178,316 @@ export async function handleAscension(interaction) {
 }
 
 /**
- * Infinityを実行し、世界をリセットする関数
+ * 【新規】インフィニティのDB更新処理を実行する内部関数
+ * @param {string} userId - 実行するユーザーのID
+ * @param {import("discord.js").Client} client - 実績解除に必要
+ * @returns {Promise<object>} インフィニティの結果オブジェクト
+ */
+async function executeInfinityTransaction(userId, client) {
+  let gainedIP = new Decimal(0);
+  let isFirstInfinity = false;
+  let newInfinityCount = 0;
+  let infinityPopulation_d = new Decimal(0);
+  let challengeWasCleared = false;
+  let challengeWasFailed = false;
+  let activeChallenge = null;
+  let newCompletedCount = 0;
+
+  await sequelize.transaction(async (t) => {
+    const latestIdleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    if (new Decimal(latestIdleGame.population).lt(config.idle.infinity)) {
+      throw new Error("インフィニティの条件を満たしていません。");
+    }
+
+    infinityPopulation_d = new Decimal(latestIdleGame.population);
+    activeChallenge = latestIdleGame.challenges?.activeChallenge;
+    const currentChallenges = latestIdleGame.challenges || {};
+
+    //チャレンジ成功処理
+    if (activeChallenge) {
+      let challengeSuccess = true;
+      // IC2は12時間を超えてたら失敗
+      if (activeChallenge === "IC2") {
+        const GAME_HOURS_12_IN_SECONDS = 12 * 60 * 60;
+        if (latestIdleGame.infinityTime > GAME_HOURS_12_IN_SECONDS) {
+          challengeSuccess = false;
+          challengeWasFailed = true;
+        }
+      }
+
+      if (challengeSuccess) {
+        if (!currentChallenges.completedChallenges) {
+          currentChallenges.completedChallenges = [];
+        }
+        // 重複を防ぎつつ、クリア済みリストに追加
+        if (!currentChallenges.completedChallenges.includes(activeChallenge)) {
+          currentChallenges.completedChallenges.push(activeChallenge);
+          challengeWasCleared = true;
+        }
+        if (activeChallenge === "IC9") {
+          // 1. チャレンジ開始時の現実時間を取得
+          const startTime = new Date(currentChallenges.IC9.startTime);
+          // 2. 現在の現実時間を取得
+          const endTime = new Date();
+          // 3. 差を計算して、秒単位に変換
+          const completionTimeInSeconds =
+            (endTime.getTime() - startTime.getTime()) / 1000;
+          const bestTime = currentChallenges.IC9?.bestTime || Infinity;
+          if (completionTimeInSeconds < bestTime) {
+            currentChallenges.IC9.bestTime = completionTimeInSeconds;
+          }
+          delete currentChallenges.IC9.startTime;
+        }
+      }
+      // 成功・失敗に関わらず、アクティブなチャレンジはリセット
+      delete currentChallenges.activeChallenge;
+      latestIdleGame.changed("challenges", true);
+    }
+    newCompletedCount = currentChallenges.completedChallenges?.length || 0;
+
+    if (latestIdleGame.infinityCount === 0) {
+      isFirstInfinity = true;
+    }
+    //∞を1増やす
+    newInfinityCount = latestIdleGame.infinityCount + 1;
+    // IP獲得量を計算
+    gainedIP = calculateGainedIP(latestIdleGame, newCompletedCount);
+
+    // IC6クリア報酬.初期#1~4LvをIPを元に決定
+    let initialSkillLevel = 0;
+    const completedChallenges = currentChallenges.completedChallenges || [];
+    if (completedChallenges.includes("IC6")) {
+      const bonusSP = Math.max(1, Math.floor(gainedIP.abs().log10()) + 1);
+      initialSkillLevel = Math.floor(Math.log2(bonusSP + 1));
+    }
+
+    const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];
+    const newGenerators = Array.from({ length: 8 }, (_, i) => {
+      const oldGen = oldGenerators[i] || { bought: 0 };
+      return {
+        amount: String(oldGen.bought),
+        bought: oldGen.bought,
+      };
+    });
+    const newIpUpgrades = {
+      ...(latestIdleGame.ipUpgrades || {}),
+      generators: newGenerators,
+    };
+    latestIdleGame.changed("ipUpgrades", true);
+
+    await latestIdleGame.update(
+      {
+        population: "0",
+        highestPopulation: "0",
+        pizzaOvenLevel: 0,
+        cheeseFactoryLevel: 0,
+        tomatoFarmLevel: 0,
+        mushroomFarmLevel: 0,
+        anchovyFactoryLevel: 0,
+        oliveFarmLevel: 0,
+        wheatFarmLevel: 0,
+        pineappleFarmLevel: 0,
+        ascensionCount: 0,
+        prestigeCount: 0,
+        prestigePower: 0,
+        skillPoints: 0,
+        skillLevel1: initialSkillLevel,
+        skillLevel2: initialSkillLevel,
+        skillLevel3: initialSkillLevel,
+        skillLevel4: initialSkillLevel,
+        transcendencePoints: 0,
+        skillLevel5: 0,
+        skillLevel6: 0,
+        skillLevel7: 0,
+        skillLevel8: 0,
+        infinityTime: 0,
+        chipsSpentThisInfinity: "0",
+        generatorPower: "1",
+        ipUpgrades: newIpUpgrades,
+        buffMultiplier: 2.0,
+        infinityPoints: new Decimal(latestIdleGame.infinityPoints)
+          .add(gainedIP)
+          .toString(),
+        infinityCount: newInfinityCount,
+        challenges: currentChallenges,
+        lastUpdatedAt: new Date(),
+      },
+      { transaction: t }
+    );
+  });
+
+  // 結果をオブジェクトで返す
+  return {
+    gainedIP,
+    isFirstInfinity,
+    newInfinityCount,
+    infinityPopulation_d,
+    challengeWasCleared,
+    challengeWasFailed,
+    activeChallenge,
+    newCompletedCount,
+  };
+}
+
+/**
+ * 【改訂版】Infinityを実行し、世界をリセットする関数
  * @param {import("discord.js").ButtonInteraction} interaction - Infinityボタンのインタラクション
  * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
  */
 export async function handleInfinity(interaction, collector) {
-  // 1. コレクターを停止
   collector.stop();
+  const userId = interaction.user.id;
+  const client = interaction.client;
 
   try {
-    let gainedIP = new Decimal(0);
-    let isFirstInfinity = false;
-    let newInfinityCount = 0;
-    let infinityPopulation_d = new Decimal(0);
+    // --- 1. 事前チェック ---
+    const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+    if (!latestIdleGame) throw new Error("ユーザーデータが見つかりません。");
 
-    let challengeWasCleared = false;
-    let challengeWasFailed = false; //IC2
-    let activeChallenge = null;
-    let newCompletedCount = 0;
+    const currentPopulation_d = new Decimal(latestIdleGame.population);
+    if (currentPopulation_d.lt(config.idle.infinity)) {
+      throw new Error("インフィニティの条件を満たしていません。");
+    }
 
-    // 2. トランザクションで安全にデータベースを更新
-    await sequelize.transaction(async (t) => {
-      const latestIdleGame = await IdleGame.findOne({
-        where: { userId: interaction.user.id },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
+    const BREAK_INFINITY_THRESHOLD = new Decimal("1.8e308");
 
-      // 人口がInfinityに達しているか最終チェック
-      if (new Decimal(latestIdleGame.population).lt(config.idle.infinity)) {
-        throw new Error("インフィニティの条件を満たしていません。");
-      }
-      //break後に備えて人口を記録
-      infinityPopulation_d = new Decimal(latestIdleGame.population);
-      //チャレンジクリア処理
-      activeChallenge = latestIdleGame.challenges?.activeChallenge;
-      const currentChallenges = latestIdleGame.challenges || {};
-
-      if (activeChallenge) {
-        let challengeSuccess = true;
-        // ここに将来的に「失敗条件」を追加できる （●●時間以内にクリアなど縛れない時）
-        //IC2
-        if (activeChallenge === "IC2") {
-          const GAME_HOURS_12_IN_SECONDS = 12 * 60 * 60;
-          if (latestIdleGame.infinityTime > GAME_HOURS_12_IN_SECONDS) {
-            challengeSuccess = false; // 12時間を超えていたら失敗
-            challengeWasFailed = true; // 失敗したことを記録
-          }
-        }
-
-        if (challengeSuccess) {
-          if (!currentChallenges.completedChallenges) {
-            currentChallenges.completedChallenges = [];
-          }
-          // 重複を防ぎつつ、クリア済みリストに追加
-          if (
-            !currentChallenges.completedChallenges.includes(activeChallenge)
-          ) {
-            currentChallenges.completedChallenges.push(activeChallenge);
-            challengeWasCleared = true;
-          }
-          if (activeChallenge === "IC9") {
-            // 1. チャレンジ開始時の現実時間を取得
-            const startTime = new Date(currentChallenges.IC9.startTime);
-            // 2. 現在の現実時間を取得
-            const endTime = new Date();
-            // 3. 差を計算して、秒単位に変換
-            const completionTimeInSeconds =
-              (endTime.getTime() - startTime.getTime()) / 1000;
-            const bestTime = currentChallenges.IC9?.bestTime || Infinity;
-            if (completionTimeInSeconds < bestTime) {
-              currentChallenges.IC9.bestTime = completionTimeInSeconds;
-            }
-            delete currentChallenges.IC9.startTime;
-          }
-        }
-        // 成功・失敗に関わらず、アクティブなチャレンジはリセット
-        delete currentChallenges.activeChallenge;
-        latestIdleGame.changed("challenges", true);
-      }
-      newCompletedCount = currentChallenges.completedChallenges?.length || 0;
-
-      //∞を1増やす
-      if (latestIdleGame.infinityCount === 0) {
-        isFirstInfinity = true;
-      }
-      newInfinityCount = latestIdleGame.infinityCount + 1;
-
-      // 3. IP獲得量を計算（現在は固定で1）増える要素ができたらutils\idle-game-calculator.mjsで計算する
-      gainedIP = calculateGainedIP(latestIdleGame, newCompletedCount);
-
-      // IC6クリア報酬.初期#1~4LvをIPを元に決定
-      let initialSkillLevel = 0; // デフォルトの初期スキルレベル
-      const completedChallenges = currentChallenges.completedChallenges || [];
-      if (completedChallenges.includes("IC6")) {
-        // 6-1. 「得られる」IPの桁数を計算 (これがボーナスSPとなる)
-        const bonusSP = Math.max(1, Math.floor(gainedIP.abs().log10()) + 1);
-        // 6-2. log2の公式でボーナスレベルを計算
-        // (小数点以下は切り捨て)
-        initialSkillLevel = Math.floor(Math.log2(bonusSP + 1));
-      }
-      // 4.ジェネレーターをリセットし
-      const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];
-      const newGenerators = Array.from({ length: 8 }, (_, i) => {
-        // 既存のi番目のジェネレーターデータを取得。なければデフォルト値 { bought: 0 } を使う
-        const oldGen = oldGenerators[i] || { bought: 0 };
-        return {
-          amount: String(oldGen.bought), // 2回目以降: 購入数(bought)が初期所持数(amount)になる
-          bought: oldGen.bought,
-        };
-      });
-      const newIpUpgrades = {
-        ...(latestIdleGame.ipUpgrades || {}), // 既存のipUpgradesの全プロパティを展開
-        generators: newGenerators, // generatorsプロパティだけを新しいもので上書き
-      };
-      latestIdleGame.changed("ipUpgrades", true); //changedを入れないとjsonbは更新してくれない、めんどくさい！
-
-      // 5. データベースの値をリセット＆更新
-      await latestIdleGame.update(
-        {
-          // --- リセットされる項目 ---
-          population: "0",
-          highestPopulation: "0",
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          oliveFarmLevel: 0,
-          wheatFarmLevel: 0,
-          pineappleFarmLevel: 0,
-          ascensionCount: 0,
-          prestigeCount: 0,
-          prestigePower: 0,
-          skillPoints: 0,
-          skillLevel1: initialSkillLevel,
-          skillLevel2: initialSkillLevel,
-          skillLevel3: initialSkillLevel,
-          skillLevel4: initialSkillLevel,
-          transcendencePoints: 0,
-          skillLevel5: 0,
-          skillLevel6: 0,
-          skillLevel7: 0,
-          skillLevel8: 0,
-          infinityTime: 0,
-          chipsSpentThisInfinity: "0",
-          generatorPower: "1",
-          ipUpgrades: newIpUpgrades,
-          buffMultiplier: 2.0,
-
-          // --- 更新される項目 ---
-          infinityPoints: new Decimal(latestIdleGame.infinityPoints)
-            .add(gainedIP)
-            .toString(),
-          infinityCount: newInfinityCount, // infinityCountはDouble型なので、JSのNumberでOK
-          challenges: currentChallenges,
-          lastUpdatedAt: new Date(),
-        },
-        { transaction: t }
+    // --- 2. 条件に応じて処理を分岐 ---
+    if (currentPopulation_d.gt(BREAK_INFINITY_THRESHOLD)) {
+      // --- 【A】Break Infinity時の確認フロー ---
+      const confirmationRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("infinity_confirm_yes")
+          .setLabel("はい、実行します")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId("infinity_confirm_no")
+          .setLabel("いいえ、まだ続けます")
+          .setStyle(ButtonStyle.Secondary)
       );
+
+      const confirmationMessage = await interaction.followUp({
+        content:
+          "## ⚠️ **インフィニットを実行しますか？**\nあなたは既にブレイクインフィニティをしています。より多くのニョワミヤを集めればIPが増える可能性があります、それでも行いますか？",
+        components: [confirmationRow],
+        ephemeral: true,
+        fetchReply: true,
+      });
+
+      const confirmationInteraction =
+        await confirmationMessage.awaitMessageComponent({
+          filter: (i) => i.user.id === userId,
+          time: 60_000,
+        });
+
+      if (confirmationInteraction.customId === "infinity_confirm_no") {
+        await confirmationInteraction.update({
+          content: "インフィニットをキャンセルしました。",
+          components: [],
+        });
+        return; // 処理を中断
+      }
+
+      // 「はい」が押されたら、処理を続行
+      await confirmationInteraction.deferUpdate();
+      // ★リセット本体を呼び出し
+      const result = await executeInfinityTransaction(userId, client);
+      // ★結果に応じてメッセージを編集
+      await postInfinityTasks(
+        confirmationInteraction,
+        result,
+        client,
+        userId,
+        true
+      );
+    } else {
+      // --- 【B】通常のインフィニティフロー ---
+      // ★リセット本体を呼び出し
+      const result = await executeInfinityTransaction(userId, client);
+      // ★結果に応じてメッセージを送信
+      await postInfinityTasks(interaction, result, client, userId, false);
+    }
+  } catch (error) {
+    console.error("Infinity Error:", error);
+    // エラーがタイムアウト（.awaitMessageComponent起因）か、それ以外かを判定
+    if (error.code === "InteractionCollectorError") {
+      await interaction.editReply({
+        content: "タイムアウトしました。インフィニティはキャンセルされました。",
+        components: [],
+      });
+    } else {
+      await interaction.followUp({
+        content: `❌ エラーによりインフィニティに失敗しました: ${error.message}`,
+        flags: 64,
+      });
+    }
+  }
+}
+
+/**
+ * インフィニティ後の実績解除とメッセージ送信を担当するヘルパー関数
+ * @param {import("discord.js").Interaction} interaction - 元のインタラクション
+ * @param {object} result - executeInfinityTransactionから返された結果
+ * @param {import("discord.js").Client} client
+ * @param {string} userId
+ * @param {boolean} isEditing - followUpの代わりにeditReplyを使うか
+ */
+async function postInfinityTasks(
+  interaction,
+  result,
+  client,
+  userId,
+  isEditing = false
+) {
+  const {
+    gainedIP,
+    isFirstInfinity,
+    newInfinityCount,
+    infinityPopulation_d,
+    challengeWasCleared,
+    challengeWasFailed,
+    activeChallenge,
+    newCompletedCount,
+  } = result;
+
+  // --- 実績解除 ---
+  await unlockAchievements(client, userId, 72);
+  if (newInfinityCount === 2) await unlockAchievements(client, userId, 83);
+  if (newInfinityCount === 5) await unlockAchievements(client, userId, 84);
+
+  // --- チャレンジ結果の通知 (followUpは複数回可能) ---
+  const followUpTarget = isEditing ? interaction.channel : interaction; // 編集時はchannelに直接送信
+  if (challengeWasFailed) {
+    await followUpTarget.send({
+      content: `⌛ **インフィニティチャレンジ ${activeChallenge}** に失敗しました… (条件: ゲーム内時間12時間以内)`,
+      ephemeral: true,
     });
+  }
+  if (challengeWasCleared) {
+    await unlockAchievements(client, userId, 91);
+    if (newCompletedCount === 4) await unlockAchievements(client, userId, 92);
+    if (newCompletedCount === 9) await unlockAchievements(client, userId, 93);
+    await followUpTarget.send({
+      content: `🎉 **インフィニティチャレンジ ${activeChallenge}** を達成しました！`,
+      ephemeral: true,
+    });
+  }
 
-    await unlockAchievements(interaction.client, interaction.user.id, 72); //THE END
-    if (newInfinityCount === 2) {
-      await unlockAchievements(interaction.client, interaction.user.id, 83); // #83: 再び果てへ
-    }
-    if (newInfinityCount === 5) {
-      await unlockAchievements(interaction.client, interaction.user.id, 84); // #84: それはもはや目標ではない
-    }
-
-    //IC失敗（２）
-    if (challengeWasFailed) {
-      await interaction.followUp({
-        content: `⌛ **インフィニティチャレンジ ${activeChallenge}** に失敗しました… (条件: ゲーム内時間12時間以内)`,
-        ephemeral: true,
-      });
-    }
-    //ICクリア
-    if (challengeWasCleared) {
-      await unlockAchievements(interaction.client, interaction.user.id, 91); //#91 無限の試練
-      if (newCompletedCount === 4) {
-        await unlockAchievements(interaction.client, interaction.user.id, 92); // #92 意外と簡単かも？
-      }
-      if (newCompletedCount === 9) {
-        await unlockAchievements(interaction.client, interaction.user.id, 93); // #93 どうだ、見たか！
-      }
-      await interaction.followUp({
-        content: `🎉 **インフィニティチャレンジ ${activeChallenge}** を達成しました！`,
-        ephemeral: true,
-      });
-    }
-
-    // 5. 成功メッセージを送信（初回かどうかで分岐）
-    let successMessage;
-    if (infinityPopulation_d.gt("1.8e+308")) {
-      //break infinity以降
-      successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Break Infinity
+  // --- メインの成功メッセージ作成 ---
+  let successMessage;
+  if (infinityPopulation_d.gt("1.8e+308")) {
+    successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Break Infinity
 ## ――ニョワミヤはどこまで増えるのだろう。
 数え切れぬチップと時間を注ぎ込み、あなたはついに果てであるべき"無限"すら打ち倒した。
 どうやら、宇宙一美味しいピザを作るこの旅はまだまだ終わりそうに無いようだ。
-
 ならば、無限に広がるこの宇宙すら無限で埋め尽くしてしまおう。
-**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
-`;
-    } else if (isFirstInfinity) {
-      successMessage = `# ●1.79e+308 Infinity
+**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。`;
+  } else if (isFirstInfinity) {
+    successMessage = `# ●1.79e+308 Infinity
 ## ――あなたは果てにたどり着いた。
 終わりは意外とあっけないものだった。
 ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
@@ -1398,8 +1503,8 @@ export async function handleInfinity(interaction, collector) {
 しかし、あなたは強くなった。
 **${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
 ピザ生産ジェネレーターが解禁された。`;
-    } else {
-      successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Infinity
+  } else {
+    successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Infinity
 ## ――あなたは果てにたどり着いた。
 終わりは意外とあっけないものだった。
 ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
@@ -1409,20 +1514,16 @@ export async function handleInfinity(interaction, collector) {
 たとえ一度見た光景であろうと、あなたの努力と活動は称賛されるべきである。
 然るべき達成感と褒章を得るべきで……え？　早くIPと∞よこせって？
 
-インフィニティリセットを行った。
+インフィニット（インフィニティリセット）を行った。
 **${gainedIP.toString()} IP** と **1 ∞** を手に入れた。`;
-    }
+  }
 
-    await interaction.followUp({
-      content: successMessage,
-      flags: 64, // 本人にだけ見えるメッセージ
-    });
-  } catch (error) {
-    console.error("Infinity Error:", error);
-    await interaction.followUp({
-      content: "❌ エラーによりインフィニティに失敗しました。",
-      flags: 64,
-    });
+  // --- メッセージ送信 ---
+  const replyOptions = { content: successMessage, components: [], flags: 64 };
+  if (isEditing) {
+    await interaction.editReply(replyOptions);
+  } else {
+    await interaction.followUp(replyOptions);
   }
 }
 

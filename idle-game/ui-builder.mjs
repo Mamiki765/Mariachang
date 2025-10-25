@@ -85,7 +85,7 @@ export function buildSkillView(uiData) {
 export function buildInfinityView(uiData) {
   return {
     content:
-      "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPは^0.500に応じてMultを強化する。",
+      "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPはMultを強化する。",
     embeds: [generateInfinityEmbed(uiData.idleGame)],
     components: generateInfinityButtons(uiData.idleGame),
   };
