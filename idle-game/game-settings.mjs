@@ -26,7 +26,7 @@ export default {
       emoji: "🧀",
       baseCost: 500,
       multiplier: 1.09,
-      effect: 0.08,
+      effect: 0.09,
       unlockPopulation: 0,
       type: "multiplicative", //乗数（下位）
     },
@@ -36,7 +36,7 @@ export default {
       emoji: "🍅",
       baseCost: 700, // 800 -> 700予定
       multiplier: 1.1,
-      effect: 0.07,
+      effect: 0.08,
       unlockPopulation: 100_0000,
       type: "multiplicative",
     },
@@ -46,7 +46,7 @@ export default {
       emoji: "🍄",
       baseCost: 900, // 1000-> 900?
       multiplier: 1.105,
-      effect: 0.06,
+      effect: 0.07,
       unlockPopulation: 1000_0000,
       type: "multiplicative",
     },
@@ -57,7 +57,7 @@ export default {
       emoji: "🐟",
       baseCost: 1100, // 1500->1100?
       multiplier: 1.11,
-      effect: 0.05,
+      effect: 0.06,
       unlockPopulation: 1_0000_0000,
       type: "multiplicative",
     },
@@ -69,7 +69,7 @@ export default {
       emoji: "🫒",
       baseCost: 1300,
       multiplier: 1.115,
-      effect: 0.04, //こっから下げると#5が弱くなりすぎる　悩む
+      effect: 0.05, //こっから下げると#5が弱くなりすぎる　悩む
       unlockAchievementId: 73, //施設そのものとPP効果を解禁する（共通）
       type: "multiplicative2", //乗数施設（上位）#1や実績の効果が乗らない。未解禁時PPは乗らず、#5や工場試練のLvだけ精肉+^0.001は乗る
     },
@@ -79,7 +79,7 @@ export default {
       emoji: "🌾",
       baseCost: 1500,
       multiplier: 1.12,
-      effect: 0.03,
+      effect: 0.04,
       type: "multiplicative2",
       unlockAchievementId: 74,
     },
@@ -90,7 +90,7 @@ export default {
       emoji: "🍍",
       baseCost: 1700,
       multiplier: 1.125,
-      effect: 0.02,
+      effect: 0.03,
       unlockAchievementId: 66,
       type: "multiplicative2",
     },

@@ -496,7 +496,7 @@ export const achievements = [
     id: 74,
     name: "原点への回帰",
     description:
-      "人口1e+16以上かつピザ窯のLvが80に達した状態でプレステージする",
+      "人口1e+16以上かつピザ窯のLvが70に達した状態でプレステージする",
     effect: "小麦の品種改良とそのPP効果を解禁",
     reward: {},
   },
@@ -622,7 +622,6 @@ export const achievements = [
     effect: "全てのジェネレーターの効果が2倍になる",
     reward: {},
   },
-
   // 今後、ここに実績をどんどん追加していきます
   // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
 ];

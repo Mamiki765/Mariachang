@@ -545,7 +545,7 @@ async function executePrestigeTransaction(userId, client) {
 
     // 「原点への回帰」実績のチェック
     if (
-      latestIdleGame.pizzaOvenLevel >= 80 &&
+      latestIdleGame.pizzaOvenLevel >= 70 &&
       currentPopulation_d.gte("1e16")
     ) {
       // ★修正: interaction.client -> client, interaction.user.id -> userId
