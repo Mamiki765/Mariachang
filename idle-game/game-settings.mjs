@@ -329,6 +329,13 @@ export default {
             bonus: 0.25, // 指数の増加量
             text: "GP指数^0.5→^0.75",
           },
+          IU43: {
+            name: "節税政策",
+            cost: 1024,
+            description: "ニョボチップの獲得量が1.2倍になる。",
+            bonus: 0.2, 
+            text: "チップx1.2",
+          },
         },
       },
       {

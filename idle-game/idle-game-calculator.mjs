@@ -416,7 +416,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   let initial_gp_d;
   let generators;
   let ipUpgradesChanged = false;
-  let purchasedIUs;
+  let purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
 
   if (idleGameData.infinityCount > 0) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
@@ -452,9 +452,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       const generatorMultiplier = completedChallenges.includes("IC9")
         ? 2.0
         : 1.0;
-      // 購入済みIUをここで取得しておく
       const infinityCount = idleGameData.infinityCount || 0;
-      purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
       const currentIp_d = new Decimal(idleGameData.infinityPoints || "0");
       let amountProducedByParent_d = new Decimal(0);
 
@@ -573,15 +571,17 @@ export function calculateOfflineProgress(idleGameData, externalData) {
 
   // --- 4. ピザボーナス（チップ獲得量ボーナス）の再計算 ---
   let pizzaBonusPercentage = 0;
+  const iu43Bouns = purchasedIUs.has("IU43") ? 1.2 : 1;
   if (population_d.gte(1)) {
     const logPop = population_d.log10();
     const afterInfinity = idleGameData.infinityCount > 0 ? 5000 : 0;
     const skill3Effect =
       (1 + (idleGameData.skillLevel3 || 0)) * radianceMultiplier;
     pizzaBonusPercentage =
-      (100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect -
-      100 +
-      afterInfinity;
+      ((100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect +
+        afterInfinity) *
+      iu43Bouns;
+    pizzaBonusPercentage -= 100; //加算分なので最後に100%を引く
   }
 
   // --- 4. 更新されたデータをオブジェクトとして返す ---
