@@ -23,6 +23,7 @@ import {
   calculateTPSkillCost,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
+  formatNumberDynamic_Decimal
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -1192,6 +1193,7 @@ async function executeInfinityTransaction(userId, client) {
   let challengeWasFailed = false;
   let activeChallenge = null;
   let newCompletedCount = 0;
+  let infinitiesGained = 1; // ∞。基本は1
 
   await sequelize.transaction(async (t) => {
     const latestIdleGame = await IdleGame.findOne({
@@ -1253,8 +1255,17 @@ async function executeInfinityTransaction(userId, client) {
     if (latestIdleGame.infinityCount === 0) {
       isFirstInfinity = true;
     }
-    //∞を1増やす
-    newInfinityCount = latestIdleGame.infinityCount + 1;
+    //獲得∞を計算
+    const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
+    if (purchasedIUs.has("IU62")) {
+      const chipsSpent_d = new Decimal(
+        latestIdleGame.chipsSpentThisEternity || "0"
+      );
+      // IU62は、log10(消費チップ + 1) + 1
+      const multiplier = chipsSpent_d.add(1).log10() + 1;
+       infinitiesGained = Math.floor(multiplier);//小数点以下切り捨て
+    }
+    newInfinityCount = latestIdleGame.infinityCount + infinitiesGained;
     // IP獲得量を計算
     gainedIP = calculateGainedIP(latestIdleGame, newCompletedCount);
 
@@ -1331,6 +1342,7 @@ async function executeInfinityTransaction(userId, client) {
     challengeWasFailed,
     activeChallenge,
     newCompletedCount,
+    infinitiesGained
   };
 }
 
@@ -1452,6 +1464,7 @@ async function postInfinityTasks(
     challengeWasFailed,
     activeChallenge,
     newCompletedCount,
+    infinitiesGained
   } = result;
 
   // --- 実績解除 ---
@@ -1484,7 +1497,7 @@ async function postInfinityTasks(
 数え切れぬチップと時間を注ぎ込み、あなたはついに果てであるべき"無限"すら打ち倒した。
 どうやら、宇宙一美味しいピザを作るこの旅はまだまだ終わりそうに無いようだ。
 ならば、無限に広がるこの宇宙すら無限で埋め尽くしてしまおう。
-**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。`;
+**${formatNumberDynamic_Decimal(gainedIP,0)} IP** と **${infinitiesGained.toLocaleString()} ∞** を手に入れた。`;
   } else if (isFirstInfinity) {
     successMessage = `# ●1.79e+308 Infinity
 ## ――あなたは果てにたどり着いた。
