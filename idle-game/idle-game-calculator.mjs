@@ -1033,9 +1033,13 @@ export function calculateGeneratorCost(generatorId, currentBought) {
 export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   const population_d = new Decimal(idleGame.population);
   const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
-  const ic9TimeBonus = purchasedIUs.has("IU51")
-    ? calculateIC9TimeBonus(idleGame)
-    : 1.0;
+  let ic9TimeBonus = 1.0;
+  if (purchasedIUs.has("IU51")) {
+    // IU51の設定オブジェクトを取得
+    const iu51Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU51;
+    // IU51効果を計算
+    ic9TimeBonus = calculateIC9TimeBasedBonus(idleGame, iu51Config);
+  }
 
   // 最低条件：インフィニティに到達しているか (念のため)
   if (population_d.lt(config.idle.infinity)) {
@@ -1405,12 +1409,6 @@ export function calculateIC9TimeBasedBonus(idleGame, iuConfig) {
   const multiplier = iuConfig.max - reduction;
   // 計算結果が最低倍率を下回らないようにする
   return Math.max(iuConfig.min, multiplier);
-}
-
-// 既存の calculateIC9TimeBonus は、IU51の設定を使って上記の汎用関数を呼び出す形に書き換える
-export function calculateIC9TimeBonus(idleGame) {
-  const iu51Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU51;
-  return calculateIC9TimeBasedBonus(idleGame, iu51Config);
 }
 
 /**
