@@ -1395,25 +1395,29 @@ function calculateScoreFromComponents(components) {
     return 0;
   }
 
-  // --- Decimalに変換して計算 ---
   // --- 計算に必要な各要素を準備 ---
-  const highestPopulation_d = new Decimal(components.highestPopulation);
-  const infinityPoints_d = new Decimal(components.infinityPoints);
+  // 各要素を取得する際に、存在しない場合のデフォルト値を設定する
+  const meatEffect = components.meatEffect || 1.0; // 指数計算なので、1をデフォルトに
+  const infinityCount = components.infinityCount || 0;
+  const completedICCount = components.completedICCount || 0;
+  // --- Decimalに変換して計算 ---
+  const highestPopulation_d = new Decimal(components.highestPopulation || "0");
+  const infinityPoints_d = new Decimal(components.infinityPoints || "0");
 
   // --- スコア計算 ---
   // (1 + log10(1 + MaxPopulation))
   const popFactor = new Decimal(1).add(highestPopulation_d.add(1).log10());
   // (MaxExponent) ^ 0.5
-  const meatFactor = new Decimal.pow(components.meatEffect, 0.5);
+  const meatFactor = new Decimal.pow(meatEffect, 0.5);
   // (1 + log10(1 + MaxInfinityCount))
   const infCountFactor = new Decimal(1).add(
-    new Decimal(components.infinityCount).add(1).log10()
+    new Decimal(infinityCount).add(1).log10()
   );
   // (1 + log10(1 + MaxIP))
   const ipFactor = new Decimal(1).add(infinityPoints_d.add(1).log10());
   // (1 + MaxInfChallenges / 10) ^ 0.5
   const challengeFactor = new Decimal(1)
-    .add(components.completedICCount / 10)
+    .add(completedICCount / 10)
     .pow(0.5);
 
   //全てを乗算
