@@ -374,6 +374,23 @@ function calculateProductionRate(idleGameData, externalData) {
       new Decimal(ascensionFactor).pow(ascensionPower)
     );
   }
+  // IU24「惑星間高速道路」の効果を適用
+  if (purchasedIUs.has("IU24")) {
+    // configからボーナス値を取得 (1/5 = 0.2)
+    const iu24Bonus = config.idle.infinityUpgrades.tiers[1].upgrades.IU24.bonus;
+    const infinityCount = idleGameData.infinityCount || 0;
+
+    // 1工場あたりの倍率を計算: 1 + (∞回数 * 0.2)
+    const singleFactoryMultiplier = 1 + infinityCount * iu24Bonus;
+
+    // IC9挑戦中は上位3施設が無効になるため、効果は5乗。それ以外は8乗。
+    const power = activeChallenge === "IC9" ? 5 : 8;
+
+    // baseProductionに最終的な倍率を乗算
+    baseProduction = baseProduction.times(
+      new Decimal(singleFactoryMultiplier).pow(power)
+    );
+  }
 
   //指数処理
   let finalProduction = baseProduction
@@ -1416,9 +1433,7 @@ function calculateScoreFromComponents(components) {
   // (1 + log10(1 + MaxIP))
   const ipFactor = new Decimal(1).add(infinityPoints_d.add(1).log10());
   // (1 + MaxInfChallenges / 10) ^ 0.5
-  const challengeFactor = new Decimal(1)
-    .add(completedICCount / 10)
-    .pow(0.5);
+  const challengeFactor = new Decimal(1).add(completedICCount / 10).pow(0.5);
 
   //全てを乗算
   const finalScore = popFactor

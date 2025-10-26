@@ -180,30 +180,43 @@ function generateFactoryEmbed(uiData, isFinal = false) {
     if (ic2BonusForOne < 1.0) ic2BonusForOne = 1.0;
   }
 
+  // IU24「惑星間高速道路」の効果を計算
+  let iu24Effect = 1.0;
+  if (purchasedUpgrades.has("IU24")) {
+    const iu24Config = config.idle.infinityUpgrades.tiers[1].upgrades.IU24;
+    const infinityCount = idleGame.infinityCount || 0;
+    // 8工場それぞれにかかる倍率なので、ここではまだ累乗しない
+    iu24Effect = 1 + infinityCount * iu24Config.bonus;
+  }
+
   // 表示用の施設効果
   const effects_display = {};
-  effects_display.oven =
-    factoryEffects.oven * skill1Effect * ascensionEffect * gpEffect;
-  effects_display.cheese =
-    factoryEffects.cheese * skill1Effect * ascensionEffect * gpEffect;
-  effects_display.tomato =
-    factoryEffects.tomato * skill1Effect * ascensionEffect * gpEffect;
-  effects_display.mushroom =
-    factoryEffects.mushroom * skill1Effect * ascensionEffect * gpEffect;
-  effects_display.anchovy =
-    factoryEffects.anchovy * skill1Effect * ascensionEffect * gpEffect;
-  // 上位施設には skill1Effect を掛けない
-  if (activeChallenge === "IC9") {
-    effects_display.olive = 1;
-    effects_display.wheat = 1;
-    effects_display.pineapple = 1;
-  } else {
-    effects_display.olive =
-      factoryEffects.olive * ascensionEffect * gpEffect * ic2BonusForOne;
-    effects_display.wheat =
-      factoryEffects.wheat * ascensionEffect * gpEffect * ic2BonusForOne;
-    effects_display.pineapple =
-      factoryEffects.pineapple * ascensionEffect * gpEffect * ic2BonusForOne;
+  for (const [factoryName, factoryConfig] of Object.entries(
+    config.idle.factories
+  )) {
+    // (IC9中は上位3施設が無効になるため、ここで事前チェック)
+    if (activeChallenge === "IC9" && factoryConfig.type === "multiplicative2") {
+      effects_display[factoryName] = 1.0;
+      continue; // ループの次のイテレーションへ
+    }
+    // ベースとなる工場効果を取得
+    const baseEffect = factoryEffects[factoryName] || 1.0;
+
+    // 8施設共通で適用される倍率を先にまとめておく
+    let multiplier = ascensionEffect * gpEffect * iu24Effect;
+    // 施設タイプに応じた倍率を計算する
+    if (
+      factoryConfig.type === "additive" ||
+      factoryConfig.type === "multiplicative"
+    ) {
+      // 基本5施設（additive, multiplicative）には skill1Effect を乗算
+      multiplier *= skill1Effect;
+    } else if (factoryConfig.type === "multiplicative2") {
+      // 上位3施設（multiplicative2）には ic2BonusForOne を乗算
+      multiplier *= ic2BonusForOne;
+    }
+    // 最終的な効果を計算して格納
+    effects_display[factoryName] = baseEffect * multiplier;
   }
 
   // ★ バフ残り時間計算
