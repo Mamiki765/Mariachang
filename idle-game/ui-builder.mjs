@@ -26,7 +26,7 @@ import {
   calculateIPBonusMultiplier,
   calculateInfinityCountBonus,
   calculateGeneratorProductionRates,
-  calculateIC9TimeBonus,
+  calculateIC9TimeBasedBonus,
   calculateRadianceMultiplier,
 } from "./idle-game-calculator.mjs";
 
@@ -1134,8 +1134,9 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
         } else if (id === "IU41") {
           const bonus = calculateInfinityCountBonus(idleGame.infinityCount);
           displayText += ` (現在x${bonus.toFixed(3)}倍)`;
-        } else if (id === "IU51") {
-          const multiplier = calculateIC9TimeBonus(idleGame);
+        } else if (id === "IU51" || id === "IU52" || id === "IU53") {
+          // mapの第二引数であるconfigオブジェクトをそのまま渡す
+          const multiplier = calculateIC9TimeBasedBonus(idleGame, config);
           displayText += ` (現在x${multiplier.toFixed(3)}倍)`;
         }
 

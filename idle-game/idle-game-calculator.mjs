@@ -508,6 +508,21 @@ export function calculateOfflineProgress(idleGameData, externalData) {
             config.idle.infinityUpgrades.tiers[5].upgrades.IU61.bonus
           );
         }
+        //52,53
+        if (generatorId === 1 && purchasedIUs.has("IU52")) {
+          const iu52Config =
+            config.idle.infinityUpgrades.tiers[4].upgrades.IU52;
+          productionPerSecond_d = productionPerSecond_d.times(
+            calculateIC9TimeBasedBonus(idleGameData, iu52Config)
+          );
+        }
+        if (generatorId === 2 && purchasedIUs.has("IU53")) {
+          const iu53Config =
+            config.idle.infinityUpgrades.tiers[4].upgrades.IU53;
+          productionPerSecond_d = productionPerSecond_d.times(
+            calculateIC9TimeBasedBonus(idleGameData, iu53Config)
+          );
+        }
 
         const producedAmount_d = productionPerSecond_d
           .times(elapsedSeconds)
@@ -1337,6 +1352,18 @@ export function calculateGeneratorProductionRates(idleGameData) {
         config.idle.infinityUpgrades.tiers[5].upgrades.IU61.bonus
       );
     }
+    if (generatorId === 1 && purchasedIUs.has("IU52")) {
+      const iu52Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU52;
+      productionPerMinute_d = productionPerMinute_d.times(
+        calculateIC9TimeBasedBonus(idleGameData, iu52Config)
+      );
+    }
+    if (generatorId === 2 && purchasedIUs.has("IU53")) {
+      const iu53Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU53;
+      productionPerMinute_d = productionPerMinute_d.times(
+        calculateIC9TimeBasedBonus(idleGameData, iu53Config)
+      );
+    }
 
     // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算
     if (generatorId === 1) {
@@ -1351,31 +1378,39 @@ export function calculateGeneratorProductionRates(idleGameData) {
 }
 
 /**
- * 【小数点対応版】IC9のクリアタイムに基づき、IU51のIPボーナス倍率を計算する
+ * 【汎用版】IC9のクリアタイムに基づき、指定されたIUのボーナス倍率を計算する
  * @param {object} idleGame - IdleGameのデータオブジェクト
- * @returns {number} 計算されたIPボーナス倍率
+ * @param {object} iuConfig - IUの設定オブジェクト (max, min, baseTimeプロパティを含む)
+ * @returns {number} 計算されたボーナス倍率
  */
-export function calculateIC9TimeBonus(idleGame) {
-  // configからIU51の設定を直接取得
-  const iu51Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU51;
+export function calculateIC9TimeBasedBonus(idleGame, iuConfig) {
   const bestTime = idleGame.challenges?.IC9?.bestTime;
-  // 1. IC9を一度もクリアしていない場合、ボーナスは1倍
+
+  // IC9を一度もクリアしていない場合、ボーナスは1倍
   if (!bestTime || bestTime === Infinity) {
     return 1.0;
   }
-  // 2. 最速タイム（60秒以内）の場合、最大の15倍
-  if (bestTime <= iu51Config.baseTime) {
-    return iu51Config.max;
+
+  // 最速タイム (baseTime以内) の場合、最大倍率
+  if (bestTime <= iuConfig.baseTime) {
+    return iuConfig.max;
   }
-  // 3. それ以降の場合、対数（log）を使って「時間の倍化回数」を計算
-  const timeRatio = bestTime / iu51Config.baseTime;
+
+  // それ以降の場合、対数（log）を使って「時間の倍化回数」を計算
+  const timeRatio = bestTime / iuConfig.baseTime;
   const doublings = Math.log2(timeRatio);
 
-  const reduction = doublings; // 小数点以下の倍化回数もそのまま減少量として扱う
-  // 4. 最大倍率から、倍化回数分だけ引く
-  const multiplier = iu51Config.max - reduction;
-  // 5. 計算結果が最低倍率（1.5倍）を下回らないようにする
-  return Math.max(iu51Config.min, multiplier);
+  const reduction = doublings;
+  // 最大倍率から、倍化回数分だけ引く
+  const multiplier = iuConfig.max - reduction;
+  // 計算結果が最低倍率を下回らないようにする
+  return Math.max(iuConfig.min, multiplier);
+}
+
+// 既存の calculateIC9TimeBonus は、IU51の設定を使って上記の汎用関数を呼び出す形に書き換える
+export function calculateIC9TimeBonus(idleGame) {
+  const iu51Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU51;
+  return calculateIC9TimeBasedBonus(idleGame, iu51Config);
 }
 
 /**
