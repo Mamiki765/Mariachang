@@ -239,6 +239,8 @@ Tierを制覇後、次のTierが解禁される。
 | `buffExpiresAt`               | DATE    | ブーストの有効期限                                                    |
 | `pizzaBonusPercentage`        | DOUBLE  | チップの獲得量ボーナス(%)                                             |
 | `lastUpdatedAt`               | DATE    | 最後に人口計算をした時間                                              |
+| `rankScore` | DOUBLE | ランキングに使用される数値 |
+| `rankScoreComponents` | JSONB | ランキングに必要な数値等の記録 |
 
 #### `points` テーブル
 

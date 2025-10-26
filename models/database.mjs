@@ -673,6 +673,14 @@ const IdleGame = sequelize.define(
       allowNull: false,
       defaultValue: Sequelize.fn("now"),
     },
+    //ランキング集計用
+    rankScore: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0,
+    },
+    rankScoreComponents: {
+      type: DataTypes.JSONB,
+    },
   },
   {
     tableName: "idle_games",

@@ -700,9 +700,10 @@ export function formatNumberDynamic(n, decimalPlaces = 2) {
 /**
  * UI表示に必要な全てのデータを取得・計算して返す関数
  * @param {string} userId
+ * @param {boolean} [isInitialLoad=false] - 初回読み込み時にtrueを指定するとランキングチェックを行う
  * @returns {Promise<object|null>}
  */
-export async function getSingleUserUIData(userId) {
+export async function getSingleUserUIData(userId, isInitialLoad = false) {
   // 1. 関連データを "並行して" 取得 (Promise.allで高速化)
   const [idleGameData, mee6Level, userAchievement] = await Promise.all([
     IdleGame.findOne({ where: { userId }, raw: true }),
@@ -760,6 +761,21 @@ export async function getSingleUserUIData(userId) {
     updateData.generatorPower = updatedIdleGame.generatorPower;
     updateData.ipUpgrades = updatedIdleGame.ipUpgrades;
     //IdleGame.changed("ipUpgrades", true);
+  }
+
+  // isInitialLoadがtrueの場合のみ、ランキングスコアを更新するかチェックする
+  if (isInitialLoad) {
+    const rankUpdateResult = updateRankScoreIfNeeded(
+      updatedIdleGame,
+      externalData
+    );
+    if (rankUpdateResult.needsUpdate) {
+      updateData.rankScore = rankUpdateResult.newScore;
+      updateData.rankScoreComponents = rankUpdateResult.newComponents;
+
+      updatedIdleGame.rankScore = rankUpdateResult.newScore;
+      updatedIdleGame.rankScoreComponents = rankUpdateResult.newComponents;
+    }
   }
 
   await IdleGame.update(updateData, { where: { userId } });
@@ -1366,4 +1382,114 @@ export function calculateRadianceMultiplier(idleGame) {
 
   // 3. 最終的な倍率を計算して返す
   return 1.0 + skillLevel4 * effectPerLevel;
+}
+
+/**
+ * ランキングスコアの構成要素オブジェクトから最終スコアを計算する
+ * @param {object} components - スコア計算に必要な最大値が格納されたオブジェクト
+ * @returns {number} 計算された最終スコア
+ */
+function calculateScoreFromComponents(components) {
+  // componentsが空、または最大人口が0なら流石に0点
+  if (!components || !components.highestPopulation) {
+    return 0;
+  }
+
+  // --- Decimalに変換して計算 ---
+  // --- 計算に必要な各要素を準備 ---
+  const highestPopulation_d = new Decimal(components.highestPopulation);
+  const infinityPoints_d = new Decimal(components.infinityPoints);
+
+  // --- スコア計算 ---
+  // (1 + log10(1 + MaxPopulation))
+  const popFactor = new Decimal(1).add(highestPopulation_d.add(1).log10());
+  // (MaxExponent) ^ 0.5
+  const meatFactor = new Decimal.pow(components.meatEffect, 0.5);
+  // (1 + log10(1 + MaxInfinityCount))
+  const infCountFactor = new Decimal(1).add(
+    new Decimal(components.infinityCount).add(1).log10()
+  );
+  // (1 + log10(1 + MaxIP))
+  const ipFactor = new Decimal(1).add(infinityPoints_d.add(1).log10());
+  // (1 + MaxInfChallenges / 10) ^ 0.5
+  const challengeFactor = new Decimal(1)
+    .add(components.completedICCount / 10)
+    .pow(0.5);
+
+  //全てを乗算
+  const finalScore = popFactor
+    .times(meatFactor)
+    .times(infCountFactor)
+    .times(ipFactor)
+    .times(challengeFactor);
+
+  return finalScore.toNumber();
+}
+
+/**
+ * ランキングスコアの構成要素をチェックし、必要であれば更新する
+ * @param {object} idleGame - 最新のIdleGameデータ (オフライン進行計算後)
+ * @param {object} externalData - Mee6レベルなどの外部データ
+ * @returns {{needsUpdate: boolean, newScore?: number, newComponents?: object}} - 更新結果
+ */
+export function updateRankScoreIfNeeded(idleGame, externalData) {
+  // DBに保存されている過去の最高記録を取得。なければ空オブジェクトで初期化。
+  const currentComponents = idleGame.rankScoreComponents || {};
+  // 更新があった場合に備え、新しいコンポーネントオブジェクトのコピーを作成。
+  const newComponents = { ...currentComponents };
+  let needsUpdate = false;
+
+  // 1. MaxPopulation: 最高人口の比較
+  //    過去の最高記録、現在の最高人口、現在の人口のうち、最も大きいものを新しい最高記録とする。
+  const currentMaxPop = new Decimal(currentComponents.highestPopulation || "0");
+  const highestPop = new Decimal(idleGame.highestPopulation || "0");
+  const currentPop = new Decimal(idleGame.population || "0");
+  const newMaxPop = Decimal.max(currentMaxPop, highestPop, currentPop);
+
+  if (newMaxPop.gt(currentMaxPop)) {
+    newComponents.highestPopulation = newMaxPop.toString();
+    needsUpdate = true;
+  }
+
+  // 2. MaxExponent: 肉工場の最大指数の比較
+  const currentExponent = calculateFinalMeatEffect(idleGame, externalData);
+  if (currentExponent > (currentComponents.meatEffect || 0)) {
+    newComponents.meatEffect = currentExponent;
+    needsUpdate = true;
+  }
+
+  // 3. MaxInfinityCount: インフィニティ回数の比較
+  const currentInfCount = idleGame.infinityCount || 0;
+  if (currentInfCount > (currentComponents.infinityCount || 0)) {
+    newComponents.infinityCount = currentInfCount;
+    needsUpdate = true;
+  }
+
+  // 4. MaxIP: 最大IPの比較
+  const currentIP = new Decimal(idleGame.infinityPoints || "0");
+  const existingIP = new Decimal(currentComponents.infinityPoints || "0");
+  if (currentIP.gt(existingIP)) {
+    newComponents.infinityPoints = currentIP.toString();
+    needsUpdate = true;
+  }
+
+  // 5. MaxInfChallenges: ICクリア数の比較
+  const currentICCount = idleGame.challenges?.completedChallenges?.length || 0;
+  if (currentICCount > (currentComponents.completedICCount || 0)) {
+    newComponents.completedICCount = currentICCount;
+    needsUpdate = true;
+  }
+
+  // いずれかの要素が更新されていた場合
+  if (needsUpdate) {
+    const newScore = calculateScoreFromComponents(newComponents);
+    return {
+      needsUpdate: true,
+      newScore: newScore,
+      newComponents: newComponents,
+    };
+  }
+
+  // 更新が不要な場合
+  return { needsUpdate: false };
 }

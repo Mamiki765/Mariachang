@@ -124,7 +124,8 @@ export async function execute(interaction) {
 
     // ★新しいUIデータ準備役を呼び出す！
     // これで idleGame, mee6Level, userAchievement が一度に手に入ります
-    const uiData = await getSingleUserUIData(userId);
+    // 更に第二引数にtrueを渡しランキング更新もチェック
+    const uiData = await getSingleUserUIData(userId, true);
     if (!uiData) {
       // ... (エラー処理: 初回ユーザーなど)
       await interaction.editReply({

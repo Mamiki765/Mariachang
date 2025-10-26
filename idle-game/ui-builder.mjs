@@ -1495,17 +1495,17 @@ export async function executeRankingCommand(interaction, isPrivate) {
 
   const excludedUserId = "1123987861180534826";
 
-  // ★★★ 攻略法１：sequelize.cast を使って、TEXTを数字としてソートする ★★★
+  // rankScoreカラムを直接使い、降順(DESC)で並べ替える
   const allIdleGames = await IdleGame.findAll({
-    where: { userId: { [Op.ne]: excludedUserId } },
+    where: {
+      userId: { [Op.ne]: excludedUserId },
+      rankScore: { [Op.gt]: 0 }, // スコアが0より大きいユーザーのみ対象
+    },
     order: [
-      // 優先度1: infinityPointsを数値として扱い、降順（多い順）に並べる
-      [sequelize.cast(sequelize.col("infinityPoints"), "DECIMAL"), "DESC"],
-      // 優先度2: infinityPointsが同じ場合は、populationを数値として扱い、降順に並べる
-      [sequelize.cast(sequelize.col("population"), "DECIMAL"), "DESC"],
-    ], // ← これが魔法の呪文！
+      ["rankScore", "DESC"], // 'rankScore'を大きい順に並べる
+    ],
     limit: 100,
-    raw: true, // ★ .findAll() には raw: true を付けると高速になります
+    raw: true,
   });
 
   if (allIdleGames.length === 0) {
@@ -1537,17 +1537,20 @@ export async function executeRankingCommand(interaction, isPrivate) {
           displayName = "(退会したユーザー)";
         }
 
+        const score = game.rankScore
+          ? formatNumberDynamic(game.rankScore, 4)
+          : "N/A";
         const ip_d = new Decimal(game.infinityPoints);
         const population_d = new Decimal(game.population);
 
         // infinityPointsが0より大きい場合のみIPを表示する
         const ipText = ip_d.gt(0)
-          ? `IP: **${formatNumberDynamic_Decimal(ip_d)}** | `
+          ? ` IP:**${formatNumberDynamic_Decimal(ip_d)}** | `
           : "";
 
         return {
-          name: `**${rank}位**${displayName}`,
-          value: `└ ${ipText}<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)} 匹`,
+          name: `**${rank}位** ${displayName}`,
+          value: `└Score:**${score}** |${ipText} <:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(population_d)} 匹`,
           inline: false,
         };
       })
@@ -1563,10 +1566,13 @@ export async function executeRankingCommand(interaction, isPrivate) {
       const myIp_d = new Decimal(allIdleGames[myIndex].infinityPoints);
       const myPopulation_d = new Decimal(allIdleGames[myIndex].population);
 
+      const myScore = allIdleGames[myIndex].rankScore
+        ? formatNumberDynamic(allIdleGames[myIndex].rankScore, 4)
+        : "N/A";
       const myIpText = myIp_d.gt(0)
-        ? `IP: **${formatNumberDynamic_Decimal(myIp_d)}** | `
+        ? ` IP:**${formatNumberDynamic_Decimal(myIp_d)}** | `
         : "";
-      myRankText = `**${myRank}位** └ ${myIpText}<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
+      myRankText = `**${myRank}位** └Score:**${myScore}** |${myIpText}<:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
     }
 
     return new EmbedBuilder()
