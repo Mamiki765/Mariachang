@@ -1425,7 +1425,7 @@ export function generateProfileEmbed(uiData, user) {
     // 表示するジェネレーターが1つ以上あれば、テキストを組み立てる
     if (boughtCounts.length > 0) {
       const gp_d = new Decimal(idleGame.generatorPower || "1");
-      generatorText = `GP:**${formatNumberDynamic_Decimal(gp_d, 0)}** | ${boughtCounts.join(" ")}`;
+      generatorText = `\nGP:**${formatNumberDynamic_Decimal(gp_d, 0)}** | ${boughtCounts.join(" ")}`;
     }
   }
   //ICクリア数
@@ -1467,9 +1467,8 @@ export function generateProfileEmbed(uiData, user) {
     `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length}${ascensionText} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${formatNumberDynamic(idleGame.transcendencePoints || 0)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
-    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}**${icCountText} | ∞⏳: ${formattedTime}`,
-    `${generatorText}`,
-    `Σternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}**`,
+    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}**${icCountText} | ∞⏳: ${formattedTime}${generatorText}`,
+    `Σternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}** | Score: **${formatNumberDynamic(idleGame.rankScore, 4)}**`,
   ].join("\n");
 
   return new EmbedBuilder()
@@ -1543,10 +1542,11 @@ export async function executeRankingCommand(interaction, isPrivate) {
         const ip_d = new Decimal(game.infinityPoints);
         const population_d = new Decimal(game.population);
 
-        // infinityPointsが0より大きい場合のみIPを表示する
-        const ipText = ip_d.gt(0)
-          ? ` IP:**${formatNumberDynamic_Decimal(ip_d)}** | `
-          : "";
+        // infinityCountが1以上の時IPを表示する（0IPでも∞済みなら表示する）
+        const ipText =
+          game.infinityCount > 0
+            ? ` IP:**${formatNumberDynamic_Decimal(ip_d)}** | `
+            : "";
 
         return {
           name: `**${rank}位** ${displayName}`,
@@ -1569,14 +1569,15 @@ export async function executeRankingCommand(interaction, isPrivate) {
       const myScore = allIdleGames[myIndex].rankScore
         ? formatNumberDynamic(allIdleGames[myIndex].rankScore, 4)
         : "N/A";
-      const myIpText = myIp_d.gt(0)
-        ? ` IP:**${formatNumberDynamic_Decimal(myIp_d)}** | `
-        : "";
+      const myIpText =
+        allIdleGames[myIndex].infinityCount > 0
+          ? ` IP:**${formatNumberDynamic_Decimal(myIp_d)}** | `
+          : "";
       myRankText = `**${myRank}位** └Score:**${myScore}** |${myIpText}<:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
     }
 
     return new EmbedBuilder()
-      .setTitle("👑 ニョワミヤ人口ランキング 👑")
+      .setTitle("👑 ピザ工場ランキング 👑")
       .setColor("Gold")
       .setFields(rankingFields)
       .setFooter({ text: `ページ ${page + 1} / ${totalPages}` })
