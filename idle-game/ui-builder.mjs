@@ -216,7 +216,7 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   }
 
   let descriptionText;
-  let ascensionText;
+  let ascensionText = "";
   if (ascensionCount > 0) {
     ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
   }
