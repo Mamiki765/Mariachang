@@ -245,7 +245,7 @@ export async function handleFacilityUpgrade(interaction, facilityName) {
       ).toString();
 
       const levelKey = config.idle.factories[facilityName].key;
-      await latestIdleGame.increment(levelKey, { by: 1, transaction: t });
+      latestIdleGame[levelKey] += 1;
       await latestIdleGame.save({ transaction: t }); // saveも忘れずに
     });
   } catch (error) {
@@ -457,7 +457,7 @@ export async function handleAutoAllocate(interaction) {
       // 各施設のレベルをまとめて上げる
       for (const [facilityName, count] of purchases.entries()) {
         const levelKey = config.idle.factories[facilityName].key;
-        await latestIdleGame.increment(levelKey, { by: count, transaction: t });
+        latestIdleGame[levelKey] += count;
       }
 
       const currentSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || "0");
@@ -1251,6 +1251,15 @@ async function executeInfinityTransaction(userId, client) {
       latestIdleGame.changed("challenges", true);
     }
     newCompletedCount = currentChallenges.completedChallenges?.length || 0;
+
+    //実績104「星なんて小指一本で作れる」
+    // Infinityリセット直前に、その周回の消費チップを確認する
+    const chipsSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || "0");
+    if (chipsSpent < 100n) {
+      // BigIntで比較するために `100n` を使う
+      // unlockAchievementsはclientとuserIdを必要とする
+      await unlockAchievements(client, userId, 104);
+    }
 
     if (latestIdleGame.infinityCount === 0) {
       isFirstInfinity = true;

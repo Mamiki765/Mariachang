@@ -86,7 +86,7 @@ export function buildInfinityView(uiData) {
   return {
     content:
       "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPはMultを強化する。",
-    embeds: [generateInfinityEmbed(uiData.idleGame)],
+    embeds: [generateInfinityEmbed(uiData)], //実績も渡す様にuiDataに変更
     components: generateInfinityButtons(uiData.idleGame),
   };
 }
@@ -162,6 +162,9 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   let baseGpExponent = 0.5;
   if (purchasedUpgrades.has("IU42")) {
     baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
+  }
+  if (purchasedUpgrades.has("IU74")) {
+    baseGpExponent += config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus;
   }
   const gpEffect = gp_d.pow(baseGpExponent).max(1).toNumber();
 
@@ -345,6 +348,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       value: `${config.casino.currencies.legacy_pizza.emoji}+${idleGame.pizzaBonusPercentage.toFixed(3)} %`,
     }
   );
+
 
   embed.setFooter({
     text: `現在の所持チップ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚`,
@@ -957,10 +961,13 @@ function generateSkillButtons(idleGame) {
 //-------------------
 /**
  * インフィニティ画面のEmbedを生成する（ジェネレーター）
- * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @param {object} uiData - getSingleUserUIDataから取得したUI描画用データ
  * @returns {EmbedBuilder}
  */
-function generateInfinityEmbed(idleGame) {
+function generateInfinityEmbed(uiData) {
+  //データを取り出す
+  const { idleGame, userAchievement } = uiData;
+  const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
   //GPとその効果を計算するロジックを追加
@@ -972,11 +979,17 @@ function generateInfinityEmbed(idleGame) {
     //0.5 -> 0.75
     baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
   }
+  if (purchasedUpgrades.has("IU74")) {
+    baseGpExponent += config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus;
+  }
   // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
   const gpEffect_d = gp_d.pow(baseGpExponent).max(1);
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
 GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)`;
-  const productionRates = calculateGeneratorProductionRates(idleGame);
+  const productionRates = calculateGeneratorProductionRates(
+    idleGame,
+    unlockedSet
+  );
   const embed = new EmbedBuilder()
     .setTitle("🌌 インフィニティジェネレーター 🌌")
     .setColor("Aqua")

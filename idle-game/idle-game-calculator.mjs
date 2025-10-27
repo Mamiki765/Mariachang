@@ -448,6 +448,15 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       const completedChallenges =
         idleGameData.challenges?.completedChallenges || [];
 
+      // ▼▼▼【実績103対応】▼▼▼
+      // externalDataから実績情報を取得
+      const unlockedSet = externalData.unlockedSet || new Set();
+      let achievementBonus = 1.0;
+      if (unlockedSet.has(103)) {
+        const achievementCount = externalData.achievementCount || 0;
+        achievementBonus = 1.0 + achievementCount / 100.0;
+      }
+
       // IC9(全チャレンジ)クリア報酬: 全ジェネレーターの性能が2倍になる。
       const generatorMultiplier = completedChallenges.includes("IC9")
         ? 2.0
@@ -523,11 +532,21 @@ export function calculateOfflineProgress(idleGameData, externalData) {
             calculateIC9TimeBasedBonus(idleGameData, iu53Config)
           );
         }
+        //71,72
+        if (generatorId === 3 && purchasedIUs.has("IU71")) {
+          const g2Bought = generators[1].bought || 0; // G2はindex 1
+          productionPerSecond_d = productionPerSecond_d.times(g2Bought + 1);
+        }
+        if (generatorId === 4 && purchasedIUs.has("IU72")) {
+          const g3Bought = generators[2].bought || 0; // G3はindex 2
+          productionPerSecond_d = productionPerSecond_d.times(g3Bought + 1);
+        }
 
         const producedAmount_d = productionPerSecond_d
           .times(elapsedSeconds)
           .times(timeAccelerationMultiplier)
-          .times(generatorMultiplier);
+          .times(generatorMultiplier)
+          .times(achievementBonus);
 
         amountProducedByParent_d = producedAmount_d;
       }
@@ -551,6 +570,10 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       if (purchasedIUs.has("IU42")) {
         baseGpExponent +=
           config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus; // configから値を取得
+      }
+      if (purchasedIUs.has("IU74")) {
+        baseGpExponent +=
+          config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus; // configから値を取得
       }
       const gpPower =
         activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
@@ -821,6 +844,9 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
   let baseGpExponent = 0.5;
   if (purchasedIUs.has("IU42")) {
     baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
+  }
+  if (purchasedIUs.has("IU74")) {
+    baseGpExponent += config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus;
   }
   const totalGpPower =
     activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
@@ -1287,11 +1313,22 @@ export function calculateInfinityCountBonus(infinityCount) {
 /**
  * 【表示用】各ジェネレーターの現在の毎分生産量を計算する
  * @param {object} idleGameData - IdleGameの生データ
+ * @param {Set<number>} unlockedSet - 解除済み実績IDのSet
  * @returns {Decimal[]} G8からG1までの毎分生産量（GP含む）の配列
  */
-export function calculateGeneratorProductionRates(idleGameData) {
+export function calculateGeneratorProductionRates(
+  idleGameData,
+  unlockedSet = new Set()
+) {
   const rates = Array(8).fill(new Decimal(0));
   if (idleGameData.infinityCount === 0) return rates;
+
+  //【実績103対応】
+  const achievementCount = unlockedSet.size;
+  let achievementBonus = 1.0;
+  if (unlockedSet.has(103)) {
+    achievementBonus = 1.0 + achievementCount / 100.0;
+  }
 
   // 必要なデータを準備
   const userGenerators = idleGameData.ipUpgrades?.generators || [];
@@ -1324,6 +1361,7 @@ export function calculateGeneratorProductionRates(idleGameData) {
 
     // --- 各種ボーナスを適用 ---
     productionPerMinute_d = productionPerMinute_d.times(globalMultiplier);
+    productionPerMinute_d = productionPerMinute_d.times(achievementBonus); //実績103
     const generatorId = i + 1;
 
     if (generatorId === 1 && purchasedIUs.has("IU31")) {
@@ -1367,6 +1405,14 @@ export function calculateGeneratorProductionRates(idleGameData) {
       productionPerMinute_d = productionPerMinute_d.times(
         calculateIC9TimeBasedBonus(idleGameData, iu53Config)
       );
+    }
+    if (generatorId === 3 && purchasedIUs.has("IU71")) {
+      const g2Bought = userGenerators[1]?.bought || 0; // G2はindex 1
+      productionPerMinute_d = productionPerMinute_d.times(g2Bought + 1);
+    }
+    if (generatorId === 4 && purchasedIUs.has("IU72")) {
+      const g3Bought = userGenerators[2]?.bought || 0; // G3はindex 2
+      productionPerMinute_d = productionPerMinute_d.times(g3Bought + 1);
     }
 
     // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算

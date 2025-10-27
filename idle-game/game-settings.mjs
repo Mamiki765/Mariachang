@@ -391,6 +391,33 @@ export default {
           },
         },
       },
+      {
+        // Tier 7
+        id: 7,
+        upgrades: {
+          IU71: {
+            name: "無限循環装置",
+            cost: 1e11,
+            description: "ジェネレーター3号機の出力が(2号機の購入数+1)倍",
+            bonus: 10, // x10
+            text: "G3Power x(G2数+1)",
+          },
+          IU72: {
+            name: "エントロピー縮小機関",
+            cost: 1e11,
+            description: "ジェネレーター4号機の出力が(3号機の購入数+1)倍",
+            text: "G4Power x(G3数+1)",
+          },
+          IU74: {
+            name: "歪んだ歯車",
+            cost: 1e12,
+            description:
+              "GPによる全工場へのブースト効果の指数を0.75から0.9に引き上げる。",
+            bonus: 0.15, // 指数の増加量
+            text: "GP指数^0.75→^0.9",
+          },
+        },
+      },
       // Tier 3, 4 ... と将来追加できる
     ],
   },
