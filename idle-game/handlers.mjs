@@ -23,7 +23,7 @@ import {
   calculateTPSkillCost,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
-  formatNumberDynamic_Decimal
+  formatNumberDynamic_Decimal,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -1263,7 +1263,7 @@ async function executeInfinityTransaction(userId, client) {
       );
       // IU62は、log10(消費チップ + 1) + 1
       const multiplier = chipsSpent_d.add(1).log10() + 1;
-       infinitiesGained = Math.floor(multiplier);//小数点以下切り捨て
+      infinitiesGained = Math.floor(multiplier); //小数点以下切り捨て
     }
     newInfinityCount = latestIdleGame.infinityCount + infinitiesGained;
     // IP獲得量を計算
@@ -1342,7 +1342,7 @@ async function executeInfinityTransaction(userId, client) {
     challengeWasFailed,
     activeChallenge,
     newCompletedCount,
-    infinitiesGained
+    infinitiesGained,
   };
 }
 
@@ -1464,13 +1464,16 @@ async function postInfinityTasks(
     challengeWasFailed,
     activeChallenge,
     newCompletedCount,
-    infinitiesGained
+    infinitiesGained,
   } = result;
 
   // --- 実績解除 ---
   await unlockAchievements(client, userId, 72);
   if (newInfinityCount === 2) await unlockAchievements(client, userId, 83);
   if (newInfinityCount === 5) await unlockAchievements(client, userId, 84);
+  if (gainedIP.gte("1e6")) {
+    await unlockAchievements(client, userId, 102);
+  }
 
   // --- チャレンジ結果の通知 (followUpは複数回可能) ---
   if (challengeWasFailed) {
@@ -1497,7 +1500,7 @@ async function postInfinityTasks(
 数え切れぬチップと時間を注ぎ込み、あなたはついに果てであるべき"無限"すら打ち倒した。
 どうやら、宇宙一美味しいピザを作るこの旅はまだまだ終わりそうに無いようだ。
 ならば、無限に広がるこの宇宙すら無限で埋め尽くしてしまおう。
-**${formatNumberDynamic_Decimal(gainedIP,0)} IP** と **${infinitiesGained.toLocaleString()} ∞** を手に入れた。`;
+**${formatNumberDynamic_Decimal(gainedIP, 0)} IP** と **${infinitiesGained.toLocaleString()} ∞** を手に入れた。`;
   } else if (isFirstInfinity) {
     successMessage = `# ●1.79e+308 Infinity
 ## ――あなたは果てにたどり着いた。
@@ -1609,7 +1612,10 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
     if (generatorId === 2 && newBoughtCount === 1) {
       await unlockAchievements(interaction.client, userId, 86);
     }
-
+    //  #101:半分のジェネレーター
+    if (generatorId === 4 && newBoughtCount === 1) {
+      await unlockAchievements(interaction.client, userId, 101);
+    }
     // #82: 放置は革命だ (いずれかのジェネレーターを初めて購入)
     // 全ジェネレーターの合計購入数を計算
     const totalBought = latestIdleGame.ipUpgrades.generators.reduce(

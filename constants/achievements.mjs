@@ -318,7 +318,7 @@ export const achievements = [
     id: 50,
     name: "★あなたは神谷マリアを遊び尽くした",
     description:
-      "【プラチナトロフィー】1~50番のうち、累積どんぐり数以外の実績を集める。",
+      "【ゴールドトロフィー】1~50番のうち、累積どんぐり数以外の実績を集める。",
     effect: "それは放置ゲームにおいて、ブースト倍率を1.5倍に強化する。",
     reward: {},
   },
@@ -620,6 +620,68 @@ export const achievements = [
     name: "どうだ、見たか！",
     description: "IC9をクリアする",
     effect: "全てのジェネレーターの効果が2倍になる",
+    reward: {},
+  },
+  //ここから未実装
+  {
+    id: 94,
+    name: "これがジェネレーターの力",
+    description: "1000 GPに到達する",
+    reward: {},
+  },
+  {
+    id: 95,
+    name: "二つで一つのジェネレーター",
+    description: "10億(1e9) GPに到達する",
+    reward: {},
+  },
+  {
+    id: 96,
+    name: "1バイトの無限",
+    description: "128IPに到達する",
+    reward: {},
+  },
+  {
+    id: 97,
+    name: "1K",
+    description: "1000IPに到達する",
+    reward: {},
+  },
+  {
+    id: 98,
+    name: "1M",
+    description: "100万IPに到達する",
+    reward: {},
+  },
+  {
+    id: 99,
+    name: "星が満ちていく",
+    description: "256∞に到達する",
+    reward: {},
+  },
+  {
+    id: 100,
+    name: "星が多すぎる",
+    description: "2048∞に到達する",
+    reward: {},
+  },
+  {
+    id: 101,
+    name: "半分のジェネレーター",
+    description: "ジェネレーター4号機を購入する",
+    reward: {},
+  },
+  {
+    id: 102,
+    name: "無限のミリオネア",
+    description: "1回で一気に100万IPを手に入れる",
+    reward: {},
+  },
+  {
+    id: 103,
+    name: "★正気の沙汰じゃぁありません",
+    description: "【プラチナトロフィー】実績を100以上取得した状態で実績一覧を見る",
+    effect: "実績の効果はジェネレーターにも発揮される（未実装）",
     reward: {},
   },
   // 今後、ここに実績をどんどん追加していきます

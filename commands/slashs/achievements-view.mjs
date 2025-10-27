@@ -167,6 +167,21 @@ export async function execute(interaction) {
     }
   }
 
+  // --- 実績103「★正気の沙汰じゃぁありません」のチェック ---
+  // まだ実績103を解除していない場合のみ、チェックを実行
+  if (!unlockedSet.has(103)) {
+    // 条件: 通常実績の解除数が100個以上であること
+    // (この時点で実績#103は含まれていないので、>= 100 でOK)
+    if (unlockedSet.size >= 100) {
+      // 条件を満たしていれば、実績103を解除する
+      await unlockAchievements(interaction.client, userId, 103);
+
+      // 後続の処理で即時反映されるよう、ローカルのデータも更新しておく
+      unlockedSet.add(103);
+      achievementsData.unlocked.push(103);
+    }
+  }
+
   // 表示状態を管理する変数
   let currentPage = startPage - 1;
   let isHiddenMode = false;
