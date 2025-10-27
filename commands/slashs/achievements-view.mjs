@@ -208,6 +208,7 @@ export async function execute(interaction) {
     let title, headerString;
 
     if (isHidden) {
+      //隠し実績
       title = `"${displayName}" の秘密の実績 (${unlockedCount} / ${sourceAchievements.length})`;
       if (hiddenUnlockedSet.has(10)) {
         headerString =
@@ -216,8 +217,15 @@ export async function execute(interaction) {
         headerString = "薄れゆく達成感。";
       }
     } else {
+      //通常実績
       title = `"${displayName}" の実績 (${unlockedCount} / ${sourceAchievements.length})`;
-      headerString = `それは放置ゲームにおいて始めの5つの工場のMultを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;
+      if (unlockedSet.has(103)) {
+        // 103解除済みの場合
+        headerString = `それは放置ゲームにおいて始めの5つの工場のMultと全てのジェネレーターを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;
+      } else {
+        // 未解除の場合 (従来通り)
+        headerString = `それは放置ゲームにおいて始めの5つの工場のMultを${unlockedCount}%強化し、Mee6レベルを${unlockedCount}Lv高いものとして扱う。`;
+      }
     }
 
     const achievementListString = currentAchievements
