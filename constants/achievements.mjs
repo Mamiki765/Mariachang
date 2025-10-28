@@ -638,7 +638,7 @@ export const achievements = [
   {
     id: 96,
     name: "1バイトの無限",
-    description: "128IPに到達する",
+    description: "256IPに到達する",
     reward: {},
   },
   {

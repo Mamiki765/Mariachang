@@ -238,13 +238,10 @@ export async function execute(interaction) {
     // 3. 画素数チェック！
     try {
       const dimensions = sizeOf(buffer);
-      if (
-        (dimensions.width > 320 || dimensions.height > 320) &&
-        userId != config.administrator
-      ) {
+      if (dimensions.width > 800 || dimensions.height > 800) {
         //管理人は無視
         return interaction.editReply({
-          content: `画像のサイズが大きすぎます。幅と高さは、それぞれ320ピクセル以下にしてください。\n(現在のサイズ: ${dimensions.width}x${dimensions.height})`,
+          content: `画像のサイズが大きすぎます。幅と高さは、それぞれ800ピクセル以下にしてください。\n(現在のサイズ: ${dimensions.width}x${dimensions.height})`,
         });
       }
     } catch (e) {

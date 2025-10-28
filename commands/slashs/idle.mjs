@@ -252,7 +252,7 @@ export async function execute(interaction) {
       { id: 69, condition: idleGame.pizzaBonusPercentage >= 1254 },
       { id: 94, condition: gp_d.gte(1000) },
       { id: 95, condition: gp_d.gte("1e9") },
-      { id: 96, condition: ip_d.gte(128) },
+      { id: 96, condition: ip_d.gte(256) },
       { id: 97, condition: ip_d.gte(1000) },
       { id: 98, condition: ip_d.gte("1e6") },
       { id: 99, condition: inf_count >= 256 },
