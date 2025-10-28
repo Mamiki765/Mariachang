@@ -20,6 +20,9 @@ import { deleteFile } from "../../utils/supabaseStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 import { unlockAchievements } from "../../utils/achievements.mjs";
 
+// ▼▼▼【連投制限用】ユーザーごとの最終投稿時間を記録するMap ▼▼▼
+const lastPostTimestamps = new Map();
+
 export const help = {
   category: "slash",
   // roleplayコマンドは、他のファイルに影響を与えないよう、
@@ -545,6 +548,30 @@ export async function execute(interaction) {
     // ▼▼▼ 旧式の /roleplay post_old の処理 ▼▼▼
     // ==========================================================
     await interaction.deferReply({ ephemeral: true });
+
+ // ▼▼▼【連投制限ロジック】ここから追加 ▼▼▼
+    const channel = interaction.channel;
+    const userId = interaction.user.id;
+    const now = Date.now();
+    const COOLDOWN = 5000; // 5秒をミリ秒で指定
+    const allowed = "1426967790631260272";
+
+    // 1. チャンネルがテキストチャンネル（フォーラムやスレッドではない）かチェック
+    // ChannelType.GuildText = 0
+    if (channel.type === 0 && channel.id !== allowed) {
+        const lastPost = lastPostTimestamps.get(userId);
+        // 2. 前回の投稿記録があり、かつ5秒以内かチェック
+        if (lastPost && now - lastPost < COOLDOWN) {
+            const remainingTime = Math.ceil((COOLDOWN - (now - lastPost)) / 1000);
+            return interaction.editReply({
+                content: `❌ テキストチャンネルでの連続投稿は制限されています。あと **${remainingTime}秒** お待ちください。\n（スレッドやフォーラムチャンネル、別館のチップ掘りスレでは、この制限なく連続投稿が可能です）`
+            });
+        }
+        // 3. 制限に引っかからなければ、今回の投稿時間を記録
+        lastPostTimestamps.set(userId, now);
+    }
+
+    //連投チェック
 
     try {
       const slot = interaction.options.getInteger("slot") || 0;
