@@ -434,6 +434,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   const elapsedSeconds = (now.getTime() - lastUpdate.getTime()) / 1000;
   let newInfinityTime = idleGameData.infinityTime || 0;
   let newEternityTime = idleGameData.eternityTime || 0;
+  let newInfinityCount = idleGameData.infinityCount || 0;
 
   const timeAccelerationMultiplier = Math.pow(
     (1 + (idleGameData.skillLevel2 || 0)) * radianceMultiplier,
@@ -541,6 +542,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           const g3Bought = generators[2].bought || 0; // G3はindex 2
           productionPerSecond_d = productionPerSecond_d.times(g3Bought + 1);
         }
+        if (generatorId === 3 && purchasedIUs.has("IU63")) {
+          const iu63Config =
+            config.idle.infinityUpgrades.tiers[5].upgrades.IU63;
+          const bonus = 1 + Math.log10(infinityCount + 1) * iu63Config.bonus;
+          productionPerSecond_d = productionPerSecond_d.times(bonus);
+        }
 
         const producedAmount_d = productionPerSecond_d
           .times(elapsedSeconds)
@@ -592,7 +599,28 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
     population_d = population_d.add(addedPopulation_d);
 
-    //--- 2.3. ゲーム内時間の加算 ---
+    //--- 2.3. 【IU73対応】受動的な∞生成 ---
+    if (purchasedIUs.has("IU73")) {
+      const bestTime = idleGameData.challenges?.bestInfinityRealTime;
+      if (bestTime && bestTime > 0) {
+        const iu73Config = config.idle.infinityUpgrades.tiers[6].upgrades.IU73;
+        // 1秒あたりに獲得できる∞の基本量
+        const baseInfinitiesPerSecond = 1 / (bestTime * iu73Config.rateDivisor);
+
+        // IU62の効果を適用
+        const chipsSpent_d = new Decimal(
+          idleGameData.chipsSpentThisEternity || "0"
+        );
+        const iu62Multiplier = chipsSpent_d.add(1).log10() + 1;
+        const finalInfinitiesPerSecond =
+          baseInfinitiesPerSecond * Math.floor(iu62Multiplier); // IU62は仕様書通り切り捨て
+
+        // 経過時間分だけ∞を加算
+        const generatedInfinities = finalInfinitiesPerSecond * elapsedSeconds;
+        newInfinityCount += generatedInfinities;
+      }
+    }
+    //--- 2.4. ゲーム内時間の加算 ---
     newInfinityTime += elapsedSeconds * timeAccelerationMultiplier;
     newEternityTime += elapsedSeconds * timeAccelerationMultiplier;
   }
@@ -610,6 +638,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   // --- 4. ピザボーナス（チップ獲得量ボーナス）の再計算 ---
   let pizzaBonusPercentage = 0;
   const iu43Bouns = purchasedIUs.has("IU43") ? 1.2 : 1;
+  let iu64Bonus = 1.0;
+  if (purchasedIUs.has("IU64")) {
+    const iu64Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU64;
+    iu64Bonus =
+      1 + Math.log10((idleGameData.infinityCount || 0) + 1) * iu64Config.bonus;
+  }
   if (population_d.gte(1)) {
     const logPop = population_d.log10();
     const afterInfinity = idleGameData.infinityCount > 0 ? 5000 : 0;
@@ -618,7 +652,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     pizzaBonusPercentage =
       ((100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect +
         afterInfinity) *
-      iu43Bouns;
+      iu43Bouns * iu64Bonus;
     pizzaBonusPercentage -= 100; //加算分なので最後に100%を引く
   }
 
@@ -631,6 +665,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     infinityTime: newInfinityTime,
     eternityTime: newEternityTime,
     generatorPower: gp_d ? gp_d.toString() : idleGameData.generatorPower,
+    infinityCount: newInfinityCount,
     ipUpgrades: { ...idleGameData.ipUpgrades, generators: generators },
     wasChanged: {
       // ★変更フラグをオブジェクトにまとめる
@@ -808,6 +843,7 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
     population: updatedIdleGame.population,
     lastUpdatedAt: updatedIdleGame.lastUpdatedAt,
     pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
+    infinityCount: updatedIdleGame.infinityCount,
     infinityTime: updatedIdleGame.infinityTime,
     eternityTime: updatedIdleGame.eternityTime,
   };
@@ -901,7 +937,7 @@ export function formatInfinityTime(totalSeconds) {
   }
 
   if (totalSeconds < 60) {
-    return `${Math.floor(totalSeconds)}秒`;
+    return `${totalSeconds.toFixed(2)}秒`;
   }
 
   const SECONDS_IN_MINUTE = 60;
@@ -1421,6 +1457,12 @@ export function calculateGeneratorProductionRates(
     if (generatorId === 4 && purchasedIUs.has("IU72")) {
       const g3Bought = userGenerators[2]?.bought || 0; // G3はindex 2
       productionPerMinute_d = productionPerMinute_d.times(g3Bought + 1);
+    }
+    if (generatorId === 3 && purchasedIUs.has("IU63")) {
+      // infinityCountは関数の冒頭で定義済み
+      const iu63Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU63;
+      const bonus = 1 + Math.log10(infinityCount + 1) * iu63Config.bonus;
+      productionPerMinute_d = productionPerMinute_d.times(bonus);
     }
 
     // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算

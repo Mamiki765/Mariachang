@@ -196,6 +196,7 @@ export async function execute(interaction) {
     const gp_d = new Decimal(idleGame.generatorPower || "0");
     const ip_d = new Decimal(idleGame.infinityPoints || "0");
     const inf_count = idleGame.infinityCount || 0;
+    const power = uiData.displayData.meatEffect || 0;
     const populationChecks = [
       { id: 0, condition: true }, // 「ようこそ」は常にチェック
       { id: 3, condition: population_d.gte(100) },
@@ -218,6 +219,8 @@ export async function execute(interaction) {
       { id: 70, condition: population_d.gte(2.9613e92) }, //infinity^0.30
       { id: 71, condition: population_d.gte(1.3407e154) }, //infinity^0.50
       { id: 90, condition: population_d.gte("1e400") },
+      { id: 105, condition: population_d.gte("1e1000") },
+      { id: 106, condition: population_d.gte("1e3080") },
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -250,6 +253,9 @@ export async function execute(interaction) {
       { id: 67, condition: idleGame.pizzaBonusPercentage >= 518 },
       { id: 68, condition: idleGame.pizzaBonusPercentage >= 815 },
       { id: 69, condition: idleGame.pizzaBonusPercentage >= 1254 },
+      { id: 107, condition: idleGame.pizzaBonusPercentage >= 10000 },
+      { id: 108, condition: idleGame.pizzaBonusPercentage >= 65535 },
+      { id: 109, condition: idleGame.pizzaBonusPercentage >= 100000 },
       { id: 94, condition: gp_d.gte(1000) },
       { id: 95, condition: gp_d.gte("1e9") },
       { id: 96, condition: ip_d.gte(256) },
@@ -257,6 +263,11 @@ export async function execute(interaction) {
       { id: 98, condition: ip_d.gte("1e6") },
       { id: 99, condition: inf_count >= 256 },
       { id: 100, condition: inf_count >= 2048 },
+      //meat
+      { id: 110, condition: power >= 2 },
+      { id: 111, condition: power >= 5 },
+      { id: 112, condition: power >= 10 },
+      { id: 113, condition: power >= 12 },
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks

@@ -1204,6 +1204,27 @@ async function executeInfinityTransaction(userId, client) {
     activeChallenge = latestIdleGame.challenges?.activeChallenge;
     const currentChallenges = latestIdleGame.challenges || {};
 
+    //IU73 最速infinity記録
+    if (latestIdleGame.ipUpgrades.upgrades.includes("IU73")) {
+      const startTime = currentChallenges.currentInfinityStartTime;
+      if (startTime) {
+        // 1. 現実時間の経過を秒単位で計算
+        const durationInSeconds =
+          (new Date().getTime() - new Date(startTime).getTime()) / 1000;
+
+        // 2. 既存のベストタイムを取得（なければ無限大）
+        const bestTime = currentChallenges.bestInfinityRealTime || Infinity;
+
+        // 3. 自己ベストを更新していたら記録
+        if (durationInSeconds < bestTime) {
+          currentChallenges.bestInfinityRealTime = durationInSeconds;
+        }
+      }
+      // 4. ★重要：次の周回のための新しいスタート時間を記録
+      currentChallenges.currentInfinityStartTime = new Date().toISOString();
+      latestIdleGame.changed("challenges", true);
+    }
+
     //チャレンジ成功処理
     if (activeChallenge) {
       let challengeSuccess = true;

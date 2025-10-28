@@ -131,6 +131,7 @@ async function updateAllUsersIdleGame() {
         "eternityTime",
         "generatorPower",
         "ipUpgrades",
+        "infinityCount", 
       ],
     });
 

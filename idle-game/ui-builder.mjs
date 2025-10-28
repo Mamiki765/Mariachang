@@ -349,7 +349,6 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
     }
   );
 
-
   embed.setFooter({
     text: `現在の所持チップ: ${Math.floor(point.legacy_pizza).toLocaleString()}枚`,
   });
@@ -984,7 +983,7 @@ function generateInfinityEmbed(uiData) {
   }
   // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
   const gpEffect_d = gp_d.pow(baseGpExponent).max(1);
-  const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${infinityCount.toLocaleString()}
+  const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${Math.floor(infinityCount).toLocaleString()}
 GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)`;
   const productionRates = calculateGeneratorProductionRates(
     idleGame,
@@ -1151,6 +1150,29 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
           // mapの第二引数であるconfigオブジェクトをそのまま渡す
           const multiplier = calculateIC9TimeBasedBonus(idleGame, config);
           displayText += ` (現在x${multiplier.toFixed(3)}倍)`;
+        } else if (id === "IU63") {
+          const bonus =
+            1 + Math.log10((idleGame.infinityCount || 0) + 1) * config.bonus;
+          displayText += ` (現在x${bonus.toFixed(3)}倍)`;
+        } else if (id === "IU73") {
+          const bestTime = idleGame.challenges?.bestInfinityRealTime;
+          if (bestTime) {
+            // ★IU62の効果もUIに表示
+            const chipsSpent_d = new Decimal(
+              idleGame.chipsSpentThisEternity || "0"
+            );
+            const iu62Multiplier = Math.floor(chipsSpent_d.add(1).log10() + 1);
+
+            const infinitiesPerHour =
+              (1 / (bestTime * config.rateDivisor)) * 3600 * iu62Multiplier;
+
+            displayText += ` (記録: ${formatInfinityTime(bestTime)} | ${formatNumberDynamic(infinitiesPerHour)} ∞/h)`;
+          }
+        } else if (id === "IU64") {
+          // config変数を直接利用
+          const bonus =
+            1 + Math.log10((idleGame.infinityCount || 0) + 1) * config.bonus;
+          displayText += ` (現在x${bonus.toFixed(3)}倍)`;
         }
 
         // 最終的に生成したテキストを返す
@@ -1200,7 +1222,7 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
   for (const [id, upgradeConfig] of Object.entries(displayTier.upgrades)) {
     const status = purchasedUpgrades.has(id)
       ? "✅ 購入済み"
-      : `**${upgradeConfig.cost} IP**`;
+      : `**${formatNumberDynamic(upgradeConfig.cost)} IP**`;
     embed.addFields({
       name: `${upgradeConfig.name} [${status}]`,
       value: upgradeConfig.description,
@@ -1244,8 +1266,10 @@ function generateInfinityUpgradesButtons(idleGame, point) {
     const ghostChipRow = new ActionRowBuilder();
     const currentLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
     const cost = calculateGhostChipUpgradeCost(currentLevel);
-    //  purchasedUpgradesに応じて動的にレベルキャップを決定 
-    const currentCap = purchasedUpgrades.has("IU54") ? config.idle.ghostChip.levelCap2nd : config.idle.ghostChip.levelCap;
+    //  purchasedUpgradesに応じて動的にレベルキャップを決定
+    const currentCap = purchasedUpgrades.has("IU54")
+      ? config.idle.ghostChip.levelCap2nd
+      : config.idle.ghostChip.levelCap;
 
     ghostChipRow.addComponents(
       new ButtonBuilder()
@@ -1496,7 +1520,7 @@ export function generateProfileEmbed(uiData, user) {
     `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length}${ascensionText} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${formatNumberDynamic(idleGame.transcendencePoints || 0)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
-    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${(idleGame.infinityCount || 0).toLocaleString()}**${icCountText} | ∞⏳: ${formattedTime}${generatorText}`,
+    `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${Math.floor(idleGame.infinityCount || 0).toLocaleString()}**${icCountText} | ∞⏳: ${formattedTime}${generatorText}`,
     `Σternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}** | Score: **${formatNumberDynamic(idleGame.rankScore, 4)}**`,
   ].join("\n");
 

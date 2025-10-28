@@ -688,8 +688,61 @@ export const achievements = [
   {
     id: 104,
     name: "星なんて小指一本て作れる",
-    description:
-      "100チップ未満でinfinityする",
+    description: "100チップ未満でinfinityする",
+    reward: {},
+  },
+  {
+    id: 105,
+    name: "桁数が人口に見えてくる",
+    description: "ニョワミヤ数が1e+1000に到達する",
+    reward: {},
+  },
+  {
+    id: 106,
+    name: "無限の10乗",
+    description: "ニョワミヤ数が1e+3080に到達する",
+    reward: {},
+  },
+  {
+    id: 107,
+    name: "ゴーストチップ日和",
+    description: "チップボーナスが+10000%に到達する",
+    reward: {},
+  },
+  {
+    id: 108,
+    name: "FFFFのチップ",
+    description: "チップボーナスが+65535%に到達する",
+    reward: {},
+  },
+  {
+    id: 109,
+    name: "チップ億万長者",
+    description: "チップボーナスが+100000%に到達する",
+    reward: {},
+  },
+  {
+    id: 110,
+    name: "恐るべしサラミパワー",
+    description: "精肉施設の補正が^2.00に到達する",
+    reward: {},
+  },
+  {
+    id: 111,
+    name: "宇宙にも登る霜降り肉",
+    description: "精肉施設の補正が^5.00に到達する",
+    reward: {},
+  },
+  {
+    id: 112,
+    name: "ここからソフトキャップが入ります",
+    description: "精肉施設の補正が^10に到達する",
+    reward: {},
+  },
+  {
+    id: 113,
+    name: "ねえこれ本当に「ソフト」なの？",
+    description: "精肉施設の補正が^12に到達する",
     reward: {},
   },
   // 今後、ここに実績をどんどん追加していきます
