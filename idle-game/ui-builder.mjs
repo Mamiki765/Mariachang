@@ -236,7 +236,7 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   if (ascensionCount > 0) {
     ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
   }
-  if (idleGame.prestigeCount > 0) {
+  if (idleGame.prestigeCount > 0 || idleGame.infinityCount > 0) {
     descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
 最高人口: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**
 PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoints.toFixed(2)}** | TP: **${formatNumberDynamic(idleGame.transcendencePoints)}**
@@ -1244,6 +1244,8 @@ function generateInfinityUpgradesButtons(idleGame, point) {
     const ghostChipRow = new ActionRowBuilder();
     const currentLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
     const cost = calculateGhostChipUpgradeCost(currentLevel);
+    //  purchasedUpgradesに応じて動的にレベルキャップを決定 
+    const currentCap = purchasedUpgrades.has("IU54") ? config.idle.ghostChip.levelCap2nd : config.idle.ghostChip.levelCap;
 
     ghostChipRow.addComponents(
       new ButtonBuilder()
@@ -1253,7 +1255,7 @@ function generateInfinityUpgradesButtons(idleGame, point) {
         )
         .setStyle(ButtonStyle.Primary) // IP購入ボタン(Success)と区別
         .setEmoji(config.casino.currencies.legacy_pizza.emoji)
-        .setDisabled(point.legacy_pizza < cost || currentLevel > 199) //後でconfigと置き換える
+        .setDisabled(point.legacy_pizza < cost || currentLevel >= currentCap)
     );
     // 強化ボタンの行をcomponents配列の先頭に追加
     components.unshift(ghostChipRow);

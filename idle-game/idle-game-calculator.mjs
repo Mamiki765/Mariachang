@@ -1134,7 +1134,6 @@ export function calculateTPSkillCost(skillNum, currentLevel) {
  * 【改訂版】ゴーストチップのレベルに応じた予算を計算する
  */
 export function calculateGhostChipBudget(level) {
-  // ▼▼▼ この関数をシンプルにする ▼▼▼
   const effectiveLevel = level || 0; // undefinedなら0として扱う
   const budgetPerLevel = config.idle.ghostChip.budgetPerLevel;
   return effectiveLevel * budgetPerLevel; // レベル0なら予算0、レベル1なら予算5000
@@ -1145,20 +1144,29 @@ export function calculateGhostChipBudget(level) {
  */
 export function calculateGhostChipUpgradeCost(level) {
   const currentLevel = level || 0;
+  const configGc = config.idle.ghostChip;
+  // ★設定ファイルの上限レベルに達したら購入不可
+  if (currentLevel >= configGc.levelCap2nd) {
+    return Infinity;
+  }
 
   // レベル0から1への強化は、既存ユーザーへの救済として無料にする
   if (currentLevel === 0) {
     return 0;
   }
-  // ▲▲▲ 安全策ここまで ▲▲▲
 
-  // レベル1以上の場合は、通常のコスト計算を行う
-  const ghostConfig = config.idle.ghostChip;
-  const budgetPerLevel = ghostConfig.budgetPerLevel;
-  const costConfig = ghostConfig.cost;
-
-  // ★あなたの最初の案「currentLevel - 1」はここで活かすのが最適です！
-  // レベル1の時、比例倍率は0に。レベル2の時、比例倍率は1倍になる。
+  // ★Lv201以降の新しい計算ロジック
+  if (currentLevel >= configGc.extendedCost.startLevel - 1) {
+    // 現在Lvが200以上なら
+    const extendedConfig = configGc.extendedCost;
+    const increment =
+      configGc.budgetPerLevel * extendedConfig.levelIncrementMultiplier; // 5万チップ
+    const levelsPastThreshold = currentLevel - (extendedConfig.startLevel - 2); // Lv200のとき1, Lv201のとき2...
+    return extendedConfig.baseCost + levelsPastThreshold * increment;
+  }
+  // ★既存のLv1～199までの計算ロジック
+  const budgetPerLevel = configGc.budgetPerLevel;
+  const costConfig = configGc.cost;
   const linearCost =
     budgetPerLevel *
     (costConfig.baseMultiplier +
@@ -1590,4 +1598,42 @@ export function updateRankScoreIfNeeded(idleGame, externalData) {
 
   // 更新が不要な場合
   return { needsUpdate: false };
+}
+
+/**
+ * ゴーストアセンションのシミュレーションを行う
+ * @param {number} budget - ゴーストチップ予算
+ * @param {object} idleGameForSim - アセンション回数やスキルレベルなどを含むシミュレーション用のIdleGameオブジェクト
+ * @returns {{ascensions: number, totalCost: number}} 実行されたアセンション回数と総コスト
+ */
+export function simulateGhostAscension(budget, idleGameForSim) {
+  let availableChips = budget;
+  let ascensionsDone = 0;
+  let totalCost = 0;
+  const MAX_ITERATIONS = 500; // 安全装置
+
+  // シミュレーション用のデータを準備
+  const purchasedIUs = new Set(idleGameForSim.ipUpgrades?.upgrades || []);
+  const skillLevel6 = idleGameForSim.skillLevel6 || 0;
+  const activeChallenge = idleGameForSim.challenges?.activeChallenge;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const currentAscensionCount =
+      idleGameForSim.ascensionCount + ascensionsDone;
+    const { requiredChips } = calculateAscensionRequirements(
+      currentAscensionCount,
+      skillLevel6,
+      purchasedIUs,
+      activeChallenge
+    );
+
+    if (availableChips < requiredChips) {
+      break; // 予算不足
+    }
+
+    availableChips -= requiredChips;
+    totalCost += requiredChips;
+    ascensionsDone++;
+  }
+  return { ascensions: ascensionsDone, totalCost };
 }

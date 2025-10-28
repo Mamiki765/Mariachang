@@ -336,6 +336,12 @@ export default {
             bonus: 0.2,
             text: "チップx1.2",
           },
+          IU44: {
+            name: "霊的特異点",
+            cost: 1024,
+            description: "インフィニット時にもゴーストチップが発動する。",
+            text: "∞時GC発動",
+          },
         },
       },
       {
@@ -368,6 +374,12 @@ export default {
             max: 18.15,
             min: 2,
             baseTime: 60,
+          },
+          IU54: {
+            name: "先行投資",
+            cost: 10000,
+            description: "ゴーストチップLv上限999、インフィニット時アセンションをGCの範囲内で行う（施設強化のチップとは別）",
+            text: "GC Max999＆∞時Asc",
           },
         },
       },
@@ -425,11 +437,20 @@ export default {
     // 予算計算式: budgetPerLevel * Lv
     budgetPerLevel: 5000,
     levelCap: 200,
-    // コスト計算式: min(budgetPerLevel * (base + level * perLevel), budgetPerLevel * cap)
+    levelCap2nd: 999, // ★上限を999に設定
+    // --- Lv1～200までのコスト計算 ---
     cost: {
       baseMultiplier: 100, // スタート時の倍率
       levelMultiplier: 100, // 1レベルごとに加算される倍率
-      capMultiplier: 1000, // 上限の倍率
+      capMultiplier: 1000, // 上限の倍率 (5000 * 1000 = 500万)
+    },
+    // --- Lv201以降のコスト計算 ---
+    extendedCost: {
+      startLevel: 201, // このレベルから適用
+      // Lv200の購入コスト(500万)を基準値とする
+      baseCost: 5000000,
+      // budgetPerLevelにこの値を乗算したものが、1レベルごとの増加量になる (5000 * 10 = 5万)
+      levelIncrementMultiplier: 10,
     },
   },
   infinityChallenges: [

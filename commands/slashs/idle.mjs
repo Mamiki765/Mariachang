@@ -581,8 +581,8 @@ export async function execute(interaction) {
         success = await handleSkillReset(i, collector);
         if (!success) return;
       } else if (i.customId === "idle_infinity") {
-        await handleInfinity(i, collector);
-        return;
+        success = await handleInfinity(i, collector);
+        if (!success) return;
       } else if (i.customId === "idle_ascension") {
         success = await handleAscension(i);
       } else if (i.customId.startsWith("idle_generator_buy_")) {

@@ -24,6 +24,7 @@ import {
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
   formatNumberDynamic_Decimal,
+  simulateGhostAscension,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -54,82 +55,86 @@ export async function handleSettings(interaction) {
   }
 
   // 1. 現在の設定を読み込む (データがなければデフォルト値)
-  const currentSettings = idleGame.settings || {
-    skipPrestigeConfirmation: false,
-    skipSkillResetConfirmation: false,
-    autoAssignTpEnabled: false,
-  };
-
-  // 2. 現在の設定から、セレクトメニューのどの値が選択されているべきかを判断
-  let defaultValue = "none"; // デフォルトは「両方しない」
+  const currentSettings = idleGame.settings || {};
   if (
-    currentSettings.skipPrestigeConfirmation &&
-    currentSettings.skipSkillResetConfirmation
+    currentSettings.skipPrestigeConfirmation !== undefined ||
+    currentSettings.skipSkillResetConfirmation !== undefined
   ) {
-    defaultValue = "both";
-  } else if (currentSettings.skipPrestigeConfirmation) {
-    defaultValue = "prestige_only";
-  } else if (currentSettings.skipSkillResetConfirmation) {
-    defaultValue = "reset_only";
-  }
+    // 古い形式のデータが存在する場合、新しい形式に変換する
+    console.log(`[データ移行] ユーザー ${userId} の古い設定を変換します。`);
+    const newSkipConfirmations = [];
+    if (currentSettings.skipPrestigeConfirmation === true) {
+      newSkipConfirmations.push("prestige");
+    }
+    if (currentSettings.skipSkillResetConfirmation === true) {
+      newSkipConfirmations.push("reset");
+    }
+    currentSettings.skipConfirmations = newSkipConfirmations;
 
+    delete currentSettings.skipPrestigeConfirmation;
+    delete currentSettings.skipSkillResetConfirmation;
+  }
+  //設定を用意
+  const skippedConfirmations = new Set(currentSettings.skipConfirmations || []);
   const isAutoTpEnabled = currentSettings.autoAssignTpEnabled === true;
-  // 3. モーダルを構築
+
+  // 2. モーダルを構築
   const modal = new ModalBuilder()
     .setCustomId("idle_settings_modal") // 固有名詞のID
-    .setTitle("放置ゲーム 設定")
-    .addLabelComponents(
-      new LabelBuilder()
-        .setLabel("確認スキップ設定")
-        .setDescription(
-          "周回時、プレステージやスキルリセットの確認画面をスキップします。"
-        )
-        .setStringSelectMenuComponent(
-          new StringSelectMenuBuilder()
-            .setCustomId("skip_confirmation_select") // このモーダル内でのID
-            .setPlaceholder("設定を選択してください...")
-            .addOptions(
-              new StringSelectMenuOptionBuilder()
-                .setLabel("プレステージとスキルリセットの両方をスキップ")
-                .setValue("both")
-                .setDefault(defaultValue === "both"), // 4. デフォルト値を設定
-              new StringSelectMenuOptionBuilder()
-                .setLabel("プレステージのみスキップ")
-                .setValue("prestige_only")
-                .setDefault(defaultValue === "prestige_only"),
-              new StringSelectMenuOptionBuilder()
-                .setLabel("スキルリセットのみスキップ")
-                .setValue("reset_only")
-                .setDefault(defaultValue === "reset_only"),
-              new StringSelectMenuOptionBuilder()
-                .setLabel("スキップしない（通常）")
-                .setValue("none")
-                .setDefault(defaultValue === "none")
-            )
-        )
-    )
-    .addLabelComponents(
-      new LabelBuilder()
-        .setLabel("IU12「自動調理器」の効果")
-        .setDescription(
-          "プレステージ時のTP自動割り振りを有効にするか選択します。"
-        )
-        .setStringSelectMenuComponent(
-          new StringSelectMenuBuilder()
-            .setCustomId("auto_tp_assign_select") // 新しいID
-            .setPlaceholder("設定を選択...")
-            .addOptions(
-              new StringSelectMenuOptionBuilder()
-                .setLabel("有効 (ON)")
-                .setValue("on")
-                .setDefault(isAutoTpEnabled), // 現在の設定を反映
-              new StringSelectMenuOptionBuilder()
-                .setLabel("無効 (OFF)")
-                .setValue("off")
-                .setDefault(!isAutoTpEnabled) // 現在の設定を反映
-            )
-        )
-    );
+    .setTitle("放置ゲーム 設定");
+
+  //3.項目を作る
+  modal.addLabelComponents(
+    new LabelBuilder()
+      .setLabel("確認スキップ設定")
+      .setDescription("リセット時に表示される確認画面をスキップします。")
+      .setStringSelectMenuComponent(
+        new StringSelectMenuBuilder()
+          .setCustomId("skip_confirmations_select")
+          .setPlaceholder("スキップしたい確認画面を選択...")
+          .setMaxValues(3) // 3つまで選択可能
+          .addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("プレステージ")
+              .setValue("prestige")
+              .setDefault(skippedConfirmations.has("prestige")),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("スキルリセット")
+              .setValue("reset")
+              .setDefault(skippedConfirmations.has("reset")),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("インフィニティ")
+              .setValue("infinity")
+              .setDefault(skippedConfirmations.has("infinity"))
+          )
+      )
+  );
+
+  // 4. ★★★ LabelBuilderを使ってTP自動割り振り設定を追加 ★★★
+  modal.addLabelComponents(
+    new LabelBuilder()
+      .setLabel("IU12「自動調理器」の効果")
+      .setDescription(
+        "プレステージ時のTP自動割り振りを有効にするか選択します。"
+      )
+      .setStringSelectMenuComponent(
+        new StringSelectMenuBuilder()
+          .setCustomId("auto_tp_assign_select")
+          .setMaxValues(1) //どちらかしか選べないべきである
+          .setPlaceholder("設定を選択...")
+          .addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("有効 (ON)")
+              .setValue("on")
+              .setDefault(isAutoTpEnabled),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("無効 (OFF)")
+              .setValue("off")
+              .setDefault(!isAutoTpEnabled)
+          )
+      )
+  );
+
   // 5. モーダルを表示
   await interaction.showModal(modal);
 
@@ -140,34 +145,17 @@ export async function handleSettings(interaction) {
 
   if (submitted) {
     try {
-      const selectedValue = submitted.fields.getStringSelectValues(
-        "skip_confirmation_select"
-      )[0];
+      const selectedSkips = submitted.fields.getStringSelectValues(
+        "skip_confirmations_select"
+      );
       const autoAssignChoice = submitted.fields.getStringSelectValues(
         "auto_tp_assign_select"
       )[0];
 
       const newSettings = { ...currentSettings }; // 現在の設定をコピー
-
-      // 7. 選択された値に応じて設定を更新
-      switch (selectedValue) {
-        case "both":
-          newSettings.skipPrestigeConfirmation = true;
-          newSettings.skipSkillResetConfirmation = true;
-          break;
-        case "prestige_only":
-          newSettings.skipPrestigeConfirmation = true;
-          newSettings.skipSkillResetConfirmation = false;
-          break;
-        case "reset_only":
-          newSettings.skipPrestigeConfirmation = false;
-          newSettings.skipSkillResetConfirmation = true;
-          break;
-        case "none":
-          newSettings.skipPrestigeConfirmation = false;
-          newSettings.skipSkillResetConfirmation = false;
-          break;
-      }
+      // スキップ登録
+      newSettings.skipConfirmations = selectedSkips;
+      // IU12はそのまま
       if (autoAssignChoice === "on") {
         newSettings.autoAssignTpEnabled = true;
       } else if (autoAssignChoice === "off") {
@@ -727,8 +715,11 @@ export async function handlePrestige(interaction, collector) {
     });
     return false;
   }
+  //スキップ設定を読み込み
+  const settings = latestIdleGame.settings || {};
   const skipConfirmation =
-    latestIdleGame.settings?.skipPrestigeConfirmation || false;
+    settings.skipConfirmations?.includes("prestige") || // 新しい形式
+    settings.skipPrestigeConfirmation === true; // 古い形式
 
   // 2. 設定値に応じて処理を分岐
   if (skipConfirmation) {
@@ -917,8 +908,11 @@ export async function handleSkillReset(interaction, collector) {
     });
     return false;
   }
+  // スキップ設定を読み込み
+  const settings = latestIdleGame.settings || {};
   const skipConfirmation =
-    latestIdleGame.settings?.skipSkillResetConfirmation || false;
+    settings.skipConfirmations?.includes("reset") || // 新しい形式
+    settings.skipSkillResetConfirmation === true; // 古い形式
 
   if (skipConfirmation) {
     // --- 【A】確認をスキップするルート ---
@@ -1300,45 +1294,68 @@ async function executeInfinityTransaction(userId, client) {
     };
     latestIdleGame.changed("ipUpgrades", true);
 
-    await latestIdleGame.update(
-      {
-        population: "0",
-        highestPopulation: "0",
-        pizzaOvenLevel: 0,
-        cheeseFactoryLevel: 0,
-        tomatoFarmLevel: 0,
-        mushroomFarmLevel: 0,
-        anchovyFactoryLevel: 0,
-        oliveFarmLevel: 0,
-        wheatFarmLevel: 0,
-        pineappleFarmLevel: 0,
-        ascensionCount: 0,
-        prestigeCount: 0,
-        prestigePower: 0,
-        skillPoints: 0,
-        skillLevel1: initialSkillLevel,
-        skillLevel2: initialSkillLevel,
-        skillLevel3: initialSkillLevel,
-        skillLevel4: initialSkillLevel,
-        transcendencePoints: 0,
-        skillLevel5: 0,
-        skillLevel6: 0,
-        skillLevel7: 0,
-        skillLevel8: 0,
-        infinityTime: 0,
-        chipsSpentThisInfinity: "0",
-        generatorPower: "1",
-        ipUpgrades: newIpUpgrades,
-        buffMultiplier: 2.0,
-        infinityPoints: new Decimal(latestIdleGame.infinityPoints)
-          .add(gainedIP)
-          .toString(),
-        infinityCount: newInfinityCount,
-        challenges: currentChallenges,
-        lastUpdatedAt: new Date(),
-      },
-      { transaction: t }
-    );
+    // 1. まずリセット後の状態を「設計図」として変数に格納する
+    let updateData = {
+      population: "0",
+      highestPopulation: "0",
+      pizzaOvenLevel: 0,
+      cheeseFactoryLevel: 0,
+      tomatoFarmLevel: 0,
+      mushroomFarmLevel: 0,
+      anchovyFactoryLevel: 0,
+      oliveFarmLevel: 0,
+      wheatFarmLevel: 0,
+      pineappleFarmLevel: 0,
+      ascensionCount: 0,
+      prestigeCount: 0,
+      prestigePower: 0,
+      skillPoints: 0,
+      skillLevel1: initialSkillLevel,
+      skillLevel2: initialSkillLevel,
+      skillLevel3: initialSkillLevel,
+      skillLevel4: initialSkillLevel,
+      transcendencePoints: 0,
+      skillLevel5: 0,
+      skillLevel6: 0,
+      skillLevel7: 0,
+      skillLevel8: 0,
+      infinityTime: 0,
+      chipsSpentThisInfinity: "0",
+      generatorPower: "1",
+      ipUpgrades: newIpUpgrades,
+      buffMultiplier: 2.0,
+      infinityPoints: new Decimal(latestIdleGame.infinityPoints)
+        .add(gainedIP)
+        .toString(),
+      infinityCount: newInfinityCount,
+      challenges: currentChallenges,
+      lastUpdatedAt: new Date(),
+    };
+
+    // 2. IU44を所持している場合、設計図にゴーストチップの効果を上乗せする
+    if (latestIdleGame.ipUpgrades.upgrades.includes("IU44")) {
+      const currentGhostLevel = latestIdleGame.ipUpgrades?.ghostChipLevel || 0;
+      updateData = await applyGhostChipBonus(
+        updateData,
+        userId,
+        currentGhostLevel
+      );
+    }
+
+    // 3. IU54を所持している場合、ゴーストアセンションを実行する
+    if (latestIdleGame.ipUpgrades.upgrades.includes("IU54")) {
+      const currentGhostLevel = latestIdleGame.ipUpgrades?.ghostChipLevel || 0;
+      const budget = calculateGhostChipBudget(currentGhostLevel);
+
+      // updateDataにはリセット後のascensionCount(0)などが含まれている
+      const { ascensions } = simulateGhostAscension(budget, updateData);
+
+      // シミュレーション結果を設計図に反映
+      updateData.ascensionCount += ascensions;
+    }
+
+    // 4. 最終的な設計図でデータベースを更新する
+    await latestIdleGame.update(updateData, { transaction: t });
   });
 
   // 結果をオブジェクトで返す
@@ -1375,11 +1392,13 @@ export async function handleInfinity(interaction, collector) {
       throw new Error("インフィニティの条件を満たしていません。");
     }
 
-    const BREAK_INFINITY_THRESHOLD = new Decimal("1.8e308");
+    const settings = latestIdleGame.settings || {};
+    const skipConfirmation =
+      settings.skipConfirmations?.includes("infinity") || false;
 
     // --- 2. 条件に応じて処理を分岐 ---
-    if (currentPopulation_d.gt(BREAK_INFINITY_THRESHOLD)) {
-      // --- 【A】Break Infinity時の確認フロー ---
+    if (!skipConfirmation) {
+      // --- 【A】確認を表示するルート ---
       const confirmationRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("infinity_confirm_yes")
@@ -1391,9 +1410,16 @@ export async function handleInfinity(interaction, collector) {
           .setStyle(ButtonStyle.Secondary)
       );
 
+      // 確認メッセージを人口に応じて動的に変更
+      let confirmationText =
+        "## ⚠️ **インフィニットを実行しますか？**\nあなたは世界の果てに到達しました。全てがリセットされますが、新たな力を得ることができます。";
+      if (currentPopulation_d.gt(new Decimal("1.8e308"))) {
+        confirmationText =
+          "## ⚠️ **インフィニットを実行しますか？**\nあなたは既にブレイクインフィニティをしています。より多くのニョワミヤを集めればIPが増える可能性があります、それでも行いますか？";
+      }
+
       const confirmationMessage = await interaction.followUp({
-        content:
-          "## ⚠️ **インフィニットを実行しますか？**\nあなたは既にブレイクインフィニティをしています。より多くのニョワミヤを集めればIPが増える可能性があります、それでも行いますか？",
+        content: confirmationText,
         components: [confirmationRow],
         ephemeral: true,
         fetchReply: true,
@@ -1410,7 +1436,7 @@ export async function handleInfinity(interaction, collector) {
           content: "インフィニットをキャンセルしました。",
           components: [],
         });
-        return; // 処理を中断
+        return false; // 処理を中断
       }
 
       // 「はい」が押されたら、処理を続行
@@ -1425,12 +1451,14 @@ export async function handleInfinity(interaction, collector) {
         userId,
         true
       );
+      return false;
     } else {
       // --- 【B】通常のインフィニティフロー ---
       // ★リセット本体を呼び出し
       const result = await executeInfinityTransaction(userId, client);
-      // ★結果に応じてメッセージを送信
+      // メッセージを送信
       await postInfinityTasks(interaction, result, client, userId, false);
+      return true;
     }
   } catch (error) {
     console.error("Infinity Error:", error);
@@ -1446,6 +1474,7 @@ export async function handleInfinity(interaction, collector) {
         flags: 64,
       });
     }
+    return false;
   }
 }
 
