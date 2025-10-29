@@ -24,6 +24,9 @@ Thumbs.db
 # ローカルファイル
 .vscode/
 
+# DBバックアップ
+backups/
+
 # Glitch時代の遺物（念のため）
 .data/
 .glitch-assets

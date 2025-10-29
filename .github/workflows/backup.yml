@@ -1,0 +1,58 @@
+# ワークフローの名前
+name: Database Backup
+
+# ワークフローが実行されるタイミング
+on:
+  # 日本時間の AM 4:00 (UTCでは前日の PM 19:00) に自動実行
+  schedule:
+    - cron: '0 19 * * *'
+  
+  # GitHubのActionsタブから手動で実行できるようにする（テストに非常に便利！）
+  workflow_dispatch:
+
+# 実行される一連の処理
+jobs:
+  backup-and-notify:
+    # 最新のUbuntu（Linux）環境で実行
+    runs-on: ubuntu-latest
+    
+    # 処理のステップ
+    steps:
+      # 1. リポジトリのコードを仮想環境にコピーする
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. pg_dumpコマンドを使えるように、PostgreSQLクライアントをインストールする
+      - name: Install PostgreSQL Client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      # 3. 実際にバックアップファイルを作成する
+      - name: Create Backup
+        run: |
+          mkdir -p backups
+          # secretsからデータベースURLを読み込んでバックアップを実行
+          pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > backups/backup.sql
+
+      # 4. ファイルサイズをチェックし、結果に応じてDiscordに通知する
+      - name: Check Size and Send to Discord
+        run: |
+          FILE_PATH="backups/backup.sql"
+          # ファイルサイズをバイト単位で取得
+          FILE_SIZE=$(stat -c%s "$FILE_PATH")
+          # 8MBの上限をバイト単位で設定 (Discordの制限は実際には8,388,608バイト)
+          MAX_SIZE=8000000
+
+          # ファイルサイズが上限を超えているか判定
+          if [ $FILE_SIZE -gt $MAX_SIZE ]; then
+            # --- 上限を超えていた場合 ---
+            # ファイルサイズをKBに変換してメッセージを作成
+            SIZE_KB=$((FILE_SIZE / 1024))
+            MESSAGE="バックアップ失敗: ファイルサイズが8MBの上限を超えました (約 ${SIZE_KB} KB)。"
+            # JSON形式でエラーメッセージを送信
+            curl -X POST -H "Content-Type: application/json" -d "{\"content\": \"$MESSAGE\"}" ${{ secrets.DISCORD_WEBHOOK_URL }}
+          else
+            # --- 上限以内の場合 ---
+            MESSAGE="データベースの自動バックアップが完了しました。"
+            # multipart/form-data形式でファイルとメッセージを送信
+            curl -X POST -F "payload_json={\"content\": \"$MESSAGE\"}" -F "file=@$FILE_PATH" ${{ secrets.DISCORD_WEBHOOK_URL }}
+          fi
