@@ -161,6 +161,11 @@ const Point = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true, // まだ一度もRPを受け取っていないユーザーはnullになるようにします
     },
+    //明示的に定義
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true, // 既存のデータにはNULLが入るようにする
+    },
   },
   {
     tableName: "points",
