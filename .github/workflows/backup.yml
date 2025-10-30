@@ -30,13 +30,16 @@ jobs:
       - name: Create Backup
         run: |
           mkdir -p backups
+          # ファイル名を YYYYMMDD_HHMM 形式で生成
+          FILENAME="backup_$(date +'%Y%m%d_%H%M').sql"
           # secretsからデータベースURLを読み込んでバックアップを実行
-          pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > backups/backup.sql
+          pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > "backups/$FILENAME"
 
       # 4. ファイルサイズをチェックし、結果に応じてDiscordに通知する
       - name: Check Size and Send to Discord
         run: |
-          FILE_PATH="backups/backup.sql"
+          # backups/ の中にある .sql ファイル（一つしかないはず）のパスを取得
+          FILE_PATH=$(ls backups/*.sql)
           # ファイルサイズをバイト単位で取得
           FILE_SIZE=$(stat -c%s "$FILE_PATH")
           # 8MBの上限をバイト単位で設定 (Discordの制限は実際には8,388,608バイト)
