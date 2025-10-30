@@ -3,13 +3,20 @@ import cron from "node-cron";
 import { activeUsersForPizza } from "../handlers/messageCreate.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
-import { IdleGame, Mee6Level, UserAchievement } from "../models/database.mjs";
+import {
+  IdleGame,
+  Mee6Level,
+  UserAchievement,
+  Point,
+} from "../models/database.mjs";
 import { calculateOfflineProgress } from "../idle-game/idle-game-calculator.mjs";
+import { Op } from "sequelize";
 
 /**
  * 定期的にピザを配布するタスクを開始する
+ * @param {import("discord.js").Client} client - DM送信に必要
  */
-export function startPizzaDistribution() {
+export function startPizzaDistribution(client) {
   // 毎時 0分, 10分, 20分, 30分, 40分, 50分に実行
   //人口を増加させ、ボーナス率を記録しておく
   cron.schedule("*/10 * * * *", async () => {
@@ -73,6 +80,27 @@ export function startPizzaDistribution() {
       console.error("[RPC] Booster coin distribution task failed:", error);
     }
   });
+  //開発モード以外で、毎朝7:50に実行
+  if (config.isProduction) {
+    cron.schedule(
+      "50 7 * * *",
+      async () => {
+        console.log(
+          "[LOGIBO_AUTOCLAIM] 拾い忘れログボの配布処理を開始します。"
+        );
+        try {
+          await distributeForgottenLoginBonus(client);
+          console.log("[LOGIBO_AUTOCLAIM] 配布処理が正常に完了しました。");
+        } catch (error) {
+          console.error(
+            "[LOGIBO_AUTOCLAIM] 配布処理でエラーが発生しました:",
+            error
+          );
+        }
+      },
+      { timezone: "Asia/Tokyo" }
+    );
+  }
 }
 
 /**
@@ -131,7 +159,7 @@ async function updateAllUsersIdleGame() {
         "eternityTime",
         "generatorPower",
         "ipUpgrades",
-        "infinityCount", 
+        "infinityCount",
       ],
     });
 
@@ -140,4 +168,120 @@ async function updateAllUsersIdleGame() {
     );
     offset += CHUNK_SIZE;
   }
+}
+
+/**
+ * 【最終改訂版】ログインボーナスを拾い忘れたユーザーに、最低限の報酬を配布する
+ * @param {import("discord.js").Client} client
+ */
+async function distributeForgottenLoginBonus(client) {
+  // --- 1. 条件設定 ---
+  const yesterday8AM = new Date();
+  yesterday8AM.setDate(yesterday8AM.getDate() - 1);
+  yesterday8AM.setHours(8, 0, 0, 0);
+
+  const today7_50AM = new Date();
+  today7_50AM.setHours(7, 50, 0, 0);
+
+  // --- 2. 対象ユーザーをDBから抽出 ---
+  const targetUsers = await Point.findAll({
+    where: {
+      lastAcornDate: { [Op.lt]: yesterday8AM },
+      updatedAt: { [Op.gte]: yesterday8AM },
+    },
+  });
+
+  if (targetUsers.length === 0) {
+    console.log("[LOGIBO_AUTOCLAIM] 対象ユーザーはいませんでした。");
+    return;
+  }
+  console.log(
+    `[LOGIBO_AUTOCLAIM] ${targetUsers.length}人の対象ユーザーに配布します。`
+  );
+
+  const userIds = targetUsers.map((u) => u.userId);
+
+  // --- 3. 必要な外部データを一括取得 ---
+  // ① Mee6レベル
+  const allMee6Levels = await Mee6Level.findAll({
+    where: { userId: { [Op.in]: userIds } },
+    raw: true,
+  });
+  const mee6Map = new Map(
+    allMee6Levels.map((item) => [item.userId, item.level])
+  );
+
+  // ② サーバーブースト数 (Supabase RPCを利用)
+  const supabase = getSupabaseClient();
+  const { data: boosterCounts, error: rpcError } = await supabase.rpc(
+    "get_booster_counts_for_users",
+    { user_ids: userIds }
+  );
+  if (rpcError) {
+    console.error(
+      "[LOGIBO_AUTOCLAIM] Supabase RPC (get_booster_counts_for_users) failed:",
+      rpcError
+    );
+    // RPCが失敗しても処理は続行するが、ブースト数は0として扱う
+  }
+  const boosterMap = new Map(
+    boosterCounts?.map((item) => [item.user_id, item.boost_count]) || []
+  );
+
+  // --- 4. 各ユーザーの報酬を計算し、一括更新用のデータを作成 ---
+  const bulkUpdateData = [];
+  const dmPromises = [];
+
+  for (const userPoint of targetUsers) {
+    const userId = userPoint.userId;
+    let totalPizzaBonus = 0;
+
+    // Mee6ボーナス
+    const mee6Level = mee6Map.get(userId) || 0;
+    totalPizzaBonus +=
+      mee6Level * config.loginBonus.legacy_pizza.bounsPerMee6Level;
+
+    // ブースターボーナス
+    const boostCount = boosterMap.get(userId) || 0;
+    if (boostCount > 0) {
+      const boosterConfig = config.loginBonus.legacy_pizza.boosterBonus;
+      totalPizzaBonus +=
+        boosterConfig.base + boosterConfig.perServer * boostCount;
+    }
+
+    // 更新用データを作成
+    bulkUpdateData.push({
+      userId: userId,
+      acorn: userPoint.acorn + 1,
+      totalacorn: userPoint.totalacorn + 1,
+      coin: userPoint.coin + 1,
+      nyobo_bank: userPoint.nyobo_bank + totalPizzaBonus,
+      lastAcornDate: today7_50AM,
+    });
+
+    // DM送信処理
+    const dmMessage = `おはようございますにゃ、昨日のログインボーナスを少しだけお届けに参りましたにゃ。\n- あまやどんぐり: 1個\n- ${config.nyowacoin}: 1枚\n- ${config.casino.currencies.legacy_pizza.displayName}: ${totalPizzaBonus.toLocaleString()}枚 \n-# 本日のログインボーナスは、いつも通り8:00以降に雑談や /ログボ コマンドで出るボタンから受け取れます\n-# 詫び石配布などでログイン扱いになっているかもしれません、ごめんなさい！`;
+    const dmPromise = client.users
+      .send(userId, { content: dmMessage, flags: 4096 })
+      .catch((error) => {
+        // ★★★ エラーコードが50007 (DM送信不可) の場合のみ、エラーを無視する ★★★
+        if (error.code !== 50007) {
+          console.error(`[LOGIBO_AUTOCLAIM] 予期せぬDM送信エラー (ユーザー: ${userId}):`, error);
+        }
+      });
+    dmPromises.push(dmPromise);
+  }
+
+  // --- 5. DBを一括更新 & DMを一斉送信 ---
+  await Point.bulkCreate(bulkUpdateData, {
+    updateOnDuplicate: [
+      "acorn",
+      "totalacorn",
+      "coin",
+      "nyobo_bank",
+      "lastAcornDate",
+    ],
+  });
+
+  await Promise.all(dmPromises);
 }

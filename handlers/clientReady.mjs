@@ -240,7 +240,7 @@ export default async (client) => {
   });
   // ログイン通知ここまで
   // 発言によるピザトークン付与および10分ごとの放置ゲー人口増加の定期タスク開始
-  startPizzaDistribution();
+  startPizzaDistribution(client);// 251030 clientオブジェクトを渡すように
   console.log("[INIT]チップ配布の定期タスクを開始しました。");
 };
 

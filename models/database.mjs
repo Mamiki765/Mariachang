@@ -164,7 +164,8 @@ const Point = sequelize.define(
   },
   {
     tableName: "points",
-    timestamps: false,
+    timestamps: true, // timestampsを有効にする
+    createdAt: false, // ただし、createdAtは不要
   }
 );
 
