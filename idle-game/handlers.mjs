@@ -93,6 +93,7 @@ export async function handleSettings(interaction) {
           .setCustomId("skip_confirmations_select")
           .setPlaceholder("スキップしたい確認画面を選択...")
           .setMaxValues(3) // 3つまで選択可能
+          .setRequired(false)
           .addOptions(
             new StringSelectMenuOptionBuilder()
               .setLabel("プレステージ")
