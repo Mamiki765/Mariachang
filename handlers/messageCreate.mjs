@@ -50,12 +50,13 @@ export default async (message) => {
   activeUsersForPizza.add(message.author.id);
   //定義系
   //ロスアカステシ詳細表示用正規表現
-  const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!$/);
-  // コンパクト表示のトリガー
+  const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!(\d+)?$/);
   const rev2detailCompactWithEquipmentMatch = message.content.match(
-    /^(r2[pn][0-9]{6})\?\?$/
+    /^(r2[pn][0-9]{6})\?\?(\d+)?$/
   );
-  const rev2detailCompactMatch = message.content.match(/^(r2[pn][0-9]{6})\?$/);
+  const rev2detailCompactMatch = message.content.match(
+    /^(r2[pn][0-9]{6})\?(\d+)?$/
+  );
   //ロスアカ短縮形
   const rev2urlmatch = message.content.match(
     /^(ils|snd|sce|nvl|not|com)(\d{8})$/
@@ -202,9 +203,13 @@ export default async (message) => {
   //ここからステシ変換
   //ロスアカ詳細
   else if (rev2detailMatch) {
-    const characterId = rev2detailMatch[1];
+    const characterId = rev2detailMatch[1]; // IDはグループ1
+    // rev2detailMatch[2] には数字の文字列（例: "30"）か、undefined が入る
+    const targetLevel = rev2detailMatch[2]
+      ? parseInt(rev2detailMatch[2], 10)
+      : null;
     await message.channel.sendTyping();
-    const replyMessage = await getCharacterSummary(characterId);
+    const replyMessage = await getCharacterSummary(characterId, targetLevel);
     await message.reply({
       content: replyMessage,
       allowedMentions: { repliedUser: false },
@@ -212,9 +217,16 @@ export default async (message) => {
     //コンパクト（装備付き）
   } else if (rev2detailCompactWithEquipmentMatch) {
     const characterId = rev2detailCompactWithEquipmentMatch[1];
+    const targetLevel = rev2detailCompactWithEquipmentMatch[2]
+      ? parseInt(rev2detailCompactWithEquipmentMatch[2], 10)
+      : null;
     await message.channel.sendTyping();
-    // getCharacterSummaryCompact の第2引数に `true` を渡して装備品を表示させる
-    const replyMessage = await getCharacterSummaryCompact(characterId, true);
+    // ★★★ getCharacterSummaryCompact に targetLevel を渡す ★★★
+    const replyMessage = await getCharacterSummaryCompact(
+      characterId,
+      true,
+      targetLevel
+    );
     await message.reply({
       content: replyMessage,
       allowedMentions: { repliedUser: false },
@@ -224,8 +236,16 @@ export default async (message) => {
   else if (rev2detailCompactMatch) {
     // else if の順序に注意
     const characterId = rev2detailCompactMatch[1];
+    const targetLevel = rev2detailCompactMatch[2]
+      ? parseInt(rev2detailCompactMatch[2], 10)
+      : null;
     await message.channel.sendTyping();
-    const replyMessage = await getCharacterSummaryCompact(characterId);
+    // ★★★ getCharacterSummaryCompact に targetLevel を渡す ★★★
+    const replyMessage = await getCharacterSummaryCompact(
+      characterId,
+      false,
+      targetLevel
+    );
     await message.reply({
       content: replyMessage,
       allowedMentions: { repliedUser: false },

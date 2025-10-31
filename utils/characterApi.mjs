@@ -88,23 +88,23 @@ function getVisualWidth(str) {
 
 /**
  * 【NEW & UPDATED】Supabaseからゲームの基本パラメータを取得します。
- * @returns {Promise<{maxLevel: number|null, baseExp: number|null}>}
+ * @returns {Promise<{maxLevel: number|null, baseExp: number|null, multipliers: Array|null}>}
  */
 async function getGameParameters() {
   try {
     const supabase = getSupabaseClient();
-    // 2つのキーをまとめて取得
+    // 取得するキーに 'rev2_scenario_multipliers' を追加
     const { data, error } = await supabase
       .from("app_config")
       .select("key, value")
-      .in("key", ["rev2_max_level", "rev2_base_exp"]);
+      .in("key", ["rev2_max_level", "rev2_base_exp", "rev2_scenario_multipliers"]);
 
     if (error) {
       console.error("ゲームパラメータの取得に失敗しました:", error);
-      return { maxLevel: null, baseExp: null };
+      return { maxLevel: null, baseExp: null, multipliers: null };
     }
 
-    // 取得した配列を { rev2_max_level: 22, rev2_base_exp: 280 } のようなオブジェクトに変換
+    // 取得した配列を { rev2_max_level: 22, ... } のようなオブジェクトに変換
     const params = data.reduce((acc, curr) => {
       acc[curr.key] = curr.value;
       return acc;
@@ -113,79 +113,99 @@ async function getGameParameters() {
     return {
       maxLevel: params.rev2_max_level || null,
       baseExp: params.rev2_base_exp || null,
+      // multipliersプロパティを追加して、DBから取得した配列を返す
+      multipliers: params.rev2_scenario_multipliers || null,
     };
   } catch (e) {
     console.error("getGameParameters関数でエラー:", e);
-    return { maxLevel: null, baseExp: null };
+    return { maxLevel: null, baseExp: null, multipliers: null };
   }
 }
 
 /**
- * 【NEW】キャラクターのレベル状態に応じた追加情報文字列を生成します。
+ * 【UPDATED】キャラクターのレベル状態に応じた追加情報文字列を生成します。
  * @param {object} character キャラクターオブジェクト
- * @param {object} gameParams { maxLevel: number|null, baseExp: number|null }
- * @returns {string} "(実レベル:XX)" or "(カンストまであとYYY EXP)" or ""
+ * @param {object} gameParams { maxLevel, baseExp, multipliers }
+ * @param {number|null} [targetLevel=null] ユーザーが指定した目標レベル
+ * @returns {string} "(Lv.XXまで ...)" or "(実レベル:XX)" etc.
  */
-function createLevelInfoString(character, gameParams) {
-  // ← ★★★ここを修正しました★★★
-  const { maxLevel, baseExp } = gameParams;
-  // 累計経験値を計算（既存ロジックと同じ）
+function createLevelInfoString(character, gameParams, targetLevel = null) { // ★ 1. 引数を追加
+  const { maxLevel, baseExp, multipliers } = gameParams;
   const totalCumulativeXp = getTotalXpForLevel(character.level) + character.exp;
 
-  // 最大レベルが取得できなかった場合は何も表示しない
   if (maxLevel === null) {
     return "";
   }
-
-  // --- 分岐ロジック ---
+  
+  // ■ カンスト済みの判定 (これは従来通り)
   if (character.level >= maxLevel) {
-    // ケース1: キャラクターが既にカンストレベルに到達している場合
-    const realLevel = calculateRealLevelFromTotalXp(
-      totalCumulativeXp,
-      character.level
-    );
-    // 実レベルが現在のレベルより高い場合のみ表示
+    const realLevel = calculateRealLevelFromTotalXp(totalCumulativeXp, character.level);
     if (realLevel > character.level) {
       return `(実レベル:${realLevel})`;
     }
-  } else {
-    // ケース2: キャラクターがまだカンストしていない場合
-    const xpForMaxLevel = getTotalXpForLevel(maxLevel);
-    const xpNeeded = xpForMaxLevel - totalCumulativeXp;
-
-    if (xpNeeded <= 0) {
-      // 経験値プールで既にカンストに必要な経験値が溜まっている場合
-      return `(カンスト可能)`;
-    } else {
-      // カンストまでに経験値が足りない場合
-      // 基礎経験値が取得できていれば、シナリオ回数に変換
-      if (baseExp && baseExp > 0) {
-        const scenarioCount = ((xpNeeded / baseExp) * 100).toFixed(1); // 小数点第1位まで
-        return `(Lv.${maxLevel}まで基礎EXPの${scenarioCount}%)`;
-      } else {
-        // 取得できていなければ、従来のEXP表示にフォールバック
-        return `(Lv.${maxLevel}まで${xpNeeded.toLocaleString()} EXP)`;
-      }
-    }
+    // カンストしていて、特に実レベル表示も不要なら何も表示しない
+    // もし目標レベルが指定されていても、既にカンスト済なら無視する
+    return "";
   }
 
-  // 上記のいずれにも当てはまらない場合は何も返さない
-  return "";
+  // ■ 計算目標となるレベルと、表示用テキストを決定する
+  let goalLevel;
+  let goalText;
+
+  // ★ 2. 目標レベルが「有効な値」であるかチェック
+  // - targetLevelが指定されている
+  // - 現在レベルより高い
+  // - ゲームの最大レベル（カンストレベル）以下
+  if (targetLevel && targetLevel > character.level && targetLevel <= maxLevel) {
+    goalLevel = targetLevel;
+    goalText = `Lv.${targetLevel}まで`;
+  } else {
+    // 有効でない、または指定がない場合は、カンストを目標にする
+    goalLevel = maxLevel;
+    goalText = `Lv.${maxLevel}まで`;
+  }
+
+  // ■ 経験値計算ロジック
+  const xpForGoalLevel = getTotalXpForLevel(goalLevel);
+  const xpNeeded = xpForGoalLevel - totalCumulativeXp;
+
+  if (xpNeeded <= 0) {
+    // 既に必要な経験値が溜まっている場合
+    return `(${goalText.replace('まで', '到達可能')})`; // "Lv.30到達可能" のように表示
+  } else {
+    if (!baseExp || baseExp <= 0) {
+      return `(${goalText}${xpNeeded.toLocaleString()} EXP)`;
+    }
+
+    // (傾斜あり/なしの計算部分は、maxLevel を goalLevel に置き換える以外は同じ)
+    const normalScenarioCount = ((xpNeeded / baseExp) * 100).toFixed(1);
+
+    let slopedScenarioCount = normalScenarioCount;
+    if (multipliers && multipliers.length > 0) {
+      const currentMultiplier = multipliers.find(m => character.level <= m.to);
+      if (currentMultiplier && currentMultiplier.exp_ratio) {
+        const ratio = currentMultiplier.exp_ratio / 100;
+        const slopedBaseExp = baseExp * ratio;
+        slopedScenarioCount = ((xpNeeded / slopedBaseExp) * 100).toFixed(1);
+      }
+    }
+    
+    if (slopedScenarioCount === normalScenarioCount) {
+      return `(${goalText} 基礎EXPの${normalScenarioCount}%)`;
+    } else {
+      return `(${goalText} 傾斜有:${slopedScenarioCount}% / 無:${normalScenarioCount}%)`;
+    }
+  }
 }
 
 /**
  * 【高レベル関数】（PC/EXPC判別ロジックを追加）
  * キャラクター情報を取得し、PCかEXPCかによって整形されたサマリ文字列を返します。
  * @param {string} characterId
+ * @param {number|null} [targetLevel=null] - 目標レベル
  * @returns {Promise<string>}
  */
-/**
- * 【高レベル関数】（PC/EXPC判別ロジックを追加）
- * キャラクター情報を取得し、PCかEXPCかによって整形されたサマリ文字列を返します。
- * @param {string} characterId
- * @returns {Promise<string>}
- */
-export async function getCharacterSummary(characterId) {
+export async function getCharacterSummary(characterId, targetLevel = null) {
   try {
     const apiData = await getCharacterDetail(characterId);
 
@@ -209,7 +229,7 @@ export async function getCharacterSummary(characterId) {
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
-      const levelplus = createLevelInfoString(character, gameParams);
+      const levelplus = createLevelInfoString(character, gameParams, targetLevel);
       //levelplusここまで
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
 
@@ -423,11 +443,13 @@ function formatSkillNames(skillArray) {
  * ゲージをなくし、ステータスをグループ化して表示します。
  * @param {string} characterId
  * @param {boolean} [showEquipment=false] - trueの場合、装備品情報を追加で表示する
+ * @param {number|null} [targetLevel=null] - 目標レベル
  * @returns {Promise<string>}
  */
 export async function getCharacterSummaryCompact(
   characterId,
-  showEquipment = false // ★★★ 1. 引数を追加 ★★★
+  showEquipment = false,
+  targetLevel = null // ★★★ 1. 引数を追加 ★★★
 ) {
   try {
     const apiData = await getCharacterDetail(characterId);
@@ -497,7 +519,7 @@ export async function getCharacterSummaryCompact(
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
-      const levelplus = createLevelInfoString(character, gameParams);
+      const levelplus = createLevelInfoString(character, gameParams, targetLevel);
       //levelplusここまで
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
       if (character.sub_status && character.sub_status.length > 0) {

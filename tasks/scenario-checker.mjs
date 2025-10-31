@@ -59,7 +59,7 @@ export async function checkNewScenarios(client) {
         },
       },
       query:
-        "query OpeningList($input: Rev2ScenarioSearchInput!) {\n  rev2OpeningList(input: $input) {\n    ...ScenarioSummary\n    __typename\n  }\n  rev2ScenarioResources {\n    type\n    value\n    __typename\n  }\n}\n\nfragment ScenarioSummary on Rev2ScenarioSummary {\n  id\n  icon_url\n  source_name\n  title\n  catchphrase\n  creator {\n    id\n    penname\n    image_icon_url\n    type\n    __typename\n  }\n  state\n  type\n  is_light\n  time\n  time_type\n  discussion_days\n  current_chapter\n  difficulty\n  current_member_count\n  rally_member_count\n  max_member_count\n  action_type\n  can_use_ex_playing\n  can_use_ticket\n  can_support\n  max_reserver_count_by_player\n  join_conditions\n  reserve_category {\n    ...ScenarioReserveCategory\n    __typename\n  }\n  joining_type\n  join_cost\n  join_cost_type\n  my_priority\n  rally_playing_start\n  rally_playing_end\n  __typename\n}\n\nfragment ScenarioReserveCategory on Rev2ScenarioReserveCategory {\n  id\n  name\n  description\n  max_joinable\n  rp_penalty\n  penalty_start\n  __typename\n}",
+        "query OpeningList($input: Rev2ScenarioSearchInput!) {\n  rev2OpeningList(input: $input) {\n    ...ScenarioSummary\n    __typename\n  }\n  rev2ScenarioResources {\n    type\n    value\n    __typename\n  }\n  rev2ScenarioResourceMultipliers {\n    to\n    exp_ratio\n    cr_ratio\n    __typename\n  }\n}\n\nfragment ScenarioSummary on Rev2ScenarioSummary {\n  id\n  icon_url\n  source_name\n  title\n  catchphrase\n  creator {\n    id\n    penname\n    image_icon_url\n    type\n    __typename\n  }\n  state\n  type\n  is_light\n  time\n  time_type\n  discussion_days\n  current_chapter\n  difficulty\n  current_member_count\n  rally_member_count\n  max_member_count\n  action_type\n  can_use_ex_playing\n  can_use_ticket\n  can_support\n  max_reserver_count_by_player\n  join_conditions\n  reserve_category {\n    ...ScenarioReserveCategory\n    __typename\n  }\n  joining_type\n  join_cost\n  join_cost_type\n  my_priority\n  rally_playing_start\n  rally_playing_end\n  __typename\n}\n\nfragment ScenarioReserveCategory on Rev2ScenarioReserveCategory {\n  id\n  name\n  description\n  max_joinable\n  rp_penalty\n  penalty_start\n  __typename\n}",
     };
 
     // curlの -H に相当するヘッダー
@@ -77,6 +77,9 @@ export async function checkNewScenarios(client) {
     const fetchedScenarios = response.data.data.rev2OpeningList;
     //今のカンストと経験値も取得
     const scenarioResources = response.data.data.rev2ScenarioResources;
+    // ★★★【251101追加】経験値倍率データを取得 ★★★
+    const scenarioMultipliers =
+      response.data.data.rev2ScenarioResourceMultipliers;
 
     if (!fetchedScenarios) {
       console.log("APIからシナリオデータを取得できませんでした。");
@@ -213,6 +216,16 @@ export async function checkNewScenarios(client) {
     const closedScenarioIds = [...dbIds].filter((id) => !fetchedIds.has(id));
     //250922カンストや現在の基本経験値を取る
     const configRecordsToUpsert = [];
+
+    // 251101経験値倍率データをDB保存リストに追加
+    if (scenarioMultipliers && scenarioMultipliers.length > 0) {
+      configRecordsToUpsert.push({
+        key: "rev2_scenario_multipliers",
+        value: scenarioMultipliers, // 配列をそのままJSONとして保存
+        description: "ロスアカのシナリオ経験値・クレジット傾斜",
+      });
+    }
+
     if (scenarioResources && scenarioResources.length > 0) {
       // APIから取得した type と DBに保存する key, description のマッピング
       const keyMap = {
