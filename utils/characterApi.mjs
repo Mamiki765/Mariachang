@@ -97,7 +97,11 @@ async function getGameParameters() {
     const { data, error } = await supabase
       .from("app_config")
       .select("key, value")
-      .in("key", ["rev2_max_level", "rev2_base_exp", "rev2_scenario_multipliers"]);
+      .in("key", [
+        "rev2_max_level",
+        "rev2_base_exp",
+        "rev2_scenario_multipliers",
+      ]);
 
     if (error) {
       console.error("ゲームパラメータの取得に失敗しました:", error);
@@ -129,17 +133,21 @@ async function getGameParameters() {
  * @param {number|null} [targetLevel=null] ユーザーが指定した目標レベル
  * @returns {string} "(Lv.XXまで ...)" or "(実レベル:XX)" etc.
  */
-function createLevelInfoString(character, gameParams, targetLevel = null) { // ★ 1. 引数を追加
+function createLevelInfoString(character, gameParams, targetLevel = null) {
+  // ★ 1. 引数を追加
   const { maxLevel, baseExp, multipliers } = gameParams;
   const totalCumulativeXp = getTotalXpForLevel(character.level) + character.exp;
 
   if (maxLevel === null) {
     return "";
   }
-  
+
   // ■ カンスト済みの判定 (これは従来通り)
   if (character.level >= maxLevel) {
-    const realLevel = calculateRealLevelFromTotalXp(totalCumulativeXp, character.level);
+    const realLevel = calculateRealLevelFromTotalXp(
+      totalCumulativeXp,
+      character.level
+    );
     if (realLevel > character.level) {
       return `(実レベル:${realLevel})`;
     }
@@ -171,25 +179,25 @@ function createLevelInfoString(character, gameParams, targetLevel = null) { // �
 
   if (xpNeeded <= 0) {
     // 既に必要な経験値が溜まっている場合
-    return `(${goalText.replace('まで', '到達可能')})`; // "Lv.30到達可能" のように表示
+    return `(${goalText.replace("まで", "到達可能")})`; // "Lv.30到達可能" のように表示
   } else {
     if (!baseExp || baseExp <= 0) {
       return `(${goalText}${xpNeeded.toLocaleString()} EXP)`;
     }
 
-    // (傾斜あり/なしの計算部分は、maxLevel を goalLevel に置き換える以外は同じ)
+    // 1. 「傾斜なし」の計算は従来通り
     const normalScenarioCount = ((xpNeeded / baseExp) * 100).toFixed(1);
 
-    let slopedScenarioCount = normalScenarioCount;
-    if (multipliers && multipliers.length > 0) {
-      const currentMultiplier = multipliers.find(m => character.level <= m.to);
-      if (currentMultiplier && currentMultiplier.exp_ratio) {
-        const ratio = currentMultiplier.exp_ratio / 100;
-        const slopedBaseExp = baseExp * ratio;
-        slopedScenarioCount = ((xpNeeded / slopedBaseExp) * 100).toFixed(1);
-      }
-    }
-    
+    // 2. 「傾斜あり」の計算を新しい関数に任せる
+    const slopedScenarioCountValue = calculateScenariosWithSlope(
+      character,
+      goalLevel,
+      baseExp,
+      multipliers
+    );
+    const slopedScenarioCount = slopedScenarioCountValue.toFixed(1);
+
+    // 3. 表示の組み立て (ここは変更なし)
     if (slopedScenarioCount === normalScenarioCount) {
       return `(${goalText} 基礎EXPの${normalScenarioCount}%)`;
     } else {
@@ -229,7 +237,11 @@ export async function getCharacterSummary(characterId, targetLevel = null) {
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
-      const levelplus = createLevelInfoString(character, gameParams, targetLevel);
+      const levelplus = createLevelInfoString(
+        character,
+        gameParams,
+        targetLevel
+      );
       //levelplusここまで
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
 
@@ -519,7 +531,11 @@ export async function getCharacterSummaryCompact(
       let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
-      const levelplus = createLevelInfoString(character, gameParams, targetLevel);
+      const levelplus = createLevelInfoString(
+        character,
+        gameParams,
+        targetLevel
+      );
       //levelplusここまで
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
       if (character.sub_status && character.sub_status.length > 0) {
@@ -771,4 +787,59 @@ function createEquipmentSection(character) {
   }
 
   return lines.length > 0 ? lines.join("\n") : "";
+}
+
+/**
+ * 【NEW】傾斜を考慮して、目標レベルまでの必要シナリオ回数を計算する
+ * @param {object} character
+ * @param {number} goalLevel
+ * @param {number} baseExp
+ * @param {Array} multipliers
+ * @returns {number} 必要シナリオ回数（基礎EXP換算の百分率）
+ */
+function calculateScenariosWithSlope(
+  character,
+  goalLevel,
+  baseExp,
+  multipliers
+) {
+  if (!multipliers || multipliers.length === 0) {
+    // 傾斜データがなければ計算不可
+    const xpNeeded =
+      getTotalXpForLevel(goalLevel) -
+      (getTotalXpForLevel(character.level) + character.exp);
+    return (xpNeeded / baseExp) * 100;
+  }
+
+  let totalScenariosNeeded = 0;
+  let currentSimulatedLevel = character.level;
+  let currentExpInLevel = character.exp;
+
+  // 目標レベルに到達するまでループ
+  while (currentSimulatedLevel < goalLevel) {
+    // 1. 現在のレベル帯の倍率を探す
+    const multiplierData = multipliers.find(
+      (m) => currentSimulatedLevel <= m.to
+    ) || { exp_ratio: 100 };
+    const ratio = multiplierData.exp_ratio / 100;
+    const expPerScenario = baseExp * ratio;
+
+    // 2. 次のレベルアップに必要な経験値を計算
+    const expForNextLevel =
+      getTotalXpForLevel(currentSimulatedLevel + 1) -
+      getTotalXpForLevel(currentSimulatedLevel);
+
+    // 3. 現在のレベルで、あとどれだけ経験値が必要か
+    const expNeededInThisLevel = expForNextLevel - currentExpInLevel;
+
+    // 4. このレベルを突破するために必要なシナリオ回数を計算
+    const scenariosForThisLevel = expNeededInThisLevel / expPerScenario;
+    totalScenariosNeeded += scenariosForThisLevel;
+
+    // 5. シミュレーション上のレベルを1つ上げ、次のループの準備をする
+    currentSimulatedLevel++;
+    currentExpInLevel = 0; // 次のレベルからは、経験値0の状態でスタート
+  }
+
+  return totalScenariosNeeded * 100; // 百分率に変換して返す
 }
