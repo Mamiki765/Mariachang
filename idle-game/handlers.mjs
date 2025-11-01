@@ -114,7 +114,7 @@ export async function handleSettings(interaction) {
   // 4. ★★★ LabelBuilderを使ってTP自動割り振り設定を追加 ★★★
   modal.addLabelComponents(
     new LabelBuilder()
-      .setLabel("IU12「自動調理器」の効果")
+      .setLabel("IU12「自動調理器」のTP効果")
       .setDescription(
         "プレステージ時のTP自動割り振りを有効にするか選択します。"
       )
