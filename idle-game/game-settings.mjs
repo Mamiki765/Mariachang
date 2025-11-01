@@ -226,8 +226,8 @@ export default {
           IU12: {
             name: "自動調理器",
             cost: 1,
-            description: "プレステージ時にTPを自動で割り振る。",
-            text: "TP自動配分",
+            description: "プレステージ時にSP,TPを自動で割り振る。",
+            text: "SP,TP自動配分",
           },
           IU13: {
             name: "肉干しレンガ",

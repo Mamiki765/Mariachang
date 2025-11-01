@@ -36,6 +36,8 @@ import {
   LabelBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 
 /**
@@ -77,6 +79,7 @@ export async function handleSettings(interaction) {
   //設定を用意
   const skippedConfirmations = new Set(currentSettings.skipConfirmations || []);
   const isAutoTpEnabled = currentSettings.autoAssignTpEnabled === true;
+  const currentSpPriority = currentSettings.autoAssignSpPriority || "0000";
 
   // 2. モーダルを構築
   const modal = new ModalBuilder()
@@ -136,6 +139,27 @@ export async function handleSettings(interaction) {
       )
   );
 
+  // 4. ★★★ SPスキル自動割り振り設定を追加 ★★★
+  modal.addLabelComponents(
+    new LabelBuilder()
+      .setLabel("IU12「自動調理器」のSPスキル優先度")
+      .setDescription(
+        '"1234"のように#1~#4の優先順を並べてください。"0000"で無効化します。'
+      )
+      .setTextInputComponent(
+        new TextInputBuilder()
+          // customIdは可読性の高いものをおすすめします
+          .setCustomId("auto_sp_priority_input")
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder("例: 1234 (スキル#1を最優先)")
+          // DBから読み込んだ現在の設定値をセット
+          .setValue(currentSpPriority)
+          .setMinLength(4)
+          .setMaxLength(4)
+          .setRequired(true) // 必須入力にする
+      )
+  );
+
   // 5. モーダルを表示
   await interaction.showModal(modal);
 
@@ -152,6 +176,33 @@ export async function handleSettings(interaction) {
       const autoAssignChoice = submitted.fields.getStringSelectValues(
         "auto_tp_assign_select"
       )[0];
+      // IU12SPは厳密に
+      const spPriorityInput = submitted.fields.getTextInputValue(
+        "auto_sp_priority_input"
+      );
+
+      // --- 入力値の検証ロジック ---
+      let isValidSpPriority = false;
+      if (spPriorityInput === "0000") {
+        isValidSpPriority = true; // 無効化はOK
+      } else if (/^[1-4]{4}$/.test(spPriorityInput)) {
+        // "1"から"4"までの数字4桁であるか？
+        const uniqueChars = new Set(spPriorityInput.split(""));
+        if (uniqueChars.size === 4) {
+          // 4つの数字が全てユニークか？
+          isValidSpPriority = true;
+        }
+      }
+
+      if (!isValidSpPriority) {
+        await submitted.reply({
+          content:
+            "❌ SP優先度の入力が正しくありません。\n`0000` または `1234` のように1から4までの数字を重複なく4桁で入力してください。",
+          ephemeral: true,
+        });
+        return; // エラーなので処理を中断
+      }
+      // IU12SPここまで
 
       const newSettings = { ...currentSettings }; // 現在の設定をコピー
       // スキップ登録
@@ -162,6 +213,7 @@ export async function handleSettings(interaction) {
       } else if (autoAssignChoice === "off") {
         newSettings.autoAssignTpEnabled = false;
       }
+      newSettings.autoAssignSpPriority = spPriorityInput;
       // 8. データベースを更新
       await IdleGame.update({ settings: newSettings }, { where: { userId } });
 
@@ -572,7 +624,9 @@ async function executePrestigeTransaction(userId, client) {
         latestIdleGame.challenges
       );
 
-      latestIdleGame.transcendencePoints += gainedTP; //TPだけ先に加算
+      //TP,SPはだけ先に加算
+      latestIdleGame.transcendencePoints += gainedTP;
+      latestIdleGame.skillPoints = newSkillPoints;
 
       // IU12「自動調理器」の処理
       if (
@@ -581,6 +635,17 @@ async function executePrestigeTransaction(userId, client) {
         latestIdleGame.settings?.autoAssignTpEnabled === true
       ) {
         autoAssignTP(latestIdleGame); // オブジェクトが直接変更される
+      }
+      // IU12-2. SP自動割り振り (新規追加)
+      const spPriority = latestIdleGame.settings?.autoAssignSpPriority;
+      if (
+        latestIdleGame.ipUpgrades.upgrades.includes("IU12") &&
+        spPriority &&
+        spPriority !== "0000" &&
+        latestIdleGame.skillPoints > 0
+      ) {
+        // autoAssignSPはlatestIdleGameオブジェクトを直接変更します
+        autoAssignSP(latestIdleGame, spPriority);
       }
 
       // 3. DBに書き込むための「設計図」を作成
@@ -596,9 +661,13 @@ async function executePrestigeTransaction(userId, client) {
         pineappleFarmLevel: 0,
         prestigeCount: latestIdleGame.prestigeCount + 1,
         prestigePower: newPrestigePower,
-        skillPoints: newSkillPoints,
+        skillPoints: latestIdleGame.skillPoints,
         highestPopulation: currentPopulation_d.toString(),
         transcendencePoints: latestIdleGame.transcendencePoints,
+        skillLevel1: latestIdleGame.skillLevel1,
+        skillLevel2: latestIdleGame.skillLevel2,
+        skillLevel3: latestIdleGame.skillLevel3,
+        skillLevel4: latestIdleGame.skillLevel4,
         skillLevel5: latestIdleGame.skillLevel5,
         skillLevel6: latestIdleGame.skillLevel6,
         skillLevel7: latestIdleGame.skillLevel7,
@@ -2213,6 +2282,60 @@ function autoAssignTP(idleGame) {
   }
 
   idleGame.transcendencePoints = availableTP;
+  return idleGame;
+}
+
+/**
+ * IU12の効果。SPをユーザー設定とレベルに基づき自動で割り振る。
+ * @param {object} idleGame - IdleGameのインスタンス (または素のオブジェクト)
+ * @param {string} spPriority - ユーザーが設定した優先順位文字列 (例: "1234")
+ * @returns {object} 更新されたidleGameオブジェクト
+ */
+function autoAssignSP(idleGame, spPriority) {
+  let availableSP = idleGame.skillPoints;
+
+  // 無限ループ防止のためのカウンター
+  const MAX_ITERATIONS = 500;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    // 1. 現在の全SPスキルの状態をリスト化する
+    const skillList = [1, 2, 3, 4].map((skillNum) => {
+      const level = idleGame[`skillLevel${skillNum}`] || 0;
+      return {
+        id: skillNum,
+        level: level,
+        cost: Math.pow(2, level),
+        // spPriority文字列内での登場順（インデックス）を優先度とする
+        priority: spPriority.indexOf(String(skillNum)),
+      };
+    });
+
+    // 2. 購入可能なスキルのみをフィルタリングする
+    const affordableSkills = skillList.filter(
+      (skill) => availableSP >= skill.cost
+    );
+
+    // 3. 購入可能なスキルがなければループを終了
+    if (affordableSkills.length === 0) {
+      break;
+    }
+
+    // 4. 仕様通りにソートして、購入すべき最適なスキルを決定する
+    //    - a.level - b.level => レベルが低い順
+    //    - || a.priority - b.priority => レベルが同じなら、priorityの値が小さい（＝文字列の先頭に近い）順
+    affordableSkills.sort(
+      (a, b) => a.level - b.level || a.priority - b.priority
+    );
+
+    const bestSkillToBuy = affordableSkills[0];
+
+    // 5. 最適なスキルを購入する
+    availableSP -= bestSkillToBuy.cost;
+    idleGame[`skillLevel${bestSkillToBuy.id}`]++;
+  }
+
+  // 6. 残ったSPを反映して返す
+  idleGame.skillPoints = availableSP;
   return idleGame;
 }
 
