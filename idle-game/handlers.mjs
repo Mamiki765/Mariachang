@@ -1469,7 +1469,6 @@ async function executeInfinityTransaction(userId, client) {
  * @param {import("discord.js").InteractionCollector} collector - 親のコレクター
  */
 export async function handleInfinity(interaction, collector) {
-  collector.stop();
   const userId = interaction.user.id;
   const client = interaction.client;
 
@@ -1489,6 +1488,7 @@ export async function handleInfinity(interaction, collector) {
 
     // --- 2. 条件に応じて処理を分岐 ---
     if (!skipConfirmation) {
+      collector.stop();
       // --- 【A】確認を表示するルート ---
       const confirmationRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
