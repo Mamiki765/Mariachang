@@ -1150,24 +1150,21 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
           // mapの第二引数であるconfigオブジェクトをそのまま渡す
           const multiplier = calculateIC9TimeBasedBonus(idleGame, config);
           displayText += ` (現在x${multiplier.toFixed(3)}倍)`;
+        } else if (id === "IU55") {
+          const multiplier =
+            Math.log10((idleGame.infinityCount || 0) + 1) * config.bonusBase +
+            1;
+          displayText += ` (現在x${multiplier.toFixed(3)}倍)`;
+        } else if (id === "IU65") {
+          const multiplier =
+            Math.log10((idleGame.infinityCount || 0) + 1) /
+              config.bonusDivisor +
+            1.0;
+          displayText += ` (現在x${multiplier.toFixed(3)}倍)`;
         } else if (id === "IU63") {
           const bonus =
             1 + Math.log10((idleGame.infinityCount || 0) + 1) * config.bonus;
           displayText += ` (現在x${bonus.toFixed(3)}倍)`;
-        } else if (id === "IU73") {
-          const bestTime = idleGame.challenges?.bestInfinityRealTime;
-          if (bestTime) {
-            // ★IU62の効果もUIに表示
-            const chipsSpent_d = new Decimal(
-              idleGame.chipsSpentThisEternity || "0"
-            );
-            const iu62Multiplier = Math.floor(chipsSpent_d.add(1).log10() + 1);
-
-            const infinitiesPerHour =
-              (1 / (bestTime * config.rateDivisor)) * 3600 * iu62Multiplier;
-
-            displayText += ` (記録: ${formatInfinityTime(bestTime)} | ${formatNumberDynamic(infinitiesPerHour)} ∞/h)`;
-          }
         } else if (id === "IU64") {
           // config変数を直接利用
           const bonus =
@@ -1192,6 +1189,34 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
     embed.addFields({
       name: `\n--- ${config.idle.infinityUpgrades.tiers[0].upgrades.IU11.name} ---`, // Configから名前を取得
       value: `プレステージの度に幻のチップを得て工場を自動強化します。\n**現在Lv.${currentLevel} / 200  | 次回リセット時の予算: ${budget.toLocaleString()}©**`,
+    });
+  }
+
+  //iu73
+  if (purchasedUpgrades.has("IU73")) {
+    const iu73Config = config.idle.infinityUpgrades.tiers[6].upgrades.IU73;
+    const bestTime = idleGame.challenges?.bestInfinityRealTime;
+    let valueText = "まだ自己最速記録がありません。";
+
+    if (bestTime && bestTime > 0) {
+      // ▼▼▼ ここをcalculatorと同じロジックに修正 ▼▼▼
+      const adjustedBestTime =
+        bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
+      // ▲▲▲ ここまで修正 ▲▲▲
+
+      const chipsSpent_d = new Decimal(idleGame.chipsSpentThisEternity || "0");
+      const iu62Multiplier = Math.floor(chipsSpent_d.add(1).log10() + 1);
+      const infinitiesPerHour =
+        (1 / (adjustedBestTime * iu73Config.rateDivisor)) *
+        3600 *
+        iu62Multiplier;
+
+      valueText = `自己最速記録: **${formatInfinityTime(bestTime)}** (min(実時間,max(実時間-0.5),0.3))\n受動的収入: **${formatNumberDynamic(infinitiesPerHour, 2)} ∞/h**`;
+    }
+
+    embed.addFields({
+      name: `\n--- 🔭 ${iu73Config.name} ---`,
+      value: valueText,
     });
   }
 

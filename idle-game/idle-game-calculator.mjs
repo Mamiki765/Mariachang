@@ -365,6 +365,15 @@ function calculateProductionRate(idleGameData, externalData) {
       if (completedChallenges.includes("IC8")) {
         ascensionBaseEffect *= 1.2;
       }
+      // IU65 の効果を適用
+      if (purchasedIUs.has("IU65")) {
+        const iu65Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU65; // Tier 6はindex 5
+        const infinityCount = idleGameData.infinityCount || 0;
+        // 仕様: log10(∞ + 1) / 9 + 1.0
+        const multiplier =
+          Math.log10(infinityCount + 1) / iu65Config.bonusDivisor + 1.0;
+        ascensionBaseEffect *= multiplier;
+      }
     }
     // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
     const ascensionFactor = Math.pow(ascensionBaseEffect, ascensionCount);
@@ -604,8 +613,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       const bestTime = idleGameData.challenges?.bestInfinityRealTime;
       if (bestTime && bestTime > 0) {
         const iu73Config = config.idle.infinityUpgrades.tiers[6].upgrades.IU73;
+        // 実時間より0.5秒短くし、下限を0.3秒とする（実時間が0.3未満を除く)
+        const adjustedBestTime =
+          bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
         // 1秒あたりに獲得できる∞の基本量
-        const baseInfinitiesPerSecond = 1 / (bestTime * iu73Config.rateDivisor);
+        const baseInfinitiesPerSecond =
+          1 / (adjustedBestTime * iu73Config.rateDivisor);
 
         // IU62の効果を適用
         const chipsSpent_d = new Decimal(
@@ -652,7 +665,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     pizzaBonusPercentage =
       ((100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect +
         afterInfinity) *
-      iu43Bouns * iu64Bonus;
+      iu43Bouns *
+      iu64Bonus;
     pizzaBonusPercentage -= 100; //加算分なので最後に100%を引く
   }
 
@@ -1128,6 +1142,14 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   }
   //IU51
   baseIP = baseIP.times(ic9TimeBonus);
+  // IU55の効果を適用
+  if (purchasedIUs.has("IU55")) {
+    const iu55Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU55; // Tier 5はindex 4
+    // 仕様: log10(∞ + 1) * 1.05 + 1
+    const multiplier =
+      Math.log10(newInfinityCount + 1) * iu55Config.bonusBase + 1;
+    baseIP = baseIP.times(multiplier);
+  }
   // (ここに将来的にボーナスなどを追加していく)
 
   // --- 2. ジェネレーターII購入によるIP増加ロジック (ブレイク後) ---
