@@ -95,8 +95,8 @@ export async function handleSettings(interaction) {
         new StringSelectMenuBuilder()
           .setCustomId("skip_confirmations_select")
           .setPlaceholder("スキップしたい確認画面を選択...")
-          .setMaxValues(3) // 3つまで選択可能
-          .setRequired(false)
+          .setMaxValues(4) // 4つまで選択可能
+          .setRequired(false) //これがないと「何もスキップしない」設定ができない
           .addOptions(
             new StringSelectMenuOptionBuilder()
               .setLabel("プレステージ")
@@ -109,7 +109,11 @@ export async function handleSettings(interaction) {
             new StringSelectMenuOptionBuilder()
               .setLabel("インフィニティ")
               .setValue("infinity")
-              .setDefault(skippedConfirmations.has("infinity"))
+              .setDefault(skippedConfirmations.has("infinity")),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("チャレンジ")
+              .setValue("challenge") // challengeという値を設定
+              .setDefault(skippedConfirmations.has("challenge"))
           )
       )
   );
@@ -165,7 +169,12 @@ export async function handleSettings(interaction) {
 
   // 6. ユーザーの送信を待つ
   const submitted = await interaction
-    .awaitModalSubmit({ time: 60_000 })
+    .awaitModalSubmit({
+      time: 60_000,
+      filter: (i) =>
+        i.user.id === interaction.user.id &&
+        i.customId === "idle_settings_modal",
+    })
     .catch(() => null);
 
   if (submitted) {
@@ -1933,156 +1942,214 @@ export async function handleGhostChipUpgrade(interaction) {
 }
 
 /**
- * 【新規】インフィニティチャレンジを開始する
+ * 【新規】インフィニティチャレンジ開始のDB更新処理を実行する内部関数
+ * @param {string} userId
+ * @param {string} challengeId
+ * @param {import("discord.js").Client} client - 実績解除に必要
+ * @returns {Promise<object>} 開始したチャレンジの設定オブジェクト
+ */
+async function executeStartChallengeTransaction(userId, challengeId, client) {
+  const challengeConfig = config.idle.infinityChallenges.find(
+    (c) => c.id === challengeId
+  );
+  if (!challengeConfig) {
+    throw new Error("存在しないチャレンジです。");
+  }
+
+  await sequelize.transaction(async (t) => {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    // 1. まずリセット後の状態を「設計図」として変数に格納する
+    const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
+    const completedChallenges = new Set(idleGame.challenges?.completedChallenges || []);
+    let initialSkillLevel = 0;
+    //ここで一旦チャレンジを更新する
+    const currentChallenges = idleGame.challenges || {};
+    currentChallenges.activeChallenge = challengeId;
+
+    // IC6クリア報酬: 初期スキルレベルを決定
+    if (completedChallenges.has("IC6")) {
+      // チャレンジ開始時はIPが0なので、Lv1で固定するのが妥当
+      initialSkillLevel = 1; 
+    }
+    
+    const oldGenerators = idleGame.ipUpgrades?.generators || [];
+    const newGenerators = Array.from({ length: 8 }, (_, i) => {
+      const oldGen = oldGenerators[i] || { bought: 0 };
+      return { amount: String(oldGen.bought), bought: oldGen.bought };
+    });
+    const newIpUpgrades = {
+      ...(idleGame.ipUpgrades || {}),
+      generators: newGenerators,
+    };
+
+    let updateData = {
+      population: "0",
+      highestPopulation: "0",
+      pizzaOvenLevel: 0,
+      cheeseFactoryLevel: 0,
+      tomatoFarmLevel: 0,
+      mushroomFarmLevel: 0,
+      anchovyFactoryLevel: 0,
+      oliveFarmLevel: 0,
+      wheatFarmLevel: 0,
+      pineappleFarmLevel: 0,
+      ascensionCount: 0,
+      prestigeCount: 0,
+      prestigePower: 0,
+      skillPoints: 0,
+      skillLevel1: initialSkillLevel,
+      skillLevel2: initialSkillLevel,
+      skillLevel3: initialSkillLevel,
+      skillLevel4: initialSkillLevel,
+      transcendencePoints: 0,
+      skillLevel5: 0,
+      skillLevel6: 0,
+      skillLevel7: 0,
+      skillLevel8: 0,
+      infinityTime: 0,
+      chipsSpentThisInfinity: "0",
+      generatorPower: "1",
+      ipUpgrades: newIpUpgrades,
+      buffMultiplier: 2.0,
+      lastUpdatedAt: new Date(), // lastUpdatedAtは一旦ここで設定
+      challenges: currentChallenges, // challengesも一旦設定
+    };
+    
+    // 2. IU44/IU11「ゴーストチップ」の効果を適用する
+    //    ★ IC9挑戦中は上位3施設が購入不可になるロジックが `calculateFacilityCost` に
+    //       組み込まれているため、`applyGhostChipBonus` をそのまま呼び出すだけでOK
+    if (purchasedIUs.has("IU44") || purchasedIUs.has("IU11")) {
+      const currentGhostLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
+      // applyGhostChipBonusはシミュレーション用のidleGameStateを引数に取る
+      // updateDataは素のJSオブジェクトなので、そのまま渡せる
+      updateData = await applyGhostChipBonus(updateData, userId, currentGhostLevel);
+    }
+
+    // 3. IU54「ゴーストアセンション」の効果を適用する
+    //    ★ IC7, IC8ではアセンションのルールが変わるため、現在のチャレンジIDを渡す必要がある
+    if (purchasedIUs.has("IU54") && challengeId !== "IC7" && challengeId !== "IC8") {
+        const currentGhostLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
+        const budget = calculateGhostChipBudget(currentGhostLevel);
+        
+        // シミュレーション用のオブジェクトを準備
+        const simIdleGame = { ...updateData, challenges: { activeChallenge: challengeId } };
+        const { ascensions } = simulateGhostAscension(budget, simIdleGame);
+        updateData.ascensionCount += ascensions;
+    }
+    
+    // 4. IC6,9のタイムスタンプを最後に更新する
+    if (challengeId === "IC6" || challengeId === "IC9") {
+        currentChallenges[challengeId] = {
+            ...currentChallenges[challengeId],
+            startTime: new Date().toISOString(),
+        };
+    }
+    updateData.challenges = currentChallenges;
+    idleGame.changed("challenges", true); //念の為
+    updateData.lastUpdatedAt = new Date(); // 処理の最後にタイムスタンプを再設定
+
+    // ▲▲▲ 新しいロジックはここまで ▲▲▲
+
+    await idleGame.update(updateData, { transaction: t });
+  });
+
+  return challengeConfig;
+}
+
+/**
+ * 【改訂版】インフィニティチャレンジを開始する司令塔関数
  * @param {import("discord.js").ButtonInteraction} interaction
  * @param {import("discord.js").InteractionCollector} collector
  * @param {string} challengeId - 開始するチャレンジのID
  * @returns {Promise<boolean>} UI更新が必要な場合はtrue
  */
-export async function handleStartChallenge(
-  interaction,
-  collector,
-  challengeId
-) {
-  collector.stop();
+export async function handleStartChallenge(interaction, collector, challengeId) {
+  const userId = interaction.user.id;
+  const client = interaction.client;
 
-  const challengeConfig = config.idle.infinityChallenges.find(
-    (c) => c.id === challengeId
-  );
-  if (!challengeConfig) {
-    await interaction.followUp({
-      content: "存在しないチャレンジです。",
-      ephemeral: true,
-    });
-    return false;
-  }
+  // 1. ユーザーの設定を読み込む
+  const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+  const skipConfirmation = latestIdleGame.settings?.skipConfirmations?.includes("challenge") || false;
 
-  const confirmationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`confirm_start_${challengeId}`)
-      .setLabel("はい、開始します")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId("cancel_challenge")
-      .setLabel("いいえ")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  const confirmationMessage = await interaction.followUp({
-    content: `### ⚔️ **${challengeConfig.name}** を開始しますか？\n**縛り:** ${challengeConfig.description}\n\n⚠️ **警告:** 現在の進行は全て失われ、強制的にインフィニティリセットが実行されます。この操作は取り消せません！`,
-    components: [confirmationRow],
-    ephemeral: true,
-    fetchReply: true,
-  });
-
-  try {
-    const confirmationInteraction =
-      await confirmationMessage.awaitMessageComponent({
-        // ▼▼▼ 修正点1: フィルター条件を修正 ▼▼▼
-        filter: (i) =>
-          i.user.id === interaction.user.id &&
-          (i.customId === `confirm_start_${challengeId}` ||
-            i.customId === "cancel_challenge"),
-        time: 60_000,
+  if (skipConfirmation) {
+    // --- 【A】確認をスキップするルート ---
+    try {
+      const challengeConfig = await executeStartChallengeTransaction(userId, challengeId, client);
+      await interaction.followUp({
+        content: `✅ **${challengeConfig.name}** を即時開始しました。`,
+        ephemeral: true,
       });
-
-    if (confirmationInteraction.customId === "cancel_challenge") {
-      await confirmationInteraction.update({
-        content: "チャレンジ開始をキャンセルしました。",
-        components: [],
+      // ★UIの再描画が必要なことを呼び出し元に伝える
+      return true; 
+    } catch (error) {
+      console.error("Challenge Start (skip confirmation) Error:", error);
+      await interaction.followUp({
+        content: `❌ チャレンジ開始中にエラーが発生しました: ${error.message}`,
+        ephemeral: true,
       });
       return false;
     }
+  } else {
+    // --- 【B】従来通りの確認ルート ---
+    collector.stop();
 
-    await confirmationInteraction.deferUpdate();
+    const challengeConfig = config.idle.infinityChallenges.find((c) => c.id === challengeId);
+    if (!challengeConfig) {
+      // 念のため
+      await interaction.followUp({ content: "存在しないチャレンジです。", ephemeral: true });
+      return false;
+    }
 
-    await sequelize.transaction(async (t) => {
-      const idleGame = await IdleGame.findOne({
-        where: { userId: interaction.user.id },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
+    const confirmationRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`confirm_start_${challengeId}`)
+        .setLabel("はい、開始します")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("cancel_challenge")
+        .setLabel("いいえ")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    const confirmationMessage = await interaction.followUp({
+      content: `### ⚔️ **${challengeConfig.name}** を開始しますか？\n**縛り:** ${challengeConfig.description}\n\n⚠️ **警告:** 現在の進行は全て失われ、強制的にインフィニティリセットが実行されます。この操作は取り消せません！`,
+      components: [confirmationRow],
+      ephemeral: true,
+      fetchReply: true,
+    });
+
+    try {
+      const confirmationInteraction = await confirmationMessage.awaitMessageComponent({
+        filter: (i) => i.user.id === userId,
+        time: 60_000,
       });
 
-      const currentChallenges = idleGame.challenges || {};
-      currentChallenges.activeChallenge = challengeId;
-      if (challengeId === "IC6") {
-        currentChallenges.IC6 = {
-          startTime: new Date().toISOString(),
-        };
+      if (confirmationInteraction.customId === "cancel_challenge") {
+        await confirmationInteraction.update({ content: "チャレンジ開始をキャンセルしました。", components: [] });
+        return false;
       }
-      if (challengeId === "IC9") {
-        //9は再プレイに備えて開始時間（現実）と以前のデータを入れる
-        currentChallenges.IC9 = {
-          ...currentChallenges.IC9,
-          startTime: new Date().toISOString(),
-        };
-      }
-      idleGame.changed("challenges", true);
 
-      // ▼▼▼ 修正点2: newIpUpgradesの定義を追加 ▼▼▼
-      const oldGenerators = idleGame.ipUpgrades?.generators || [];
-      const newGenerators = Array.from({ length: 8 }, (_, i) => {
-        const oldGen = oldGenerators[i] || { bought: 0 };
-        return {
-          amount: String(oldGen.bought),
-          bought: oldGen.bought,
-        };
+      await confirmationInteraction.deferUpdate();
+      // ★分離した実行処理を呼び出す
+      await executeStartChallengeTransaction(userId, challengeId, client);
+
+      await confirmationInteraction.editReply({
+        content: `**${challengeConfig.name}** を開始しました。健闘を祈ります！`,
+        components: [],
       });
-      const newIpUpgrades = {
-        ...(idleGame.ipUpgrades || {}),
-        generators: newGenerators,
-      };
-      // ▲▲▲ ここまで追加 ▲▲▲
-
-      await idleGame.update(
-        {
-          population: "0",
-          highestPopulation: "0",
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          oliveFarmLevel: 0,
-          wheatFarmLevel: 0,
-          pineappleFarmLevel: 0,
-          ascensionCount: 0,
-          prestigeCount: 0,
-          prestigePower: 0,
-          skillPoints: 0,
-          skillLevel1: 0,
-          skillLevel2: 0,
-          skillLevel3: 0,
-          skillLevel4: 0,
-          transcendencePoints: 0,
-          skillLevel5: 0,
-          skillLevel6: 0,
-          skillLevel7: 0,
-          skillLevel8: 0,
-          infinityTime: 0,
-          chipsSpentThisInfinity: "0",
-          generatorPower: "1",
-          ipUpgrades: newIpUpgrades,
-          buffMultiplier: 2.0,
-          challenges: currentChallenges,
-          lastUpdatedAt: new Date(),
-        },
-        { transaction: t }
-      );
-    });
-
-    await confirmationInteraction.editReply({
-      content: `**${challengeConfig.name}** を開始しました。健闘を祈ります！`,
-      components: [],
-    });
-    return true;
-  } catch (error) {
-    console.error("Challenge Start Error:", error);
-    await interaction.editReply({
-      content:
-        "タイムアウトまたは内部エラーにより、チャレンジ開始はキャンセルされました。",
-      components: [],
-    });
+    } catch (error) {
+      console.error("Challenge Start Error:", error);
+      await interaction.editReply({
+        content: "タイムアウトまたは内部エラーにより、チャレンジ開始はキャンセルされました。",
+        components: [],
+      });
+    }
+    // このルートはUI更新が不要なためfalseを返す
     return false;
   }
 }

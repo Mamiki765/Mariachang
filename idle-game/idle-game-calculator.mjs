@@ -1512,21 +1512,30 @@ export function calculateIC9TimeBasedBonus(idleGame, iuConfig) {
   if (!bestTime || bestTime === Infinity) {
     return 1.0;
   }
+  // --- タイムがbaseTime（60秒）より「遅い」場合（既存の減衰ロジック） ---
+  if (bestTime > iuConfig.baseTime) {
+    // 時間が何回「倍」になったかを計算 (例: 120秒なら1回, 240秒なら2回)
+    const doublings = Math.log2(bestTime / iuConfig.baseTime);
+    // 仕様通り、倍化回数分だけ最大倍率から引く
+    const multiplier = iuConfig.max - doublings;
+    // 最低倍率を下回らないようにする
+    return Math.max(iuConfig.min, multiplier);
+  } else {
+    // --- タイムがbaseTime（60秒）と「同じか、より速い」場合 ---
+    // 60秒からどれだけ速く「半分」になったかを計算
+    // 例: 30秒なら1回, 15秒なら2回
+    // bestTime / iuConfig.baseTime は (0, 1] の範囲の値になる
+    // そのlog2を取ると、値は (-∞, 0] になる
+    // 正の値にしたいので、逆数 (baseTime / bestTime) を使う
+    const calBestTime = bestTime <= 0.01 ? 0.01 : bestTime;
+    const halvings = Math.log2(iuConfig.baseTime / calBestTime);
 
-  // 最速タイム (baseTime以内) の場合、最大倍率
-  if (bestTime <= iuConfig.baseTime) {
-    return iuConfig.max;
+    // 仕様「タイムが半分になるごとに+1倍」を実装
+    const multiplier = iuConfig.max + halvings;
+
+    // この場合、上限は設定せず、計算結果をそのまま返す
+    return multiplier;
   }
-
-  // それ以降の場合、対数（log）を使って「時間の倍化回数」を計算
-  const timeRatio = bestTime / iuConfig.baseTime;
-  const doublings = Math.log2(timeRatio);
-
-  const reduction = doublings;
-  // 最大倍率から、倍化回数分だけ引く
-  const multiplier = iuConfig.max - reduction;
-  // 計算結果が最低倍率を下回らないようにする
-  return Math.max(iuConfig.min, multiplier);
 }
 
 /**

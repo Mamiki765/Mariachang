@@ -129,7 +129,9 @@ export async function execute(interaction) {
     const submitted = await interaction
       .awaitModalSubmit({
         time: 300_000,
-        filter: (i) => i.user.id === interaction.user.id,
+        filter: (i) =>
+          i.user.id === interaction.user.id &&
+          i.customId === "bank_transaction_modal",
       })
       .catch(() => null);
 

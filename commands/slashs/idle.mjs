@@ -610,9 +610,12 @@ export async function execute(interaction) {
           "idle_start_challenge_".length
         );
         success = await handleStartChallenge(i, collector, challengeId);
-        // handleStartChallengeは内部でcollectorを止めるので、
-        // 戻り値に関わらずここで処理を終了するのが安全です。
-        if (!success) return;
+        if (!success) {
+          return;
+        } else {
+          currentView = "factory";//工場画面に
+          viewChanged = true;
+        }
       } else if (i.customId === "idle_abort_challenge") {
         //ICキャンセル
         success = await handleAbortChallenge(i);

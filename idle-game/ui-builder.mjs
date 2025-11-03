@@ -6,7 +6,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
-import { IdleGame, sequelize } from "../models/database.mjs";
+import { IdleGame} from "../models/database.mjs";
 import { Op } from "sequelize";
 import config from "../config.mjs"; // config.jsにゲーム設定を追加する
 
@@ -1211,7 +1211,7 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
         3600 *
         iu62Multiplier;
 
-      valueText = `自己最速記録: **${formatInfinityTime(bestTime)}** (min(実時間,max(実時間-0.5),0.3))\n受動的収入: **${formatNumberDynamic(infinitiesPerHour, 2)} ∞/h**`;
+      valueText = `自己最速記録: **${formatInfinityTime(bestTime)}** (min(${formatInfinityTime(bestTime)},max(${formatInfinityTime(adjustedBestTime)},0.3秒))\n受動的収入: **${formatNumberDynamic(infinitiesPerHour, 2)} ∞/h**(現実時間)`;
     }
 
     embed.addFields({
