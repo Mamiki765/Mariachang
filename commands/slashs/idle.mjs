@@ -3,7 +3,10 @@ import Decimal from "break_infinity.js";
 import { SlashCommandBuilder } from "discord.js";
 import { Point, IdleGame, sequelize } from "../../models/database.mjs";
 import config from "../../config.mjs"; // config.jsにゲーム設定を追加する
-import { unlockAchievements } from "../../utils/achievements.mjs";
+import {
+  unlockAchievements,
+  unlockHiddenAchievements,
+} from "../../utils/achievements.mjs";
 
 //idlegameイベント群
 import {
@@ -197,6 +200,7 @@ export async function execute(interaction) {
     const ip_d = new Decimal(idleGame.infinityPoints || "0");
     const inf_count = idleGame.infinityCount || 0;
     const power = uiData.displayData.meatEffect || 0;
+    const bestTime = idleGame.challenges?.bestInfinityRealTime || Infinity;
     const populationChecks = [
       { id: 0, condition: true }, // 「ようこそ」は常にチェック
       { id: 3, condition: population_d.gte(100) },
@@ -221,6 +225,7 @@ export async function execute(interaction) {
       { id: 90, condition: population_d.gte("1e400") },
       { id: 105, condition: population_d.gte("1e1000") },
       { id: 106, condition: population_d.gte("1e3080") },
+      { id: 122, condition: population_d.gte("1e6160") },
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -249,6 +254,11 @@ export async function execute(interaction) {
         condition:
           BigInt(idleGame.chipsSpentThisEternity || "0") >= 2147483647n, // 21億4748万3647
       },
+      {
+        id: 128,
+        condition:
+          BigInt(idleGame.chipsSpentThisEternity || "0") >= 10000000000n,
+      },
       //チップ倍率
       { id: 67, condition: idleGame.pizzaBonusPercentage >= 518 },
       { id: 68, condition: idleGame.pizzaBonusPercentage >= 815 },
@@ -256,24 +266,41 @@ export async function execute(interaction) {
       { id: 107, condition: idleGame.pizzaBonusPercentage >= 10000 },
       { id: 108, condition: idleGame.pizzaBonusPercentage >= 65535 },
       { id: 109, condition: idleGame.pizzaBonusPercentage >= 100000 },
+      { id: 123, condition: idleGame.pizzaBonusPercentage >= 300000 },
+      { id: 124, condition: idleGame.pizzaBonusPercentage >= 777777 },
+      //GP
       { id: 94, condition: gp_d.gte(1000) },
       { id: 95, condition: gp_d.gte("1e9") },
+      { id: 126, condition: gp_d.gte("1e30") },
+      { id: 127, condition: gp_d.gte("1e60") },
+      //IP
       { id: 96, condition: ip_d.gte(256) },
       { id: 97, condition: ip_d.gte(1000) },
       { id: 98, condition: ip_d.gte("1e6") },
+      { id: 125, condition: ip_d.gte("1e15") },
       { id: 99, condition: inf_count >= 256 },
       { id: 100, condition: inf_count >= 2048 },
+      { id: 120, condition: inf_count >= 32768 },
+      { id: 121, condition: inf_count >= 1000000 },
       //meat
       { id: 110, condition: power >= 2 },
       { id: 111, condition: power >= 5 },
       { id: 112, condition: power >= 10 },
       { id: 113, condition: power >= 12 },
+      // -- Infinity Time Attack --
+      { id: 117, condition: bestTime <= 300 }, // 5分
+      { id: 118, condition: bestTime <= 30 }, // 30秒
+      { id: 119, condition: bestTime <= 0.8 }, // 0.8秒
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks
       .filter((p) => p.condition)
       .map((p) => p.id);
     await unlockAchievements(interaction.client, userId, ...idsToCheck);
+    //#i11はここで
+    if (bestTime < 0.295) {
+      await unlockHiddenAchievements(interaction.client, userId, 11);
+    }
     //人口系実績ここまで
 
     // 実績#78のチェック処理
@@ -613,7 +640,7 @@ export async function execute(interaction) {
         if (!success) {
           return;
         } else {
-          currentView = "factory";//工場画面に
+          currentView = "factory"; //工場画面に
           viewChanged = true;
         }
       } else if (i.customId === "idle_abort_challenge") {

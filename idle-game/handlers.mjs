@@ -1258,6 +1258,7 @@ export async function handleAscension(interaction) {
  * @returns {Promise<object>} インフィニティの結果オブジェクト
  */
 async function executeInfinityTransaction(userId, client) {
+  const infinityDate = new Date(); //真っ先に現在時間を取り少しでも早く
   let gainedIP = new Decimal(0);
   let isFirstInfinity = false;
   let newInfinityCount = 0;
@@ -1282,27 +1283,6 @@ async function executeInfinityTransaction(userId, client) {
     infinityPopulation_d = new Decimal(latestIdleGame.population);
     activeChallenge = latestIdleGame.challenges?.activeChallenge;
     const currentChallenges = latestIdleGame.challenges || {};
-
-    //IU73 最速infinity記録
-    if (latestIdleGame.ipUpgrades.upgrades.includes("IU73")) {
-      const startTime = currentChallenges.currentInfinityStartTime;
-      if (startTime) {
-        // 1. 現実時間の経過を秒単位で計算
-        const durationInSeconds =
-          (new Date().getTime() - new Date(startTime).getTime()) / 1000;
-
-        // 2. 既存のベストタイムを取得（なければ無限大）
-        const bestTime = currentChallenges.bestInfinityRealTime || Infinity;
-
-        // 3. 自己ベストを更新していたら記録
-        if (durationInSeconds < bestTime) {
-          currentChallenges.bestInfinityRealTime = durationInSeconds;
-        }
-      }
-      // 4. ★重要：次の周回のための新しいスタート時間を記録
-      currentChallenges.currentInfinityStartTime = new Date().toISOString();
-      latestIdleGame.changed("challenges", true);
-    }
 
     //チャレンジ成功処理
     if (activeChallenge) {
@@ -1329,7 +1309,7 @@ async function executeInfinityTransaction(userId, client) {
           // 1. チャレンジ開始時の現実時間を取得
           const startTime = new Date(currentChallenges.IC9.startTime);
           // 2. 現在の現実時間を取得
-          const endTime = new Date();
+          const endTime = infinityDate;
           // 3. 差を計算して、秒単位に変換
           const completionTimeInSeconds =
             (endTime.getTime() - startTime.getTime()) / 1000;
@@ -1338,6 +1318,14 @@ async function executeInfinityTransaction(userId, client) {
             currentChallenges.IC9.bestTime = completionTimeInSeconds;
           }
           delete currentChallenges.IC9.startTime;
+
+          // ★IC9 RTA実績のチェック
+          if (completionTimeInSeconds <= 60)
+            await unlockAchievements(client, userId, 114); // 1分以内
+          if (completionTimeInSeconds <= 30)
+            await unlockAchievements(client, userId, 115); // 30秒以内
+          if (completionTimeInSeconds <= 3)
+            await unlockAchievements(client, userId, 116); // 3秒以内
         }
       }
       // 成功・失敗に関わらず、アクティブなチャレンジはリセット
@@ -1393,6 +1381,27 @@ async function executeInfinityTransaction(userId, client) {
       generators: newGenerators,
     };
     latestIdleGame.changed("ipUpgrades", true);
+
+    //IU73 最速infinity記録
+    if (latestIdleGame.ipUpgrades.upgrades.includes("IU73")) {
+      const startTime = currentChallenges.currentInfinityStartTime;
+      if (startTime) {
+        // 1. 現実時間の経過を秒単位で計算
+        const durationInSeconds =
+          (infinityDate.getTime() - new Date(startTime).getTime()) / 1000;
+
+        // 2. 既存のベストタイムを取得（なければ無限大）
+        const bestTime = currentChallenges.bestInfinityRealTime || Infinity;
+
+        // 3. 自己ベストを更新していたら記録
+        if (durationInSeconds < bestTime) {
+          currentChallenges.bestInfinityRealTime = durationInSeconds <= 0 ? 0.01 : durationInSeconds;
+        }
+      }
+      // 4. ★重要：次の周回のための新しいスタート時間を記録
+      currentChallenges.currentInfinityStartTime = new Date().toISOString();
+      latestIdleGame.changed("challenges", true);
+    }
 
     // 1. まずリセット後の状態を「設計図」として変数に格納する
     let updateData = {
@@ -1754,6 +1763,10 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
     if (generatorId === 4 && newBoughtCount === 1) {
       await unlockAchievements(interaction.client, userId, 101);
     }
+    //  #129:クレイジージェネレーター
+    if (generatorId === 8 && newBoughtCount === 1) {
+      await unlockAchievements(interaction.client, userId, 129);
+    }
     // #82: 放置は革命だ (いずれかのジェネレーターを初めて購入)
     // 全ジェネレーターの合計購入数を計算
     const totalBought = latestIdleGame.ipUpgrades.generators.reduce(
@@ -1965,7 +1978,9 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
 
     // 1. まずリセット後の状態を「設計図」として変数に格納する
     const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
-    const completedChallenges = new Set(idleGame.challenges?.completedChallenges || []);
+    const completedChallenges = new Set(
+      idleGame.challenges?.completedChallenges || []
+    );
     let initialSkillLevel = 0;
     //ここで一旦チャレンジを更新する
     const currentChallenges = idleGame.challenges || {};
@@ -1974,9 +1989,9 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
     // IC6クリア報酬: 初期スキルレベルを決定
     if (completedChallenges.has("IC6")) {
       // チャレンジ開始時はIPが0なので、Lv1で固定するのが妥当
-      initialSkillLevel = 1; 
+      initialSkillLevel = 1;
     }
-    
+
     const oldGenerators = idleGame.ipUpgrades?.generators || [];
     const newGenerators = Array.from({ length: 8 }, (_, i) => {
       const oldGen = oldGenerators[i] || { bought: 0 };
@@ -2019,7 +2034,7 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
       lastUpdatedAt: new Date(), // lastUpdatedAtは一旦ここで設定
       challenges: currentChallenges, // challengesも一旦設定
     };
-    
+
     // 2. IU44/IU11「ゴーストチップ」の効果を適用する
     //    ★ IC9挑戦中は上位3施設が購入不可になるロジックが `calculateFacilityCost` に
     //       組み込まれているため、`applyGhostChipBonus` をそのまま呼び出すだけでOK
@@ -2027,27 +2042,38 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
       const currentGhostLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
       // applyGhostChipBonusはシミュレーション用のidleGameStateを引数に取る
       // updateDataは素のJSオブジェクトなので、そのまま渡せる
-      updateData = await applyGhostChipBonus(updateData, userId, currentGhostLevel);
+      updateData = await applyGhostChipBonus(
+        updateData,
+        userId,
+        currentGhostLevel
+      );
     }
 
     // 3. IU54「ゴーストアセンション」の効果を適用する
     //    ★ IC7, IC8ではアセンションのルールが変わるため、現在のチャレンジIDを渡す必要がある
-    if (purchasedIUs.has("IU54") && challengeId !== "IC7" && challengeId !== "IC8") {
-        const currentGhostLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
-        const budget = calculateGhostChipBudget(currentGhostLevel);
-        
-        // シミュレーション用のオブジェクトを準備
-        const simIdleGame = { ...updateData, challenges: { activeChallenge: challengeId } };
-        const { ascensions } = simulateGhostAscension(budget, simIdleGame);
-        updateData.ascensionCount += ascensions;
+    if (
+      purchasedIUs.has("IU54") &&
+      challengeId !== "IC7" &&
+      challengeId !== "IC8"
+    ) {
+      const currentGhostLevel = idleGame.ipUpgrades?.ghostChipLevel || 0;
+      const budget = calculateGhostChipBudget(currentGhostLevel);
+
+      // シミュレーション用のオブジェクトを準備
+      const simIdleGame = {
+        ...updateData,
+        challenges: { activeChallenge: challengeId },
+      };
+      const { ascensions } = simulateGhostAscension(budget, simIdleGame);
+      updateData.ascensionCount += ascensions;
     }
-    
+
     // 4. IC6,9のタイムスタンプを最後に更新する
     if (challengeId === "IC6" || challengeId === "IC9") {
-        currentChallenges[challengeId] = {
-            ...currentChallenges[challengeId],
-            startTime: new Date().toISOString(),
-        };
+      currentChallenges[challengeId] = {
+        ...currentChallenges[challengeId],
+        startTime: new Date().toISOString(),
+      };
     }
     updateData.challenges = currentChallenges;
     idleGame.changed("challenges", true); //念の為
@@ -2068,24 +2094,33 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
  * @param {string} challengeId - 開始するチャレンジのID
  * @returns {Promise<boolean>} UI更新が必要な場合はtrue
  */
-export async function handleStartChallenge(interaction, collector, challengeId) {
+export async function handleStartChallenge(
+  interaction,
+  collector,
+  challengeId
+) {
   const userId = interaction.user.id;
   const client = interaction.client;
 
   // 1. ユーザーの設定を読み込む
   const latestIdleGame = await IdleGame.findOne({ where: { userId } });
-  const skipConfirmation = latestIdleGame.settings?.skipConfirmations?.includes("challenge") || false;
+  const skipConfirmation =
+    latestIdleGame.settings?.skipConfirmations?.includes("challenge") || false;
 
   if (skipConfirmation) {
     // --- 【A】確認をスキップするルート ---
     try {
-      const challengeConfig = await executeStartChallengeTransaction(userId, challengeId, client);
+      const challengeConfig = await executeStartChallengeTransaction(
+        userId,
+        challengeId,
+        client
+      );
       await interaction.followUp({
         content: `✅ **${challengeConfig.name}** を即時開始しました。`,
         ephemeral: true,
       });
       // ★UIの再描画が必要なことを呼び出し元に伝える
-      return true; 
+      return true;
     } catch (error) {
       console.error("Challenge Start (skip confirmation) Error:", error);
       await interaction.followUp({
@@ -2098,10 +2133,15 @@ export async function handleStartChallenge(interaction, collector, challengeId) 
     // --- 【B】従来通りの確認ルート ---
     collector.stop();
 
-    const challengeConfig = config.idle.infinityChallenges.find((c) => c.id === challengeId);
+    const challengeConfig = config.idle.infinityChallenges.find(
+      (c) => c.id === challengeId
+    );
     if (!challengeConfig) {
       // 念のため
-      await interaction.followUp({ content: "存在しないチャレンジです。", ephemeral: true });
+      await interaction.followUp({
+        content: "存在しないチャレンジです。",
+        ephemeral: true,
+      });
       return false;
     }
 
@@ -2124,13 +2164,17 @@ export async function handleStartChallenge(interaction, collector, challengeId) 
     });
 
     try {
-      const confirmationInteraction = await confirmationMessage.awaitMessageComponent({
-        filter: (i) => i.user.id === userId,
-        time: 60_000,
-      });
+      const confirmationInteraction =
+        await confirmationMessage.awaitMessageComponent({
+          filter: (i) => i.user.id === userId,
+          time: 60_000,
+        });
 
       if (confirmationInteraction.customId === "cancel_challenge") {
-        await confirmationInteraction.update({ content: "チャレンジ開始をキャンセルしました。", components: [] });
+        await confirmationInteraction.update({
+          content: "チャレンジ開始をキャンセルしました。",
+          components: [],
+        });
         return false;
       }
 
@@ -2145,7 +2189,8 @@ export async function handleStartChallenge(interaction, collector, challengeId) 
     } catch (error) {
       console.error("Challenge Start Error:", error);
       await interaction.editReply({
-        content: "タイムアウトまたは内部エラーにより、チャレンジ開始はキャンセルされました。",
+        content:
+          "タイムアウトまたは内部エラーにより、チャレンジ開始はキャンセルされました。",
         components: [],
       });
     }
