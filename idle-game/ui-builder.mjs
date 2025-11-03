@@ -6,7 +6,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
-import { IdleGame} from "../models/database.mjs";
+import { IdleGame } from "../models/database.mjs";
 import { Op } from "sequelize";
 import config from "../config.mjs"; // config.jsにゲーム設定を追加する
 
@@ -235,6 +235,15 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   let ascensionText = "";
   if (ascensionCount > 0) {
     ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
+    if (population_d.lt(config.idle.infinity)) {
+      const population_log10 = population_d.log10();
+      const infinity_milestone_d = new Decimal(config.idle.infinity);
+      const infinity_log10 = infinity_milestone_d.log10();
+      // 対数ベースで進捗率（%）を計算
+      // (現在の桁数 / 目標の桁数) * 100
+      const progress_percentage = (population_log10 / infinity_log10) * 100;
+      ascensionText += ` 無限への進捗度:${progress_percentage.toFixed(2)}%`;
+    }
   }
   if (idleGame.prestigeCount > 0 || idleGame.infinityCount > 0) {
     descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
