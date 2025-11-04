@@ -599,15 +599,26 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       const activeChallenge = idleGameData.challenges?.activeChallenge;
       // IC9挑戦中は稼働施設が5つになるため、GPの指数が 4.0 (8*0.5) -> 2.5 (5*0.5) に弱体化する。
       const baseGpExponent = getFinalGpExponent(idleGameData);
-      const gpPower =
-        activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
       // 1. オフライン期間「開始時」のGPの効果を計算
-      const initialGpEffect_d = initial_gp_d.pow(gpPower).max(1);
+      const initialSingleFactoryMult_d = initial_gp_d.pow(baseGpExponent);
       // 2. ジェネレーター生産後の「終了時」のGPの効果を計算
-      const finalGpEffect_d = gp_d.pow(gpPower).max(1);
+      const finalSingleFactoryMult_d = gp_d.pow(baseGpExponent);
       // 3. 開始時と終了時の効果の「平均効果」を算出する
       //    これにより、GPが線形的に増加したと仮定した場合の、より正確な人口増加量を求められる
-      const averageGpEffect_d = initialGpEffect_d.add(finalGpEffect_d).div(2);
+      let averageSingleFactoryMult_d = initialSingleFactoryMult_d
+        .add(finalSingleFactoryMult_d)
+        .div(2);
+      //ソフトキャップをかける
+      averageSingleFactoryMult_d = applyGpMultSoftcaps(
+        averageSingleFactoryMult_d
+      );
+      const factoryCount = activeChallenge === "IC9" ? 5 : 8;
+      const meatEffect = calculateFinalMeatEffect(idleGameData, externalData);
+      //工場の数だけ指数をかける。あと精肉施設かけてなかったド阿呆なのでここでかける
+      const averageGpEffect_d = averageSingleFactoryMult_d
+        .pow(factoryCount)
+        .pow(meatEffect)
+        .max(1);
       // 4. ベース生産量に、この「平均効果」を乗算する
       finalProductionPerMinute_d =
         productionPerMinute_d.times(averageGpEffect_d);
@@ -899,13 +910,22 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
 
   // --- 5. UI表示に必要なデータを "全て" 計算してまとめる ---
   const pp = updatedIdleGame.prestigePower || 0;
+  const meatEffect = calculateFinalMeatEffect(updatedIdleGame, externalData); //ここで最初に計算
   //const achievementExponentBonus = externalData.achievementCount;
   const gp_d = new Decimal(updatedIdleGame.generatorPower || "1");
 
-  const baseGpExponent = getFinalGpExponent(updatedIdleGame);
-  const totalGpPower =
-    activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
-  const gpEffect_d = gp_d.pow(totalGpPower).max(1);
+  // a. 最終的な指数を取得
+  const finalGpExponent = getFinalGpExponent(updatedIdleGame);
+  // b. 「1工場あたり」の倍率を計算
+  let singleFactoryMult_d = gp_d.pow(finalGpExponent);
+  // c. ソフトキャップを適用
+  singleFactoryMult_d = applyGpMultSoftcaps(singleFactoryMult_d);
+  // d. キャップ後の値を、工場数分だけ累乗して、最終的なGP効果を算出
+  const factoryCount = activeChallenge === "IC9" ? 5 : 8;
+  const gpEffect_d = singleFactoryMult_d
+    .pow(factoryCount)
+    .pow(meatEffect)
+    .max(1); //精肉施設かけてなかったド阿呆なので(ry
 
   const factoryEffects = calculateFactoryEffects(
     updatedIdleGame,
@@ -931,8 +951,9 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
       (1 + (skillLevels.s1 || 0)) *
       radianceMultiplier *
       (1.0 + externalData.achievementCount * 0.01),
-    meatEffect: calculateFinalMeatEffect(updatedIdleGame, externalData),
-    baseGpExponent: baseGpExponent,
+    meatEffect: meatEffect,
+    baseGpExponent: finalGpExponent,
+    singleFactoryMult_d: singleFactoryMult_d,
   };
 
   // --- 6. 最終的なデータを返す ---
@@ -1776,4 +1797,30 @@ export function getFinalGpExponent(idleGameData) {
   }
 
   return baseExponent;
+}
+
+/**
+ * 【最適化版】GPによる1工場あたりの倍率(Mult)に、多段階ソフトキャップを適用する
+ * @param {Decimal} mult_d - ソフトキャップ適用前の1工場あたりの倍率
+ * @returns {Decimal} ソフトキャップ適用後の1工場あたりの倍率
+ */
+function applyGpMultSoftcaps(mult_d) {
+  const softcaps = config.idle.gpMult_softcaps;
+  // 最初のキャップの閾値より小さければ、即座に終了
+  if (mult_d.lt("1e1000")) {
+    return mult_d;
+  }
+  let exponent = mult_d.log10();
+
+  for (const cap of softcaps) {
+    if (exponent > cap.threshold) {
+      // キャップを適用
+      exponent = (exponent - cap.threshold) * cap.power + cap.threshold;
+    } else {
+      // ここでループを抜ける
+      break;
+    }
+  }
+
+  return Decimal.pow(10, exponent);
 }

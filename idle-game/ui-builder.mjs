@@ -138,8 +138,13 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   } = uiData;
   const population_d = new Decimal(idleGame.population);
   const highestPopulation_d = new Decimal(idleGame.highestPopulation);
-  const { productionRate_d, factoryEffects, skill1Effect, meatEffect } =
-    displayData;
+  const {
+    productionRate_d,
+    factoryEffects,
+    skill1Effect,
+    meatEffect,
+    singleFactoryMult_d,
+  } = displayData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
   const meatFactoryLevel = mee6Level;
@@ -157,10 +162,8 @@ function generateFactoryEmbed(uiData, isFinal = false) {
     ascensionCount > 0
       ? Math.pow(config.idle.ascension.effect, ascensionCount)
       : 1;
-  //ジェネレーター
-  const gp_d = new Decimal(idleGame.generatorPower || "1");
-  const baseGpExponent = displayData.baseGpExponent;
-  const gpEffect = gp_d.pow(baseGpExponent).max(1).toNumber();
+  //GP効果をDecimalで取得
+  const gpEffect_d = singleFactoryMult_d;
 
   // スキル#2の効果
   const skill2Effect = (1 + skillLevels.s2) * radianceMultiplier;
@@ -186,34 +189,36 @@ function generateFactoryEmbed(uiData, isFinal = false) {
     iu24Effect = 1 + infinityCount * iu24Config.bonus;
   }
 
-  // 表示用の施設効果
-  const effects_display = {};
+  // 表示用の施設効果 (Decimalオブジェクトで保持)
+  const effects_display_d = {}; // _d をつけてDecimalであることを示す
   for (const [factoryName, factoryConfig] of Object.entries(
     config.idle.factories
   )) {
     // (IC9中は上位3施設が無効になるため、ここで事前チェック)
     if (activeChallenge === "IC9" && factoryConfig.type === "multiplicative2") {
-      effects_display[factoryName] = 1.0;
+      effects_display_d[factoryName] = 1.0;
       continue; // ループの次のイテレーションへ
     }
-    // ベースとなる工場効果を取得
-    const baseEffect = factoryEffects[factoryName] || 1.0;
+    // ベースとなる工場効果をDecimalで取得
+    const baseEffect_d = new Decimal(factoryEffects[factoryName] || 1.0);
 
-    // 8施設共通で適用される倍率を先にまとめておく
-    let multiplier = ascensionEffect * gpEffect * iu24Effect;
+    // 8施設共通で適用される倍率を先にまとめておく (Decimalで計算)
+    let multiplier_d = new Decimal(ascensionEffect)
+      .times(gpEffect_d)
+      .times(iu24Effect);
     // 施設タイプに応じた倍率を計算する
     if (
       factoryConfig.type === "additive" ||
       factoryConfig.type === "multiplicative"
     ) {
       // 基本5施設（additive, multiplicative）には skill1Effect を乗算
-      multiplier *= skill1Effect;
+      multiplier_d = multiplier_d.times(skill1Effect);
     } else if (factoryConfig.type === "multiplicative2") {
       // 上位3施設（multiplicative2）には ic2BonusForOne を乗算
-      multiplier *= ic2BonusForOne;
+      multiplier_d = multiplier_d.times(ic2BonusForOne);
     }
-    // 最終的な効果を計算して格納
-    effects_display[factoryName] = baseEffect * multiplier;
+    // 最終的な効果をDecimalオブジェクトとして格納
+    effects_display_d[factoryName] = baseEffect_d.times(multiplier_d);
   }
 
   // ★ バフ残り時間計算
@@ -279,8 +284,8 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
       continue;
     }
     // --- 表示するテキストを準備 ---
-    const effectText = formatNumberDynamic(
-      effects_display[name],
+    const effectText = formatNumberDynamic_Decimal(
+      effects_display_d[name],
       name === "oven" ? 0 : 2
     );
     const valueText = isUnlocked
@@ -317,25 +322,22 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
     {
       name: "計算式",
       value: (() => {
-        // ★ 即時関数で囲んで、中でロジックを組む
-        const baseFactors = [
-          formatNumberDynamic(effects_display.oven),
-          formatNumberDynamic(effects_display.cheese),
-          formatNumberDynamic(effects_display.tomato),
-          formatNumberDynamic(effects_display.mushroom),
-          formatNumberDynamic(effects_display.anchovy),
-        ];
+        // 各工場の効果を、Decimalフォー-マッターで表示
+        const baseFactors = Object.keys(config.idle.factories)
+          .map((name) => {
+            const effect_d = effects_display_d[name];
+            // nameが'oven'なら、無条件で表示
+            if (name === "oven") {
+              return formatNumberDynamic_Decimal(effect_d, 0);
+            }
+            // それ以外の施設は、効果が1.0より大きい場合のみ表示
+            if (effect_d.gt(1.0)) {
+              return formatNumberDynamic_Decimal(effect_d);
+            }
 
-        // 上位施設が解禁されていて、効果が1.0より大きい場合のみ追加
-        if (effects_display.olive > 1.0) {
-          baseFactors.push(formatNumberDynamic(effects_display.olive));
-        }
-        if (effects_display.wheat > 1.0) {
-          baseFactors.push(formatNumberDynamic(effects_display.wheat));
-        }
-        if (effects_display.pineapple > 1.0) {
-          baseFactors.push(formatNumberDynamic(effects_display.pineapple));
-        }
+            return null;
+          })
+          .filter(Boolean);
 
         const baseFormula = `(${baseFactors.join(" × ")})`;
 
@@ -990,7 +992,10 @@ function generateInfinityEmbed(uiData) {
   // GPの効果をuiDataから取り出す
   const baseGpExponent = displayData.baseGpExponent;
   // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
-  const gpEffect_d = gp_d.pow(baseGpExponent).max(1);
+  const gpEffect_d = displayData.singleFactoryMult_d.max(1);
+  const softcapLabel = displayData.singleFactoryMult_d.gte("1e1000")
+    ? "(ソフトキャップ)"
+    : "";
 
   // #2スキル効果を計算
   const radianceMultiplier = calculateRadianceMultiplier(idleGame);
@@ -998,7 +1003,7 @@ function generateInfinityEmbed(uiData) {
   const skill2Effect = Math.pow((1 + skill2Level) * radianceMultiplier, 2);
   // 説明文を組み立て
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${Math.floor(infinityCount).toLocaleString()}
-GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)
+GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍${softcapLabel})
 ⏳ 時間加速: **x${formatNumberDynamic(skill2Effect, 2)}** 倍`;
   const productionRates = calculateGeneratorProductionRates(
     idleGame,
