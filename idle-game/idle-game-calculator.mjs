@@ -277,13 +277,23 @@ export function formatProductionRate(n) {
 // ★★★ ここからが新しいリファクタリングの核心部です ★★★
 // =========================================================================
 /**
- * 【新規】1. 生産量の計算エンジン
+ * 1. 生産量の計算エンジン
  * 毎分のニョワミヤ増加量を "Decimal" オブジェクトとして計算して返す。
+ * GP効果など、べき乗の前に適用すべき乗算効果を外部から注入できる。
+ * 
  * @param {object} idleGameData - IdleGameの生データ
  * @param {object} externalData - Mee6レベルなど外部から与えるデータ
+ * @param {Decimal | null} [gpEffect_d=null] - (オプション) GPなど、べき乗計算の前に乗算する効果。指定しない場合は効果なし。
  * @returns {Decimal} - 毎分の生産量
  */
-function calculateProductionRate(idleGameData, externalData) {
+function calculateProductionRate(
+  idleGameData,
+  externalData,
+  gpEffect_d = null
+) {
+  if (gpEffect_d) {
+    console.log(`[DEBUG] calculateProductionRate received gpEffect_d: ${gpEffect_d.toString()}`);
+  }
   const pp = idleGameData.prestigePower || 0;
   const achievementCount = externalData.achievementCount || 0;
   const ascensionCount = idleGameData.ascensionCount || 0;
@@ -399,6 +409,10 @@ function calculateProductionRate(idleGameData, externalData) {
     baseProduction = baseProduction.times(
       new Decimal(singleFactoryMultiplier).pow(power)
     );
+  }
+  // もしGP効果が渡されていたら、べき乗の前にそれを乗算する
+  if (gpEffect_d && gpEffect_d.gt(1)) {
+    baseProduction = baseProduction.times(gpEffect_d);
   }
 
   //指数処理
@@ -590,39 +604,29 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     }
 
     //--- 2.2. 人口増加の計算 ---
-    const productionPerMinute_d = calculateProductionRate(
-      idleGameData,
-      externalData
-    );
-    let finalProductionPerMinute_d = productionPerMinute_d;
+    let averageGpEffect_d = new Decimal(1); // GP効果のデフォルト値を1に設定
     if (idleGameData.infinityCount > 0) {
       const activeChallenge = idleGameData.challenges?.activeChallenge;
-      // IC9挑戦中は稼働施設が5つになるため、GPの指数が 4.0 (8*0.5) -> 2.5 (5*0.5) に弱体化する。
       const baseGpExponent = getFinalGpExponent(idleGameData);
-      // 1. オフライン期間「開始時」のGPの効果を計算
       const initialSingleFactoryMult_d = initial_gp_d.pow(baseGpExponent);
-      // 2. ジェネレーター生産後の「終了時」のGPの効果を計算
       const finalSingleFactoryMult_d = gp_d.pow(baseGpExponent);
-      // 3. 開始時と終了時の効果の「平均効果」を算出する
-      //    これにより、GPが線形的に増加したと仮定した場合の、より正確な人口増加量を求められる
       let averageSingleFactoryMult_d = initialSingleFactoryMult_d
         .add(finalSingleFactoryMult_d)
         .div(2);
-      //ソフトキャップをかける
       averageSingleFactoryMult_d = applyGpMultSoftcaps(
         averageSingleFactoryMult_d
       );
       const factoryCount = activeChallenge === "IC9" ? 5 : 8;
-      const meatEffect = calculateFinalMeatEffect(idleGameData, externalData);
-      //工場の数だけ指数をかける。あと精肉施設かけてなかったド阿呆なのでここでかける
-      const averageGpEffect_d = averageSingleFactoryMult_d
-        .pow(factoryCount)
-        //.pow(meatEffect)
-        .max(1);
-      // 4. ベース生産量に、この「平均効果」を乗算する
-      finalProductionPerMinute_d =
-        productionPerMinute_d.times(averageGpEffect_d);
+      averageGpEffect_d = averageSingleFactoryMult_d.pow(factoryCount).max(1);
     }
+
+    //  calculateProductionRate に averageGpEffect_d を渡す
+    const finalProductionPerMinute_d = calculateProductionRate(
+      idleGameData,
+      externalData,
+      averageGpEffect_d // 3番目の引数として渡す
+    );
+
     const productionPerSecond_d = finalProductionPerMinute_d.div(60);
     const addedPopulation_d = productionPerSecond_d.times(elapsedSeconds);
     population_d = population_d.add(addedPopulation_d);
@@ -924,8 +928,7 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
   const factoryCount = activeChallenge === "IC9" ? 5 : 8;
   const gpEffect_d = singleFactoryMult_d
     .pow(factoryCount)
-    //.pow(meatEffect)
-    .max(1); 
+    .max(1);
 
   const factoryEffects = calculateFactoryEffects(
     updatedIdleGame,
@@ -944,8 +947,9 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
   const displayData = {
     productionRate_d: calculateProductionRate(
       updatedIdleGame,
-      externalData
-    ).times(gpEffect_d),
+      externalData,
+      gpEffect_d
+    ),
     factoryEffects: factoryEffects,
     skill1Effect:
       (1 + (skillLevels.s1 || 0)) *

@@ -147,6 +147,8 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   } = displayData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
+  const completedChallenges =
+    uiData.idleGame.challenges?.completedChallenges || [];
   const meatFactoryLevel = mee6Level;
   const activeChallenge = idleGame.challenges?.activeChallenge;
   const skillLevels = {
@@ -158,10 +160,29 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   const radianceMultiplier = calculateRadianceMultiplier(idleGame);
   //アセンション回数
   const ascensionCount = idleGame.ascensionCount || 0;
-  const ascensionEffect =
-    ascensionCount > 0
-      ? Math.pow(config.idle.ascension.effect, ascensionCount)
-      : 1;
+  let ascensionBaseEffect = config.idle.ascension.effect; // 1.125
+  if (idleGame.infinityCount > 0) {
+    if (completedChallenges.includes("IC7")) {
+      ascensionBaseEffect += 0.025;
+    }
+    if (purchasedUpgrades.has("IU23")) {
+      ascensionBaseEffect +=
+        config.idle.infinityUpgrades.tiers[1].upgrades.IU23.bonus;
+    }
+    if (completedChallenges.includes("IC8")) {
+      ascensionBaseEffect *= 1.2;
+    }
+    // IU65 の効果を適用
+    if (purchasedUpgrades.has("IU65")) {
+      const iu65Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU65;
+      const infinityCount = idleGame.infinityCount || 0;
+      const multiplier =
+        Math.log10(infinityCount + 1) / iu65Config.bonusDivisor + 1.0;
+      ascensionBaseEffect *= multiplier;
+    }
+  }
+  const ascensionEffect = // この名前の変数に最終的な「1工場あたりの倍率」を入れる
+    ascensionCount > 0 ? Math.pow(ascensionBaseEffect, ascensionCount) : 1;
   //GP効果をDecimalで取得
   const gpEffect_d = singleFactoryMult_d;
 
@@ -173,8 +194,6 @@ function generateFactoryEmbed(uiData, isFinal = false) {
 
   //IC2ボーナス
   let ic2BonusForOne = 1.0;
-  const completedChallenges =
-    uiData.idleGame.challenges?.completedChallenges || [];
   if (completedChallenges.includes("IC2")) {
     ic2BonusForOne = Math.pow(skill2Effect, 0.5);
     if (ic2BonusForOne < 1.0) ic2BonusForOne = 1.0;
