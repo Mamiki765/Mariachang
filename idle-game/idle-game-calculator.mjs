@@ -617,7 +617,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       //工場の数だけ指数をかける。あと精肉施設かけてなかったド阿呆なのでここでかける
       const averageGpEffect_d = averageSingleFactoryMult_d
         .pow(factoryCount)
-        .pow(meatEffect)
+        //.pow(meatEffect)
         .max(1);
       // 4. ベース生産量に、この「平均効果」を乗算する
       finalProductionPerMinute_d =
@@ -924,8 +924,8 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
   const factoryCount = activeChallenge === "IC9" ? 5 : 8;
   const gpEffect_d = singleFactoryMult_d
     .pow(factoryCount)
-    .pow(meatEffect)
-    .max(1); //精肉施設かけてなかったド阿呆なので(ry
+    //.pow(meatEffect)
+    .max(1); 
 
   const factoryEffects = calculateFactoryEffects(
     updatedIdleGame,
