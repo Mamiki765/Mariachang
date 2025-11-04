@@ -992,8 +992,14 @@ function generateInfinityEmbed(uiData) {
   }
   // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
   const gpEffect_d = gp_d.pow(baseGpExponent).max(1);
+  // #2スキル効果を計算
+  const radianceMultiplier = calculateRadianceMultiplier(idleGame);
+  const skill2Level = idleGame.skillLevel2 || 0;
+  const skill2Effect = Math.pow((1 + skill2Level) * radianceMultiplier, 2);
+  // 説明文を組み立て
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${Math.floor(infinityCount).toLocaleString()}
-GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)`;
+GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍)
+⏳ 時間加速: **x${formatNumberDynamic(skill2Effect, 2)}** 倍`;
   const productionRates = calculateGeneratorProductionRates(
     idleGame,
     unlockedSet
@@ -1190,7 +1196,7 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
     .setTitle("🌌 インフィニティアップグレード 🌌")
     .setColor("Aqua")
     .setDescription(
-      `IP: **${formatNumberDynamic_Decimal(ip_d)}** | ${config.casino.currencies.legacy_pizza.emoji}: **${Math.floor(point.legacy_pizza).toLocaleString()}枚**\n\n**【取得済み】**\n${purchasedList}`
+      `IP: **${formatNumberDynamic_Decimal(ip_d)}** | ∞: **${Math.floor(infinityCount).toLocaleString()}** | ${config.casino.currencies.legacy_pizza.emoji}: **${Math.floor(point.legacy_pizza).toLocaleString()}枚**\n\n**【取得済み】**\n${purchasedList}`
     );
 
   if (purchasedUpgrades.has("IU11")) {

@@ -816,7 +816,7 @@ export async function handlePrestige(interaction, collector) {
       // UI更新が必要なことを呼び出し元に伝える
       return true;
     } catch (error) {
-      console.error("Prestige (skip confirmation) Error:", error);
+      //console.error("Prestige (skip confirmation) Error:", error);
       await interaction.followUp({
         content: `❌ プレステージの実行中にエラーが発生しました: ${error.message}`,
         ephemeral: true,
@@ -1241,7 +1241,7 @@ export async function handleAscension(interaction) {
 
     return true; // 成功
   } catch (error) {
-    console.error("Ascension Error:", error);
+    //console.error("Ascension Error:", error);
     await t.rollback(); // エラーが発生したらロールバック
     await interaction.followUp({
       content: "❌ アセンション中にエラーが発生しました。",
@@ -1570,7 +1570,7 @@ export async function handleInfinity(interaction, collector) {
       return true;
     }
   } catch (error) {
-    console.error("Infinity Error:", error);
+    //console.error("Infinity Error:", error);
     // エラーがタイムアウト（.awaitMessageComponent起因）か、それ以外かを判定
     if (error.code === "InteractionCollectorError") {
       await interaction.editReply({
