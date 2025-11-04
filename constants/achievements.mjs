@@ -528,19 +528,19 @@ export const achievements = [
   {
     id: 79,
     name: "あるものはニョワミヤでも使う",
-    description: "アセンションを行う",
+    description: "初めてアセンションを行う",
     reward: {},
   },
   {
     id: 80,
     name: "ニョワミヤがニョワミヤを呼ぶ",
-    description: "アセンションを10回行う",
+    description: "アセンションを1インフィニティで10回行う",
     reward: {},
   },
   {
     id: 81,
     name: "ニョワミヤ永久機関",
-    description: "アセンションを50回行う",
+    description: "アセンションを1インフィニティで50回行う",
     reward: {},
   },
   {
@@ -839,8 +839,15 @@ export const achievements = [
   },
   {
     id: 129,
-    name: "クレイジージェネレーター",
-    description: "ジェネレーター8号機を購入する（無理）",
+    name: "ジェネレーターマスター",
+    description: "ジェネレーター8号機を購入する",
+    reward: {},
+  },
+  //未実装
+  {
+    id: 130,
+    name: "アセンションアセンションアンドアセンション",
+    description: "アセンションを1インフィニティで100回行う",
     reward: {},
   },
   // 今後、ここに実績をどんどん追加していきます

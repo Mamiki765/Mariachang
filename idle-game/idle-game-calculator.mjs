@@ -950,7 +950,17 @@ export function formatInfinityTime(totalSeconds) {
     return "測定不能";
   }
 
-  if (totalSeconds < 60) {
+  const SAFE_SECONDS_THRESHOLD = Number.MAX_SAFE_INTEGER;
+  if (totalSeconds >= SAFE_SECONDS_THRESHOLD) {
+    // 安全な整数表現の限界を超えた場合、年単位の指数表記に切り替える
+    const years = totalSeconds / (365.25 * 24 * 60 * 60); // うるう年を考慮
+    return `${formatNumberDynamic(years, 2)}年`;
+  } else if (totalSeconds < 1) {
+    // 1秒未満の場合、ミリ秒(ms)で表示
+    const milliseconds = totalSeconds * 1000;
+    return `${milliseconds.toFixed(0)}ms`;
+  } else if (totalSeconds < 60) {
+    // 1秒以上、60秒未満の場合、小数点以下2桁の秒で表示
     return `${totalSeconds.toFixed(2)}秒`;
   }
 

@@ -136,50 +136,70 @@ export async function unlockAchievements(client, userId, ...achievementIds) {
   const { mode, channelId } = config.achievementNotification;
   if (mode === "none") return;
 
-  let embed;
-  if (newlyUnlocked.length === 1) {
-    const ach = newlyUnlocked[0];
-    embed = new EmbedBuilder()
-      .setColor("Gold")
-      .setTitle("🎉 実績解除！")
-      .setDescription(`<@${userId}> が新しい実績を達成しました！`)
-      .addFields({
-        name: ach.name,
-        value: `${ach.description}${ach.effect ? `\n__${ach.effect}__` : ""}`,
-      })
-      .setFooter({ text: "効果は1分後に反映されます。" })
-      .setTimestamp();
-  } else {
-    embed = new EmbedBuilder()
-      .setColor("Gold")
-      .setTitle("🎉 複数の実績を同時に達成！")
-      .setDescription(
-        `<@${userId}> が **${newlyUnlocked.length}個** の実績をまとめて達成しました！`
-      )
-      .addFields(
-        newlyUnlocked.map((ach) => ({
-          name: `✅ ${ach.name}`,
-          value: `${ach.description}${ach.effect ? `\n__${ach.effect}__` : ""}`,
-        }))
-      )
-      .setFooter({ text: "効果は1分後に反映されます。" })
-      .setTimestamp();
+  // 1. 解除した実績を、25個ずつのグループに分割する
+  const achievementChunks = [];
+  const chunkSize = 25;
+  for (let i = 0; i < newlyUnlocked.length; i += chunkSize) {
+    const chunk = newlyUnlocked.slice(i, i + chunkSize);
+    achievementChunks.push(chunk);
   }
 
-  const content = `<@${userId}>`;
-  if (mode === "public") {
-    try {
-      const channel = await client.channels.fetch(channelId);
-      await channel.send({ content, embeds: [embed] });
-    } catch (error) {
-      console.error(`[Achievement] 公開通知(バッチ)の送信に失敗`, error);
+  // 2. グループごとにEmbedを作成し、送信する
+  for (const chunk of achievementChunks) {
+    let embed;
+
+    // 分割されたグループ(chunk)の数が1個なら、既存の単独解除ロジックを使う
+    if (chunk.length === 1) {
+      const ach = chunk[0];
+      embed = new EmbedBuilder()
+        .setColor("Gold")
+        .setTitle("🎉 実績解除！")
+        .setDescription(`<@${userId}> が新しい実績を達成しました！`)
+        .addFields({
+          name: ach.name,
+          value: `${ach.description}${ach.effect ? `\n__${ach.effect}__` : ""}`,
+        })
+        .setFooter({ text: "効果は1分後に反映されます。" })
+        .setTimestamp();
+    } else {
+      // 2個以上なら、既存の複数解除ロジックを使う
+      embed = new EmbedBuilder()
+        .setColor("Gold")
+        .setTitle("🎉 複数の実績を同時に達成！")
+        .setDescription(
+          `<@${userId}> が **${chunk.length}個** の実績をまとめて達成しました！`
+        )
+        .addFields(
+          chunk.map((ach) => ({
+            name: `✅ ${ach.name}`,
+            value: `${ach.description}${ach.effect ? `\n__${ach.effect}__` : ""}`,
+          }))
+        )
+        .setFooter({ text: "効果は1分後に反映されます。" })
+        .setTimestamp();
     }
-  } else if (mode === "dm") {
-    try {
-      const user = await client.users.fetch(userId);
-      await user.send({ embeds: [embed] });
-    } catch (error) {
-      console.error(`[Achievement] DM通知(バッチ)の送信に失敗`, error);
+
+    // 3. 送信処理 (ここは共通)
+    const content = `<@${userId}>`;
+    if (mode === "public") {
+      try {
+        const channel = await client.channels.fetch(channelId);
+        await channel.send({ content, embeds: [embed] });
+      } catch (error) {
+        console.error(`[Achievement] 公開通知の送信に失敗`, error);
+      }
+    } else if (mode === "dm") {
+      try {
+        const user = await client.users.fetch(userId);
+        await user.send({ embeds: [embed] });
+      } catch (error) {
+        console.error(`[Achievement] DM通知の送信に失敗`, error);
+      }
+    }
+
+    // 複数のメッセージを連続で送信する場合、APIへの負荷を考慮して少し待つ
+    if (achievementChunks.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500)); // 0.5秒待機
     }
   }
 }
