@@ -1196,7 +1196,7 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
     .setTitle("🌌 インフィニティアップグレード 🌌")
     .setColor("Aqua")
     .setDescription(
-      `IP: **${formatNumberDynamic_Decimal(ip_d)}** | ∞: **${Math.floor(infinityCount).toLocaleString()}** | ${config.casino.currencies.legacy_pizza.emoji}: **${Math.floor(point.legacy_pizza).toLocaleString()}枚**\n\n**【取得済み】**\n${purchasedList}`
+      `IP: **${formatNumberDynamic_Decimal(ip_d)}** | ∞: **${Math.floor(idleGame.infinityCount).toLocaleString()}** | ${config.casino.currencies.legacy_pizza.emoji}: **${Math.floor(point.legacy_pizza).toLocaleString()}枚**\n\n**【取得済み】**\n${purchasedList}`
     );
 
   if (purchasedUpgrades.has("IU11")) {
