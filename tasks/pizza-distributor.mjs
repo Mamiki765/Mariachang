@@ -20,15 +20,17 @@ export function startPizzaDistribution(client) {
   // 毎時 0分, 10分, 20分, 30分, 40分, 50分に実行
   //人口を増加させ、ボーナス率を記録しておく
   cron.schedule("*/10 * * * *", async () => {
-    console.log("[CALC_ALL] 全ユーザーの人口ボーナス更新処理を開始します。");
-    try {
-      await updateAllUsersIdleGame(); // 新しく作る全体更新関数を呼び出す
-      console.log("[CALC_ALL] 更新処理が正常に完了しました。");
-    } catch (error) {
-      console.error(
-        "[CALC_ALL] ボーナス更新処理でエラーが発生しました:",
-        error
-      );
+    if (config.isProduction) {
+      console.log("[CALC_ALL] 全ユーザーの人口ボーナス更新処理を開始します。");
+      try {
+        await updateAllUsersIdleGame(); // 新しく作る全体更新関数を呼び出す
+        console.log("[CALC_ALL] 更新処理が正常に完了しました。");
+      } catch (error) {
+        console.error(
+          "[CALC_ALL] ボーナス更新処理でエラーが発生しました:",
+          error
+        );
+      }
     }
   });
   //毎分起動
@@ -266,7 +268,10 @@ async function distributeForgottenLoginBonus(client) {
       .catch((error) => {
         // ★★★ エラーコードが50007 (DM送信不可) の場合のみ、エラーを無視する ★★★
         if (error.code !== 50007) {
-          console.error(`[LOGIBO_AUTOCLAIM] 予期せぬDM送信エラー (ユーザー: ${userId}):`, error);
+          console.error(
+            `[LOGIBO_AUTOCLAIM] 予期せぬDM送信エラー (ユーザー: ${userId}):`,
+            error
+          );
         }
       });
     dmPromises.push(dmPromise);

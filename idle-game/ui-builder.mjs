@@ -196,7 +196,7 @@ function generateFactoryEmbed(uiData, isFinal = false) {
   )) {
     // (IC9中は上位3施設が無効になるため、ここで事前チェック)
     if (activeChallenge === "IC9" && factoryConfig.type === "multiplicative2") {
-      effects_display_d[factoryName] = 1.0;
+      effects_display_d[factoryName] = new Decimal(1.0);
       continue; // ループの次のイテレーションへ
     }
     // ベースとなる工場効果をDecimalで取得
