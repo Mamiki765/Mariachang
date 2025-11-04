@@ -159,13 +159,7 @@ function generateFactoryEmbed(uiData, isFinal = false) {
       : 1;
   //ジェネレーター
   const gp_d = new Decimal(idleGame.generatorPower || "1");
-  let baseGpExponent = 0.5;
-  if (purchasedUpgrades.has("IU42")) {
-    baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
-  }
-  if (purchasedUpgrades.has("IU74")) {
-    baseGpExponent += config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus;
-  }
+  const baseGpExponent = displayData.baseGpExponent;
   const gpEffect = gp_d.pow(baseGpExponent).max(1).toNumber();
 
   // スキル#2の効果
@@ -974,24 +968,17 @@ function generateSkillButtons(idleGame) {
  */
 function generateInfinityEmbed(uiData) {
   //データを取り出す
-  const { idleGame, userAchievement } = uiData;
+  const { idleGame, userAchievement, displayData } = uiData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
   //GPとその効果を計算するロジックを追加
   const gp_d = new Decimal(idleGame.generatorPower || "1");
-  // GPの効果を計算: GP ^ 0.5
-  const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
-  let baseGpExponent = 0.5;
-  if (purchasedUpgrades.has("IU42")) {
-    //0.5 -> 0.75
-    baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
-  }
-  if (purchasedUpgrades.has("IU74")) {
-    baseGpExponent += config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus;
-  }
+  // GPの効果をuiDataから取り出す
+  const baseGpExponent = displayData.baseGpExponent;
   // GPが1未満になることは通常ないが、念のため .max(1) で最低1倍を保証
   const gpEffect_d = gp_d.pow(baseGpExponent).max(1);
+
   // #2スキル効果を計算
   const radianceMultiplier = calculateRadianceMultiplier(idleGame);
   const skill2Level = idleGame.skillLevel2 || 0;
@@ -1211,12 +1198,16 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
   if (purchasedUpgrades.has("IU73")) {
     const iu73Config = config.idle.infinityUpgrades.tiers[6].upgrades.IU73;
     const bestTime = idleGame.challenges?.bestInfinityRealTime;
+    let fieldName = `--- 🔭 ${iu73Config.name} ---`;
     let valueText = "まだ自己最速記録がありません。";
 
     if (bestTime && bestTime > 0) {
       // ▼▼▼ ここをcalculatorと同じロジックに修正 ▼▼▼
-      const adjustedBestTime =
+      let adjustedBestTime =
         bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
+      if (purchasedUpgrades.has("IU81")) {
+        adjustedBestTime = Math.max(0.001, adjustedBestTime / 3);
+      }
       // ▲▲▲ ここまで修正 ▲▲▲
 
       const chipsSpent_d = new Decimal(idleGame.chipsSpentThisEternity || "0");
@@ -1226,11 +1217,27 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
         3600 *
         iu62Multiplier;
 
-      valueText = `自己最速記録: **${formatInfinityTime(bestTime)}** (min(${formatInfinityTime(bestTime)},max(${formatInfinityTime(adjustedBestTime)},0.3秒))\n受動的収入: **${formatNumberDynamic(infinitiesPerHour, 2)} ∞/h**(現実時間)`;
+      valueText =
+        `自己最速記録: **${formatInfinityTime(bestTime)}**\n` +
+        `スキル用時間: **${formatInfinityTime(adjustedBestTime)}**\n` +
+        `受動的収入: **${formatNumberDynamic(infinitiesPerHour, 2)} ∞/h**(現実時間)`;
+
+      // ★ IU81を所持している場合の追加処理 ★
+      if (purchasedUpgrades.has("IU81")) {
+        const iu81Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU81;
+        fieldName = `---🚀 ${iu81Config.name} & ${iu73Config.name} 🔭---`; // フィールド名をリッチに
+
+        // ジェネレーター強化倍率を計算
+        const bestTimeInMs = adjustedBestTime * 1000;
+        const iu81Multiplier = 1 + iu81Config.max / bestTimeInMs;
+
+        // valueTextに追記
+        valueText += `\n全ジェネレーター強化: **x${formatNumberDynamic(iu81Multiplier, 3)}**`;
+      }
     }
 
     embed.addFields({
-      name: `\n--- 🔭 ${iu73Config.name} ---`,
+      name: fieldName,
       value: valueText,
     });
   }

@@ -467,6 +467,21 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         achievementBonus = 1.0 + achievementCount / 100.0;
       }
 
+      // IU81のボーナス倍率をここで計算
+      let iu81Multiplier = 1.0;
+      if (purchasedIUs.has("IU81")) {
+        const iu81Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU81;
+        const bestTime = idleGameData.challenges?.bestInfinityRealTime;
+        if (bestTime && bestTime > 0) {
+          let skillBestTime =
+            bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
+          skillBestTime = Math.max(0.001, skillBestTime / 3);
+
+          const bestTimeInMs = skillBestTime * 1000;
+          iu81Multiplier = 1 + iu81Config.max / bestTimeInMs;
+        }
+      }
+
       // IC9(全チャレンジ)クリア報酬: 全ジェネレーターの性能が2倍になる。
       const generatorMultiplier = completedChallenges.includes("IC9")
         ? 2.0
@@ -562,7 +577,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           .times(elapsedSeconds)
           .times(timeAccelerationMultiplier)
           .times(generatorMultiplier)
-          .times(achievementBonus);
+          .times(achievementBonus)
+          .times(iu81Multiplier);
 
         amountProducedByParent_d = producedAmount_d;
       }
@@ -582,15 +598,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     if (idleGameData.infinityCount > 0) {
       const activeChallenge = idleGameData.challenges?.activeChallenge;
       // IC9挑戦中は稼働施設が5つになるため、GPの指数が 4.0 (8*0.5) -> 2.5 (5*0.5) に弱体化する。
-      let baseGpExponent = 0.5;
-      if (purchasedIUs.has("IU42")) {
-        baseGpExponent +=
-          config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus; // configから値を取得
-      }
-      if (purchasedIUs.has("IU74")) {
-        baseGpExponent +=
-          config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus; // configから値を取得
-      }
+      const baseGpExponent = getFinalGpExponent(idleGameData);
       const gpPower =
         activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
       // 1. オフライン期間「開始時」のGPの効果を計算
@@ -614,8 +622,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       if (bestTime && bestTime > 0) {
         const iu73Config = config.idle.infinityUpgrades.tiers[6].upgrades.IU73;
         // 実時間より0.5秒短くし、下限を0.3秒とする（実時間が0.3未満を除く)
-        const adjustedBestTime =
+        let adjustedBestTime =
           bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
+        if (purchasedIUs.has("IU81")) {
+          //IU81があれば1msにならない様に、1/3する
+          adjustedBestTime = Math.max(0.001, adjustedBestTime / 3);
+        }
         // 1秒あたりに獲得できる∞の基本量
         const baseInfinitiesPerSecond =
           1 / (adjustedBestTime * iu73Config.rateDivisor);
@@ -890,14 +902,7 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
   //const achievementExponentBonus = externalData.achievementCount;
   const gp_d = new Decimal(updatedIdleGame.generatorPower || "1");
 
-  const purchasedIUs = new Set(updatedIdleGame.ipUpgrades?.upgrades || []);
-  let baseGpExponent = 0.5;
-  if (purchasedIUs.has("IU42")) {
-    baseGpExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
-  }
-  if (purchasedIUs.has("IU74")) {
-    baseGpExponent += config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus;
-  }
+  const baseGpExponent = getFinalGpExponent(updatedIdleGame);
   const totalGpPower =
     activeChallenge === "IC9" ? 5 * baseGpExponent : 8 * baseGpExponent;
   const gpEffect_d = gp_d.pow(totalGpPower).max(1);
@@ -927,6 +932,7 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
       radianceMultiplier *
       (1.0 + externalData.achievementCount * 0.01),
     meatEffect: calculateFinalMeatEffect(updatedIdleGame, externalData),
+    baseGpExponent: baseGpExponent,
   };
 
   // --- 6. 最終的なデータを返す ---
@@ -1418,6 +1424,21 @@ export function calculateGeneratorProductionRates(
   // 全体に掛かる倍率
   const globalMultiplier = completedChallenges.has("IC9") ? 2.0 : 1.0;
 
+  // IU81のボーナス倍率
+  let iu81Multiplier = 1.0;
+  if (purchasedIUs.has("IU81")) {
+    const iu81Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU81; // Tier 8はindex 7
+    const bestTime = idleGameData.challenges?.bestInfinityRealTime;
+    if (bestTime && bestTime > 0) {
+      let skillBestTime =
+        bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
+      skillBestTime = Math.max(0.001, skillBestTime / 3);
+
+      const bestTimeInMs = skillBestTime * 1000;
+      iu81Multiplier = 1 + iu81Config.max / bestTimeInMs;
+    }
+  }
+
   // G1からG8まで、順番に計算する
   for (let i = 0; i < 8; i++) {
     const genData = userGenerators[i] || { amount: "0", bought: 0 };
@@ -1438,6 +1459,7 @@ export function calculateGeneratorProductionRates(
     // --- 各種ボーナスを適用 ---
     productionPerMinute_d = productionPerMinute_d.times(globalMultiplier);
     productionPerMinute_d = productionPerMinute_d.times(achievementBonus); //実績103
+    productionPerMinute_d = productionPerMinute_d.times(iu81Multiplier); //iu81
     const generatorId = i + 1;
 
     if (generatorId === 1 && purchasedIUs.has("IU31")) {
@@ -1719,4 +1741,41 @@ export function simulateGhostAscension(budget, idleGameForSim) {
     ascensionsDone++;
   }
   return { ascensions: ascensionsDone, totalCost };
+}
+
+/**
+ * 【新規】GPによる効果指数を、全てのアップグレードを考慮して計算する
+ * @param {object} idleGameData - IdleGameの生データ
+ * @returns {number} 最終的なGPの指数
+ */
+export function getFinalGpExponent(idleGameData) {
+  const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
+  let baseExponent = 0.5;
+
+  // IU42: 0.5 -> 0.75
+  if (purchasedIUs.has("IU42")) {
+    baseExponent += config.idle.infinityUpgrades.tiers[3].upgrades.IU42.bonus;
+  }
+  // IU74: 0.75 -> 0.9
+  if (purchasedIUs.has("IU74")) {
+    baseExponent += config.idle.infinityUpgrades.tiers[6].upgrades.IU74.bonus;
+  }
+
+  // IU82: 動的指数ボーナス
+  if (purchasedIUs.has("IU82")) {
+    const gp_d = new Decimal(idleGameData.generatorPower || "1");
+    const iu82Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU82;
+    const baseGp_d = new Decimal(iu82Config.baseGp);
+
+    if (gp_d.gt(baseGp_d)) {
+      const ratio_d = gp_d.div(baseGp_d);
+      const bonus = Math.log10(ratio_d.log10()) * iu82Config.multiplier;
+      // ボーナスが計算エラー(NaN)やマイナスにならないようにガード
+      if (bonus > 0) {
+        baseExponent += bonus;
+      }
+    }
+  }
+
+  return baseExponent;
 }

@@ -843,7 +843,6 @@ export const achievements = [
     description: "ジェネレーター8号機を購入する",
     reward: {},
   },
-  //未実装
   {
     id: 130,
     name: "アセンションアセンションアンドアセンション",

@@ -1238,6 +1238,9 @@ export async function handleAscension(interaction) {
     if (latestIdleGame.ascensionCount >= 50) {
       await unlockAchievements(interaction.client, userId, 81); // #81: ニョワミヤ永久機関
     }
+    if (latestIdleGame.ascensionCount >= 100) {
+      await unlockAchievements(interaction.client, userId, 130); // #130: アセンションアセンションアンドアセンション
+    }
 
     return true; // 成功
   } catch (error) {
@@ -1395,7 +1398,8 @@ async function executeInfinityTransaction(userId, client) {
 
         // 3. 自己ベストを更新していたら記録
         if (durationInSeconds < bestTime) {
-          currentChallenges.bestInfinityRealTime = durationInSeconds <= 0 ? 0.01 : durationInSeconds;
+          currentChallenges.bestInfinityRealTime =
+            durationInSeconds <= 0 ? 0.01 : durationInSeconds;
         }
       }
       // 4. ★重要：次の周回のための新しいスタート時間を記録
