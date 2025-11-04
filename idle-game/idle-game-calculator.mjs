@@ -1764,16 +1764,14 @@ export function getFinalGpExponent(idleGameData) {
   // IU82: 動的指数ボーナス
   if (purchasedIUs.has("IU82")) {
     const gp_d = new Decimal(idleGameData.generatorPower || "1");
-    const iu82Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU82;
-    const baseGp_d = new Decimal(iu82Config.baseGp);
 
-    if (gp_d.gt(baseGp_d)) {
-      const ratio_d = gp_d.div(baseGp_d);
-      const bonus = Math.log10(ratio_d.log10()) * iu82Config.multiplier;
-      // ボーナスが計算エラー(NaN)やマイナスにならないようにガード
-      if (bonus > 0) {
-        baseExponent += bonus;
+    if (gp_d.gt(1)) {
+      // GPが1より大きい場合のみ計算
+      let bonus = gp_d.log10() / 500;
+      if (bonus > 0.2) {
+        bonus = Math.pow(bonus / 0.2, 0.2) * 0.2;
       }
+      baseExponent += bonus;
     }
   }
 

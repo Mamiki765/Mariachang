@@ -209,6 +209,10 @@ export default {
       costMultiplier: 1e8,
     },
   ],
+  gpMult_softcaps: [
+    { threshold: 1000, power: 0.1 },
+    { threshold: 10000, power: 0.15 },
+  ],
   infinityUpgrades: {
     // ▼▼▼ このように tiers 配列で全体を囲む ▼▼▼
     tiers: [
@@ -486,10 +490,8 @@ export default {
             name: "自己増殖セル",
             cost: 1e27,
             description:
-              "GPが1e35を超えると、GPに応じてジェネレーター全体の効果指数が上昇する。",
+              "GPに応じてジェネレーター全体の効果指数が上昇する。",
             text: "GP→Gen指数強化",
-            baseGp: "1e35", // 計算の基準値を設定ファイルに持たせる
-            multiplier: 0.12,
           },
         },
       },

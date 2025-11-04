@@ -24,6 +24,7 @@ import {
   handleGhostChipUpgrade,
   handleStartChallenge,
   handleAbortChallenge,
+  handleEternity
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import { getSingleUserUIData } from "../../idle-game/idle-game-calculator.mjs";
@@ -620,6 +621,9 @@ export async function execute(interaction) {
         if (!success) return;
       } else if (i.customId === "idle_infinity") {
         success = await handleInfinity(i, collector);
+        if (!success) return;
+      } else if (i.customId === "idle_eternity") {
+        success = await handleEternity(i, collector);
         if (!success) return;
       } else if (i.customId === "idle_ascension") {
         success = await handleAscension(i);

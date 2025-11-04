@@ -653,6 +653,7 @@ function generateFactoryButtons(uiData, isDisabled = false) {
 
   //infinityRow
   const infinityRow = new ActionRowBuilder();
+  const ip_d = new Decimal(idleGame.infinityPoints);
   // Infinityを1回以上経験している場合、「ジェネレーター」画面への切り替えボタンを追加
   if (idleGame.infinityCount > 0) {
     infinityRow.addComponents(
@@ -678,6 +679,18 @@ function generateFactoryButtons(uiData, isDisabled = false) {
         .setStyle(ButtonStyle.Danger)
         .setEmoji("💥")
         .setDisabled(isDisabled)
+    );
+  }
+  if (ip_d.gte(1e40)) {
+    const potentialEP = 0; //とりあえず0で固定、機能ができたら1固定
+    const buttonLabel = `エターネート ${potentialEP} EP`;
+    infinityRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("idle_eternity")
+        .setLabel(buttonLabel)
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("🌠") // 例: 流れ星
+        .setDisabled(isDisabled || ip_d.lt(config.idle.infinity))
     );
   }
   infinityRow.addComponents(
