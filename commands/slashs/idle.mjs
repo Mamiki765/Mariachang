@@ -24,7 +24,8 @@ import {
   handleGhostChipUpgrade,
   handleStartChallenge,
   handleAbortChallenge,
-  handleEternity
+  handleEternity,
+  handleGalaxyPurchase,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import { getSingleUserUIData } from "../../idle-game/idle-game-calculator.mjs";
@@ -202,6 +203,7 @@ export async function execute(interaction) {
     const inf_count = idleGame.infinityCount || 0;
     const power = uiData.displayData.meatEffect || 0;
     const bestTime = idleGame.challenges?.bestInfinityRealTime || Infinity;
+    const gravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
     const populationChecks = [
       { id: 0, condition: true }, // 「ようこそ」は常にチェック
       { id: 3, condition: population_d.gte(100) },
@@ -227,6 +229,7 @@ export async function execute(interaction) {
       { id: 105, condition: population_d.gte("1e1000") },
       { id: 106, condition: population_d.gte("1e3080") },
       { id: 122, condition: population_d.gte("1e6160") },
+      { id: 131, condition: population_d.gte("1e10000") },
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -279,6 +282,9 @@ export async function execute(interaction) {
       { id: 97, condition: ip_d.gte(1000) },
       { id: 98, condition: ip_d.gte("1e6") },
       { id: 125, condition: ip_d.gte("1e15") },
+      { id: 134, condition: ip_d.gte("1e63") },
+      { id: 135, condition: ip_d.gte("1e93") },
+      { id: 137, condition: ip_d.gte("1e154") },
       { id: 99, condition: inf_count >= 256 },
       { id: 100, condition: inf_count >= 2048 },
       { id: 120, condition: inf_count >= 32768 },
@@ -292,6 +298,8 @@ export async function execute(interaction) {
       { id: 117, condition: bestTime <= 300 }, // 5分
       { id: 118, condition: bestTime <= 30 }, // 30秒
       { id: 119, condition: bestTime <= 0.8 }, // 0.8秒
+      //gravity
+      { id: 133, condition: gravity_d.gte(1000) },
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks
@@ -630,6 +638,17 @@ export async function execute(interaction) {
       } else if (i.customId.startsWith("idle_generator_buy_")) {
         const generatorId = parseInt(i.customId.split("_").pop(), 10);
         success = await handleGeneratorPurchase(i, generatorId);
+      } else if (i.customId.startsWith("idle_galaxy_")) {
+        // idle_galaxy_buy_galaxy -> buy_galaxy
+        // idle_galaxy_upgrade_baseValue -> upgrade_baseValue
+        const action = i.customId.substring("idle_galaxy_".length);
+        if (action.startsWith("buy_")) {
+          const type = action.substring("buy_".length); // 'galaxy'
+          success = await handleGalaxyPurchase(i, type);
+        } else if (action.startsWith("upgrade_")) {
+          const type = action.substring("upgrade_".length); // 'baseValue' or 'gravityExponent'
+          success = await handleGalaxyPurchase(i, type); // 同じハンドラを流用
+        }
       } else if (i.customId.startsWith("idle_iu_purchase_")) {
         const upgradeId = i.customId.substring("idle_iu_purchase_".length);
         success = await handleInfinityUpgradePurchase(i, upgradeId);

@@ -28,6 +28,8 @@ import {
   calculateGeneratorProductionRates,
   calculateIC9TimeBasedBonus,
   calculateRadianceMultiplier,
+  calculateGalaxyCost,
+  calculateGalaxyUpgradeCost,
 } from "./idle-game-calculator.mjs";
 
 //---------------
@@ -1037,35 +1039,39 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
   const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
   const userGenerators = idleGame.ipUpgrades?.generators || [];
 
+  let galaxyCount;
+  let currentGalaxyBase;
+  let currentGravityExponent;
+  let galaxyData;
+  const galaxyConfig = config.idle.galaxy;
   if (purchasedIUs.has("IU91")) {
     const currentGravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
     // TODO: calculatorからグラビティ産出量を計算する関数を呼び出す
     // 一旦ここで組み立てる。
-    const galaxyConfig = config.idle.galaxy;
-    const galaxyData = idleGame.ipUpgrades?.galaxy || {
+    galaxyData = idleGame.ipUpgrades?.galaxy || {
       count: 0,
       baseValueUpgrades: 0,
       gravityExponentUpgrades: 0,
     };
-    const galaxyCount = galaxyData.count;
+    galaxyCount = galaxyData.count;
     // config と 購入回数 から現在の値を計算
-    const currentGalaxyBase =
+    currentGalaxyBase =
       galaxyConfig.upgrades.baseValue.initial +
       galaxyData.baseValueUpgrades * galaxyConfig.upgrades.baseValue.increment;
-    const currentGravityExponent =
+    currentGravityExponent =
       galaxyConfig.upgrades.gravityExponent.initial +
       galaxyData.gravityExponentUpgrades *
         galaxyConfig.upgrades.gravityExponent.increment;
     const gravityPerMinute_d =
       galaxyCount > 0
-        ? new Decimal(config.idle.galaxy.productionBaseMultiplier)
-            .times(currentGalaxyBase)
-            .pow(galaxyCount)
-        : new Decimal(0);//0個なら0
+        ? new Decimal(currentGalaxyBase) // まずベース値をDecimal化
+            .pow(galaxyCount) // 次にギャラクシー数分だけ累乗
+            .times(config.idle.galaxy.productionBaseMultiplier) // その結果に基本倍率を掛ける
+        : new Decimal(0); // ギャラクシーが0個なら0
 
     embed.addFields({
       name: "🪐 ギャラクシー",
-      value: `${galaxyCount}個のギャラクシーが毎分${gravityPerMinute_d}グラビティを産みます。
+      value: `${galaxyCount}個のギャラクシーが毎分${formatNumberDynamic_Decimal(gravityPerMinute_d,3)}グラビティを産みます。
 現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}^${currentGravityExponent}**\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**\n*（この機能は試験導入のため、非常に弱いです。）*`,
       inline: false, // 他のフィールドと区切る
     });
@@ -1108,6 +1114,37 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
         `\nコスト: ${formatNumberDynamic_Decimal(cost)} IP`,
       inline: false,
     });
+  }
+
+  if (purchasedIUs.has("IU91")) {
+    // ギャラクシーのコスト計算
+    const nextGalaxyCost = calculateGalaxyCost(galaxyCount);
+    const nextBaseValueCost = calculateGalaxyUpgradeCost(
+      "baseValue",
+      galaxyData.baseValueUpgrades
+    );
+    const nextGravityExponentCost = calculateGalaxyUpgradeCost(
+      "gravityExponent",
+      galaxyData.gravityExponentUpgrades
+    );
+
+    embed.addFields([
+      {
+        name: "🪐 ギャラクシー数",
+        value: `${galaxyCount} -> ${galaxyCount + 1}  (費用 ${formatNumberDynamic_Decimal(nextGalaxyCost)} IP)`,
+        inline: true,
+      },
+      {
+        name: "⚙ ベース値",
+        value: `${currentGalaxyBase.toFixed(3)} -> ${(currentGalaxyBase + galaxyConfig.upgrades.baseValue.increment).toFixed(3)}  (費用 ${formatNumberDynamic_Decimal(nextBaseValueCost)} IP)`,
+        inline: true,
+      },
+      {
+        name: "🧲 グラビティ指数",
+        value: `${currentGravityExponent.toFixed(2)} -> ${(currentGravityExponent + galaxyConfig.upgrades.gravityExponent.increment).toFixed(2)}  (費用 ${formatNumberDynamic_Decimal(nextGravityExponentCost)} IP)`,
+        inline: true,
+      },
+    ]);
   }
 
   return embed;
@@ -1161,6 +1198,49 @@ function generateInfinityButtons(idleGame) {
   // ループ後、中途半端な行があればそれも追加
   if (currentRow.components.length > 0) {
     components.push(currentRow);
+  }
+
+  const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
+  if (purchasedIUs.has("IU91")) {
+    const galaxyRow = new ActionRowBuilder();
+    const galaxyData = idleGame.ipUpgrades?.galaxy || {
+      count: 0,
+      baseValueUpgrades: 0,
+      gravityExponentUpgrades: 0,
+    };
+
+    // 各コストを計算
+    const galaxyCost = calculateGalaxyCost(galaxyData.count);
+    const baseValueCost = calculateGalaxyUpgradeCost(
+      "baseValue",
+      galaxyData.baseValueUpgrades
+    );
+    const gravityExponentCost = calculateGalaxyUpgradeCost(
+      "gravityExponent",
+      galaxyData.gravityExponentUpgrades
+    );
+
+    galaxyRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("idle_galaxy_buy_galaxy")
+        .setLabel("ギャラクシー購入")
+        .setStyle(ButtonStyle.Success)
+        .setEmoji("🪐")
+        .setDisabled(ip_d.lt(galaxyCost)),
+      new ButtonBuilder()
+        .setCustomId("idle_galaxy_upgrade_baseValue")
+        .setLabel("ベース値強化")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("⚙️")
+        .setDisabled(ip_d.lt(baseValueCost)),
+      new ButtonBuilder()
+        .setCustomId("idle_galaxy_upgrade_gravityExponent")
+        .setLabel("グラビティ指数強化")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("🧲")
+        .setDisabled(ip_d.lt(gravityExponentCost))
+    );
+    components.push(galaxyRow);
   }
 
   // 最後に「工場画面に戻る」ボタンを追加

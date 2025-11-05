@@ -1703,6 +1703,7 @@ function calculateScoreFromComponents(components) {
   const meatEffect = components.meatEffect || 1.0; // 指数計算なので、1をデフォルトに
   const infinityCount = components.infinityCount || 0;
   const completedICCount = components.completedICCount || 0;
+  const maxGalaxies = components.maxGalaxies || 0;
   // --- Decimalに変換して計算 ---
   const highestPopulation_d = new Decimal(components.highestPopulation || "0");
   const infinityPoints_d = new Decimal(components.infinityPoints || "0");
@@ -1720,13 +1721,16 @@ function calculateScoreFromComponents(components) {
   const ipFactor = new Decimal(1).add(infinityPoints_d.add(1).log10());
   // (1 + MaxInfChallenges / 10) ^ 0.5
   const challengeFactor = new Decimal(1).add(completedICCount / 10).pow(0.5);
+  // (1 + MaxGalaxies / 8)^0.3
+  const galaxyFactor = new Decimal(1).add(maxGalaxies / 8).pow(0.3);
 
   //全てを乗算
   const finalScore = popFactor
     .times(meatFactor)
     .times(infCountFactor)
     .times(ipFactor)
-    .times(challengeFactor);
+    .times(challengeFactor)
+    .times(galaxyFactor);
 
   return finalScore.toNumber();
 }
@@ -1782,6 +1786,13 @@ export function updateRankScoreIfNeeded(idleGame, externalData) {
   const currentICCount = idleGame.challenges?.completedChallenges?.length || 0;
   if (currentICCount > (currentComponents.completedICCount || 0)) {
     newComponents.completedICCount = currentICCount;
+    needsUpdate = true;
+  }
+
+  //6.MaxGalaxies: ギャラクシー数の比較
+  const galaxyCount = idleGame.ipUpgrades?.galaxy?.count || 0;
+  if (galaxyCount > (currentComponents.maxGalaxies || 0)) {
+    newComponents.maxGalaxies = galaxyCount;
     needsUpdate = true;
   }
 
@@ -1896,4 +1907,56 @@ function applyGpMultSoftcaps(mult_d) {
   }
 
   return Decimal.pow(10, exponent);
+}
+
+/**
+ * 次に購入するギャラクシーのコストを計算する
+ * @param {number} currentGalaxyCount - 現在のギャラクシー所持数
+ * @returns {Decimal} 次のギャラクシーのコスト
+ */
+export function calculateGalaxyCost(currentGalaxyCount) {
+  const costTiers = config.idle.galaxy.costTiers;
+  const nextCount = currentGalaxyCount + 1;
+
+  if (nextCount === 1) {
+    return new Decimal(costTiers.tier1.cost);
+  }
+
+  // Tier 2, 3, 4を順番にチェック
+  for (const tierKey of ["tier2", "tier3", "tier4"]) {
+    const tier = costTiers[tierKey];
+    if (nextCount >= tier.start && nextCount <= tier.end) {
+      // そのTierの開始点からのステップ数を計算
+      const stepsIntoTier = nextCount - tier.start;
+      // 最終的な指数 = 前のTierの最終指数 + (ステップ数 * 1ステップあたりの指数増加量)
+      const finalExponent =
+        tier.prevTierEndExponent +
+        stepsIntoTier * tier.exponentStep +
+        tier.exponentStep;
+      return Decimal.pow(10, finalExponent);
+    }
+  }
+
+  return new Decimal(Infinity); // 念のため
+}
+
+/**
+ * ギャラクシーアップグレード（ベース値・グラビティ指数）のコストを計算する
+ * @param {'baseValue' | 'gravityExponent'} upgradeType - 強化の種類
+ * @param {number} currentUpgradeLevel - 現在の強化レベル
+ * @returns {Decimal} 次のレベルへのアップグレードコスト
+ */
+export function calculateGalaxyUpgradeCost(upgradeType, currentUpgradeLevel) {
+  const upgradeConfig = config.idle.galaxy.upgrades[upgradeType];
+  if (!upgradeConfig) return new Decimal(Infinity);
+
+  const startCost_d = new Decimal(upgradeConfig.cost.start);
+  const exponentStep = upgradeConfig.cost.exponentStep;
+
+  // コスト = 開始コスト * 10^(現在のレベル * 指数ステップ)
+  const cost_d = startCost_d.times(
+    Decimal.pow(10, currentUpgradeLevel * exponentStep)
+  );
+
+  return cost_d;
 }

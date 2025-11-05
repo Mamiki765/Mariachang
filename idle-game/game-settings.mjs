@@ -222,9 +222,14 @@ export default {
     // コード側でこれらのルールに基づいて計算する
     costTiers: {
       tier1: { cost: "1e60" }, // 1個目
-      tier2: { start: 2, end: 11, exponentStep: 3 }, // 2～11個目
-      tier3: { start: 12, end: 33, exponentStep: 5 }, // 12～31個目
-      tier4: { start: 34, exponentStep: 15 },
+      tier2: { start: 2, end: 11, prevTierEndExponent: 60, exponentStep: 3 },
+      tier3: { start: 12, end: 33, prevTierEndExponent: 90, exponentStep: 5 },
+      tier4: {
+        start: 34,
+        end: Infinity,
+        prevTierEndExponent: 200,
+        exponentStep: 15,
+      },
     },
     // --- アップグレード設定 ---
     upgrades: {
@@ -536,8 +541,7 @@ export default {
           IU91: {
             name: "ニョワミヤ銀河系",
             cost: 1e60,
-            description:
-              "ギャラクシーを解放する",
+            description: "ギャラクシーを解放する",
             text: "ギャラクシーの解放",
           },
         },

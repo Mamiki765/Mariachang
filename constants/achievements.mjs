@@ -849,6 +849,62 @@ export const achievements = [
     description: "アセンションを1インフィニティで100回行う",
     reward: {},
   },
+  //ここから未実装
+  {
+    id: 131,
+    name: "崩壊の序章",
+    description: "ニョワミヤ数が1e+10000に到達する",
+    reward: {},
+  },
+  {
+    id: 132,
+    name: "ギャラクシィ！",
+    description: "ギャラクシィを初めて手に入れる",
+    reward: {},
+  },
+  {
+    id: 133,
+    name: "全てを圧殺する",
+    description: "グラビティが1000に到達する",
+    reward: {},
+  },
+  {
+    id: 134,
+    name: "クレイジーインフレーション",
+    description: "1e63 IPに到達する",
+    reward: {},
+  },
+  {
+    id: 135,
+    name: "もっとだ、もっとIPを！",
+    description: "1e93 IPに到達する",
+    reward: {},
+  },
+  {
+    id: 136,
+    name: "なんか高いよーな…",
+    description: "ギャラクシィを12個購入する",
+    reward: {},
+  },
+  {
+    id: 137,
+    name: "インフィニティがインフィニティになったら",
+    description: "1.00e154 IPに到達する",
+    reward: {},
+  },
+  {
+    id: 138,
+    name: "星をみるひと",
+    description: "ギャラクシィを34個購入する",
+    reward: {},
+  },
+  {
+    id: 139,
+    name: "きっと全ては夢だった",
+    description: "……。",
+    effect: "ニョボバンクに貯金をする事をお勧めしときます。",
+    reward: {},
+  },
   // 今後、ここに実績をどんどん追加していきます
   // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
 ];

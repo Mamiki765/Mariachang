@@ -25,6 +25,8 @@ import {
   calculateGhostChipUpgradeCost,
   formatNumberDynamic_Decimal,
   simulateGhostAscension,
+  calculateGalaxyCost,
+  calculateGalaxyUpgradeCost,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -2292,6 +2294,83 @@ export async function handleAbortChallenge(interaction) {
 }
 
 /**
+ * ギャラクシーまたはそのアップグレードを購入する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @param {'galaxy' | 'baseValue' | 'gravityExponent'} purchaseType
+ */
+export async function handleGalaxyPurchase(interaction, purchaseType) {
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction();
+
+  try {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
+
+    const ip_d = new Decimal(idleGame.infinityPoints);
+    const galaxyData = idleGame.ipUpgrades.galaxy || {
+      count: 0,
+      baseValueUpgrades: 0,
+      gravityExponentUpgrades: 0,
+    };
+
+    let cost_d;
+    let successMessage = "";
+
+    if (purchaseType === "galaxy") {
+      cost_d = calculateGalaxyCost(galaxyData.count);
+      if (ip_d.lt(cost_d)) throw new Error("IPが足りません！");
+
+      idleGame.infinityPoints = ip_d.minus(cost_d).toString();
+      galaxyData.count++;
+      successMessage = `✅ **ギャラクシー** を購入しました！ (現在: ${galaxyData.count}個)`;
+      // ギャラクシー関連実績チェック
+      const galaxyChecks = [
+        { id: 132, condition: galaxyData.count >= 1 },
+        { id: 136, condition: galaxyData.count >= 12 },
+        { id: 138, condition: galaxyData.count >= 34 },
+      ];
+      const idsToCheck = galaxyChecks
+        .filter((c) => c.condition)
+        .map((c) => c.id);
+      if (idsToCheck.length) {
+        await unlockAchievements(interaction.client, userId, ...idsToCheck);
+      }
+    } else {
+      // 'baseValue' or 'gravityExponent'
+      const currentLevel = galaxyData[`${purchaseType}Upgrades`];
+      cost_d = calculateGalaxyUpgradeCost(purchaseType, currentLevel);
+      if (ip_d.lt(cost_d)) throw new Error("IPが足りません！");
+
+      idleGame.infinityPoints = ip_d.minus(cost_d).toString();
+      galaxyData[`${purchaseType}Upgrades`]++;
+      const typeName =
+        purchaseType === "baseValue" ? "ベース値" : "グラビティ指数";
+      successMessage = `✅ **${typeName}** を強化しました！`;
+    }
+
+    idleGame.ipUpgrades.galaxy = galaxyData;
+    idleGame.changed("ipUpgrades", true);
+
+    await idleGame.save({ transaction: t });
+    await t.commit();
+
+    await interaction.followUp({ content: successMessage, ephemeral: true });
+    return true;
+  } catch (error) {
+    await t.rollback();
+    await interaction.followUp({
+      content: `❌ 購入エラー: ${error.message}`,
+      ephemeral: true,
+    });
+    return false;
+  }
+}
+
+/**
  * 【未実装】エターニティを実行する関数
  * @param {import("discord.js").ButtonInteraction} interaction
  * @param {import("discord.js").InteractionCollector} collector
@@ -2300,7 +2379,6 @@ export async function handleEternity(interaction, collector) {
   // 現時点では、プレイヤーに未実装であることを通知するだけ
   await interaction.followUp({
     content: `# ●1.79e+308 IP  Eternity
-エタニティはまだ実装されていません。いつか、このボタンが押せる日が来るまで…あまみやりかはどつかれます。
 ## ――あなたは。
 ## この世界の終わりに辿り着いた。
 1つのピザ窯から始まった壮大な拡大再生産は止まることを知らず。
@@ -2310,7 +2388,7 @@ export async function handleEternity(interaction, collector) {
 まるで永遠の様に感じられる時間の果てに、無限の闇の深淵から差し込んだ凄まじい光に目が眩んだ次の瞬間。あなたはがらんどうとしたピザ工場に座り込んでいた事に気がついた。
 眼の前には埃を被ったたった一つのピザ窯と、あなたを心配そうに見つめるニョワミヤが1匹だけ、そこにいた。
 
-『雨宿り ピザ工場』
+## 『雨宿り ピザ工場』
 ### 制作
 - あまみやりか
 ### プログラマー
@@ -2319,7 +2397,7 @@ export async function handleEternity(interaction, collector) {
 - あまみやりか
 
 ### スペシャルサンクス
-- 桜海こも氏
+- ニョワミヤを産んだ桜海こも氏
 - プログラム補助に使われたGemeni、ChatGPT
 - このゲームの元になったRevolution Idle およびAntimatter Dimensions
 
@@ -2327,10 +2405,14 @@ export async function handleEternity(interaction, collector) {
 そして……
 
 
-1 EP と 1 Σを手に入れた。`,
+1 EP と 1 Σを手に入れた。
+…と思ったら気のせいだった。しかたないので、あまみやりかをどつきましょう。`,
     ephemeral: true,
   });
-  
+
+  // 実績#139: きっと全ては夢だった
+  await unlockAchievements(interaction.client, userId, 139);
+
   // UI更新は不要なので false を返す
   return false;
 }
