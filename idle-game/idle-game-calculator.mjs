@@ -1245,7 +1245,15 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
 
     // 計算結果と基本値を乗算する
     // これにより、実績#84などの基本値ボーナスがブレイク後のIPにも乗るようになります
-    const finalIP = baseIP.times(formulaIP);
+    let finalIP = baseIP.times(formulaIP);
+
+    if (true) { //必ず Eternity is not broken.
+      const ETERNITY_IP_CAP = new Decimal(config.idle.infinity);
+      const currentIP_d = new Decimal(idleGame.infinityPoints);
+      if (currentIP_d.plus(finalIP).gt(ETERNITY_IP_CAP)) {
+        finalIP = ETERNITY_IP_CAP.minus(currentIP_d).max(0);
+      }
+    }
 
     // 最終的に、計算されたIPの小数点以下を切り捨てて返す
     return finalIP.floor();

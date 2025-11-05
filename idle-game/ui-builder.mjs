@@ -704,7 +704,7 @@ function generateFactoryButtons(uiData, isDisabled = false) {
         .setDisabled(isDisabled)
     );
   }
-  if (ip_d.gte(1e40)) {
+  if (ip_d.gte(1e60)) {
     const potentialEP = 0; //とりあえず0で固定、機能ができたら1固定
     const buttonLabel = `エターネート ${potentialEP} EP`;
     infinityRow.addComponents(
