@@ -27,7 +27,7 @@ import {
   simulateGhostAscension,
   calculateGalaxyCost,
   calculateGalaxyUpgradeCost,
-  calculateEternityBonuses
+  calculateEternityBonuses,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -1363,9 +1363,11 @@ async function executeInfinityTransaction(userId, client) {
       infinitiesGained = Math.floor(multiplier); //小数点以下切り捨て
     }
     // エタニティボーナスを計算して乗算
-    const eternityBonuses = calculateEternityBonuses(latestIdleGame.eternityCount);
+    const eternityBonuses = calculateEternityBonuses(
+      latestIdleGame.eternityCount
+    );
     if (eternityBonuses.infinity > 1) {
-        infinitiesGained *= eternityBonuses.infinity;
+      infinitiesGained *= eternityBonuses.infinity;
     }
     newInfinityCount = latestIdleGame.infinityCount + infinitiesGained;
 
@@ -1412,8 +1414,7 @@ async function executeInfinityTransaction(userId, client) {
             durationInSeconds <= 0 ? 0.01 : durationInSeconds;
         }
       }
-      // 4. ★重要：次の周回のための新しいスタート時間を記録
-      currentChallenges.currentInfinityStartTime = new Date().toISOString();
+      // 次のスタート時間の記録はここでは行わない
       latestIdleGame.changed("challenges", true);
     }
 
@@ -1476,8 +1477,11 @@ async function executeInfinityTransaction(userId, client) {
       // シミュレーション結果を設計図に反映
       updateData.ascensionCount += ascensions;
     }
-
-    // 4. 最終的な設計図でデータベースを更新する
+    // 4. IU73の次のスタート時間を、DB更新の直前に記録する
+    if (latestIdleGame.ipUpgrades.upgrades.includes("IU73")) {
+      updateData.challenges.currentInfinityStartTime = new Date().toISOString();
+    }
+    // 5. 最終的な設計図でデータベースを更新する
     await latestIdleGame.update(updateData, { transaction: t });
   });
 
@@ -2383,82 +2387,101 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
  * @param {import("discord.js").InteractionCollector} collector
  */
 export async function handleEternity(interaction, collector) {
-    const userId = interaction.user.id;
-    const client = interaction.client;
-    collector.stop(); // 他のボタン操作を無効化
+  const userId = interaction.user.id;
+  const client = interaction.client;
+  collector.stop(); // 他のボタン操作を無効化
 
-    try {
-        const idleGame = await IdleGame.findOne({ where: { userId } });
-        const ip_d = new Decimal(idleGame.infinityPoints);
-        const unlockIP_d = new Decimal(config.idle.eternity.unlockIP);
+  try {
+    const idleGame = await IdleGame.findOne({ where: { userId } });
+    const ip_d = new Decimal(idleGame.infinityPoints);
+    const unlockIP_d = new Decimal(config.idle.eternity.unlockIP);
 
-        if (ip_d.lt(unlockIP_d)) {
-            await interaction.followUp({
-                content: `エタニティには ${formatNumberDynamic_Decimal(unlockIP_d)} IP が必要です。`,
-                ephemeral: true,
-            });
-            return false;
-        }
+    if (ip_d.lt(unlockIP_d)) {
+      await interaction.followUp({
+        content: `エタニティには ${formatNumberDynamic_Decimal(unlockIP_d)} IP が必要です。`,
+        ephemeral: true,
+      });
+      return false;
+    }
 
-        // トランザクションでリセット処理を実行
-        await sequelize.transaction(async (t) => {
-            // 既存の統計情報を calamity に加算
-            const calamityTime = (idleGame.calamityTime || 0) + (idleGame.eternityTime || 0);
-            const calamityChips = BigInt(idleGame.chipsSpentThisCalamity || '0') + BigInt(idleGame.chipsSpentThisEternity || '0');
+    // トランザクションでリセット処理を実行
+    await sequelize.transaction(async (t) => {
+      // 既存の統計情報を calamity に加算
+      const calamityTime =
+        (idleGame.calamityTime || 0) + (idleGame.eternityTime || 0);
+      const calamityChips =
+        BigInt(idleGame.chipsSpentThisCalamity || "0") +
+        BigInt(idleGame.chipsSpentThisEternity || "0");
 
-            // IdleGameテーブルのデータをほぼ全て初期値に戻す
-            await IdleGame.update({
-                population: "0",
-                highestPopulation: "0",
-                pizzaOvenLevel: 0,
-                cheeseFactoryLevel: 0,
-                tomatoFarmLevel: 0,
-                mushroomFarmLevel: 0,
-                anchovyFactoryLevel: 0,
-                oliveFarmLevel: 0,
-                wheatFarmLevel: 0,
-                pineappleFarmLevel: 0,
-                prestigeCount: 0,
-                prestigePower: 0,
-                skillPoints: 0,
-                transcendencePoints: 0,
-                skillLevel1: 0, skillLevel2: 0, skillLevel3: 0, skillLevel4: 0,
-                skillLevel5: 0, skillLevel6: 0, skillLevel7: 0, skillLevel8: 0,
-                ascensionCount: 0,
-                infinityTime: 0,
-                eternityTime: 0, // Eternity内の時間はリセット
-                infinityPoints: "0",
-                infinityCount: 0,
-                generatorPower: "1",
-                ipUpgrades: { generators: Array(8).fill({ amount: "0", bought: 0 }), upgrades: [] },
-                chipsSpentThisInfinity: "0",
-                chipsSpentThisEternity: "0", // Eternity内の消費チップはリセット
-                challenges: {},
-                buffMultiplier: 1.0,
-                buffExpiresAt: null,
-                pizzaBonusPercentage: 0,
-                lastUpdatedAt: new Date(),
+      // IdleGameテーブルのデータをほぼ全て初期値に戻す
+      await IdleGame.update(
+        {
+          population: "0",
+          highestPopulation: "0",
+          pizzaOvenLevel: 0,
+          cheeseFactoryLevel: 0,
+          tomatoFarmLevel: 0,
+          mushroomFarmLevel: 0,
+          anchovyFactoryLevel: 0,
+          oliveFarmLevel: 0,
+          wheatFarmLevel: 0,
+          pineappleFarmLevel: 0,
+          prestigeCount: 0,
+          prestigePower: 0,
+          skillPoints: 0,
+          transcendencePoints: 0,
+          skillLevel1: 0,
+          skillLevel2: 0,
+          skillLevel3: 0,
+          skillLevel4: 0,
+          skillLevel5: 0,
+          skillLevel6: 0,
+          skillLevel7: 0,
+          skillLevel8: 0,
+          ascensionCount: 0,
+          infinityTime: 0,
+          eternityTime: 0, // Eternity内の時間はリセット
+          infinityPoints: "0",
+          infinityCount: 0,
+          generatorPower: "1",
+          ipUpgrades: {
+            generators: Array(8).fill({ amount: "0", bought: 0 }),
+            upgrades: [],
+          },
+          chipsSpentThisInfinity: "0",
+          chipsSpentThisEternity: "0", // Eternity内の消費チップはリセット
+          challenges: {},
+          buffMultiplier: 1.0,
+          buffExpiresAt: null,
+          pizzaBonusPercentage: 0,
+          lastUpdatedAt: new Date(),
 
-                // エタニティ関連の更新
-                eternityCount: (idleGame.eternityCount || 0) + 1,
-                eternityPoints: new Decimal(idleGame.eternityPoints || "0").add(1).toString(), // とりあえずEPは+1
-                // epUpgrades: {}, // 将来的に
+          // エタニティ関連の更新
+          eternityCount: (idleGame.eternityCount || 0) + 1,
+          eternityPoints: new Decimal(idleGame.eternityPoints || "0")
+            .add(1)
+            .toString(), // とりあえずEPは+1
+          // epUpgrades: {}, // 将来的に
 
-                // カラミティ（累計）データの更新
-                calamityTime: calamityTime,
-                chipsSpentThisCalamity: calamityChips.toString(),
+          // カラミティ（累計）データの更新
+          calamityTime: calamityTime,
+          chipsSpentThisCalamity: calamityChips.toString(),
+        },
+        { where: { userId }, transaction: t }
+      );
 
-            }, { where: { userId }, transaction: t });
+      // ポイントテーブルのチップもリセット
+      await Point.update(
+        {
+          legacy_pizza: 0,
+        },
+        { where: { userId }, transaction: t }
+      );
+    });
 
-            // ポイントテーブルのチップもリセット
-            await Point.update({
-                legacy_pizza: 0
-            }, { where: { userId }, transaction: t });
-        });
-
-        // エンディングメッセージを送信
-        await interaction.followUp({
-            content: `# ●1.79e+308 IP  Eternity
+    // エンディングメッセージを送信
+    await interaction.followUp({
+      content: `# ●1.79e+308 IP  Eternity
 ## ――あなたは。
 ## この世界の終わりに辿り着いた。
 　1つのピザ窯から始まった壮大な拡大再生産は止まることを知らず。
@@ -2488,21 +2511,20 @@ export async function handleEternity(interaction, collector) {
 **1 EP** と **1 Σ** を手に入れた。
 所持しているニョボチップと今までの全てを失った。
 エタニティストーンが解禁された。`,
-            ephemeral: true,
-        });
+      ephemeral: true,
+    });
 
-        // 実績#139: きっと全ては夢だった
-        await unlockAchievements(client, userId, 139);
-        return true;
-
-    } catch (error) {
-        console.error("Eternity Error:", error);
-        await interaction.followUp({
-            content: "❌ エタニティの実行中にエラーが発生しました。",
-            ephemeral: true,
-        });
-        return false;
-    }
+    // 実績#139: きっと全ては夢だった
+    await unlockAchievements(client, userId, 139);
+    return true;
+  } catch (error) {
+    console.error("Eternity Error:", error);
+    await interaction.followUp({
+      content: "❌ エタニティの実行中にエラーが発生しました。",
+      ephemeral: true,
+    });
+    return false;
+  }
 }
 
 //-------------------------
