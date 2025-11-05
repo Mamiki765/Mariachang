@@ -435,7 +435,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   let gp_d;
   let initial_gp_d;
   let generators;
-  let gravity_d;
+  let gravity_d = new Decimal(idleGameData.ipUpgrades?.gravity || "1");
   let initial_gravity_d;
   let ipUpgradesChanged = false;
   let purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
@@ -443,7 +443,6 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   if (idleGameData.infinityCount > 0) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
     initial_gp_d = gp_d;
-    gravity_d = new Decimal(idleGameData.ipUpgrades?.gravity || "1");
     initial_gravity_d = gravity_d;
     const oldGenerators = idleGameData.ipUpgrades?.generators || [];
     generators = Array.from(
