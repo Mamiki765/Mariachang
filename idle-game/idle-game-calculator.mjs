@@ -280,7 +280,7 @@ export function formatProductionRate(n) {
  * 1. 生産量の計算エンジン
  * 毎分のニョワミヤ増加量を "Decimal" オブジェクトとして計算して返す。
  * GP効果など、べき乗の前に適用すべき乗算効果を外部から注入できる。
- * 
+ *
  * @param {object} idleGameData - IdleGameの生データ
  * @param {object} externalData - Mee6レベルなど外部から与えるデータ
  * @param {Decimal | null} [gpEffect_d=null] - (オプション) GPなど、べき乗計算の前に乗算する効果。指定しない場合は効果なし。
@@ -291,9 +291,6 @@ function calculateProductionRate(
   externalData,
   gpEffect_d = null
 ) {
-  if (gpEffect_d) {
-    console.log(`[DEBUG] calculateProductionRate received gpEffect_d: ${gpEffect_d.toString()}`);
-  }
   const pp = idleGameData.prestigePower || 0;
   const achievementCount = externalData.achievementCount || 0;
   const ascensionCount = idleGameData.ascensionCount || 0;
@@ -438,12 +435,16 @@ export function calculateOfflineProgress(idleGameData, externalData) {
   let gp_d;
   let initial_gp_d;
   let generators;
+  let gravity_d;
+  let initial_gravity_d;
   let ipUpgradesChanged = false;
   let purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
 
   if (idleGameData.infinityCount > 0) {
     gp_d = new Decimal(idleGameData.generatorPower || "1");
     initial_gp_d = gp_d;
+    gravity_d = new Decimal(idleGameData.ipUpgrades?.gravity || "1");
+    initial_gravity_d = gravity_d;
     const oldGenerators = idleGameData.ipUpgrades?.generators || [];
     generators = Array.from(
       { length: 8 },
@@ -466,11 +467,47 @@ export function calculateOfflineProgress(idleGameData, externalData) {
 
   if (elapsedSeconds > 0) {
     //--- 2.1. ジェネレーターの再計算（平均値を用いた高精度版） ---
-    // GP 1e2000以上の時はSCを入れたいね
     if (idleGameData.infinityCount > 0) {
       ipUpgradesChanged = true;
       const completedChallenges =
         idleGameData.challenges?.completedChallenges || [];
+
+      //グラビティの計算
+      let averageGravityEffect_d = new Decimal(1); // デフォルトは1倍
+
+      if (purchasedIUs.has("IU91")) {
+        // --- a. グラビティ産出量の計算 ---
+        const galaxyConfig = config.idle.galaxy;
+        const galaxyData = idleGameData.ipUpgrades?.galaxy || {
+          count: 0,
+          baseValueUpgrades: 0,
+          gravityExponentUpgrades: 0,
+        };
+        const galaxyCount = galaxyData.count;
+        // config と 購入回数 から現在の値を計算
+        const currentGalaxyBase =
+          galaxyConfig.upgrades.baseValue.initial +
+          galaxyData.baseValueUpgrades *
+            galaxyConfig.upgrades.baseValue.increment;
+        const currentGravityExponent =
+          galaxyConfig.upgrades.gravityExponent.initial +
+          galaxyData.gravityExponentUpgrades *
+            galaxyConfig.upgrades.gravityExponent.increment;
+        // --- b. グラビティ産出量の計算 ---
+        if (galaxyCount > 0) {
+          gravity_d = gravity_d.add(
+            new Decimal(config.idle.galaxy.productionBaseMultiplier)
+              .times(new Decimal(currentGalaxyBase).pow(galaxyCount)) // 分速
+              .div(60) // 秒速
+              .times(elapsedSeconds)
+              .times(timeAccelerationMultiplier) // 時間加速
+          );
+        }
+
+        // --- c. 平均強化倍率の計算 ---
+        const averageGravity_d = initial_gravity_d.add(gravity_d).div(2);
+        averageGravityEffect_d = averageGravity_d.pow(currentGravityExponent);
+      }
 
       // ▼▼▼【実績103対応】▼▼▼
       // externalDataから実績情報を取得
@@ -592,7 +629,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           .times(timeAccelerationMultiplier)
           .times(generatorMultiplier)
           .times(achievementBonus)
-          .times(iu81Multiplier);
+          .times(iu81Multiplier)
+          .times(averageGravityEffect_d);
 
         amountProducedByParent_d = producedAmount_d;
       }
@@ -707,7 +745,11 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     eternityTime: newEternityTime,
     generatorPower: gp_d ? gp_d.toString() : idleGameData.generatorPower,
     infinityCount: newInfinityCount,
-    ipUpgrades: { ...idleGameData.ipUpgrades, generators: generators },
+    ipUpgrades: {
+      ...idleGameData.ipUpgrades,
+      generators: generators,
+      gravity: gravity_d.toString(),
+    },
     wasChanged: {
       // ★変更フラグをオブジェクトにまとめる
       ipUpgrades: ipUpgradesChanged,
@@ -926,9 +968,7 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
   singleFactoryMult_d = applyGpMultSoftcaps(singleFactoryMult_d);
   // d. キャップ後の値を、工場数分だけ累乗して、最終的なGP効果を算出
   const factoryCount = activeChallenge === "IC9" ? 5 : 8;
-  const gpEffect_d = singleFactoryMult_d
-    .pow(factoryCount)
-    .max(1);
+  const gpEffect_d = singleFactoryMult_d.pow(factoryCount).max(1);
 
   const factoryEffects = calculateFactoryEffects(
     updatedIdleGame,
@@ -1418,10 +1458,12 @@ export function calculateInfinityCountBonus(infinityCount) {
 }
 
 /**
- * 【表示用】各ジェネレーターの現在の毎分生産量を計算する
+ * 【表示用】各ジェネレーターの現在の毎分生産量と、関連する効果を計算して返す。
  * @param {object} idleGameData - IdleGameの生データ
  * @param {Set<number>} unlockedSet - 解除済み実績IDのSet
- * @returns {Decimal[]} G8からG1までの毎分生産量（GP含む）の配列
+ * @returns {{productionRates: Decimal[], gravityEffect: Decimal}} - 計算結果を含むオブジェクト。
+ * - `productionRates`: G1からG8までの毎分生産量（GP含む）のDecimal配列。
+ * - `gravityEffect`: グラビティによる現在のジェネレーター強化倍率。
  */
 export function calculateGeneratorProductionRates(
   idleGameData,
@@ -1464,6 +1506,29 @@ export function calculateGeneratorProductionRates(
     }
   }
 
+  let gravityEffect_d = new Decimal(1); // デフォルトは1倍
+
+  if (purchasedIUs.has("IU91")) {
+    const galaxyConfig = config.idle.galaxy;
+    const galaxyData = idleGameData.ipUpgrades?.galaxy || {
+      count: 0,
+      baseValueUpgrades: 0,
+      gravityExponentUpgrades: 0,
+    };
+
+    // 現在のグラビティ指数を計算
+    const currentGravityExponent =
+      galaxyConfig.upgrades.gravityExponent.initial +
+      galaxyData.gravityExponentUpgrades *
+        galaxyConfig.upgrades.gravityExponent.increment;
+
+    // 現在のグラビティ量を取得して、強化倍率を計算
+    const currentGravity_d = new Decimal(
+      idleGameData.ipUpgrades?.gravity || "1"
+    );
+    gravityEffect_d = currentGravity_d.pow(currentGravityExponent);
+  }
+
   // G1からG8まで、順番に計算する
   for (let i = 0; i < 8; i++) {
     const genData = userGenerators[i] || { amount: "0", bought: 0 };
@@ -1485,6 +1550,7 @@ export function calculateGeneratorProductionRates(
     productionPerMinute_d = productionPerMinute_d.times(globalMultiplier);
     productionPerMinute_d = productionPerMinute_d.times(achievementBonus); //実績103
     productionPerMinute_d = productionPerMinute_d.times(iu81Multiplier); //iu81
+    productionPerMinute_d = productionPerMinute_d.times(gravityEffect_d); //グラビティ
     const generatorId = i + 1;
 
     if (generatorId === 1 && purchasedIUs.has("IU31")) {
@@ -1552,8 +1618,11 @@ export function calculateGeneratorProductionRates(
     rates[i] = productionPerMinute_d;
   }
 
-  // .reverse() を削除！ 配列はすでに正しい順序 [G1, G2, ...] になっている
-  return rates;
+  return {
+    // .reverse() を削除！ 配列はすでに正しい順序 [G1, G2, ...] になっている
+    productionRates: rates,
+    gravityEffect: gravityEffect_d,
+  };
 }
 
 /**

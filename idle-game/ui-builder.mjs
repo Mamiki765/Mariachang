@@ -1024,7 +1024,7 @@ function generateInfinityEmbed(uiData) {
   const infinityDescription = `IP: ${formatNumberDynamic_Decimal(ip_d)} | ∞: ${Math.floor(infinityCount).toLocaleString()}
 GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場効果 x${formatNumberDynamic_Decimal(gpEffect_d, 2)} 倍${softcapLabel})
 ⏳ 時間加速: **x${formatNumberDynamic(skill2Effect, 2)}** 倍`;
-  const productionRates = calculateGeneratorProductionRates(
+  const { productionRates, gravityEffect } = calculateGeneratorProductionRates(
     idleGame,
     unlockedSet
   );
@@ -1034,7 +1034,42 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
     .setDescription(infinityDescription);
 
   // ユーザーのジェネレーター進行状況を取得 (データがない場合は空の配列)
+  const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
   const userGenerators = idleGame.ipUpgrades?.generators || [];
+
+  if (purchasedIUs.has("IU91")) {
+    const currentGravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
+    // TODO: calculatorからグラビティ産出量を計算する関数を呼び出す
+    // 一旦ここで組み立てる。
+    const galaxyConfig = config.idle.galaxy;
+    const galaxyData = idleGame.ipUpgrades?.galaxy || {
+      count: 0,
+      baseValueUpgrades: 0,
+      gravityExponentUpgrades: 0,
+    };
+    const galaxyCount = galaxyData.count;
+    // config と 購入回数 から現在の値を計算
+    const currentGalaxyBase =
+      galaxyConfig.upgrades.baseValue.initial +
+      galaxyData.baseValueUpgrades * galaxyConfig.upgrades.baseValue.increment;
+    const currentGravityExponent =
+      galaxyConfig.upgrades.gravityExponent.initial +
+      galaxyData.gravityExponentUpgrades *
+        galaxyConfig.upgrades.gravityExponent.increment;
+    const gravityPerMinute_d =
+      galaxyCount > 0
+        ? new Decimal(config.idle.galaxy.productionBaseMultiplier)
+            .times(currentGalaxyBase)
+            .pow(galaxyCount)
+        : new Decimal(0);//0個なら0
+
+    embed.addFields({
+      name: "🪐 ギャラクシー",
+      value: `${galaxyCount}個のギャラクシーが毎分${gravityPerMinute_d}グラビティを産みます。
+現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}^${currentGravityExponent}**\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**\n*（この機能は試験導入のため、非常に弱いです。）*`,
+      inline: false, // 他のフィールドと区切る
+    });
+  }
 
   // configをループしてフィールドを動的に生成
   for (const generatorConfig of config.idle.infinityGenerators) {

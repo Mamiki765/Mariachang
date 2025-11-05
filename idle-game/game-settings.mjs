@@ -212,7 +212,42 @@ export default {
   gpMult_softcaps: [
     { threshold: 1000, power: 0.1 },
     { threshold: 10000, power: 0.15 },
+    { threshold: 20000, power: 0.15 },
+    { threshold: 30000, power: 0.2 },
+    { threshold: 45000, power: 0.25 },
   ],
+  galaxy: {
+    productionBaseMultiplier: 0.01, // グラビティ産出量の基本係数
+    // --- ギャラクシー自体のコスト設定 ---
+    // コード側でこれらのルールに基づいて計算する
+    costTiers: {
+      tier1: { cost: "1e60" }, // 1個目
+      tier2: { start: 2, end: 11, exponentStep: 3 }, // 2～11個目
+      tier3: { start: 12, end: 33, exponentStep: 5 }, // 12～31個目
+      tier4: { start: 34, exponentStep: 15 },
+    },
+    // --- アップグレード設定 ---
+    upgrades: {
+      // ベース値強化 (生産量に影響)
+      baseValue: {
+        initial: 1.0,
+        increment: 0.1,
+        cost: {
+          start: "1e60",
+          exponentStep: 12,
+        },
+      },
+      // グラビティ指数強化 (効果に影響)
+      gravityExponent: {
+        initial: 0.3,
+        increment: 0.05,
+        cost: {
+          start: "1e60",
+          exponentStep: 21,
+        },
+      },
+    },
+  },
   infinityUpgrades: {
     // ▼▼▼ このように tiers 配列で全体を囲む ▼▼▼
     tiers: [
@@ -479,18 +514,17 @@ export default {
         id: 8,
         upgrades: {
           IU81: {
-            name: "超時空エンジン", 
+            name: "超時空エンジン",
             cost: 1e21,
             description:
               "全てのジェネレーターが最速Infinity記録に応じて強化される。また、不思議な望遠鏡とこのアップグレードの計算に使う最速記録が1/3になる。",
             text: "最速∞(ms)→全Gen強化,最速∞時間1/3",
-            max : 100, //1msで1+100倍
+            max: 100, //1msで1+100倍
           },
           IU82: {
             name: "自己増殖セル",
             cost: 1e27,
-            description:
-              "GPに応じてジェネレーター全体の効果指数が上昇する。",
+            description: "GPに応じてジェネレーター全体の効果指数が上昇する。",
             text: "GP→Gen指数強化",
           },
         },
@@ -500,10 +534,11 @@ export default {
         id: 9,
         upgrades: {
           IU91: {
-            name: "無",
-            cost: 1e40,
-            description: "それは何の効果ももたらさない、IPも物理的に取れなくする仮の数値である。強いて言えば取ると私がビビる",
-            text: "あまみやりかが恐怖する。なんで取った。",
+            name: "ニョワミヤ銀河系",
+            cost: 1e60,
+            description:
+              "ギャラクシーを解放する",
+            text: "ギャラクシーの解放",
           },
         },
       },

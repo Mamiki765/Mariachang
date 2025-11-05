@@ -1382,6 +1382,7 @@ async function executeInfinityTransaction(userId, client) {
     const newIpUpgrades = {
       ...(latestIdleGame.ipUpgrades || {}),
       generators: newGenerators,
+      gravity: "1",
     };
     latestIdleGame.changed("ipUpgrades", true);
 
@@ -2004,6 +2005,7 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
     const newIpUpgrades = {
       ...(idleGame.ipUpgrades || {}),
       generators: newGenerators,
+      gravity: "1",
     };
 
     let updateData = {
