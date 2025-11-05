@@ -687,6 +687,26 @@ const IdleGame = sequelize.define(
     rankScoreComponents: {
       type: DataTypes.JSONB,
     },
+    eternityCount: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0,
+    },
+    eternityPoints: {
+      type: DataTypes.TEXT,
+      defaultValue: "0",
+    },
+    epUpgrades: {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+    },
+    calamityTime: {
+      type: DataTypes.DOUBLE,
+      defaultValue: 0.0,
+    },
+    chipsSpentThisCalamity: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
+    },
   },
   {
     tableName: "idle_games",

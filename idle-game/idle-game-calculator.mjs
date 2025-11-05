@@ -344,6 +344,7 @@ function calculateProductionRate(
   ) {
     buffMultiplier = idleGameData.buffMultiplier;
   }
+const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
 
   // --- ここからDecimal計算 ---
   let baseProduction = new Decimal(factoryEffects.oven)
@@ -382,6 +383,10 @@ function calculateProductionRate(
         ascensionBaseEffect *= multiplier;
       }
     }
+    
+    if (eternityBonuses.ascension > 1) {
+        ascensionBaseEffect *= eternityBonuses.ascension;
+    }
     // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
     const ascensionFactor = Math.pow(ascensionBaseEffect, ascensionCount);
     // 8つの工場すべてに適用されるため、その効果を8乗したものを baseProduction に乗算する
@@ -390,6 +395,8 @@ function calculateProductionRate(
       new Decimal(ascensionFactor).pow(ascensionPower)
     );
   }
+  // IC9挑戦中は上位3施設が無効になるため、効果は5乗。それ以外は8乗。
+  const power = activeChallenge === "IC9" ? 5 : 8;
   // IU24「惑星間高速道路」の効果を適用
   if (purchasedIUs.has("IU24")) {
     // configからボーナス値を取得 (1/5 = 0.2)
@@ -399,9 +406,6 @@ function calculateProductionRate(
     // 1工場あたりの倍率を計算: 1 + (∞回数 * 0.2)
     const singleFactoryMultiplier = 1 + infinityCount * iu24Bonus;
 
-    // IC9挑戦中は上位3施設が無効になるため、効果は5乗。それ以外は8乗。
-    const power = activeChallenge === "IC9" ? 5 : 8;
-
     // baseProductionに最終的な倍率を乗算
     baseProduction = baseProduction.times(
       new Decimal(singleFactoryMultiplier).pow(power)
@@ -410,6 +414,10 @@ function calculateProductionRate(
   // もしGP効果が渡されていたら、べき乗の前にそれを乗算する
   if (gpEffect_d && gpEffect_d.gt(1)) {
     baseProduction = baseProduction.times(gpEffect_d);
+  }
+  //エタニティ工場ボーナス
+  if(eternityBonuses.factory && eternityBonuses.factory> 1 ){
+    baseProduction = baseProduction.times(new Decimal(eternityBonuses.factory).pow(power));
   }
 
   //指数処理
@@ -429,6 +437,7 @@ function calculateProductionRate(
  * @returns {object} - 計算後の更新されたidleGameの生データ (プレーンなJSオブジェクト)
  */
 export function calculateOfflineProgress(idleGameData, externalData) {
+  const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
   const radianceMultiplier = calculateRadianceMultiplier(idleGameData);
   // --- 1. Decimalオブジェクトへ変換 ---
   let population_d = new Decimal(idleGameData.population);
@@ -500,6 +509,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
               .div(60) // 秒速
               .times(elapsedSeconds)
               .times(timeAccelerationMultiplier) // 時間加速
+              .times(eternityBonuses.gravity) 
           );
         }
 
@@ -634,9 +644,9 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         amountProducedByParent_d = producedAmount_d;
       }
 
-      const finalGpProduction_d = amountProducedByParent_d.times(
-        idleGameData.infinityCount
-      );
+      const finalGpProduction_d = amountProducedByParent_d
+        .times(idleGameData.infinityCount)
+        .times(eternityBonuses.gp);
       gp_d = gp_d.add(finalGpProduction_d);
     }
 
@@ -693,7 +703,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           baseInfinitiesPerSecond * Math.floor(iu62Multiplier); // IU62は仕様書通り切り捨て
 
         // 経過時間分だけ∞を加算
-        const generatedInfinities = finalInfinitiesPerSecond * elapsedSeconds;
+        const generatedInfinities = finalInfinitiesPerSecond * elapsedSeconds * eternityBonuses.infinity;
         newInfinityCount += generatedInfinities;
       }
     }
@@ -730,7 +740,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       ((100 + logPop + 1 + (idleGameData.prestigePower || 0)) * skill3Effect +
         afterInfinity) *
       iu43Bouns *
-      iu64Bonus;
+      iu64Bonus *
+      eternityBonuses.chips;
     pizzaBonusPercentage -= 100; //加算分なので最後に100%を引く
   }
 
@@ -1246,7 +1257,8 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
     // これにより、実績#84などの基本値ボーナスがブレイク後のIPにも乗るようになります
     let finalIP = baseIP.times(formulaIP);
 
-    if (true) { //必ず Eternity is not broken.
+    if (true) {
+      //必ず Eternity is not broken.
       const ETERNITY_IP_CAP = new Decimal(config.idle.infinity);
       const currentIP_d = new Decimal(idleGame.infinityPoints);
       if (currentIP_d.plus(finalIP).gt(ETERNITY_IP_CAP)) {
@@ -1619,7 +1631,8 @@ export function calculateGeneratorProductionRates(
 
     // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算
     if (generatorId === 1) {
-      productionPerMinute_d = productionPerMinute_d.times(infinityCount);
+      const bonuses = calculateEternityBonuses(idleGameData.eternityCount);
+      productionPerMinute_d = productionPerMinute_d.times(infinityCount).times(bonuses.gp);
     }
 
     rates[i] = productionPerMinute_d;
@@ -1966,4 +1979,53 @@ export function calculateGalaxyUpgradeCost(upgradeType, currentUpgradeLevel) {
   );
 
   return cost_d;
+}
+
+/**
+ * 【新規】エタニティ回数に基づき、全てのボーナス倍率を計算する
+ * @param {number} eternityCount - 現在のエタニティ回数 (Σ)
+ * @returns {object} 各ボーナスの倍率を含むオブジェクト
+ */
+export function calculateEternityBonuses(eternityCount = 0) {
+  const Σ = eternityCount;
+  const bonuses = {
+    factory: 1.0,
+    chips: 1.0,
+    ascension: 1.0,
+    infinity: 1.0,
+    gp: 1.0,
+    gravity: 1.0, // 将来のグラビティボーナス用
+  };
+
+  if (Σ === 0) return bonuses;
+
+  // Σ工場倍率
+  bonuses.factory = Σ < 20 ? 1 + Σ : Math.pow((1 + Σ) / 21, 0.1) * 21;
+
+  // Σチップ獲得量
+  bonuses.chips = Σ < 20 ? 1 + Σ : Math.pow((1 + Σ) / 21, 0.1) * 21;
+
+  // Σアセンションパワー (基礎倍率に乗算)
+  bonuses.ascension = Σ < 20 ? 1 + Σ / 10 : Math.pow((1 + Σ / 10) / 3, 0.3) * 3;
+
+  // Σインフィニティ獲得量
+  bonuses.infinity =
+    Σ < 20
+      ? Math.pow(1 + Σ, 1.2)
+      : Math.pow(
+          Math.pow(Math.pow(1 + Σ, 1.2) / Math.pow(21, 1.5), 0.1) *
+            Math.pow(21, 1.5),
+          2
+        );
+
+  // Σジェネレーターパワー
+  bonuses.gp =
+    Σ < 20
+      ? Math.pow(Σ + 1, 1.1)
+      : Math.pow((Σ + 1, 1.1) / Math.pow(21, 1.3), 0.1) * Math.pow(21, 1.3);
+
+  //Σグラビティ
+  bonuses.gravity = Σ < 10 ? Math.pow(10, Σ) : Math.pow(Σ, 10);
+
+  return bonuses;
 }

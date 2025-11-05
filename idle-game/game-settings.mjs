@@ -9,6 +9,9 @@ import {
 //    そして、それをデフォルトエクスポートする
 export default {
   infinity: "1.79769e308",
+  eternity: {
+    unlockIP: "1.79769e308", // エタニティ実行に必要なIP
+  },
   factories: {
     //要の部分
     oven: {

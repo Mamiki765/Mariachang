@@ -27,6 +27,7 @@ import {
   simulateGhostAscension,
   calculateGalaxyCost,
   calculateGalaxyUpgradeCost,
+  calculateEternityBonuses
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -1361,7 +1362,13 @@ async function executeInfinityTransaction(userId, client) {
       const multiplier = chipsSpent_d.add(1).log10() + 1;
       infinitiesGained = Math.floor(multiplier); //小数点以下切り捨て
     }
+    // エタニティボーナスを計算して乗算
+    const eternityBonuses = calculateEternityBonuses(latestIdleGame.eternityCount);
+    if (eternityBonuses.infinity > 1) {
+        infinitiesGained *= eternityBonuses.infinity;
+    }
     newInfinityCount = latestIdleGame.infinityCount + infinitiesGained;
+
     // IP獲得量を計算
     gainedIP = calculateGainedIP(latestIdleGame, newCompletedCount);
 
@@ -2371,22 +2378,95 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
 }
 
 /**
- * 【未実装】エターニティを実行する関数
+ * 【実装版】エタニティを実行し、ゲームを完全にリセットする
  * @param {import("discord.js").ButtonInteraction} interaction
  * @param {import("discord.js").InteractionCollector} collector
  */
 export async function handleEternity(interaction, collector) {
-  // 現時点では、プレイヤーに未実装であることを通知するだけ
-  await interaction.followUp({
-    content: `# ●1.79e+308 IP  Eternity
+    const userId = interaction.user.id;
+    const client = interaction.client;
+    collector.stop(); // 他のボタン操作を無効化
+
+    try {
+        const idleGame = await IdleGame.findOne({ where: { userId } });
+        const ip_d = new Decimal(idleGame.infinityPoints);
+        const unlockIP_d = new Decimal(config.idle.eternity.unlockIP);
+
+        if (ip_d.lt(unlockIP_d)) {
+            await interaction.followUp({
+                content: `エタニティには ${formatNumberDynamic_Decimal(unlockIP_d)} IP が必要です。`,
+                ephemeral: true,
+            });
+            return false;
+        }
+
+        // トランザクションでリセット処理を実行
+        await sequelize.transaction(async (t) => {
+            // 既存の統計情報を calamity に加算
+            const calamityTime = (idleGame.calamityTime || 0) + (idleGame.eternityTime || 0);
+            const calamityChips = BigInt(idleGame.chipsSpentThisCalamity || '0') + BigInt(idleGame.chipsSpentThisEternity || '0');
+
+            // IdleGameテーブルのデータをほぼ全て初期値に戻す
+            await IdleGame.update({
+                population: "0",
+                highestPopulation: "0",
+                pizzaOvenLevel: 0,
+                cheeseFactoryLevel: 0,
+                tomatoFarmLevel: 0,
+                mushroomFarmLevel: 0,
+                anchovyFactoryLevel: 0,
+                oliveFarmLevel: 0,
+                wheatFarmLevel: 0,
+                pineappleFarmLevel: 0,
+                prestigeCount: 0,
+                prestigePower: 0,
+                skillPoints: 0,
+                transcendencePoints: 0,
+                skillLevel1: 0, skillLevel2: 0, skillLevel3: 0, skillLevel4: 0,
+                skillLevel5: 0, skillLevel6: 0, skillLevel7: 0, skillLevel8: 0,
+                ascensionCount: 0,
+                infinityTime: 0,
+                eternityTime: 0, // Eternity内の時間はリセット
+                infinityPoints: "0",
+                infinityCount: 0,
+                generatorPower: "1",
+                ipUpgrades: { generators: Array(8).fill({ amount: "0", bought: 0 }), upgrades: [] },
+                chipsSpentThisInfinity: "0",
+                chipsSpentThisEternity: "0", // Eternity内の消費チップはリセット
+                challenges: {},
+                buffMultiplier: 1.0,
+                buffExpiresAt: null,
+                pizzaBonusPercentage: 0,
+                lastUpdatedAt: new Date(),
+
+                // エタニティ関連の更新
+                eternityCount: (idleGame.eternityCount || 0) + 1,
+                eternityPoints: new Decimal(idleGame.eternityPoints || "0").add(1).toString(), // とりあえずEPは+1
+                // epUpgrades: {}, // 将来的に
+
+                // カラミティ（累計）データの更新
+                calamityTime: calamityTime,
+                chipsSpentThisCalamity: calamityChips.toString(),
+
+            }, { where: { userId }, transaction: t });
+
+            // ポイントテーブルのチップもリセット
+            await Point.update({
+                legacy_pizza: 0
+            }, { where: { userId }, transaction: t });
+        });
+
+        // エンディングメッセージを送信
+        await interaction.followUp({
+            content: `# ●1.79e+308 IP  Eternity
 ## ――あなたは。
 ## この世界の終わりに辿り着いた。
-1つのピザ窯から始まった壮大な拡大再生産は止まることを知らず。
-最早数えるのも辞めたくなる様なニョワミヤが集まった星が幾つも連なり、惑星系を作り、それは……とても、とても大きな、銀河系となった。
-そして、ああ、あれはあなたが最初に生み出した星だろうか。重力崩壊を起こし、中央に渦巻くブラックホールにあなたは吸い込まれ、どこまでも、どこまでも落ちていき……。
-
-まるで永遠の様に感じられる時間の果てに、無限の闇の深淵から差し込んだ凄まじい光に目が眩んだ次の瞬間。あなたはがらんどうとしたピザ工場に座り込んでいた。
-眼の前には埃を被ったたった一つのピザ窯と、あなたを心配そうに見つめるニョワミヤが1匹だけ、そこにいた。
+　1つのピザ窯から始まった壮大な拡大再生産は止まることを知らず。
+　最早数えるのも辞めたくなる様なニョワミヤが集まった星が幾つも連なり、惑星系を作り、それは……とても、とても大きな、銀河系となった。
+　そして、ああ、あれはあなたが最初に生み出した星だろうか。重力崩壊を起こし、中央に渦巻くブラックホールにあなたは吸い込まれ、どこまでも、どこまでも落ちていき……。
+　まるで永遠の様に感じられる時間の果てに、無限の闇の深淵から差し込んだ凄まじい光に目が眩んだ次の瞬間。
+　あなたはがらんどうとしたピザ工場に座り込んでいた。
+　眼の前には埃を被ったたった一つのピザ窯と、あなたを心配そうに見つめるニョワミヤが1匹だけ、そこにいた。
 
 ## 『雨宿り ピザ工場』
 ### 制作
@@ -2405,16 +2485,24 @@ export async function handleEternity(interaction, collector) {
 そして……
 
 
-1 EP と 1 Σを手に入れた。
-…と思ったら気のせいだった。しかたないので、あまみやりかをどつきましょう。`,
-    ephemeral: true,
-  });
+**1 EP** と **1 Σ** を手に入れた。
+所持しているニョボチップと今までの全てを失った。
+エタニティストーンが解禁された。`,
+            ephemeral: true,
+        });
 
-  // 実績#139: きっと全ては夢だった
-  await unlockAchievements(interaction.client, interaction.user.id, 139);
+        // 実績#139: きっと全ては夢だった
+        await unlockAchievements(client, userId, 139);
+        return true;
 
-  // UI更新は不要なので false を返す
-  return false;
+    } catch (error) {
+        console.error("Eternity Error:", error);
+        await interaction.followUp({
+            content: "❌ エタニティの実行中にエラーが発生しました。",
+            ephemeral: true,
+        });
+        return false;
+    }
 }
 
 //-------------------------

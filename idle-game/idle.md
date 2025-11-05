@@ -425,8 +425,8 @@ $$
 | `transcendencePoints`         | DOUBLE  | 超越ポイント(TP)                                                      |
 | `skillLevel1` - `skillLevel8` | INTEGER | 各スキルのレベル                                                      |
 | `ascensionCount`              | INTEGER | アセンションを行った回数                                              |
-| `infinityTime`                | DOUBLE  | 現在の周回でのゲーム内プレイ時間(秒)                                  |
-| `eternityTime`                | DOUBLE  | ゲーム全体でのゲーム内プレイ時間(秒)                                  |
+| `infinityTime`                | DOUBLE  | 現在の∞周回でのゲーム内プレイ時間(秒)                                 |
+| `eternityTime`                | DOUBLE  | 現在のΣ周回でのゲーム内プレイ時間(秒)                                 |
 | `infinityPoints`              | TEXT    | インフィニティポイント(IP) (Decimal文字列)                            |
 | `infinityCount`               | DOUBLE  | インフィニティを行った回数                                            |
 | `generatorPower`              | TEXT    | ジェネレーターパワー(GP) (Decimal文字列)                              |
@@ -441,6 +441,11 @@ $$
 | `lastUpdatedAt`               | DATE    | 最後に人口計算をした時間                                              |
 | `rankScore`                   | DOUBLE  | ランキングに使用される数値                                            |
 | `rankScoreComponents`         | JSONB   | ランキングに必要な数値等の記録                                        |
+| `eternityCount`               | DOUBLE  | エタニティをした回数(Σ)                                               |
+| `eternityPoints`              | TEXT    | エタニティポイント(EP) (Decimal文字列)                                |
+| `epUpgrades`                  | JSONB   | EPの強化要素やチャレンジなどを記録する…かもしれないjson               |
+| `calamityTime`                | DOUBLE  | ゲーム全体でのゲーム内プレイ時間(秒)                                  |
+| `chipsSpentThisCalamity`      | BIGINT  | ゲーム全体での累計チップ消費量。                                      |
 
 #### `points` テーブル
 

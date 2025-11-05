@@ -38,6 +38,7 @@ import {
   buildInfinityView,
   buildInfinityUpgradesView,
   buildChallengeView,
+  buildEternityView,
 } from "../../idle-game/ui-builder.mjs";
 
 export const help = {
@@ -78,7 +79,8 @@ export const data = new SlashCommandBuilder()
         { name: "スキル画面", value: "skill" },
         { name: "ジェネレーター", value: "infinity" },
         { name: "アップグレード", value: "infinity_upgrades" },
-        { name: "チャレンジ", value: "challenges" }
+        { name: "チャレンジ", value: "challenges" },
+        { name: "エタニティ", value: "eternity" }
       )
   );
 
@@ -500,6 +502,17 @@ export async function execute(interaction) {
           ephemeral: true,
         });
       }
+    } else if (viewChoice === "eternity") {
+      // ★ 追加
+      if (idleGame.eternityCount > 0) {
+        currentView = "eternity";
+      } else {
+        await interaction.followUp({
+          content:
+            "⚠️ エタニティ画面はエタニティ後に解放されます。代わりに工場画面を表示します。",
+          ephemeral: true,
+        });
+      }
     }
 
     // --- 2. 決定した画面を描画する ---
@@ -522,9 +535,13 @@ export async function execute(interaction) {
         replyOptions = buildChallengeView(uiData);
         break;
 
+      case "eternity":
+        replyOptions = buildEternityView(uiData);
+        break;
+
       case "factory":
       default:
-        replyOptions = buildFactoryView(uiData); // ← これだけ！
+        replyOptions = buildFactoryView(uiData);
         break;
     }
 
@@ -571,6 +588,9 @@ export async function execute(interaction) {
         viewChanged = true;
       } else if (i.customId === "idle_show_challenges") {
         currentView = "challenges";
+        viewChanged = true;
+      } else if (i.customId === "idle_show_eternity") {
+        currentView = "eternity";
         viewChanged = true;
       }
 
@@ -708,6 +728,9 @@ export async function execute(interaction) {
             break;
           case "challenges":
             replyOptions = buildChallengeView(newUiData);
+            break;
+          case "eternity": 
+            replyOptions = buildEternityView(newUiData);
             break;
           case "factory":
           default:

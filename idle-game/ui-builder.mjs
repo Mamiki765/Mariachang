@@ -30,6 +30,7 @@ import {
   calculateRadianceMultiplier,
   calculateGalaxyCost,
   calculateGalaxyUpgradeCost,
+  calculateEternityBonuses,
 } from "./idle-game-calculator.mjs";
 
 //---------------
@@ -119,6 +120,19 @@ export function buildChallengeView(uiData) {
   };
 }
 
+/**
+ * エタニティ画面のUI一式を生成する
+ * @param {object} uiData
+ * @returns {object}
+ */
+export function buildEternityView(uiData) {
+  return {
+    content: " ",
+    embeds: [generateEternityEmbed(uiData)],
+    components: generateEternityButtons(uiData),
+  };
+}
+
 //--------------------
 //メイン画面
 //--------------------
@@ -183,6 +197,10 @@ function generateFactoryEmbed(uiData, isFinal = false) {
       ascensionBaseEffect *= multiplier;
     }
   }
+  const bonuses = calculateEternityBonuses(idleGame.eternityCount);
+  if (bonuses.ascension > 1) {
+    ascensionBaseEffect *= bonuses.ascension;
+  }
   const ascensionEffect = // この名前の変数に最終的な「1工場あたりの倍率」を入れる
     ascensionCount > 0 ? Math.pow(ascensionBaseEffect, ascensionCount) : 1;
   //GP効果をDecimalで取得
@@ -226,7 +244,8 @@ function generateFactoryEmbed(uiData, isFinal = false) {
     // 8施設共通で適用される倍率を先にまとめておく (Decimalで計算)
     let multiplier_d = new Decimal(ascensionEffect)
       .times(gpEffect_d)
-      .times(iu24Effect);
+      .times(iu24Effect)
+      .times(bonuses.factory);
     // 施設タイプに応じた倍率を計算する
     if (
       factoryConfig.type === "additive" ||
@@ -677,6 +696,7 @@ function generateFactoryButtons(uiData, isDisabled = false) {
   //infinityRow
   const infinityRow = new ActionRowBuilder();
   const ip_d = new Decimal(idleGame.infinityPoints);
+  const eternityUnlockIP_d = new Decimal(config.idle.eternity.unlockIP);
   // Infinityを1回以上経験している場合、「ジェネレーター」画面への切り替えボタンを追加
   if (idleGame.infinityCount > 0) {
     infinityRow.addComponents(
@@ -685,6 +705,15 @@ function generateFactoryButtons(uiData, isDisabled = false) {
         .setLabel("ジェネレーター")
         .setStyle(ButtonStyle.Secondary)
         .setEmoji("🌌")
+        .setDisabled(isDisabled)
+    );
+  }
+  if (idleGame.eternityCount > 0) {
+    infinityRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("idle_show_eternity")
+        .setLabel("エタニティ")
+        .setStyle(ButtonStyle.Primary)
         .setDisabled(isDisabled)
     );
   }
@@ -704,16 +733,15 @@ function generateFactoryButtons(uiData, isDisabled = false) {
         .setDisabled(isDisabled)
     );
   }
-  if (ip_d.gte(1e60)) {
-    const potentialEP = 0; //とりあえず0で固定、機能ができたら1固定
+  if (ip_d.gte(eternityUnlockIP_d)) {
+    const potentialEP = 1; // 現状は1固定
     const buttonLabel = `エターネート ${potentialEP} EP`;
     infinityRow.addComponents(
       new ButtonBuilder()
         .setCustomId("idle_eternity")
         .setLabel(buttonLabel)
         .setStyle(ButtonStyle.Primary)
-        .setEmoji("🌠") // 例: 流れ星
-        .setDisabled(isDisabled || ip_d.lt(config.idle.infinity))
+        .setEmoji("🌠")
     );
   }
   infinityRow.addComponents(
@@ -1008,6 +1036,7 @@ function generateInfinityEmbed(uiData) {
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
+  const bonuses = calculateEternityBonuses(idleGame.eternityCount);
   //GPとその効果を計算するロジックを追加
   const gp_d = new Decimal(idleGame.generatorPower || "1");
   // GPの効果をuiDataから取り出す
@@ -1067,12 +1096,13 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
         ? new Decimal(currentGalaxyBase) // まずベース値をDecimal化
             .pow(galaxyCount) // 次にギャラクシー数分だけ累乗
             .times(config.idle.galaxy.productionBaseMultiplier) // その結果に基本倍率を掛ける
+            .times(bonuses.gravity)
         : new Decimal(0); // ギャラクシーが0個なら0
 
     embed.addFields({
       name: "🪐 ギャラクシー",
-      value: `${galaxyCount}個のギャラクシーが毎分${formatNumberDynamic_Decimal(gravityPerMinute_d,3)}グラビティを産みます。
-現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}^${currentGravityExponent}**\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**\n*（この機能は試験導入のため、非常に弱いです。）*`,
+      value: `${galaxyCount}個のギャラクシーが毎分${formatNumberDynamic_Decimal(gravityPerMinute_d, 3)}グラビティを産みます。
+現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}^${currentGravityExponent}**\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**`,
       inline: false, // 他のフィールドと区切る
     });
   }
@@ -1160,7 +1190,6 @@ function generateInfinityButtons(idleGame) {
   let currentRow = new ActionRowBuilder();
   const userGenerators = idleGame.ipUpgrades?.generators || [];
   const ip_d = new Decimal(idleGame.infinityPoints);
-
   for (const generatorConfig of config.idle.infinityGenerators) {
     const index = generatorConfig.id - 1;
 
@@ -1360,14 +1389,16 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
       if (purchasedUpgrades.has("IU81")) {
         adjustedBestTime = Math.max(0.001, adjustedBestTime / 3);
       }
-      // ▲▲▲ ここまで修正 ▲▲▲
+
+      const bonuses = calculateEternityBonuses(idleGame.eternityCount);
 
       const chipsSpent_d = new Decimal(idleGame.chipsSpentThisEternity || "0");
       const iu62Multiplier = Math.floor(chipsSpent_d.add(1).log10() + 1);
       const infinitiesPerHour =
         (1 / (adjustedBestTime * iu73Config.rateDivisor)) *
         3600 *
-        iu62Multiplier;
+        iu62Multiplier *
+        bonuses.infinity;
 
       valueText =
         `自己最速記録: **${formatInfinityTime(bestTime)}**\n` +
@@ -1634,7 +1665,7 @@ function generateChallengeButtons(idleGame) {
 //プロフィールカード
 //-------------------------
 /**
- * プロフィールカード用のコンパクトなEmbedを生成する
+ * プロフィールカード用のコンパクトなEmbedを生成する (エタニティ対応版)
  * @param {object} uiData - getSingleUserUIDataから返されたオブジェクト
  * @param {import("discord.js").User} user - Discordのユーザーオブジェクト
  * @returns {EmbedBuilder}
@@ -1645,51 +1676,53 @@ export function generateProfileEmbed(uiData, user) {
   const highestPopulation_d = new Decimal(idleGame.highestPopulation);
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
 
+  // --- 1. 表示に必要な各パーツの文字列を事前に生成 ---
+
   const formattedTime = formatInfinityTime(idleGame.infinityTime);
 
-  const formattedChipsEternity = formatNumberJapanese_Decimal(
-    new Decimal(idleGame.chipsSpentThisEternity?.toString() || "0")
-  );
   //アセンション
   const ascensionCount = idleGame.ascensionCount || 0;
   let ascensionText = "";
   if (ascensionCount > 0) {
     ascensionText = ` <:nyowamiyarika:1264010111970574408>+${ascensionCount}`;
   }
+
   //ジェネレーター
   let generatorText = "";
-  // インフィニティを1回以上経験している場合のみ処理
   if (idleGame.infinityCount > 0) {
     const generators = idleGame.ipUpgrades?.generators || [];
     const boughtCounts = [];
-
-    // ローマ数字の配列
     const romanNumerals = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ"];
-
     for (let i = 0; i < generators.length; i++) {
       const bought = generators[i]?.bought || 0;
-      // 購入数が1以上の場合のみ表示リストに追加
       if (bought > 0) {
         boughtCounts.push(`${romanNumerals[i]}:**${bought}**`);
       }
     }
-
-    // 表示するジェネレーターが1つ以上あれば、テキストを組み立てる
     if (boughtCounts.length > 0) {
       const gp_d = new Decimal(idleGame.generatorPower || "1");
       generatorText = `\nGP:**${formatNumberDynamic_Decimal(gp_d, 0)}** | ${boughtCounts.join(" ")}`;
     }
+    const galaxyCount = idleGame.ipUpgrades?.galaxy?.count || 0;
+    if (galaxyCount > 0) {
+      // generatorTextが空（G1購入前）の可能性も考慮して、\nから始める
+      if (generatorText === "") {
+        generatorText = `\n🪐**${galaxyCount}**`;
+      } else {
+        // 既にGPなどの表示がある場合は区切り文字を追加
+        generatorText += ` | 🪐**${galaxyCount}**`;
+      }
+    }
   }
+
   //ICクリア数
   const completedICCount =
     uiData.idleGame.challenges?.completedChallenges?.length || 0;
   const icCountText = completedICCount > 0 ? ` | ⚔️${completedICCount}/9` : "";
 
-  const formattedEternityTime = formatInfinityTime(idleGame.eternityTime || 0);
-  //工場
+  //工場レベル
   const factoryLevels = [];
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
-    // --- この施設が解禁されているかを判定 ---
     let isUnlocked = true;
     if (
       factoryConfig.unlockPopulation &&
@@ -1704,8 +1737,6 @@ export function generateProfileEmbed(uiData, user) {
     ) {
       isUnlocked = false;
     }
-
-    // 解禁済みの場合のみ表示する
     const level = idleGame[factoryConfig.key] || 0;
     if (isUnlocked) {
       factoryLevels.push(`${factoryConfig.emoji}Lv.${level}`);
@@ -1713,21 +1744,135 @@ export function generateProfileEmbed(uiData, user) {
   }
   const factoryLevelsString = factoryLevels.join(" ");
 
-  // Descriptionを組み立てる
-  const description = [
+  // --- 2. エタニティ達成状況に応じて、最終的な説明文を組み立てる ---
+
+  let description;
+  const eternityCount = idleGame.eternityCount || 0;
+
+  // 全ての行で共通して使う前半部分
+  const commonLines = [
     `<:nyowamiyarika:1264010111970574408>: **${formatNumberJapanese_Decimal(population_d)} 匹** | Max<a:nyowamiyarika_color2:1265940814350127157>: **${formatNumberJapanese_Decimal(highestPopulation_d)} 匹**`,
     `${factoryLevelsString} 🌿${achievementCount}/${config.idle.achievements.length}${ascensionText} 🔥x${new Decimal(idleGame.buffMultiplier).toExponential(2)}`,
     `PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${(idleGame.skillPoints || 0).toFixed(2)}** | TP: **${formatNumberDynamic(idleGame.transcendencePoints || 0)}**`,
     `#1:${idleGame.skillLevel1 || 0} #2:${idleGame.skillLevel2 || 0} #3:${idleGame.skillLevel3 || 0} #4:${idleGame.skillLevel4 || 0} / #5:${idleGame.skillLevel5 || 0} #6:${idleGame.skillLevel6 || 0} #7:${idleGame.skillLevel7 || 0} #8:${idleGame.skillLevel8 || 0}`,
     `IP: **${formatNumberDynamic_Decimal(new Decimal(idleGame.infinityPoints))}** | ∞: **${Math.floor(idleGame.infinityCount || 0).toLocaleString()}**${icCountText} | ∞⏳: ${formattedTime}${generatorText}`,
-    `Σternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}** | Score: **${formatNumberDynamic(idleGame.rankScore, 4)}**`,
-  ].join("\n");
+  ];
 
+  if (eternityCount > 0) {
+    // 【エタニティ達成者向けの表示】
+    const eternityPoints_d = new Decimal(idleGame.eternityPoints || "0");
+    const formattedEternityTime = formatInfinityTime(
+      idleGame.eternityTime || 0
+    );
+
+    const totalCalamityTime =
+      (idleGame.calamityTime || 0) + (idleGame.eternityTime || 0);
+    const formattedCalamityTime = formatInfinityTime(totalCalamityTime);
+
+    const totalCalamityChips_d = new Decimal(
+      idleGame.chipsSpentThisCalamity || "0"
+    ).add(idleGame.chipsSpentThisEternity || "0");
+    const formattedCalamityChips =
+      formatNumberJapanese_Decimal(totalCalamityChips_d);
+
+    description = [
+      ...commonLines,
+      `EP: **${formatNumberDynamic_Decimal(eternityPoints_d)}** | Σ: **${eternityCount.toLocaleString()}** | Σ⏳: **${formattedEternityTime}**`,
+      `𝒞alamity(累計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedCalamityChips}枚** | ⏳: **${formattedCalamityTime}** | Score: **${formatNumberDynamic(idleGame.rankScore, 4)}**`,
+    ].join("\n");
+  } else {
+    // 【エタニティ未達成者向けの表示（従来通り）】
+    const formattedChipsEternity = formatNumberJapanese_Decimal(
+      new Decimal(idleGame.chipsSpentThisEternity?.toString() || "0")
+    );
+    const formattedEternityTime = formatInfinityTime(
+      idleGame.eternityTime || 0
+    );
+
+    description = [
+      ...commonLines,
+      `Σternity(合計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedChipsEternity}枚** | ⏳: **${formattedEternityTime}** | Score: **${formatNumberDynamic(idleGame.rankScore, 4)}**`,
+    ].join("\n");
+  }
+
+  // --- 3. Embedを生成して返す ---
   return new EmbedBuilder()
     .setTitle(`${user.displayName}さんのピザ工場`)
-    .setColor("Aqua") // 通常のEmbedと色を変えて区別
+    .setColor("Aqua")
     .setDescription(description)
     .setTimestamp();
+}
+
+//--------------------------
+//エタニティ
+//--------------------------
+/**
+ * エタニティ画面のEmbedを生成する
+ * @param {object} uiData
+ * @returns {EmbedBuilder}
+ */
+function generateEternityEmbed(uiData) {
+  const { idleGame } = uiData;
+  const eternityCount = idleGame.eternityCount || 0;
+  const eternityPoints = new Decimal(idleGame.eternityPoints || "0");
+
+  const embed = new EmbedBuilder()
+    .setTitle("Σ エタニティ Σ")
+    .setColor("White")
+    .setDescription(
+      `**${eternityCount} Σ** を達成し、**${formatNumberDynamic_Decimal(eternityPoints)} EP** を所持しています。`
+    );
+
+  // マイルストーンの表示
+  let milestonesText = "";
+  if (eternityCount >= 1) {
+    milestonesText += "✅ **1Σ:** Σに応じたエタニティボーナスの解禁\n";
+  } else {
+    milestonesText = "まだ達成したマイルストーンはありません。";
+  }
+  embed.addFields({
+    name: "🌌 エタニティマイルストーン",
+    value: milestonesText,
+  });
+
+  // エタニティボーナスの表示 (マイルストーン#1達成時)
+  if (eternityCount >= 1) {
+    // ここに各ボーナスの現在値を表示するロジックを追加します
+    // （次のステップで作成する計算関数を呼び出す想定）
+    const bonuses = calculateEternityBonuses(eternityCount);
+    const bonusText = `
+- **Σ工場倍率:** x${formatNumberDynamic(bonuses.factory, 2)}
+- **Σチップ獲得量:** x${formatNumberDynamic(bonuses.chips, 2)}
+- **Σアセンションパワー:** x${formatNumberDynamic(bonuses.ascension, 3)}
+- **Σインフィニティ獲得量:** x${formatNumberDynamic(bonuses.infinity, 2)}
+- **Σジェネレーターパワー:** x${formatNumberDynamic(bonuses.gp, 2)}
+- **Σグラビティ獲得量:** x${formatNumberDynamic(bonuses.gravity, 2)}
+`;
+    embed.addFields({ name: "🌠 現在のエタニティボーナス", value: bonusText });
+  }
+
+  return embed;
+}
+
+/**
+ * エタニティ画面のボタンを生成する
+ * @param {object} uiData
+ * @returns {ActionRowBuilder[]}
+ */
+function generateEternityButtons(uiData) {
+  const components = [];
+
+  // 将来的にEPアップグレードボタンなどをここに追加
+
+  const navigationRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_show_factory")
+      .setLabel("工場画面に戻る")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🏭")
+  );
+  components.push(navigationRow);
+  return components;
 }
 
 //-----------------------
