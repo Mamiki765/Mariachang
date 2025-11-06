@@ -1360,7 +1360,7 @@ async function executeInfinityTransaction(userId, client) {
       );
       // IU62は、log10(消費チップ + 1) + 1
       const multiplier = chipsSpent_d.add(1).log10() + 1;
-      infinitiesGained = Math.floor(multiplier); //小数点以下切り捨て
+      infinitiesGained = multiplier; //小数点以下切り捨て
     }
     // エタニティボーナスを計算して乗算
     const eternityBonuses = calculateEternityBonuses(
@@ -1369,6 +1369,7 @@ async function executeInfinityTransaction(userId, client) {
     if (eternityBonuses.infinity > 1) {
       infinitiesGained *= eternityBonuses.infinity;
     }
+    infinitiesGained = Math.floor(infinitiesGained); //小数点以下切り捨て
     newInfinityCount = latestIdleGame.infinityCount + infinitiesGained;
 
     // IP獲得量を計算
@@ -1684,7 +1685,7 @@ async function postInfinityTasks(
 **${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
 ピザ生産ジェネレーターが解禁された。`;
   } else {
-    successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Infinity
+    successMessage = `# ●1.79e+308 Infinity
 ## ――あなたは果てにたどり着いた。
 終わりは意外とあっけないものだった。
 ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、

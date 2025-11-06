@@ -344,7 +344,7 @@ function calculateProductionRate(
   ) {
     buffMultiplier = idleGameData.buffMultiplier;
   }
-const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
+  const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
 
   // --- ここからDecimal計算 ---
   let baseProduction = new Decimal(factoryEffects.oven)
@@ -383,9 +383,9 @@ const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
         ascensionBaseEffect *= multiplier;
       }
     }
-    
+
     if (eternityBonuses.ascension > 1) {
-        ascensionBaseEffect *= eternityBonuses.ascension;
+      ascensionBaseEffect *= eternityBonuses.ascension;
     }
     // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
     const ascensionFactor = Math.pow(ascensionBaseEffect, ascensionCount);
@@ -416,8 +416,10 @@ const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
     baseProduction = baseProduction.times(gpEffect_d);
   }
   //エタニティ工場ボーナス
-  if(eternityBonuses.factory && eternityBonuses.factory> 1 ){
-    baseProduction = baseProduction.times(new Decimal(eternityBonuses.factory).pow(power));
+  if (eternityBonuses.factory && eternityBonuses.factory > 1) {
+    baseProduction = baseProduction.times(
+      new Decimal(eternityBonuses.factory).pow(power)
+    );
   }
 
   //指数処理
@@ -509,7 +511,7 @@ export function calculateOfflineProgress(idleGameData, externalData) {
               .div(60) // 秒速
               .times(elapsedSeconds)
               .times(timeAccelerationMultiplier) // 時間加速
-              .times(eternityBonuses.gravity) 
+              .times(eternityBonuses.gravity)
           );
         }
 
@@ -542,10 +544,11 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         }
       }
 
-      // IC9(全チャレンジ)クリア報酬: 全ジェネレーターの性能が2倍になる。
-      const generatorMultiplier = completedChallenges.includes("IC9")
-        ? 2.0
-        : 1.0;
+      // IC9(全チャレンジ)クリア実績報酬: 全ジェネレーターの性能が2倍になる。
+      const generatorMultiplier =
+        completedChallenges.includes("IC9") || idleGameData.eternityCount > 0
+          ? 2.0
+          : 1.0;
       const infinityCount = idleGameData.infinityCount || 0;
       const currentIp_d = new Decimal(idleGameData.infinityPoints || "0");
       let amountProducedByParent_d = new Decimal(0);
@@ -703,7 +706,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           baseInfinitiesPerSecond * Math.floor(iu62Multiplier); // IU62は仕様書通り切り捨て
 
         // 経過時間分だけ∞を加算
-        const generatedInfinities = finalInfinitiesPerSecond * elapsedSeconds * eternityBonuses.infinity;
+        const generatedInfinities =
+          finalInfinitiesPerSecond * elapsedSeconds * eternityBonuses.infinity;
         newInfinityCount += generatedInfinities;
       }
     }
@@ -1200,6 +1204,7 @@ export function calculateGeneratorCost(generatorId, currentBought) {
 export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   const population_d = new Decimal(idleGame.population);
   const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
+  const eternityCount = idleGame.eternityCount || 0;
   let ic9TimeBonus = 1.0;
   if (purchasedIUs.has("IU51")) {
     // IU51の設定オブジェクトを取得
@@ -1217,14 +1222,14 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
   let baseIP = new Decimal(1);
   const newInfinityCount = (idleGame.infinityCount || 0) + 1;
   //5回無限実績
-  if (newInfinityCount >= 5) {
+  if (newInfinityCount >= 5 || eternityCount > 0) {
     baseIP = baseIP.times(2);
   }
   // ICクリア数に応じた補正
   if (completedChallengeCount > 0) {
     baseIP = baseIP.times(completedChallengeCount + 1);
   }
-  if (completedChallengeCount >= 4) {
+  if (completedChallengeCount >= 4 || eternityCount > 0) {
     baseIP = baseIP.times(2);
   }
   if (completedChallengeCount >= 9) {
@@ -1508,7 +1513,10 @@ export function calculateGeneratorProductionRates(
   const infinityCount = idleGameData.infinityCount || 0;
 
   // 全体に掛かる倍率
-  const globalMultiplier = completedChallenges.has("IC9") ? 2.0 : 1.0;
+  const globalMultiplier =
+    completedChallenges.has("IC9") || idleGameData.eternityCount > 0
+      ? 2.0
+      : 1.0;
 
   // IU81のボーナス倍率
   let iu81Multiplier = 1.0;
@@ -1632,7 +1640,9 @@ export function calculateGeneratorProductionRates(
     // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算
     if (generatorId === 1) {
       const bonuses = calculateEternityBonuses(idleGameData.eternityCount);
-      productionPerMinute_d = productionPerMinute_d.times(infinityCount).times(bonuses.gp);
+      productionPerMinute_d = productionPerMinute_d
+        .times(infinityCount)
+        .times(bonuses.gp);
     }
 
     rates[i] = productionPerMinute_d;

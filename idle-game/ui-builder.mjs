@@ -1823,18 +1823,12 @@ function generateEternityEmbed(uiData) {
       `**${eternityCount} Σ** を達成し、**${formatNumberDynamic_Decimal(eternityPoints)} EP** を所持しています。`
     );
 
-  // マイルストーンの表示
-  let milestonesText = "";
-  if (eternityCount >= 1) {
-    milestonesText += "✅ **1Σ:** Σに応じたエタニティボーナスの解禁\n";
-  } else {
-    milestonesText = "まだ達成したマイルストーンはありません。";
-  }
-  embed.addFields({
-    name: "🌌 エタニティマイルストーン",
-    value: milestonesText,
-  });
-
+    // マイルストーンの表示
+    const milestonesText = config.idle.eternity.milestones.map(milestone => {
+        const statusIcon = eternityCount >= milestone.count ? "✅" : "　";
+        return `${statusIcon} **${milestone.count}Σ:** ${milestone.description}`;
+    }).join("\n");
+    embed.addFields({ name: "🌌 エタニティマイルストーン", value: milestonesText });
   // エタニティボーナスの表示 (マイルストーン#1達成時)
   if (eternityCount >= 1) {
     // ここに各ボーナスの現在値を表示するロジックを追加します

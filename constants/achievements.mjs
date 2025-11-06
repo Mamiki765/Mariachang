@@ -572,7 +572,7 @@ export const achievements = [
     id: 86,
     name: "アンチマター・ディメンジョンズ",
     description: "ジェネレーターⅡを購入する",
-    effect: "ブレイクインフィニティを解禁、人口条件はもはや1.79e+308ではない。",
+    effect: "ブレイクインフィニティを解禁、2号機を所持している限り人口はもはや1.79e+308では収まらない。",
     reward: {},
   },
   {
@@ -622,7 +622,6 @@ export const achievements = [
     effect: "全てのジェネレーターの効果が2倍になる",
     reward: {},
   },
-  //ここから未実装
   {
     id: 94,
     name: "これがジェネレーターの力",
@@ -849,7 +848,6 @@ export const achievements = [
     description: "アセンションを1インフィニティで100回行う",
     reward: {},
   },
-  //ここから未実装
   {
     id: 131,
     name: "崩壊の序章",

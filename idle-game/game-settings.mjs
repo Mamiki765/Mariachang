@@ -11,6 +11,20 @@ export default {
   infinity: "1.79769e308",
   eternity: {
     unlockIP: "1.79769e308", // エタニティ実行に必要なIP
+    milestones: [
+      { count: 1, description: "Σに応じたエタニティボーナスの解禁" },
+      { count: 2, description: "ここから未実装" },
+      { count: 2, description: "ニョボチップがΣ間で維持+最大倍率から減らない" },
+      { count: 3, description: "最短インフィニティ時間を維持" },
+      {
+        count: 4,
+        description: "インフィニティアップグレード・ジェネレーターの自動購入",
+      },
+      { count: 5, description: "工場購入はチップを消費しない" },
+      { count: 6, description: "ギャラクシーの自動購入" },
+      { count: 10, description: "エタニティブレイク(IPの上限解除)" },
+      //{ count: 100, description: "IPボーナス" },
+    ],
   },
   factories: {
     //要の部分
@@ -238,7 +252,7 @@ export default {
     upgrades: {
       // ベース値強化 (生産量に影響)
       baseValue: {
-        initial: 1.0,
+        initial: 1.1,
         increment: 0.1,
         cost: {
           start: "1e60",
