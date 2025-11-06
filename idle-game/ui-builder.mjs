@@ -414,6 +414,8 @@ function generateFactoryButtons(uiData, isDisabled = false) {
   // ボタンを描画するたびに、コストを再計算する
   const costs = calculateAllCosts(idleGame);
   const components = [];
+  //工場強化非表示設定
+  const hideFactoryButtons = idleGame.settings?.hideFactoryButtons === true;
   //ブースト延長
   //ブーストの残り時間を計算 (ミリ秒で)
   const now = new Date();
@@ -440,127 +442,133 @@ function generateFactoryButtons(uiData, isDisabled = false) {
     point.legacy_pizza < nyoboshiCost || // チップが足りない
     nyoboshiCost === 0; // コストが0 (バフが切れているなど)
 
-  if (idleGame.prestigePower >= 8) {
-    const autoAllocateRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("idle_auto_allocate")
-        .setLabel("適当に強化(全チップ)")
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji("1416912717725438013")
-        .setDisabled(isDisabled)
-    );
-    // 条件を満たした場合のみ、この行をcomponents配列に追加します
-    components.push(autoAllocateRow);
-  }
+  if (!hideFactoryButtons) {
+    // 工場強化非表示がoffなら
+    if (idleGame.prestigePower >= 8) {
+      const autoAllocateRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("idle_auto_allocate")
+          .setLabel("適当に強化(全チップ)")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("1416912717725438013")
+          .setDisabled(isDisabled)
+      );
+      // 条件を満たした場合のみ、この行をcomponents配列に追加します
+      components.push(autoAllocateRow);
+    }
 
-  const facilityRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`idle_upgrade_oven`)
-      .setEmoji(config.idle.factories.oven.emoji)
-      .setLabel(`+${config.idle.factories.oven.effect}`)
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(isDisabled || point.legacy_pizza < costs.oven),
-    new ButtonBuilder()
-      .setCustomId(`idle_upgrade_cheese`)
-      .setEmoji(config.idle.factories.cheese.emoji)
-      .setLabel(`+${config.idle.factories.cheese.effect}`)
-      .setStyle(ButtonStyle.Success)
-      .setDisabled(isDisabled || point.legacy_pizza < costs.cheese)
-  );
-  //トマトキノコアンチョビはgte グレーターザンイコールで見る
-  if (
-    idleGame.prestigeCount > 0 ||
-    population_d.gte(config.idle.factories.tomato.unlockPopulation)
-  ) {
-    // ★ .gte()で比較
-    facilityRow.addComponents(
+    const facilityRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`idle_upgrade_tomato`)
-        .setEmoji(config.idle.factories.tomato.emoji)
-        .setLabel(`+${config.idle.factories.tomato.effect}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(isDisabled || point.legacy_pizza < costs.tomato)
-    );
-  }
-  if (
-    idleGame.prestigeCount > 0 ||
-    population_d.gte(config.idle.factories.mushroom.unlockPopulation)
-  ) {
-    // ★ .gte()で比較
-    facilityRow.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`idle_upgrade_mushroom`)
-        .setEmoji(config.idle.factories.mushroom.emoji)
-        .setLabel(`+${config.idle.factories.mushroom.effect}`)
+        .setCustomId(`idle_upgrade_oven`)
+        .setEmoji(config.idle.factories.oven.emoji)
+        .setLabel(`+${config.idle.factories.oven.effect}`)
         .setStyle(ButtonStyle.Primary)
-        .setDisabled(isDisabled || point.legacy_pizza < costs.mushroom)
-    );
-  }
-  if (
-    idleGame.prestigeCount > 0 ||
-    population_d.gte(config.idle.factories.anchovy.unlockPopulation)
-  ) {
-    // ★ .gte()で比較
-    facilityRow.addComponents(
+        .setDisabled(isDisabled || point.legacy_pizza < costs.oven),
       new ButtonBuilder()
-        .setCustomId(`idle_upgrade_anchovy`)
-        .setEmoji(config.idle.factories.anchovy.emoji)
-        .setLabel(`+${config.idle.factories.anchovy.effect}`)
+        .setCustomId(`idle_upgrade_cheese`)
+        .setEmoji(config.idle.factories.cheese.emoji)
+        .setLabel(`+${config.idle.factories.cheese.effect}`)
         .setStyle(ButtonStyle.Success)
-        .setDisabled(isDisabled || point.legacy_pizza < costs.anchovy)
+        .setDisabled(isDisabled || point.legacy_pizza < costs.cheese)
     );
+    //トマトキノコアンチョビはgte グレーターザンイコールで見る
+    if (
+      idleGame.prestigeCount > 0 ||
+      population_d.gte(config.idle.factories.tomato.unlockPopulation)
+    ) {
+      // ★ .gte()で比較
+      facilityRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`idle_upgrade_tomato`)
+          .setEmoji(config.idle.factories.tomato.emoji)
+          .setLabel(`+${config.idle.factories.tomato.effect}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(isDisabled || point.legacy_pizza < costs.tomato)
+      );
+    }
+    if (
+      idleGame.prestigeCount > 0 ||
+      population_d.gte(config.idle.factories.mushroom.unlockPopulation)
+    ) {
+      // ★ .gte()で比較
+      facilityRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`idle_upgrade_mushroom`)
+          .setEmoji(config.idle.factories.mushroom.emoji)
+          .setLabel(`+${config.idle.factories.mushroom.effect}`)
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(isDisabled || point.legacy_pizza < costs.mushroom)
+      );
+    }
+    if (
+      idleGame.prestigeCount > 0 ||
+      population_d.gte(config.idle.factories.anchovy.unlockPopulation)
+    ) {
+      // ★ .gte()で比較
+      facilityRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`idle_upgrade_anchovy`)
+          .setEmoji(config.idle.factories.anchovy.emoji)
+          .setLabel(`+${config.idle.factories.anchovy.effect}`)
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(isDisabled || point.legacy_pizza < costs.anchovy)
+      );
+    }
+    components.push(facilityRow);
   }
-  components.push(facilityRow);
   //Lv6~8
   const advancedFacilityRow = new ActionRowBuilder();
   const unlockedAchievements = new Set(
     userAchievement.achievements?.unlocked || []
   ); // ★ 実績情報を取得
 
-  // オリーブ農園のボタン
-  if (unlockedAchievements.has(73)) {
-    // 73: 極限に至る道
-    advancedFacilityRow.addComponents(
-      new ButtonBuilder()
-        .setCustomId("idle_upgrade_olive")
-        .setEmoji(config.idle.factories.olive.emoji)
-        .setLabel(`+${config.idle.factories.olive.effect}`)
-        .setStyle(ButtonStyle.Secondary) // 色を分けると分かりやすい
-        .setDisabled(
-          isDisabled || point.legacy_pizza < (costs.olive || Infinity)
-        )
-    );
-  }
+  if (!hideFactoryButtons) {
+    // 同様に工場強化非表示がoffなら
+    // オリーブ農園のボタン
+    if (unlockedAchievements.has(73)) {
+      // 73: 極限に至る道
+      advancedFacilityRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId("idle_upgrade_olive")
+          .setEmoji(config.idle.factories.olive.emoji)
+          .setLabel(`+${config.idle.factories.olive.effect}`)
+          .setStyle(ButtonStyle.Secondary) // 色を分けると分かりやすい
+          .setDisabled(
+            isDisabled || point.legacy_pizza < (costs.olive || Infinity)
+          )
+      );
+    }
 
-  // 小麦の品種改良のボタン
-  if (unlockedAchievements.has(74)) {
-    // 74: 原点への回帰
-    advancedFacilityRow.addComponents(
-      new ButtonBuilder()
-        .setCustomId("idle_upgrade_wheat")
-        .setEmoji(config.idle.factories.wheat.emoji)
-        .setLabel(`+${config.idle.factories.wheat.effect}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(
-          isDisabled || point.legacy_pizza < (costs.wheat || Infinity)
-        )
-    );
-  }
+    // 小麦の品種改良のボタン
+    if (unlockedAchievements.has(74)) {
+      // 74: 原点への回帰
+      advancedFacilityRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId("idle_upgrade_wheat")
+          .setEmoji(config.idle.factories.wheat.emoji)
+          .setLabel(`+${config.idle.factories.wheat.effect}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(
+            isDisabled || point.legacy_pizza < (costs.wheat || Infinity)
+          )
+      );
+    }
 
-  // パイナップル農場のボタン
-  if (unlockedAchievements.has(66)) {
-    // 66: 工場の試練
-    advancedFacilityRow.addComponents(
-      new ButtonBuilder()
-        .setCustomId("idle_upgrade_pineapple")
-        .setEmoji(config.idle.factories.pineapple.emoji)
-        .setLabel(`+${config.idle.factories.pineapple.effect}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(
-          isDisabled || point.legacy_pizza < (costs.pineapple || Infinity)
-        )
-    );
-  }
+    // パイナップル農場のボタン
+    if (unlockedAchievements.has(66)) {
+      // 66: 工場の試練
+      advancedFacilityRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId("idle_upgrade_pineapple")
+          .setEmoji(config.idle.factories.pineapple.emoji)
+          .setLabel(`+${config.idle.factories.pineapple.effect}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(
+            isDisabled || point.legacy_pizza < (costs.pineapple || Infinity)
+          )
+      );
+    }
+  } //アセンションは非表示設定とは無関係
   //アセンションは9個目みたいなノリで入る
   const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
   // アセンションの要件を計算する
@@ -589,6 +597,30 @@ function generateFactoryButtons(uiData, isDisabled = false) {
         .setStyle(ButtonStyle.Danger) // 重大なリセットなのでDanger
         .setEmoji("🚀") // 宇宙へ！
         .setDisabled(isDisabled || !canAscend)
+    );
+  }
+  // インフィニティ・エタニティ後は10回まとめても追加
+  if (idleGame.infinityCount > 0 || idleGame.eternityCount > 0) {
+    // 10回後のアセンションに必要な人口をチェック
+    const reqsFor10 = calculateAscensionRequirements(
+      ascensionCount + 9, // 0回目なら9, 10回目なら19...
+      idleGame.skillLevel6,
+      purchasedIUs,
+      activeChallenge
+    );
+
+    advancedFacilityRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("idle_ascension_max") // 新しいID
+        .setLabel("x10")
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji("🚀")
+        // 人口が10回分に足りているか、チップが最初の1回分に足りているか
+        .setDisabled(
+          isDisabled ||
+            population_d.lt(reqsFor10.requiredPopulation_d) ||
+            point.legacy_pizza < requiredChips
+        )
     );
   }
   //Lv6~8解禁でボタンの行を挿入
@@ -1267,7 +1299,13 @@ function generateInfinityButtons(idleGame) {
         .setLabel("グラビティ指数強化")
         .setStyle(ButtonStyle.Primary)
         .setEmoji("🧲")
-        .setDisabled(ip_d.lt(gravityExponentCost))
+        .setDisabled(ip_d.lt(gravityExponentCost)),
+      new ButtonBuilder()
+        .setCustomId("idle_generator_buy_all")
+        .setLabel("ジェネレーター適当購入")
+        .setStyle(ButtonStyle.Success)
+        .setEmoji("🤖")
+        .setDisabled(ip_d.lt(1))  
     );
     components.push(galaxyRow);
   }
@@ -1823,12 +1861,17 @@ function generateEternityEmbed(uiData) {
       `**${eternityCount} Σ** を達成し、**${formatNumberDynamic_Decimal(eternityPoints)} EP** を所持しています。`
     );
 
-    // マイルストーンの表示
-    const milestonesText = config.idle.eternity.milestones.map(milestone => {
-        const statusIcon = eternityCount >= milestone.count ? "✅" : "　";
-        return `${statusIcon} **${milestone.count}Σ:** ${milestone.description}`;
-    }).join("\n");
-    embed.addFields({ name: "🌌 エタニティマイルストーン", value: milestonesText });
+  // マイルストーンの表示
+  const milestonesText = config.idle.eternity.milestones
+    .map((milestone) => {
+      const statusIcon = eternityCount >= milestone.count ? "✅" : "　";
+      return `${statusIcon} **${milestone.count}Σ:** ${milestone.description}`;
+    })
+    .join("\n");
+  embed.addFields({
+    name: "🌌 エタニティマイルストーン",
+    value: milestonesText,
+  });
   // エタニティボーナスの表示 (マイルストーン#1達成時)
   if (eternityCount >= 1) {
     // ここに各ボーナスの現在値を表示するロジックを追加します

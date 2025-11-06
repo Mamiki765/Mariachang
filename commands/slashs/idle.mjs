@@ -26,6 +26,8 @@ import {
   handleAbortChallenge,
   handleEternity,
   handleGalaxyPurchase,
+  handleAscensionMax,
+  handleGeneratorBuyAll,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import { getSingleUserUIData } from "../../idle-game/idle-game-calculator.mjs";
@@ -655,6 +657,10 @@ export async function execute(interaction) {
         if (!success) return;
       } else if (i.customId === "idle_ascension") {
         success = await handleAscension(i);
+      } else if (i.customId === "idle_ascension_max") {
+        success = await handleAscensionMax(i);
+      } else if (i.customId === "idle_generator_buy_all") {
+        success = await handleGeneratorBuyAll(i);
       } else if (i.customId.startsWith("idle_generator_buy_")) {
         const generatorId = parseInt(i.customId.split("_").pop(), 10);
         success = await handleGeneratorPurchase(i, generatorId);
@@ -729,7 +735,7 @@ export async function execute(interaction) {
           case "challenges":
             replyOptions = buildChallengeView(newUiData);
             break;
-          case "eternity": 
+          case "eternity":
             replyOptions = buildEternityView(newUiData);
             break;
           case "factory":

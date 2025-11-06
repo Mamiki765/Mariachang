@@ -14,15 +14,12 @@ export default {
     milestones: [
       { count: 1, description: "Σに応じたエタニティボーナスの解禁" },
       { count: 2, description: "ここから未実装" },
-      { count: 2, description: "ニョボチップがΣ間で維持+最大倍率から減らない" },
-      { count: 3, description: "最短インフィニティ時間を維持" },
-      {
-        count: 4,
-        description: "インフィニティアップグレード・ジェネレーターの自動購入",
-      },
-      { count: 5, description: "工場購入はチップを消費しない" },
-      { count: 6, description: "ギャラクシーの自動購入" },
-      { count: 10, description: "エタニティブレイク(IPの上限解除)" },
+      //{ count: 2, description: "ニョボチップがΣ間で維持+最大倍率から減らない" },
+      //{ count: 3, description: "最短インフィニティ時間を維持" },
+      //{ count: 4, description: "アプグレ・ジェネの自動購入" },
+      //{ count: 5, description: "工場購入はチップを消費しない" },
+      //{ count: 6, description: "ギャラクシーの自動購入" },
+      //{ count: 10, description: "エタニティブレイク(IPの上限解除)" },
       //{ count: 100, description: "IPボーナス" },
     ],
   },
@@ -252,7 +249,7 @@ export default {
     upgrades: {
       // ベース値強化 (生産量に影響)
       baseValue: {
-        initial: 1.125,
+        initial: 1.5,
         increment: 0.125,
         cost: {
           start: "1e60",
@@ -261,7 +258,7 @@ export default {
       },
       // グラビティ指数強化 (効果に影響)
       gravityExponent: {
-        initial: 0.3,
+        initial: 0.4,
         increment: 0.05,
         cost: {
           start: "1e60",

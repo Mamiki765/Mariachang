@@ -146,7 +146,7 @@ export async function handleSettings(interaction) {
       )
   );
 
-  // 4. ★★★ SPスキル自動割り振り設定を追加 ★★★
+  // 5. SPスキル自動割り振り設定を追加 ★★★
   modal.addLabelComponents(
     new LabelBuilder()
       .setLabel("IU12「自動調理器」のSPスキル優先度")
@@ -164,6 +164,32 @@ export async function handleSettings(interaction) {
           .setMinLength(4)
           .setMaxLength(4)
           .setRequired(true) // 必須入力にする
+      )
+  );
+
+  const areFactoryButtonsHidden = currentSettings.hideFactoryButtons === true;
+// 6. 工場強化ボタン非表示設定を追加
+  modal.addLabelComponents(
+    new LabelBuilder()
+      .setLabel("工場ボタンの表示設定")
+      .setDescription(
+        "ONにすると、工場画面の「施設強化ボタン」と「適当強化ボタン」を非表示にします。アセンションの誤爆防止に。"
+      )
+      .setStringSelectMenuComponent(
+        new StringSelectMenuBuilder()
+          .setCustomId("hide_factory_buttons_select")
+          .setMaxValues(1)
+          .setPlaceholder("設定を選択...")
+          .addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("非表示 (ON)")
+              .setValue("on")
+              .setDefault(areFactoryButtonsHidden),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("表示 (OFF)")
+              .setValue("off")
+              .setDefault(!areFactoryButtonsHidden)
+          )
       )
   );
 
@@ -192,6 +218,9 @@ export async function handleSettings(interaction) {
       const spPriorityInput = submitted.fields.getTextInputValue(
         "auto_sp_priority_input"
       );
+      const hideButtonsChoice = submitted.fields.getStringSelectValues(
+        "hide_factory_buttons_select"
+      )[0];
 
       // --- 入力値の検証ロジック ---
       let isValidSpPriority = false;
@@ -226,6 +255,7 @@ export async function handleSettings(interaction) {
         newSettings.autoAssignTpEnabled = false;
       }
       newSettings.autoAssignSpPriority = spPriorityInput;
+      newSettings.hideFactoryButtons = hideButtonsChoice === "on";
       // 8. データベースを更新
       await IdleGame.update({ settings: newSettings }, { where: { userId } });
 
@@ -1258,6 +1288,79 @@ export async function handleAscension(interaction) {
 }
 
 /**
+ * 【新規】アセンションを最大10回連続で実行する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @returns {Promise<boolean>}
+ */
+export async function handleAscensionMax(interaction) {
+    const userId = interaction.user.id;
+    let ascensionsDone = 0;
+    let totalCost = 0;
+
+    const t = await sequelize.transaction();
+    try {
+        const [latestPoint, latestIdleGame] = await Promise.all([
+            Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
+            IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
+        ]);
+        if (!latestPoint || !latestIdleGame) throw new Error("ユーザーデータが見つかりません。");
+
+        const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
+        const activeChallenge = latestIdleGame.challenges?.activeChallenge;
+
+        for (let i = 0; i < 10; i++) {
+            const currentAscensionCount = (latestIdleGame.ascensionCount || 0) + ascensionsDone;
+            const { requiredPopulation_d, requiredChips } = calculateAscensionRequirements(
+                currentAscensionCount,
+                latestIdleGame.skillLevel6,
+                purchasedIUs,
+                activeChallenge
+            );
+
+            if (new Decimal(latestIdleGame.population).lt(requiredPopulation_d) || latestPoint.legacy_pizza < requiredChips) {
+                break; // 資源が足りなくなったらループを抜ける
+            }
+
+            latestPoint.legacy_pizza -= requiredChips;
+            latestIdleGame.population = new Decimal(latestIdleGame.population).minus(requiredPopulation_d).toString();
+            
+            totalCost += requiredChips;
+            ascensionsDone++;
+        }
+
+        if (ascensionsDone > 0) {
+            latestIdleGame.ascensionCount += ascensionsDone;
+            
+            const spentChipsBigInt = BigInt(Math.floor(totalCost));
+            latestIdleGame.chipsSpentThisInfinity = (BigInt(latestIdleGame.chipsSpentThisInfinity || '0') + spentChipsBigInt).toString();
+            latestIdleGame.chipsSpentThisEternity = (BigInt(latestIdleGame.chipsSpentThisEternity || '0') + spentChipsBigInt).toString();
+            
+            await latestPoint.save({ transaction: t });
+            await latestIdleGame.save({ transaction: t });
+        }
+
+        await t.commit();
+
+        if (ascensionsDone > 0) {
+            await interaction.followUp({
+                content: `🚀 **アセンションを ${ascensionsDone}回 実行しました！** (消費: ${totalCost.toLocaleString()}©)`,
+                ephemeral: true,
+            });
+            // ここで実績解除ロジックを呼んでも良い
+        } else {
+            await interaction.followUp({ content: "アセンションの条件を満たしていません。", ephemeral: true });
+        }
+        return ascensionsDone > 0;
+
+    } catch (error) {
+        await t.rollback();
+        console.error("Ascension Max Error:", error);
+        await interaction.followUp({ content: "❌ 連続アセンション中にエラーが発生しました。", ephemeral: true });
+        return false;
+    }
+}
+
+/**
  * 【新規】インフィニティのDB更新処理を実行する内部関数
  * @param {string} userId - 実行するユーザーのID
  * @param {import("discord.js").Client} client - 実績解除に必要
@@ -1812,6 +1915,83 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
     });
     return false;
   }
+}
+
+/**
+ * 【新規】ジェネレーターを買えるだけ購入する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @returns {Promise<boolean>}
+ */
+export async function handleGeneratorBuyAll(interaction) {
+    const userId = interaction.user.id;
+    const purchases = new Map();
+    let totalCost = new Decimal(0);
+    let purchasedCount = 0;
+
+    const t = await sequelize.transaction();
+    try {
+        const idleGame = await IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE });
+        if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
+
+        let availableIp = new Decimal(idleGame.infinityPoints);
+        const MAX_ITERATIONS = 1000; // 無限ループ防止
+
+        for (let i = 0; i < MAX_ITERATIONS; i++) {
+            const userGenerators = idleGame.ipUpgrades.generators || [];
+            
+            const costs = config.idle.infinityGenerators.map(genConfig => ({
+                id: genConfig.id,
+                cost: calculateGeneratorCost(genConfig.id, userGenerators[genConfig.id - 1]?.bought || 0),
+                bought: userGenerators[genConfig.id - 1]?.bought || 0,
+            }));
+
+            const affordable = costs.filter(c => availableIp.gte(c.cost));
+            
+            // 0個のものを優先
+            const unbought = affordable.filter(c => c.bought === 0);
+            
+            let bestToBuy;
+            if (unbought.length > 0) {
+                bestToBuy = unbought.sort((a, b) => a.cost.cmp(b.cost))[0]; // 安い順
+            } else if (affordable.length > 0) {
+                bestToBuy = affordable.sort((a, b) => a.cost.cmp(b.cost))[0]; // 安い順
+            } else {
+                break; // 買えるものがなければ終了
+            }
+
+            availableIp = availableIp.minus(bestToBuy.cost);
+            totalCost = totalCost.add(bestToBuy.cost);
+            purchasedCount++;
+            
+            const genIndex = bestToBuy.id - 1;
+            idleGame.ipUpgrades.generators[genIndex].bought++;
+            idleGame.ipUpgrades.generators[genIndex].amount = new Decimal(idleGame.ipUpgrades.generators[genIndex].amount).add(1).toString();
+
+            purchases.set(bestToBuy.id, (purchases.get(bestToBuy.id) || 0) + 1);
+        }
+
+        if (purchasedCount > 0) {
+            idleGame.infinityPoints = availableIp.toString();
+            idleGame.changed("ipUpgrades", true);
+            await idleGame.save({ transaction: t });
+        }
+        
+        await t.commit();
+
+        if (purchasedCount > 0) {
+            let summary = Array.from(purchases.entries()).map(([id, count]) => `G${id}: +${count}`).join(', ');
+            await interaction.followUp({ content: `🤖 **ジェネレーターを自動購入しました！** (${summary})`, ephemeral: true });
+        } else {
+            await interaction.followUp({ content: "購入可能なジェネレーターがありませんでした。", ephemeral: true });
+        }
+        return purchasedCount > 0;
+
+    } catch (error) {
+        await t.rollback();
+        console.error("Generator Buy All Error:", error);
+        await interaction.followUp({ content: "❌ 自動購入中にエラーが発生しました。", ephemeral: true });
+        return false;
+    }
 }
 
 /**
