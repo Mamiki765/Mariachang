@@ -163,7 +163,7 @@ export default async () => {
             `[INIT] [DEV MODE] ${debugCommands.length}個のデバッグコマンドを、${guildIds.length}個のサーバーに登録します...`
           );
 
-           Promise.all(
+           await Promise.all(
             guildIds.map((guildId) =>
               rest.put(
                 Routes.applicationGuildCommands(

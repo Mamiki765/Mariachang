@@ -252,8 +252,8 @@ export default {
     upgrades: {
       // ベース値強化 (生産量に影響)
       baseValue: {
-        initial: 1.1,
-        increment: 0.1,
+        initial: 1.125,
+        increment: 0.125,
         cost: {
           start: "1e60",
           exponentStep: 12,
