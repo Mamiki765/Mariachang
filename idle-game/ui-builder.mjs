@@ -1135,7 +1135,7 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
     embed.addFields({
       name: "🪐 ギャラクシー",
       value: `${galaxyCount}個のギャラクシーが毎分${formatNumberDynamic_Decimal(gravityPerMinute_d, 3)}グラビティを産みます。
-現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}^${currentGravityExponent}**\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**`,
+現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}**^${currentGravityExponent}\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**`,
       inline: false, // 他のフィールドと区切る
     });
   }
@@ -1214,7 +1214,7 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
   const gravityUpgradesConfig = config.idle.gravityUpgrades;
   // 全てのアップグレードを一度に表示すると長すぎるので、購入可能なものやレベルが上がっているものを優先して表示する
   if (Object.keys(gravityUpgradesConfig).length > 0) {
-    embed.addFields({ name: "🪐 グラビティアップグレード", value: "---" });
+    embed.addFields({ name: "🪐 グラビティアップグレード", value: "グラビティを消費してアップグレードできます" });
 
     const gravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
     const upgrades = idleGame.ipUpgrades?.gravityUpgrades || {};

@@ -271,22 +271,25 @@ export default {
     infBonusOnGen: {
       id: "infBonusOnGen",
       name: "ジェネレーター拡張",
-      description: (level) => `インフィニティ回数ボーナスがG${1 + level}まで適用される`,
+      description: (level) =>
+        `インフィニティ回数ボーナスがG${1 + level}まで適用される`,
       maxLevel: 7,
       cost: { base: "1e6", multiplier: "1e6" }, // 1e6, 1e12, 1e18...
     },
     infGain: {
       id: "infGain",
       name: "無限の増幅",
-      description: (level) => `∞獲得量が ${level + 1}倍になる`,
+      description: (level) => `∞獲得量が ${level + 1} -> ${level + 2}倍になる`,
       maxLevel: Infinity,
       cost: { base: "1e9", multiplier: "1e3" }, // 1e9, 1e12, 1e15...
     },
-    
-    meatExponentBonus: { // IDを効果に合わせて変更
+
+    meatExponentBonus: {
+      // IDを効果に合わせて変更
       id: "meatExponentBonus",
       name: "肉質強化",
-      description: (level) => `精肉施設の指数に +${(level * 0.05).toFixed(2)} する`,
+      description: (level) =>
+        `精肉施設の指数に +${(level * 0.05).toFixed(2)} -> +${((level + 1) * 0.05).toFixed(2)}する`,
       effectPerLevel: 0.05,
       maxLevel: 50,
       cost: { base: "1e12", multiplier: "1e6" }, // 1e12, 1e18, 1e24...
@@ -294,7 +297,8 @@ export default {
     telescopeBoost: {
       id: "telescopeBoost",
       name: "望遠鏡の改良",
-      description: (level) => `IU73「不思議な望遠鏡」による受動的な∞獲得量が x${Math.pow(1.05, level).toFixed(3)} 倍になる`,
+      description: (level) =>
+        `IU73「不思議な望遠鏡」による受動的な∞獲得量が x${Math.pow(1.05, level).toFixed(3)}-> x${Math.pow(1.05, level + 1).toFixed(3)}倍になる`,
       effectBase: 1.05,
       maxLevel: 80,
       cost: { base: "1e18", multiplier: "1e6" }, // 1e18, 1e24, 1e30...
