@@ -31,6 +31,7 @@ import {
   calculateGalaxyCost,
   calculateGalaxyUpgradeCost,
   calculateEternityBonuses,
+  calculateGravityUpgradeCost,
 } from "./idle-game-calculator.mjs";
 
 //---------------
@@ -1209,6 +1210,32 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
     ]);
   }
 
+  // --- グラビティアップグレードの情報を表示 ---
+  const gravityUpgradesConfig = config.idle.gravityUpgrades;
+  // 全てのアップグレードを一度に表示すると長すぎるので、購入可能なものやレベルが上がっているものを優先して表示する
+  if (Object.keys(gravityUpgradesConfig).length > 0) {
+    embed.addFields({ name: "🪐 グラビティアップグレード", value: "---" });
+
+    const gravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
+    const upgrades = idleGame.ipUpgrades?.gravityUpgrades || {};
+
+    for (const [id, config] of Object.entries(gravityUpgradesConfig)) {
+      const level = upgrades[id] || 0;
+      const cost = calculateGravityUpgradeCost(id, level);
+      const isMaxLevel = level >= config.maxLevel;
+
+      const status = isMaxLevel
+        ? "✅ 最大"
+        : `コスト: ${formatNumberDynamic_Decimal(cost)}`;
+
+      embed.addFields({
+        name: `${config.name} [Lv.${level}]`,
+        value: `${config.description(level)}\n${status}`,
+        inline: true, // 横並びにしてコンパクトに
+      });
+    }
+  }
+
   return embed;
 }
 
@@ -1305,9 +1332,29 @@ function generateInfinityButtons(idleGame) {
         .setLabel("ジェネレーター適当購入")
         .setStyle(ButtonStyle.Success)
         .setEmoji("🤖")
-        .setDisabled(ip_d.lt(1))  
+        .setDisabled(ip_d.lt(1))
     );
     components.push(galaxyRow);
+  }
+
+  const gravityUpgradesConfig = config.idle.gravityUpgrades;
+  if (Object.keys(gravityUpgradesConfig).length > 0) {
+    const gravityUpgradeRow = new ActionRowBuilder();
+    const gravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
+    const upgrades = idleGame.ipUpgrades?.gravityUpgrades || {};
+
+    for (const [id, config] of Object.entries(gravityUpgradesConfig)) {
+      const level = upgrades[id] || 0;
+      const cost = calculateGravityUpgradeCost(id, level);
+      gravityUpgradeRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`idle_gravity_upgrade_${id}`)
+          .setLabel(config.name)
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(gravity_d.lt(cost) || level >= config.maxLevel)
+      );
+    }
+    components.push(gravityUpgradeRow);
   }
 
   // 最後に「工場画面に戻る」ボタンを追加
@@ -1432,10 +1479,22 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
 
       const chipsSpent_d = new Decimal(idleGame.chipsSpentThisEternity || "0");
       const iu62Multiplier = Math.floor(chipsSpent_d.add(1).log10() + 1);
+      const gravityUpgrades = idleGame.ipUpgrades?.gravityUpgrades || {};
+      const infGainBonus = 1 + (gravityUpgrades.infGain || 0);
+      let telescopeMultiplier = 1.0;
+      if (gravityUpgrades.telescopeBoost > 0) {
+        const bonusConfig = config.idle.gravityUpgrades.telescopeBoost;
+        telescopeMultiplier = Math.pow(
+          bonusConfig.effectBase,
+          gravityUpgrades.telescopeBoost
+        );
+      }
       const infinitiesPerHour =
         (1 / (adjustedBestTime * iu73Config.rateDivisor)) *
         3600 *
         iu62Multiplier *
+        infGainBonus *
+        telescopeMultiplier *
         bonuses.infinity;
 
       valueText =

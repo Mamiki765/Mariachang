@@ -28,6 +28,7 @@ import {
   calculateGalaxyCost,
   calculateGalaxyUpgradeCost,
   calculateEternityBonuses,
+  calculateGravityUpgradeCost
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -1457,6 +1458,7 @@ async function executeInfinityTransaction(userId, client) {
     }
     //獲得∞を計算
     const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
+    const infGainBonus = 1 + (latestIdleGame.ipUpgrades?.gravityUpgrades?.infGain || 0);
     if (purchasedIUs.has("IU62")) {
       const chipsSpent_d = new Decimal(
         latestIdleGame.chipsSpentThisEternity || "0"
@@ -1465,6 +1467,8 @@ async function executeInfinityTransaction(userId, client) {
       const multiplier = chipsSpent_d.add(1).log10() + 1;
       infinitiesGained = multiplier; //小数点以下切り捨て
     }
+    //グラビティアップデート
+    infinitiesGained *= infGainBonus;
     // エタニティボーナスを計算して乗算
     const eternityBonuses = calculateEternityBonuses(
       latestIdleGame.eternityCount
@@ -1990,6 +1994,46 @@ export async function handleGeneratorBuyAll(interaction) {
         await t.rollback();
         console.error("Generator Buy All Error:", error);
         await interaction.followUp({ content: "❌ 自動購入中にエラーが発生しました。", ephemeral: true });
+        return false;
+    }
+}
+
+/**
+ * 【新規】グラビティアップグレードを購入する
+ */
+export async function handleGravityUpgradePurchase(interaction, upgradeId) {
+    const userId = interaction.user.id;
+    const t = await sequelize.transaction();
+    try {
+        const idleGame = await IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE });
+        
+        const upgrades = idleGame.ipUpgrades.gravityUpgrades || {};
+        const level = upgrades[upgradeId] || 0;
+        
+        const gvConfig = config.idle.gravityUpgrades[upgradeId];
+        if (level >= gvConfig.maxLevel) throw new Error("最大レベルに到達しています。");
+
+        const cost = calculateGravityUpgradeCost(upgradeId, level);
+        let gravity = new Decimal(idleGame.ipUpgrades.gravity || "1");
+
+        if (gravity.lt(cost)) throw new Error(`グラビティが足りません！`);
+
+        gravity = gravity.minus(cost);
+        upgrades[upgradeId] = level + 1;
+
+        idleGame.ipUpgrades.gravity = gravity.toString();
+        idleGame.ipUpgrades.gravityUpgrades = upgrades;
+        idleGame.changed("ipUpgrades", true);
+
+        await idleGame.save({ transaction: t });
+        await t.commit();
+        
+        await interaction.followUp({ content: `✅ **${gvConfig.name}** を購入しました！`, ephemeral: true });
+        return true;
+
+    } catch (error) {
+        await t.rollback();
+        await interaction.followUp({ content: `❌ 購入エラー: ${error.message}`, ephemeral: true });
         return false;
     }
 }

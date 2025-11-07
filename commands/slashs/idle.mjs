@@ -28,6 +28,7 @@ import {
   handleGalaxyPurchase,
   handleAscensionMax,
   handleGeneratorBuyAll,
+  handleGravityUpgradePurchase,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import { getSingleUserUIData } from "../../idle-game/idle-game-calculator.mjs";
@@ -675,6 +676,9 @@ export async function execute(interaction) {
           const type = action.substring("upgrade_".length); // 'baseValue' or 'gravityExponent'
           success = await handleGalaxyPurchase(i, type); // 同じハンドラを流用
         }
+      } else if (i.customId.startsWith("idle_gravity_upgrade_")) {
+        const upgradeId = i.customId.substring("idle_gravity_upgrade_".length);
+        success = await handleGravityUpgradePurchase(i, upgradeId);
       } else if (i.customId.startsWith("idle_iu_purchase_")) {
         const upgradeId = i.customId.substring("idle_iu_purchase_".length);
         success = await handleInfinityUpgradePurchase(i, upgradeId);

@@ -481,6 +481,8 @@ export function calculateOfflineProgress(idleGameData, externalData) {
       ipUpgradesChanged = true;
       const completedChallenges =
         idleGameData.challenges?.completedChallenges || [];
+      const infBonusMaxGen =
+        idleGameData.ipUpgrades?.gravityUpgrades?.infBonusOnGen || 0;
 
       //グラビティの計算
       let averageGravityEffect_d = new Decimal(1); // デフォルトは1倍
@@ -635,6 +637,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           const bonus = 1 + Math.log10(infinityCount + 1) * iu63Config.bonus;
           productionPerSecond_d = productionPerSecond_d.times(bonus);
         }
+        //∞によるボーナスをG2以降も受け取れるように移動
+        if (generatorId <= 1 + infBonusMaxGen) {
+          productionPerSecond_d = productionPerSecond_d.times(
+            idleGameData.infinityCount
+          );
+        }
 
         const producedAmount_d = productionPerSecond_d
           .times(elapsedSeconds)
@@ -647,9 +655,9 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         amountProducedByParent_d = producedAmount_d;
       }
 
-      const finalGpProduction_d = amountProducedByParent_d
-        .times(idleGameData.infinityCount)
-        .times(eternityBonuses.gp);
+      const finalGpProduction_d = amountProducedByParent_d.times(
+        eternityBonuses.gp
+      );
       gp_d = gp_d.add(finalGpProduction_d);
     }
 
@@ -705,9 +713,25 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         const finalInfinitiesPerSecond =
           baseInfinitiesPerSecond * Math.floor(iu62Multiplier); // IU62は仕様書通り切り捨て
 
+        //グラビティアップデートを適用
+        const gravityUpgrades = idleGameData.ipUpgrades?.gravityUpgrades || {};
+        const infGainBonus = 1 + (gravityUpgrades.infGain || 0);
+        let telescopeMultiplier = 1.0;
+        if (gravityUpgrades.telescopeBoost > 0) {
+          const bonusConfig = config.idle.gravityUpgrades.telescopeBoost;
+          telescopeMultiplier = Math.pow(
+            bonusConfig.effectBase,
+            gravityUpgrades.telescopeBoost
+          );
+        }
+
         // 経過時間分だけ∞を加算
         const generatedInfinities =
-          finalInfinitiesPerSecond * elapsedSeconds * eternityBonuses.infinity;
+          finalInfinitiesPerSecond *
+          elapsedSeconds *
+          eternityBonuses.infinity *
+          infGainBonus *
+          telescopeMultiplier;
         newInfinityCount += generatedInfinities;
       }
     }
@@ -1387,6 +1411,13 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
   if (ic4Config && ic4Config.rewardValue) {
     finalExponent += ic4Config.rewardValue;
   }
+  //グラビティ
+  const gravityUpgrades = idleGameData.ipUpgrades?.gravityUpgrades || {};
+  if (gravityUpgrades.meatExponentBonus > 0) {
+    const bonusConfig = config.idle.gravityUpgrades.meatExponentBonus;
+    finalExponent +=
+      gravityUpgrades.meatExponentBonus * bonusConfig.effectPerLevel;
+  }
 
   return finalExponent;
 }
@@ -1511,6 +1542,8 @@ export function calculateGeneratorProductionRates(
   );
   const currentIp_d = new Decimal(idleGameData.infinityPoints);
   const infinityCount = idleGameData.infinityCount || 0;
+  const infBonusMaxGen =
+    idleGameData.ipUpgrades?.gravityUpgrades?.infBonusOnGen || 0;
 
   // 全体に掛かる倍率
   const globalMultiplier =
@@ -1638,7 +1671,8 @@ export function calculateGeneratorProductionRates(
     }
 
     // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算
-    if (generatorId === 1) {
+    //グラビティで強化されていれば、G2以降も強化
+    if (generatorId <= 1 + infBonusMaxGen) {
       const bonuses = calculateEternityBonuses(idleGameData.eternityCount);
       productionPerMinute_d = productionPerMinute_d
         .times(infinityCount)
@@ -2038,4 +2072,21 @@ export function calculateEternityBonuses(eternityCount = 0) {
   bonuses.gravity = Σ < 10 ? Math.pow(10, Σ) : Math.pow(Σ, 10);
 
   return bonuses;
+}
+
+/**
+ * 【新規】グラビティアップグレードのコストを計算する
+ * @param {string} upgradeId - どのアップグレードか
+ * @param {number} currentLevel - 現在のレベル
+ * @returns {Decimal}
+ */
+export function calculateGravityUpgradeCost(upgradeId, currentLevel) {
+  const gvConfig = config.idle.gravityUpgrades[upgradeId];
+  if (!gvConfig) return new Decimal(Infinity);
+
+  const baseCost = new Decimal(gvConfig.cost.base);
+  const multiplier = new Decimal(gvConfig.cost.multiplier);
+
+  // コスト = 基本コスト * (成長率 ^ 現在レベル)
+  return baseCost.times(multiplier.pow(currentLevel));
 }

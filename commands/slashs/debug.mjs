@@ -135,6 +135,7 @@ export async function execute(interaction) {
         pizzaBonusPercentage: updatedIdleGame.pizzaBonusPercentage,
         infinityTime: updatedIdleGame.infinityTime,
         eternityTime: updatedIdleGame.eternityTime,
+        infinityCount: updatedIdleGame.infinityCount,
       };
       if (updatedIdleGame.wasChanged.ipUpgrades) {
         updateData.generatorPower = updatedIdleGame.generatorPower;
