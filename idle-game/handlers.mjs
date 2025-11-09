@@ -2946,8 +2946,10 @@ function simulatePurchases(
       }
 
       // 予算(B)で到達可能な目標レベル(T)を求める
-     // .log()はnumberを返すので、ここからはnumberで計算する
-      const targetLevelFloat = availableChips_d.div(discountedBaseCost_d).log(multiplier_d);
+      // .log()はnumberを返すので、ここからはnumberで計算する
+      const targetLevelFloat = availableChips_d
+        .div(discountedBaseCost_d)
+        .log(multiplier_d);
       // 到達可能なレベル = floor(計算結果) + 1
       const targetLevel = Math.floor(targetLevelFloat) + 1;
       const levelsToBuy = targetLevel - currentLevel;
@@ -3214,6 +3216,9 @@ export async function handleGainMaxCp(interaction, sacrificeType) {
       epUpgrades.chronoPoints = new Decimal(epUpgrades.chronoPoints || "0")
         .add(cpToGain)
         .toString();
+      if (!epUpgrades.cpGainedFrom) {
+        epUpgrades.cpGainedFrom = {}; // もしcpGainedFromがなければ、空のオブジェクトとして作成する
+      }
       epUpgrades.cpGainedFrom[sacrificeType] = timesSacrificed + cpToGain;
 
       idleGame.changed("epUpgrades", true);

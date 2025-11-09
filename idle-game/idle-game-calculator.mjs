@@ -15,7 +15,10 @@ Decimal.prototype.mod = function (b) {
  * @param {Set<string>} [purchasedIUs=new Set()] - 購入済みのIU IDのSet
  * @returns {number} コストに乗算する最終的な割引率 (例: 0.72 => 28%引き)
  */
-export function calculateDiscountMultiplier(skillLevel6 = 0, purchasedIUs = new Set()) {
+export function calculateDiscountMultiplier(
+  skillLevel6 = 0,
+  purchasedIUs = new Set()
+) {
   let finalMultiplier = 1.0;
 
   // 1. TPスキル#6の割引を計算
@@ -35,8 +38,9 @@ export function calculateDiscountMultiplier(skillLevel6 = 0, purchasedIUs = new 
 
   // 2. IU14の割引を乗算
   if (purchasedIUs.has("IU14")) {
-    const iu14Discount = config.idle.infinityUpgrades.tiers[0].upgrades.IU14.discount;
-    finalMultiplier *= (1 - iu14Discount);
+    const iu14Discount =
+      config.idle.infinityUpgrades.tiers[0].upgrades.IU14.discount;
+    finalMultiplier *= 1 - iu14Discount;
   }
 
   return finalMultiplier;
@@ -118,7 +122,10 @@ export function calculateFacilityCost(
   // --- 計算は内部的にDecimalで行うのが巨大数に対して最も安全 ---
   const baseCost_d = new Decimal(facility.baseCost);
   const multiplier_d = new Decimal(facility.multiplier);
-  const discountMultiplier = calculateDiscountMultiplier(skillLevel6, purchasedIUs);
+  const discountMultiplier = calculateDiscountMultiplier(
+    skillLevel6,
+    purchasedIUs
+  );
 
   const finalCost_d = baseCost_d
     .times(multiplier_d.pow(level))
@@ -1770,9 +1777,11 @@ function calculateScoreFromComponents(components) {
   const infinityCount = components.infinityCount || 0;
   const completedICCount = components.completedICCount || 0;
   const maxGalaxies = components.maxGalaxies || 0;
+  const eternityCount = components.eternityCount || 0;
   // --- Decimalに変換して計算 ---
   const highestPopulation_d = new Decimal(components.highestPopulation || "0");
   const infinityPoints_d = new Decimal(components.infinityPoints || "0");
+  const eternityPoints_d = new Decimal(components.eternityPoints || "0");
 
   // --- スコア計算 ---
   // (1 + log10(1 + MaxPopulation))
@@ -1789,6 +1798,12 @@ function calculateScoreFromComponents(components) {
   const challengeFactor = new Decimal(1).add(completedICCount / 10).pow(0.5);
   // (1 + MaxGalaxies / 8)^0.3
   const galaxyFactor = new Decimal(1).add(maxGalaxies / 8).pow(0.3);
+  // (1 + log10(1 + MaxEternityCount))^0.25
+  const eternityCountFactor = new Decimal(1)
+    .add(new Decimal(eternityCount).add(1).log10())
+    .pow(0.25);
+  // (1 + log10(1 + MaxEP))
+  const epFactor = new Decimal(1).add(eternityPoints_d.add(1).log10());
 
   //全てを乗算
   const finalScore = popFactor
@@ -1859,6 +1874,21 @@ export function updateRankScoreIfNeeded(idleGame, externalData) {
   const galaxyCount = idleGame.ipUpgrades?.galaxy?.count || 0;
   if (galaxyCount > (currentComponents.maxGalaxies || 0)) {
     newComponents.maxGalaxies = galaxyCount;
+    needsUpdate = true;
+  }
+
+  // 7. MaxEternityCount: エタニティ回数の比較
+  const currentEternityCount = idleGame.eternityCount || 0;
+  if (currentEternityCount > (currentComponents.eternityCount || 0)) {
+    newComponents.eternityCount = currentEternityCount;
+    needsUpdate = true;
+  }
+
+  // 8. MaxEP: 最大EPの比較
+  const currentEP = new Decimal(idleGame.eternityPoints || "0");
+  const existingEP = new Decimal(currentComponents.eternityPoints || "0");
+  if (currentEP.gt(existingEP)) {
+    newComponents.eternityPoints = currentEP.toString();
     needsUpdate = true;
   }
 

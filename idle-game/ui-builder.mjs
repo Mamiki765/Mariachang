@@ -769,7 +769,7 @@ function generateFactoryButtons(uiData, isDisabled = false) {
   }
   if (ip_d.gte(eternityUnlockIP_d)) {
     const potentialEP = 1; // 現状は1固定
-    const buttonLabel = `エターネート ${potentialEP} EP`;
+    const buttonLabel = `エターネート ${potentialEP} EP(全ての所持チップと工場を捧げる)`;
     infinityRow.addComponents(
       new ButtonBuilder()
         .setCustomId("idle_eternity")
@@ -1796,7 +1796,8 @@ function generateEternityEmbed(uiData) {
     .setTitle("Σ エタニティ Σ")
     .setColor("White")
     .setDescription(
-      `**${eternityCount} Σ** を達成し、**${formatNumberDynamic_Decimal(eternityPoints)} EP** を所持しています。`
+      `**${eternityCount} Σ** を達成し、**${formatNumberDynamic_Decimal(eternityPoints)} EP** を所持しています。\n` +
+        `**${formatNumberDynamic_Decimal(chronoPoints)} CP** を所持しています。`
     );
   //CP
   const timesNyo = epUpgrades.cpGainedFrom?.nyowamiya || 0;
