@@ -256,6 +256,12 @@ export default {
           exponentStep: 12,
         },
       },
+      chipBaseValue: {
+        cost: {
+          base: 1e8, // 初期コスト: 1億
+          multiplier: 10, // 成長率: x10
+        },
+      },
       // グラビティ指数強化 (効果に影響)
       gravityExponent: {
         initial: 0.4,

@@ -91,7 +91,7 @@ export function buildInfinityView(uiData) {
     content:
       "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPはMultを強化する。",
     embeds: [generateInfinityEmbed(uiData)], //実績も渡す様にuiDataに変更
-    components: generateInfinityButtons(uiData.idleGame),
+    components: generateInfinityButtons(uiData),
   };
 }
 
@@ -1114,12 +1114,15 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
       count: 0,
       baseValueUpgrades: 0,
       gravityExponentUpgrades: 0,
+      chipBaseValueUpgrades: 0,
     };
     galaxyCount = galaxyData.count;
     // config と 購入回数 から現在の値を計算
+    const chipLv = galaxyData.chipBaseValueUpgrades || 0;
     currentGalaxyBase =
       galaxyConfig.upgrades.baseValue.initial +
-      galaxyData.baseValueUpgrades * galaxyConfig.upgrades.baseValue.increment;
+      (galaxyData.baseValueUpgrades + chipLv) *
+        galaxyConfig.upgrades.baseValue.increment;
     currentGravityExponent =
       galaxyConfig.upgrades.gravityExponent.initial +
       galaxyData.gravityExponentUpgrades *
@@ -1214,7 +1217,10 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
   const gravityUpgradesConfig = config.idle.gravityUpgrades;
   // 全てのアップグレードを一度に表示すると長すぎるので、購入可能なものやレベルが上がっているものを優先して表示する
   if (Object.keys(gravityUpgradesConfig).length > 0) {
-    embed.addFields({ name: "🪐 グラビティアップグレード", value: "グラビティを消費してアップグレードできます" });
+    embed.addFields({
+      name: "🪐 グラビティアップグレード",
+      value: "グラビティを消費してアップグレードできます",
+    });
 
     const gravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
     const upgrades = idleGame.ipUpgrades?.gravityUpgrades || {};
@@ -1241,10 +1247,11 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
 
 /**
  * インフィニティ画面のボタンを生成する
- * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @param {object} uiData - getSingleUserUIDataから取得したUI描画用データ
  * @returns {ActionRowBuilder[]}
  */
-function generateInfinityButtons(idleGame) {
+function generateInfinityButtons(uiData) {
+  const { idleGame, point } = uiData;
   const components = [];
   let currentRow = new ActionRowBuilder();
   const userGenerators = idleGame.ipUpgrades?.generators || [];
@@ -1295,6 +1302,7 @@ function generateInfinityButtons(idleGame) {
       count: 0,
       baseValueUpgrades: 0,
       gravityExponentUpgrades: 0,
+      chipBaseValueUpgrades: 0,
     };
 
     // 各コストを計算
@@ -1302,6 +1310,10 @@ function generateInfinityButtons(idleGame) {
     const baseValueCost = calculateGalaxyUpgradeCost(
       "baseValue",
       galaxyData.baseValueUpgrades
+    );
+    const chipCost = calculateGalaxyUpgradeCost(
+      "chipBaseValue",
+      galaxyData.chipBaseValueUpgrades || 0
     );
     const gravityExponentCost = calculateGalaxyUpgradeCost(
       "gravityExponent",
@@ -1321,6 +1333,12 @@ function generateInfinityButtons(idleGame) {
         .setStyle(ButtonStyle.Primary)
         .setEmoji("⚙️")
         .setDisabled(ip_d.lt(baseValueCost)),
+      new ButtonBuilder()
+        .setCustomId("idle_galaxy_upgrade_chipBaseValue")
+        .setLabel(`ベース値強化(${chipCost.toExponential(0)}©)`)
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("⚙️")
+        .setDisabled(point.legacy_pizza < chipCost),
       new ButtonBuilder()
         .setCustomId("idle_galaxy_upgrade_gravityExponent")
         .setLabel("グラビティ指数強化")

@@ -28,7 +28,7 @@ import {
   calculateGalaxyCost,
   calculateGalaxyUpgradeCost,
   calculateEternityBonuses,
-  calculateGravityUpgradeCost
+  calculateGravityUpgradeCost,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -169,7 +169,7 @@ export async function handleSettings(interaction) {
   );
 
   const areFactoryButtonsHidden = currentSettings.hideFactoryButtons === true;
-// 6. 工場強化ボタン非表示設定を追加
+  // 6. 工場強化ボタン非表示設定を追加
   modal.addLabelComponents(
     new LabelBuilder()
       .setLabel("工場ボタンの表示設定")
@@ -1294,71 +1294,92 @@ export async function handleAscension(interaction) {
  * @returns {Promise<boolean>}
  */
 export async function handleAscensionMax(interaction) {
-    const userId = interaction.user.id;
-    let ascensionsDone = 0;
-    let totalCost = 0;
+  const userId = interaction.user.id;
+  let ascensionsDone = 0;
+  let totalCost = 0;
 
-    const t = await sequelize.transaction();
-    try {
-        const [latestPoint, latestIdleGame] = await Promise.all([
-            Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
-            IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
-        ]);
-        if (!latestPoint || !latestIdleGame) throw new Error("ユーザーデータが見つかりません。");
+  const t = await sequelize.transaction();
+  try {
+    const [latestPoint, latestIdleGame] = await Promise.all([
+      Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
+      IdleGame.findOne({
+        where: { userId },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      }),
+    ]);
+    if (!latestPoint || !latestIdleGame)
+      throw new Error("ユーザーデータが見つかりません。");
 
-        const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
-        const activeChallenge = latestIdleGame.challenges?.activeChallenge;
+    const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
+    const activeChallenge = latestIdleGame.challenges?.activeChallenge;
 
-        for (let i = 0; i < 10; i++) {
-            const currentAscensionCount = (latestIdleGame.ascensionCount || 0) + ascensionsDone;
-            const { requiredPopulation_d, requiredChips } = calculateAscensionRequirements(
-                currentAscensionCount,
-                latestIdleGame.skillLevel6,
-                purchasedIUs,
-                activeChallenge
-            );
+    for (let i = 0; i < 10; i++) {
+      const currentAscensionCount =
+        (latestIdleGame.ascensionCount || 0) + ascensionsDone;
+      const { requiredPopulation_d, requiredChips } =
+        calculateAscensionRequirements(
+          currentAscensionCount,
+          latestIdleGame.skillLevel6,
+          purchasedIUs,
+          activeChallenge
+        );
 
-            if (new Decimal(latestIdleGame.population).lt(requiredPopulation_d) || latestPoint.legacy_pizza < requiredChips) {
-                break; // 資源が足りなくなったらループを抜ける
-            }
+      if (
+        new Decimal(latestIdleGame.population).lt(requiredPopulation_d) ||
+        latestPoint.legacy_pizza < requiredChips
+      ) {
+        break; // 資源が足りなくなったらループを抜ける
+      }
 
-            latestPoint.legacy_pizza -= requiredChips;
-            latestIdleGame.population = new Decimal(latestIdleGame.population).minus(requiredPopulation_d).toString();
-            
-            totalCost += requiredChips;
-            ascensionsDone++;
-        }
+      latestPoint.legacy_pizza -= requiredChips;
+      latestIdleGame.population = new Decimal(latestIdleGame.population)
+        .minus(requiredPopulation_d)
+        .toString();
 
-        if (ascensionsDone > 0) {
-            latestIdleGame.ascensionCount += ascensionsDone;
-            
-            const spentChipsBigInt = BigInt(Math.floor(totalCost));
-            latestIdleGame.chipsSpentThisInfinity = (BigInt(latestIdleGame.chipsSpentThisInfinity || '0') + spentChipsBigInt).toString();
-            latestIdleGame.chipsSpentThisEternity = (BigInt(latestIdleGame.chipsSpentThisEternity || '0') + spentChipsBigInt).toString();
-            
-            await latestPoint.save({ transaction: t });
-            await latestIdleGame.save({ transaction: t });
-        }
-
-        await t.commit();
-
-        if (ascensionsDone > 0) {
-            await interaction.followUp({
-                content: `🚀 **アセンションを ${ascensionsDone}回 実行しました！** (消費: ${totalCost.toLocaleString()}©)`,
-                ephemeral: true,
-            });
-            // ここで実績解除ロジックを呼んでも良い
-        } else {
-            await interaction.followUp({ content: "アセンションの条件を満たしていません。", ephemeral: true });
-        }
-        return ascensionsDone > 0;
-
-    } catch (error) {
-        await t.rollback();
-        console.error("Ascension Max Error:", error);
-        await interaction.followUp({ content: "❌ 連続アセンション中にエラーが発生しました。", ephemeral: true });
-        return false;
+      totalCost += requiredChips;
+      ascensionsDone++;
     }
+
+    if (ascensionsDone > 0) {
+      latestIdleGame.ascensionCount += ascensionsDone;
+
+      const spentChipsBigInt = BigInt(Math.floor(totalCost));
+      latestIdleGame.chipsSpentThisInfinity = (
+        BigInt(latestIdleGame.chipsSpentThisInfinity || "0") + spentChipsBigInt
+      ).toString();
+      latestIdleGame.chipsSpentThisEternity = (
+        BigInt(latestIdleGame.chipsSpentThisEternity || "0") + spentChipsBigInt
+      ).toString();
+
+      await latestPoint.save({ transaction: t });
+      await latestIdleGame.save({ transaction: t });
+    }
+
+    await t.commit();
+
+    if (ascensionsDone > 0) {
+      await interaction.followUp({
+        content: `🚀 **アセンションを ${ascensionsDone}回 実行しました！** (消費: ${totalCost.toLocaleString()}©)`,
+        ephemeral: true,
+      });
+      // ここで実績解除ロジックを呼んでも良い
+    } else {
+      await interaction.followUp({
+        content: "アセンションの条件を満たしていません。",
+        ephemeral: true,
+      });
+    }
+    return ascensionsDone > 0;
+  } catch (error) {
+    await t.rollback();
+    console.error("Ascension Max Error:", error);
+    await interaction.followUp({
+      content: "❌ 連続アセンション中にエラーが発生しました。",
+      ephemeral: true,
+    });
+    return false;
+  }
 }
 
 /**
@@ -1458,7 +1479,8 @@ async function executeInfinityTransaction(userId, client) {
     }
     //獲得∞を計算
     const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
-    const infGainBonus = 1 + (latestIdleGame.ipUpgrades?.gravityUpgrades?.infGain || 0);
+    const infGainBonus =
+      1 + (latestIdleGame.ipUpgrades?.gravityUpgrades?.infGain || 0);
     if (purchasedIUs.has("IU62")) {
       const chipsSpent_d = new Decimal(
         latestIdleGame.chipsSpentThisEternity || "0"
@@ -1927,115 +1949,146 @@ export async function handleGeneratorPurchase(interaction, generatorId) {
  * @returns {Promise<boolean>}
  */
 export async function handleGeneratorBuyAll(interaction) {
-    const userId = interaction.user.id;
-    const purchases = new Map();
-    let totalCost = new Decimal(0);
-    let purchasedCount = 0;
+  const userId = interaction.user.id;
+  const purchases = new Map();
+  let totalCost = new Decimal(0);
+  let purchasedCount = 0;
 
-    const t = await sequelize.transaction();
-    try {
-        const idleGame = await IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE });
-        if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
+  const t = await sequelize.transaction();
+  try {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
 
-        let availableIp = new Decimal(idleGame.infinityPoints);
-        const MAX_ITERATIONS = 1000; // 無限ループ防止
+    let availableIp = new Decimal(idleGame.infinityPoints);
+    const MAX_ITERATIONS = 1000; // 無限ループ防止
 
-        for (let i = 0; i < MAX_ITERATIONS; i++) {
-            const userGenerators = idleGame.ipUpgrades.generators || [];
-            
-            const costs = config.idle.infinityGenerators.map(genConfig => ({
-                id: genConfig.id,
-                cost: calculateGeneratorCost(genConfig.id, userGenerators[genConfig.id - 1]?.bought || 0),
-                bought: userGenerators[genConfig.id - 1]?.bought || 0,
-            }));
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      const userGenerators = idleGame.ipUpgrades.generators || [];
 
-            const affordable = costs.filter(c => availableIp.gte(c.cost));
-            
-            // 0個のものを優先
-            const unbought = affordable.filter(c => c.bought === 0);
-            
-            let bestToBuy;
-            if (unbought.length > 0) {
-                bestToBuy = unbought.sort((a, b) => a.cost.cmp(b.cost))[0]; // 安い順
-            } else if (affordable.length > 0) {
-                bestToBuy = affordable.sort((a, b) => a.cost.cmp(b.cost))[0]; // 安い順
-            } else {
-                break; // 買えるものがなければ終了
-            }
+      const costs = config.idle.infinityGenerators.map((genConfig) => ({
+        id: genConfig.id,
+        cost: calculateGeneratorCost(
+          genConfig.id,
+          userGenerators[genConfig.id - 1]?.bought || 0
+        ),
+        bought: userGenerators[genConfig.id - 1]?.bought || 0,
+      }));
 
-            availableIp = availableIp.minus(bestToBuy.cost);
-            totalCost = totalCost.add(bestToBuy.cost);
-            purchasedCount++;
-            
-            const genIndex = bestToBuy.id - 1;
-            idleGame.ipUpgrades.generators[genIndex].bought++;
-            idleGame.ipUpgrades.generators[genIndex].amount = new Decimal(idleGame.ipUpgrades.generators[genIndex].amount).add(1).toString();
+      const affordable = costs.filter((c) => availableIp.gte(c.cost));
 
-            purchases.set(bestToBuy.id, (purchases.get(bestToBuy.id) || 0) + 1);
-        }
+      // 0個のものを優先
+      const unbought = affordable.filter((c) => c.bought === 0);
 
-        if (purchasedCount > 0) {
-            idleGame.infinityPoints = availableIp.toString();
-            idleGame.changed("ipUpgrades", true);
-            await idleGame.save({ transaction: t });
-        }
-        
-        await t.commit();
+      let bestToBuy;
+      if (unbought.length > 0) {
+        bestToBuy = unbought.sort((a, b) => a.cost.cmp(b.cost))[0]; // 安い順
+      } else if (affordable.length > 0) {
+        bestToBuy = affordable.sort((a, b) => a.cost.cmp(b.cost))[0]; // 安い順
+      } else {
+        break; // 買えるものがなければ終了
+      }
 
-        if (purchasedCount > 0) {
-            let summary = Array.from(purchases.entries()).map(([id, count]) => `G${id}: +${count}`).join(', ');
-            await interaction.followUp({ content: `🤖 **ジェネレーターを自動購入しました！** (${summary})`, ephemeral: true });
-        } else {
-            await interaction.followUp({ content: "購入可能なジェネレーターがありませんでした。", ephemeral: true });
-        }
-        return purchasedCount > 0;
+      availableIp = availableIp.minus(bestToBuy.cost);
+      totalCost = totalCost.add(bestToBuy.cost);
+      purchasedCount++;
 
-    } catch (error) {
-        await t.rollback();
-        console.error("Generator Buy All Error:", error);
-        await interaction.followUp({ content: "❌ 自動購入中にエラーが発生しました。", ephemeral: true });
-        return false;
+      const genIndex = bestToBuy.id - 1;
+      idleGame.ipUpgrades.generators[genIndex].bought++;
+      idleGame.ipUpgrades.generators[genIndex].amount = new Decimal(
+        idleGame.ipUpgrades.generators[genIndex].amount
+      )
+        .add(1)
+        .toString();
+
+      purchases.set(bestToBuy.id, (purchases.get(bestToBuy.id) || 0) + 1);
     }
+
+    if (purchasedCount > 0) {
+      idleGame.infinityPoints = availableIp.toString();
+      idleGame.changed("ipUpgrades", true);
+      await idleGame.save({ transaction: t });
+    }
+
+    await t.commit();
+
+    if (purchasedCount > 0) {
+      let summary = Array.from(purchases.entries())
+        .map(([id, count]) => `G${id}: +${count}`)
+        .join(", ");
+      await interaction.followUp({
+        content: `🤖 **ジェネレーターを自動購入しました！** (${summary})`,
+        ephemeral: true,
+      });
+    } else {
+      await interaction.followUp({
+        content: "購入可能なジェネレーターがありませんでした。",
+        ephemeral: true,
+      });
+    }
+    return purchasedCount > 0;
+  } catch (error) {
+    await t.rollback();
+    console.error("Generator Buy All Error:", error);
+    await interaction.followUp({
+      content: "❌ 自動購入中にエラーが発生しました。",
+      ephemeral: true,
+    });
+    return false;
+  }
 }
 
 /**
  * 【新規】グラビティアップグレードを購入する
  */
 export async function handleGravityUpgradePurchase(interaction, upgradeId) {
-    const userId = interaction.user.id;
-    const t = await sequelize.transaction();
-    try {
-        const idleGame = await IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE });
-        
-        const upgrades = idleGame.ipUpgrades.gravityUpgrades || {};
-        const level = upgrades[upgradeId] || 0;
-        
-        const gvConfig = config.idle.gravityUpgrades[upgradeId];
-        if (level >= gvConfig.maxLevel) throw new Error("最大レベルに到達しています。");
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction();
+  try {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
 
-        const cost = calculateGravityUpgradeCost(upgradeId, level);
-        let gravity = new Decimal(idleGame.ipUpgrades.gravity || "1");
+    const upgrades = idleGame.ipUpgrades.gravityUpgrades || {};
+    const level = upgrades[upgradeId] || 0;
 
-        if (gravity.lt(cost)) throw new Error(`グラビティが足りません！`);
+    const gvConfig = config.idle.gravityUpgrades[upgradeId];
+    if (level >= gvConfig.maxLevel)
+      throw new Error("最大レベルに到達しています。");
 
-        gravity = gravity.minus(cost);
-        upgrades[upgradeId] = level + 1;
+    const cost = calculateGravityUpgradeCost(upgradeId, level);
+    let gravity = new Decimal(idleGame.ipUpgrades.gravity || "1");
 
-        idleGame.ipUpgrades.gravity = gravity.toString();
-        idleGame.ipUpgrades.gravityUpgrades = upgrades;
-        idleGame.changed("ipUpgrades", true);
+    if (gravity.lt(cost)) throw new Error(`グラビティが足りません！`);
 
-        await idleGame.save({ transaction: t });
-        await t.commit();
-        
-        await interaction.followUp({ content: `✅ **${gvConfig.name}** を購入しました！`, ephemeral: true });
-        return true;
+    gravity = gravity.minus(cost);
+    upgrades[upgradeId] = level + 1;
 
-    } catch (error) {
-        await t.rollback();
-        await interaction.followUp({ content: `❌ 購入エラー: ${error.message}`, ephemeral: true });
-        return false;
-    }
+    idleGame.ipUpgrades.gravity = gravity.toString();
+    idleGame.ipUpgrades.gravityUpgrades = upgrades;
+    idleGame.changed("ipUpgrades", true);
+
+    await idleGame.save({ transaction: t });
+    await t.commit();
+
+    await interaction.followUp({
+      content: `✅ **${gvConfig.name}** を購入しました！`,
+      ephemeral: true,
+    });
+    return true;
+  } catch (error) {
+    await t.rollback();
+    await interaction.followUp({
+      content: `❌ 購入エラー: ${error.message}`,
+      ephemeral: true,
+    });
+    return false;
+  }
 }
 
 /**
@@ -2539,11 +2592,10 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
   const t = await sequelize.transaction();
 
   try {
-    const idleGame = await IdleGame.findOne({
-      where: { userId },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
+    const [idleGame, point] = await Promise.all([ 
+        IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
+        Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE })
+    ]);
     if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
 
     const ip_d = new Decimal(idleGame.infinityPoints);
@@ -2551,6 +2603,7 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
       count: 0,
       baseValueUpgrades: 0,
       gravityExponentUpgrades: 0,
+      chipBaseValueUpgrades: 0,
     };
 
     let cost_d;
@@ -2575,6 +2628,20 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
       if (idsToCheck.length) {
         await unlockAchievements(interaction.client, userId, ...idsToCheck);
       }
+    } else if (purchaseType === "chipBaseValue") {
+      const currentLevel = galaxyData.chipBaseValueUpgrades || 0;
+      const cost = calculateGalaxyUpgradeCost(
+        "chipBaseValue",
+        currentLevel
+      );
+
+      if (point.legacy_pizza < cost) throw new Error("チップが足りません！");
+
+      point.legacy_pizza -= cost;
+      galaxyData.chipBaseValueUpgrades = currentLevel + 1;
+      successMessage = `✅ **ベース値**をチップで強化しました！`;
+
+      await point.save({ transaction: t });
     } else {
       // 'baseValue' or 'gravityExponent'
       const currentLevel = galaxyData[`${purchaseType}Upgrades`];

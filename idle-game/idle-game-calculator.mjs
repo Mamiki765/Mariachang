@@ -494,12 +494,14 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           count: 0,
           baseValueUpgrades: 0,
           gravityExponentUpgrades: 0,
+          chipBaseValueUpgrades: 0,
         };
         const galaxyCount = galaxyData.count;
+        const chipLv = galaxyData.chipBaseValueUpgrades || 0;
         // config と 購入回数 から現在の値を計算
         const currentGalaxyBase =
           galaxyConfig.upgrades.baseValue.initial +
-          galaxyData.baseValueUpgrades *
+          (galaxyData.baseValueUpgrades + chipLv) *
             galaxyConfig.upgrades.baseValue.increment;
         const currentGravityExponent =
           galaxyConfig.upgrades.gravityExponent.initial +
@@ -1574,6 +1576,7 @@ export function calculateGeneratorProductionRates(
       count: 0,
       baseValueUpgrades: 0,
       gravityExponentUpgrades: 0,
+      chipBaseValueUpgrades: 0,
     };
 
     // 現在のグラビティ指数を計算
@@ -2008,11 +2011,18 @@ export function calculateGalaxyCost(currentGalaxyCount) {
  * ギャラクシーアップグレード（ベース値・グラビティ指数）のコストを計算する
  * @param {'baseValue' | 'gravityExponent'} upgradeType - 強化の種類
  * @param {number} currentUpgradeLevel - 現在の強化レベル
- * @returns {Decimal} 次のレベルへのアップグレードコスト
+ * @returns {Decimal | number} IPコストの場合はDecimal, チップコストの場合はnumberを返す
  */
 export function calculateGalaxyUpgradeCost(upgradeType, currentUpgradeLevel) {
   const upgradeConfig = config.idle.galaxy.upgrades[upgradeType];
   if (!upgradeConfig) return new Decimal(Infinity);
+
+  if (upgradeType === "chipBaseValue") {
+    const baseCost = upgradeConfig.cost.base;
+    const multiplier = upgradeConfig.cost.multiplier;
+    // チップはnumberで十分なので、numberで計算して返す
+    return baseCost * Math.pow(multiplier, currentUpgradeLevel);
+  }
 
   const startCost_d = new Decimal(upgradeConfig.cost.start);
   const exponentStep = upgradeConfig.cost.exponentStep;
