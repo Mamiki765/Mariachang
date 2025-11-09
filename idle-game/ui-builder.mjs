@@ -32,6 +32,7 @@ import {
   calculateGalaxyUpgradeCost,
   calculateEternityBonuses,
   calculateGravityUpgradeCost,
+  calculateCpGainCost,
 } from "./idle-game-calculator.mjs";
 
 //---------------
@@ -1776,6 +1777,141 @@ function generateChallengeButtons(idleGame) {
   return components;
 }
 
+//--------------------------
+//エタニティ
+//--------------------------
+/**
+ * エタニティ画面のEmbedを生成する
+ * @param {object} uiData
+ * @returns {EmbedBuilder}
+ */
+function generateEternityEmbed(uiData) {
+  const { idleGame } = uiData;
+  const eternityCount = idleGame.eternityCount || 0;
+  const eternityPoints = new Decimal(idleGame.eternityPoints || "0");
+  const epUpgrades = idleGame.epUpgrades || {};
+  const chronoPoints = new Decimal(epUpgrades.chronoPoints || "0");
+
+  const embed = new EmbedBuilder()
+    .setTitle("Σ エタニティ Σ")
+    .setColor("White")
+    .setDescription(
+      `**${eternityCount} Σ** を達成し、**${formatNumberDynamic_Decimal(eternityPoints)} EP** を所持しています。`
+    );
+  //CP
+  const timesNyo = epUpgrades.cpGainedFrom?.nyowamiya || 0;
+  const timesIp = epUpgrades.cpGainedFrom?.ip || 0;
+  const timesEp = epUpgrades.cpGainedFrom?.ep || 0;
+
+  const costNyo = calculateCpGainCost("nyowamiya", timesNyo);
+  const costIp = calculateCpGainCost("ip", timesIp);
+  const costEp = calculateCpGainCost("ep", timesEp);
+
+  embed.addFields({
+    name: "🕰️ クロノポイント獲得(未実装)",
+    value:
+      `以下のリソースを捧げて、クロノポイント(CP)を獲得できます。` +
+      `\n- **ニョワミヤ:** ${formatNumberDynamic_Decimal(costNyo)} 匹で 1 CP` +
+      `\n- **IP:** ${formatNumberDynamic_Decimal(costIp)} IPで 1 CP` +
+      `\n- **EP:** ${formatNumberDynamic_Decimal(costEp)} EPで 1 CP`,
+  });
+
+  // マイルストーンの表示
+  const milestonesText = config.idle.eternity.milestones
+    .map((milestone) => {
+      const statusIcon = eternityCount >= milestone.count ? "✅" : "　";
+      return `${statusIcon} **${milestone.count}Σ:** ${milestone.description}`;
+    })
+    .join("\n");
+  embed.addFields({
+    name: "🌌 エタニティマイルストーン",
+    value: milestonesText,
+  });
+  // エタニティボーナスの表示 (マイルストーン#1達成時)
+  if (eternityCount >= 1) {
+    // ここに各ボーナスの現在値を表示するロジックを追加します
+    // （次のステップで作成する計算関数を呼び出す想定）
+    const bonuses = calculateEternityBonuses(eternityCount);
+    const bonusText = `
+- **Σ工場倍率:** x${formatNumberDynamic(bonuses.factory, 2)}
+- **Σチップ獲得量:** x${formatNumberDynamic(bonuses.chips, 2)}
+- **Σアセンションパワー:** x${formatNumberDynamic(bonuses.ascension, 3)}
+- **Σインフィニティ獲得量:** x${formatNumberDynamic(bonuses.infinity, 2)}
+- **Σジェネレーターパワー:** x${formatNumberDynamic(bonuses.gp, 2)}
+- **Σグラビティ獲得量:** x${formatNumberDynamic(bonuses.gravity, 2)}
+`;
+    embed.addFields({ name: "🌠 現在のエタニティボーナス", value: bonusText });
+  }
+
+  return embed;
+}
+
+/**
+ * エタニティ画面のボタンを生成する (CP対応版)
+ * @param {object} uiData
+ * @returns {ActionRowBuilder[]}
+ */
+export function generateEternityButtons(uiData) {
+  const components = [];
+  const { idleGame } = uiData;
+
+  const population_d = new Decimal(idleGame.population);
+  const ip_d = new Decimal(idleGame.infinityPoints);
+  const ep_d = new Decimal(idleGame.eternityPoints);
+  const epUpgrades = idleGame.epUpgrades || {};
+
+  const cpGainRow = new ActionRowBuilder();
+
+  // --- CP購入ボタン (ニョワミヤ) ---
+  const nyoTimes = epUpgrades.cpGainedFrom?.nyowamiya || 0;
+  const nyoCost = calculateCpGainCost("nyowamiya", nyoTimes);
+  cpGainRow.addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_gain_max_cp_nyowamiya")
+      .setLabel("CP購入 (ニョワミヤ)")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("<:nyowamiyarika:1264010111970574408>")
+      .setDisabled(population_d.lt(nyoCost))
+  );
+
+  // --- CP購入ボタン (IP) ---
+  const ipTimes = epUpgrades.cpGainedFrom?.ip || 0;
+  const ipCost = calculateCpGainCost("ip", ipTimes);
+  cpGainRow.addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_gain_max_cp_ip")
+      .setLabel("CP購入 (IP)")
+      .setStyle(ButtonStyle.Success)
+      .setEmoji("🌌")
+      .setDisabled(ip_d.lt(ipCost))
+  );
+
+  // --- CP購入ボタン (EP) ---
+  const epTimes = epUpgrades.cpGainedFrom?.ep || 0;
+  const epCost = calculateCpGainCost("ep", epTimes);
+  cpGainRow.addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_gain_max_cp_ep")
+      .setLabel("CP購入 (EP)")
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("🌠")
+      .setDisabled(ep_d.lt(epCost))
+  );
+
+  components.push(cpGainRow);
+
+  // 既存のナビゲーションボタン
+  const navigationRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("idle_show_factory")
+      .setLabel("工場画面に戻る")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🏭")
+  );
+  components.push(navigationRow);
+  return components;
+}
+
 //-------------------------
 //プロフィールカード
 //-------------------------
@@ -1916,77 +2052,6 @@ export function generateProfileEmbed(uiData, user) {
     .setColor("Aqua")
     .setDescription(description)
     .setTimestamp();
-}
-
-//--------------------------
-//エタニティ
-//--------------------------
-/**
- * エタニティ画面のEmbedを生成する
- * @param {object} uiData
- * @returns {EmbedBuilder}
- */
-function generateEternityEmbed(uiData) {
-  const { idleGame } = uiData;
-  const eternityCount = idleGame.eternityCount || 0;
-  const eternityPoints = new Decimal(idleGame.eternityPoints || "0");
-
-  const embed = new EmbedBuilder()
-    .setTitle("Σ エタニティ Σ")
-    .setColor("White")
-    .setDescription(
-      `**${eternityCount} Σ** を達成し、**${formatNumberDynamic_Decimal(eternityPoints)} EP** を所持しています。`
-    );
-
-  // マイルストーンの表示
-  const milestonesText = config.idle.eternity.milestones
-    .map((milestone) => {
-      const statusIcon = eternityCount >= milestone.count ? "✅" : "　";
-      return `${statusIcon} **${milestone.count}Σ:** ${milestone.description}`;
-    })
-    .join("\n");
-  embed.addFields({
-    name: "🌌 エタニティマイルストーン",
-    value: milestonesText,
-  });
-  // エタニティボーナスの表示 (マイルストーン#1達成時)
-  if (eternityCount >= 1) {
-    // ここに各ボーナスの現在値を表示するロジックを追加します
-    // （次のステップで作成する計算関数を呼び出す想定）
-    const bonuses = calculateEternityBonuses(eternityCount);
-    const bonusText = `
-- **Σ工場倍率:** x${formatNumberDynamic(bonuses.factory, 2)}
-- **Σチップ獲得量:** x${formatNumberDynamic(bonuses.chips, 2)}
-- **Σアセンションパワー:** x${formatNumberDynamic(bonuses.ascension, 3)}
-- **Σインフィニティ獲得量:** x${formatNumberDynamic(bonuses.infinity, 2)}
-- **Σジェネレーターパワー:** x${formatNumberDynamic(bonuses.gp, 2)}
-- **Σグラビティ獲得量:** x${formatNumberDynamic(bonuses.gravity, 2)}
-`;
-    embed.addFields({ name: "🌠 現在のエタニティボーナス", value: bonusText });
-  }
-
-  return embed;
-}
-
-/**
- * エタニティ画面のボタンを生成する
- * @param {object} uiData
- * @returns {ActionRowBuilder[]}
- */
-function generateEternityButtons(uiData) {
-  const components = [];
-
-  // 将来的にEPアップグレードボタンなどをここに追加
-
-  const navigationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("idle_show_factory")
-      .setLabel("工場画面に戻る")
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("🏭")
-  );
-  components.push(navigationRow);
-  return components;
 }
 
 //-----------------------

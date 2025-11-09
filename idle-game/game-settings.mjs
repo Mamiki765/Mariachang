@@ -13,13 +13,12 @@ export default {
     unlockIP: "1.79769e308", // エタニティ実行に必要なIP
     milestones: [
       { count: 1, description: "Σに応じたエタニティボーナスの解禁" },
-      { count: 2, description: "ここから未実装" },
       //{ count: 2, description: "ニョボチップがΣ間で維持+最大倍率から減らない" },
-      //{ count: 3, description: "最短インフィニティ時間を維持" },
+      { count: 3, description: "最短インフィニティ時間を維持" },
       //{ count: 4, description: "アプグレ・ジェネの自動購入" },
-      //{ count: 5, description: "工場購入はチップを消費しない" },
+      { count: 5, description: "工場購入はチップを消費せず、ゴーストチップは200から始まる" },
       //{ count: 6, description: "ギャラクシーの自動購入" },
-      //{ count: 10, description: "エタニティブレイク(IPの上限解除)" },
+      { count: 10, description: "エタニティブレイク(IPの上限解除)※EPはまだ増えません" },
       //{ count: 100, description: "IPボーナス" },
     ],
   },
@@ -264,7 +263,7 @@ export default {
       },
       // グラビティ指数強化 (効果に影響)
       gravityExponent: {
-        initial: 0.4,
+        initial: 0.40,
         increment: 0.05,
         cost: {
           start: "1e60",

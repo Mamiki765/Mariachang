@@ -29,6 +29,7 @@ import {
   handleAscensionMax,
   handleGeneratorBuyAll,
   handleGravityUpgradePurchase,
+  handleGainMaxCp,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import { getSingleUserUIData } from "../../idle-game/idle-game-calculator.mjs";
@@ -699,6 +700,9 @@ export async function execute(interaction) {
       } else if (i.customId === "idle_abort_challenge") {
         //ICキャンセル
         success = await handleAbortChallenge(i);
+      } else if (i.customId.startsWith("idle_gain_max_cp_")) {
+        const sacrificeType = i.customId.substring("idle_gain_max_cp_".length);
+        success = await handleGainMaxCp(i, sacrificeType);
       }
 
       // --- 3. 処理が成功した場合にのみ、UIを更新する ---

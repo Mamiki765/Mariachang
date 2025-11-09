@@ -29,6 +29,7 @@ import {
   calculateGalaxyUpgradeCost,
   calculateEternityBonuses,
   calculateGravityUpgradeCost,
+  calculateCpGainCost,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -293,6 +294,8 @@ export async function handleFacilityUpgrade(interaction, facilityName) {
     });
     return false;
   }
+  // Σ5達成で無料化
+  const isFree = latestIdleGame.eternityCount >= 5;
 
   // 2. コストを計算
   const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
@@ -318,15 +321,22 @@ export async function handleFacilityUpgrade(interaction, facilityName) {
   // 4. トランザクションでDBを更新
   try {
     await sequelize.transaction(async (t) => {
-      await latestPoint.decrement("legacy_pizza", { by: cost, transaction: t });
+      if (!isFree) {
+        await latestPoint.decrement("legacy_pizza", {
+          by: cost,
+          transaction: t,
+        });
 
-      const currentSpent = BigInt(latestIdleGame.chipsSpentThisInfinity || "0");
-      latestIdleGame.chipsSpentThisInfinity = (
-        currentSpent + BigInt(cost)
-      ).toString();
-      latestIdleGame.chipsSpentThisEternity = (
-        BigInt(latestIdleGame.chipsSpentThisEternity || "0") + BigInt(cost)
-      ).toString();
+        const currentSpent = BigInt(
+          latestIdleGame.chipsSpentThisInfinity || "0"
+        );
+        latestIdleGame.chipsSpentThisInfinity = (
+          currentSpent + BigInt(cost)
+        ).toString();
+        latestIdleGame.chipsSpentThisEternity = (
+          BigInt(latestIdleGame.chipsSpentThisEternity || "0") + BigInt(cost)
+        ).toString();
+      }
 
       const levelKey = config.idle.factories[facilityName].key;
       latestIdleGame[levelKey] += 1;
@@ -514,12 +524,14 @@ export async function handleAutoAllocate(interaction) {
   }
 
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
+  const isFree = latestIdleGame.eternityCount >= 5; //Σ5で無料
 
   // 2. シミュレーション関数を呼び出して購入プランを得る
   const { purchases, totalCost, purchasedCount } = simulatePurchases(
     latestIdleGame.get({ plain: true }), // Sequelizeオブジェクトを素のJSオブジェクトに変換
     latestPoint.legacy_pizza,
-    unlockedSet
+    unlockedSet,
+    isFree
   );
 
   if (purchasedCount === 0) {
@@ -726,7 +738,8 @@ async function executePrestigeTransaction(userId, client) {
         updateData = await applyGhostChipBonus(
           updateData,
           userId,
-          currentGhostLevel
+          currentGhostLevel,
+          latestIdleGame.eternityCount
         );
       }
 
@@ -787,7 +800,8 @@ async function executePrestigeTransaction(userId, client) {
         updateData = await applyGhostChipBonus(
           updateData,
           userId,
-          currentGhostLevel
+          currentGhostLevel,
+          latestIdleGame.eternityCount
         );
       }
 
@@ -1592,7 +1606,8 @@ async function executeInfinityTransaction(userId, client) {
       updateData = await applyGhostChipBonus(
         updateData,
         userId,
-        currentGhostLevel
+        currentGhostLevel,
+        latestIdleGame.eternityCount
       );
     }
 
@@ -2342,7 +2357,8 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
       updateData = await applyGhostChipBonus(
         updateData,
         userId,
-        currentGhostLevel
+        currentGhostLevel,
+        idleGame.eternityCount
       );
     }
 
@@ -2592,9 +2608,13 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
   const t = await sequelize.transaction();
 
   try {
-    const [idleGame, point] = await Promise.all([ 
-        IdleGame.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
-        Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE })
+    const [idleGame, point] = await Promise.all([
+      IdleGame.findOne({
+        where: { userId },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      }),
+      Point.findOne({ where: { userId }, transaction: t, lock: t.LOCK.UPDATE }),
     ]);
     if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
 
@@ -2630,13 +2650,16 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
       }
     } else if (purchaseType === "chipBaseValue") {
       const currentLevel = galaxyData.chipBaseValueUpgrades || 0;
-      const cost = calculateGalaxyUpgradeCost(
-        "chipBaseValue",
-        currentLevel
-      );
+      const cost = calculateGalaxyUpgradeCost("chipBaseValue", currentLevel);
 
       if (point.legacy_pizza < cost) throw new Error("チップが足りません！");
-
+      const costBigInt = BigInt(Math.floor(cost));
+      const currentSpentEternity = BigInt(
+        idleGame.chipsSpentThisEternity || "0"
+      );
+      idleGame.chipsSpentThisEternity = (
+        currentSpentEternity + costBigInt
+      ).toString();
       point.legacy_pizza -= cost;
       galaxyData.chipBaseValueUpgrades = currentLevel + 1;
       successMessage = `✅ **ベース値**をチップで強化しました！`;
@@ -2679,6 +2702,7 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
  * @param {import("discord.js").InteractionCollector} collector
  */
 export async function handleEternity(interaction, collector) {
+  const eternityTimestamp = new Date();
   const userId = interaction.user.id;
   const client = interaction.client;
   collector.stop(); // 他のボタン操作を無効化
@@ -2704,6 +2728,53 @@ export async function handleEternity(interaction, collector) {
       const calamityChips =
         BigInt(idleGame.chipsSpentThisCalamity || "0") +
         BigInt(idleGame.chipsSpentThisEternity || "0");
+
+      // 1. 次のエタニティ回数を計算
+      const newEternityCount = (idleGame.eternityCount || 0) + 1;
+
+      // 2. 更新後のipUpgradesオブジェクトを準備
+      const newIpUpgrades = {
+        generators: Array(8).fill({ amount: "0", bought: 0 }),
+        upgrades: [],
+      };
+
+      // 3. Σ5達成でゴーストチップLvを200に設定
+      if (newEternityCount >= 5) {
+        newIpUpgrades.ghostChipLevel = 200;
+      }
+
+      //4. Σ3達成で新しいオブジェクトに最短インフィニティを受け継ぐ
+      const newChallenges = {}; // まず空のオブジェクトとして定義
+      if (newEternityCount >= 3 && idleGame.challenges?.bestInfinityRealTime) {
+        // Σ3達成済み、かつ記録が存在すれば、新しいオブジェクトに記録を引き継ぐ
+        newChallenges.bestInfinityRealTime =
+          idleGame.challenges.bestInfinityRealTime;
+      }
+
+      //5.更新後のepUpgradesオブジェクトを準備 (タイム記録)
+      // まず既存のデータを安全にコピー
+      const newEpUpgrades = { ...(idleGame.epUpgrades || {}) };
+
+      // a. 今回のエタニティにかかった時間を計算
+      let durationInSeconds;
+      if (idleGame.epUpgrades?.lastEternityDate) {
+        // 2回目以降のエタニティ(Σが2以上になる時): 前回の日時から計算
+        const startTime = new Date(idleGame.epUpgrades.lastEternityDate);
+        durationInSeconds =
+          (eternityTimestamp.getTime() - startTime.getTime()) / 1000;
+      } else {
+        // 初回のエタニティ(Σが1になる時): 記録がないため、365日として記録
+        durationInSeconds = 365 * 24 * 60 * 60; // 365 days in seconds
+      }
+
+      // b. 自己ベストを更新していれば記録
+      const currentBestTime = newEpUpgrades.bestEternityRealTime || Infinity;
+      if (durationInSeconds < currentBestTime) {
+        newEpUpgrades.bestEternityRealTime = durationInSeconds;
+      }
+
+      // c. 「前回のエタニティ日時」として今回のタイムスタンプを記録
+      newEpUpgrades.lastEternityDate = eternityTimestamp.toISOString();
 
       // IdleGameテーブルのデータをほぼ全て初期値に戻す
       await IdleGame.update(
@@ -2736,24 +2807,21 @@ export async function handleEternity(interaction, collector) {
           infinityPoints: "0",
           infinityCount: 0,
           generatorPower: "1",
-          ipUpgrades: {
-            generators: Array(8).fill({ amount: "0", bought: 0 }),
-            upgrades: [],
-          },
+          ipUpgrades: newIpUpgrades,
           chipsSpentThisInfinity: "0",
           chipsSpentThisEternity: "0", // Eternity内の消費チップはリセット
-          challenges: {},
+          challenges: newChallenges,
           buffMultiplier: 1.0,
           buffExpiresAt: null,
           pizzaBonusPercentage: 0,
           lastUpdatedAt: new Date(),
 
           // エタニティ関連の更新
-          eternityCount: (idleGame.eternityCount || 0) + 1,
+          eternityCount: newEternityCount,
           eternityPoints: new Decimal(idleGame.eternityPoints || "0")
             .add(1)
             .toString(), // とりあえずEPは+1
-          // epUpgrades: {}, // 将来的に
+          epUpgrades: newEpUpgrades,
 
           // カラミティ（累計）データの更新
           calamityTime: calamityTime,
@@ -2827,62 +2895,114 @@ export async function handleEternity(interaction, collector) {
  * @param {object} initialIdleGame - シミュレーション開始時のIdleGameデータ
  * @param {number} budget - 利用可能なチップの予算
  * @param {Set<number>} unlockedSet - 解放済み実績IDのSet
+ * @param {boolean} [isFree=false] - 工場購入が無料かどうか
  * @returns {{purchases: Map<string, number>, totalCost: number, purchasedCount: number}} 購入プラン
  */
-function simulatePurchases(initialIdleGame, budget, unlockedSet) {
-  let availableChips = budget;
-  // 元のデータを壊さないように、操作用のコピーを作成する
-  const tempIdleGame = JSON.parse(JSON.stringify(initialIdleGame));
+function simulatePurchases(
+  initialIdleGame,
+  budget,
+  unlockedSet,
+  isFree = false
+) {
+  if (isFree) {
+    // --- Σ5達成後の「与信枠」購入ロジック ---
+    const availableChips_d = new Decimal(budget);
 
-  const purchases = new Map(); // { "oven": 3, "cheese": 2 } のような購入結果を格納
-  let totalCost = 0;
-  let purchasedCount = 0;
-  const MAX_ITERATIONS = 1000; // 無限ループ防止
+    // 各施設を独立して計算する
+    for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
+      // アンロックされていなければスキップ
+      if (
+        factoryConfig.unlockAchievementId &&
+        !unlockedSet.has(factoryConfig.unlockAchievementId)
+      ) {
+        continue;
+      }
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const costs = calculateAllCosts(tempIdleGame);
+      const levelKey = factoryConfig.key;
+      const currentLevel = tempIdleGame[levelKey] || 0;
 
-    // 購入可能な施設をフィルタリングし、コストの安い順にソート
-    const affordableFacilities = Object.entries(costs)
-      .filter(([name, cost]) => {
-        const factoryConfig = config.idle.factories[name];
-        if (!factoryConfig || availableChips < cost) return false;
+      const baseCost_d = new Decimal(factoryConfig.baseCost);
+      const multiplier_d = new Decimal(factoryConfig.multiplier);
 
-        // 実績によるロックを判定
-        if (
-          factoryConfig.unlockAchievementId &&
-          !unlockedSet.has(factoryConfig.unlockAchievementId)
-        ) {
-          return false;
-        }
-        // (PP8以上で自動購入が解放されるので、人口制限は考慮しなくてOK)
-        return true;
-      })
-      .sort(([, costA], [, costB]) => costA - costB);
+      // コストが予算を1円でも超えていたら買えない
+      const costAtCurrentLevel = baseCost_d.times(
+        multiplier_d.pow(currentLevel)
+      );
+      if (availableChips_d.lt(costAtCurrentLevel)) {
+        continue;
+      }
 
-    // 買えるものがなければループ終了
-    if (affordableFacilities.length === 0) {
-      break;
+      // 【数学マジック】
+      // 予算(B)で買える目標レベル(T)を求める式: T = log_M(B / C_base)
+      // そこから現在のレベルを引けば、購入できるレベル数(N)がわかる: N = T - L
+      const targetLevel_d = availableChips_d.div(baseCost_d).log(multiplier_d);
+      const levelsToBuy_d = targetLevel_d.minus(currentLevel);
+
+      // 整数にして、0未満にならないようにする
+      const numLevelsToBuy = Math.max(0, levelsToBuy_d.floor().toNumber());
+
+      if (numLevelsToBuy > 0) {
+        purchases.set(name, numLevelsToBuy);
+        purchasedCount += numLevelsToBuy;
+      }
     }
+    // 無料なので総コストは0
+    totalCost = 0;
+  } else {
+    //Σ5未満の時の従来の購入
+    let availableChips = budget;
+    // 元のデータを壊さないように、操作用のコピーを作成する
+    const tempIdleGame = JSON.parse(JSON.stringify(initialIdleGame));
 
-    const [cheapestFacilityName, cheapestCost] = affordableFacilities[0];
+    const purchases = new Map(); // { "oven": 3, "cheese": 2 } のような購入結果を格納
+    let totalCost = 0;
+    let purchasedCount = 0;
+    const MAX_ITERATIONS = 1000; // 無限ループ防止
 
-    // 予算を消費し、結果を記録
-    availableChips -= cheapestCost;
-    totalCost += cheapestCost;
-    purchasedCount++;
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      const costs = calculateAllCosts(tempIdleGame);
 
-    // Mapに購入数を記録 (すでにあれば+1, なければ1)
-    purchases.set(
-      cheapestFacilityName,
-      (purchases.get(cheapestFacilityName) || 0) + 1
-    );
+      // 購入可能な施設をフィルタリングし、コストの安い順にソート
+      const affordableFacilities = Object.entries(costs)
+        .filter(([name, cost]) => {
+          const factoryConfig = config.idle.factories[name];
+          if (!factoryConfig || availableChips < cost) return false;
 
-    // シミュレーション用の施設レベルを上げる
-    const levelKey = config.idle.factories[cheapestFacilityName].key;
-    tempIdleGame[levelKey]++;
+          // 実績によるロックを判定
+          if (
+            factoryConfig.unlockAchievementId &&
+            !unlockedSet.has(factoryConfig.unlockAchievementId)
+          ) {
+            return false;
+          }
+          // (PP8以上で自動購入が解放されるので、人口制限は考慮しなくてOK)
+          return true;
+        })
+        .sort(([, costA], [, costB]) => costA - costB);
+
+      // 買えるものがなければループ終了
+      if (affordableFacilities.length === 0) {
+        break;
+      }
+
+      const [cheapestFacilityName, cheapestCost] = affordableFacilities[0];
+
+      // 予算を消費し、結果を記録
+      availableChips -= cheapestCost;
+      totalCost += cheapestCost;
+      purchasedCount++;
+
+      // Mapに購入数を記録 (すでにあれば+1, なければ1)
+      purchases.set(
+        cheapestFacilityName,
+        (purchases.get(cheapestFacilityName) || 0) + 1
+      );
+
+      // シミュレーション用の施設レベルを上げる
+      const levelKey = config.idle.factories[cheapestFacilityName].key;
+      tempIdleGame[levelKey]++;
+    }
   }
-
   return { purchases, totalCost, purchasedCount };
 }
 
@@ -2989,9 +3109,16 @@ function autoAssignSP(idleGame, spPriority) {
  * 【新規】IU11「ゴーストチップ」の効果を適用するヘルパー関数
  * @param {object} idleGameState - リセット直後の状態を持つIdleGameの素のJSオブジェクト
  * @param {string} userId - ユーザーID
+ * @param {number} [ghostLevel=1] - 現在のゴーストチップレベル
+ * @param {number} [eternityCount=0] - 現在のエタニティ回数。Σ5達成による工場無料化の判定に使用
  * @returns {Promise<object>} ゴーストチップによる購入が適用された後のIdleGameオブジェクト
  */
-async function applyGhostChipBonus(idleGameState, userId, ghostLevel = 1) {
+async function applyGhostChipBonus(
+  idleGameState,
+  userId,
+  ghostLevel = 1,
+  eternityCount = 0
+) {
   const userAchievement = await UserAchievement.findOne({
     where: { userId },
     raw: true,
@@ -3008,4 +3135,107 @@ async function applyGhostChipBonus(idleGameState, userId, ghostLevel = 1) {
     idleGameState[levelKey] += count;
   }
   return idleGameState;
+}
+
+/**
+ * 【新規・修正版】指定されたリソースを捧げてCPを買えるだけ獲得する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @param {'nyowamiya' | 'ip' | 'ep'} sacrificeType - 捧げるリソースの種類
+ * @returns {Promise<boolean>}
+ */
+export async function handleGainMaxCp(interaction, sacrificeType) {
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction();
+
+  try {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
+
+    // 1. 捧げるリソースと、現在のCP獲得状況を取得
+    const epUpgrades = idleGame.epUpgrades || { cpGainedFrom: {} };
+    const timesSacrificed = epUpgrades.cpGainedFrom?.[sacrificeType] || 0;
+    let availableResource_d;
+
+    switch (sacrificeType) {
+      case "nyowamiya":
+        availableResource_d = new Decimal(idleGame.population);
+        break;
+      case "ip":
+        availableResource_d = new Decimal(idleGame.infinityPoints);
+        break;
+      case "ep":
+        availableResource_d = new Decimal(idleGame.eternityPoints);
+        break;
+    }
+
+    // 2. 買えるだけ買うシミュレーション
+    let cpToGain = 0;
+    let totalCost_d = new Decimal(0);
+    const MAX_ITERATIONS = 1000; // 安全装置
+
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      const currentLevel = timesSacrificed + cpToGain;
+      const cost_d = calculateCpGainCost(sacrificeType, currentLevel);
+
+      if (availableResource_d.lt(cost_d)) break;
+
+      availableResource_d = availableResource_d.minus(cost_d);
+      totalCost_d = totalCost_d.add(cost_d);
+      cpToGain++;
+    }
+
+    // 3. 1CPでも獲得できるなら、DBを更新
+    if (cpToGain > 0) {
+      // 消費したリソースを更新
+      switch (sacrificeType) {
+        case "nyowamiya":
+          idleGame.population = availableResource_d.toString();
+          break;
+        case "ip":
+          idleGame.infinityPoints = availableResource_d.toString();
+          break;
+        case "ep":
+          idleGame.eternityPoints = availableResource_d.toString();
+          break;
+      }
+
+      // CPと獲得回数を更新
+      epUpgrades.chronoPoints = new Decimal(epUpgrades.chronoPoints || "0")
+        .add(cpToGain)
+        .toString();
+      epUpgrades.cpGainedFrom[sacrificeType] = timesSacrificed + cpToGain;
+
+      idleGame.changed("epUpgrades", true);
+      await idleGame.save({ transaction: t });
+      await t.commit();
+
+      const resourceName = { nyowamiya: "ニョワミヤ", ip: "IP", ep: "EP" }[
+        sacrificeType
+      ];
+      await interaction.followUp({
+        content: `✅ **${formatNumberDynamic_Decimal(totalCost_d)} ${resourceName}** を捧げて **${cpToGain} CP** を獲得しました！`,
+        ephemeral: true,
+      });
+      return true;
+    } else {
+      await t.rollback();
+      await interaction.followUp({
+        content: "リソースが足りません。",
+        ephemeral: true,
+      });
+      return false;
+    }
+  } catch (error) {
+    await t.rollback();
+    console.error("Gain Max CP Error:", error);
+    await interaction.followUp({
+      content: "❌ 処理中にエラーが発生しました。",
+      ephemeral: true,
+    });
+    return false;
+  }
 }

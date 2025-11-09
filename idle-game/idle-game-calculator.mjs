@@ -1288,8 +1288,8 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
     // これにより、実績#84などの基本値ボーナスがブレイク後のIPにも乗るようになります
     let finalIP = baseIP.times(formulaIP);
 
-    if (true) {
-      //必ず Eternity is not broken.
+    if (idleGame.eternityCount < 10) {
+      //Σ10でエタニティブレイク
       const ETERNITY_IP_CAP = new Decimal(config.idle.infinity);
       const currentIP_d = new Decimal(idleGame.infinityPoints);
       if (currentIP_d.plus(finalIP).gt(ETERNITY_IP_CAP)) {
@@ -2099,4 +2099,35 @@ export function calculateGravityUpgradeCost(upgradeId, currentLevel) {
 
   // コスト = 基本コスト * (成長率 ^ 現在レベル)
   return baseCost.times(multiplier.pow(currentLevel));
+}
+
+/**
+ * 1クロノポイント(CP)を獲得するためのコストを計算する
+ * @param {'nyowamiya' | 'ip' | 'ep'} sacrificeType - 捧げるリソースの種類
+ * @param {number} timesSacrificed - これまでにそのリソースを捧げた回数 (レベル)
+ * @returns {Decimal} 要求されるリソース量
+ */
+export function calculateCpGainCost(sacrificeType, timesSacrificed) {
+  let baseCost_d;
+  let multiplier_d;
+
+  switch (sacrificeType) {
+    case "nyowamiya":
+      baseCost_d = new Decimal("1e20000");
+      multiplier_d = new Decimal("1e20000");
+      break;
+    case "ip":
+      baseCost_d = new Decimal(1);
+      multiplier_d = new Decimal("1e100");
+      break;
+    case "ep":
+      baseCost_d = new Decimal(1);
+      multiplier_d = new Decimal(2);
+      break;
+    default:
+      return new Decimal(Infinity);
+  }
+
+  // コスト = 初期費用 * (コスト増加倍率 ^ これまでに捧げた回数)
+  return baseCost_d.times(multiplier_d.pow(timesSacrificed));
 }
