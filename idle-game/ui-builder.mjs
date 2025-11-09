@@ -2117,17 +2117,18 @@ export async function executeRankingCommand(interaction, isPrivate) {
           ? formatNumberDynamic(game.rankScore, 4)
           : "N/A";
         const ip_d = new Decimal(game.infinityPoints);
+         const ep_d = new Decimal(game.eternityPoints || "0");
         const population_d = new Decimal(game.population);
 
-        // infinityCountが1以上の時IPを表示する（0IPでも∞済みなら表示する）
-        const ipText =
-          game.infinityCount > 0
-            ? ` IP:**${formatNumberDynamic_Decimal(ip_d)}** | `
-            : "";
+        // EPはΣ1以上で表示
+        const epText = game.eternityCount > 0 ? `EP:**${formatNumberDynamic_Decimal(ep_d)}** | ` : "";
+
+        // IPはΣ1以上または∞1以上で表示
+        const ipText = (game.eternityCount > 0 || game.infinityCount > 0) ? `IP:**${formatNumberDynamic_Decimal(ip_d)}** | ` : "";
 
         return {
           name: `**${rank}位** ${displayName}`,
-          value: `└Score:**${score}** |${ipText} <:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(population_d)} 匹`,
+          value: `└Score:**${score}** | ${epText}${ipText} <:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(population_d)} 匹`,
           inline: false,
         };
       })
@@ -2141,16 +2142,15 @@ export async function executeRankingCommand(interaction, isPrivate) {
       const myRank = myIndex + 1;
       // ★★★ 攻略法２（自分用） ★★★
       const myIp_d = new Decimal(allIdleGames[myIndex].infinityPoints);
+      const myEp_d = new Decimal(myGameData.eternityPoints || "0");
       const myPopulation_d = new Decimal(allIdleGames[myIndex].population);
 
       const myScore = allIdleGames[myIndex].rankScore
         ? formatNumberDynamic(allIdleGames[myIndex].rankScore, 4)
         : "N/A";
-      const myIpText =
-        allIdleGames[myIndex].infinityCount > 0
-          ? ` IP:**${formatNumberDynamic_Decimal(myIp_d)}** | `
-          : "";
-      myRankText = `**${myRank}位** └Score:**${myScore}** |${myIpText}<:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
+      const myEpText = myGameData.eternityCount > 0 ? `EP:**${formatNumberDynamic_Decimal(myEp_d)}** | ` : "";
+      const myIpText = (myGameData.eternityCount > 0 || myGameData.infinityCount > 0) ? `IP:**${formatNumberDynamic_Decimal(myIp_d)}** | ` : "";
+      myRankText = `**${myRank}位** └Score:**${myScore}** | ${myEpText}${myIpText}<:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
     }
 
     return new EmbedBuilder()
