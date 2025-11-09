@@ -2142,14 +2142,14 @@ export async function executeRankingCommand(interaction, isPrivate) {
       const myRank = myIndex + 1;
       // ★★★ 攻略法２（自分用） ★★★
       const myIp_d = new Decimal(allIdleGames[myIndex].infinityPoints);
-      const myEp_d = new Decimal(myGameData.eternityPoints || "0");
+      const myEp_d = new Decimal(allIdleGames[myIndex].eternityPoints || "0");
       const myPopulation_d = new Decimal(allIdleGames[myIndex].population);
 
       const myScore = allIdleGames[myIndex].rankScore
         ? formatNumberDynamic(allIdleGames[myIndex].rankScore, 4)
         : "N/A";
-      const myEpText = myGameData.eternityCount > 0 ? `EP:**${formatNumberDynamic_Decimal(myEp_d)}** | ` : "";
-      const myIpText = (myGameData.eternityCount > 0 || myGameData.infinityCount > 0) ? `IP:**${formatNumberDynamic_Decimal(myIp_d)}** | ` : "";
+      const myEpText = allIdleGames[myIndex].eternityCount > 0 ? `EP:**${formatNumberDynamic_Decimal(myEp_d)}** | ` : "";
+      const myIpText = (allIdleGames[myIndex].eternityCount > 0 || allIdleGames[myIndex].infinityCount > 0) ? `IP:**${formatNumberDynamic_Decimal(myIp_d)}** | ` : "";
       myRankText = `**${myRank}位** └Score:**${myScore}** | ${myEpText}${myIpText}<:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
     }
 
