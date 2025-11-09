@@ -263,7 +263,7 @@ export default {
       },
       // グラビティ指数強化 (効果に影響)
       gravityExponent: {
-        initial: 0.40,
+        initial: 0.45,
         increment: 0.05,
         cost: {
           start: "1e60",

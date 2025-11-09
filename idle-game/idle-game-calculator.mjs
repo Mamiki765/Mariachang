@@ -10,25 +10,36 @@ Decimal.prototype.mod = function (b) {
 };
 
 /**
- * TPスキル#6によるコスト割引率を計算する
+ * 【改訂版】TPスキル#6とIU14によるコスト割引率を計算する
  * @param {number} skillLevel6 - スキル#6の現在のレベル
- * @returns {number} コストに乗算する割引率 (例: 0.8 => 20%引き)
+ * @param {Set<string>} [purchasedIUs=new Set()] - 購入済みのIU IDのSet
+ * @returns {number} コストに乗算する最終的な割引率 (例: 0.72 => 28%引き)
  */
-export function calculateDiscountMultiplier(skillLevel6 = 0) {
-  if (skillLevel6 <= 0) {
-    return 1.0; // 割引なし
-  }
-  const settings = config.idle.tp_skills.skill6;
-  const baseDiscount = 1.0 - Math.pow(settings.effectBase, skillLevel6);
+export function calculateDiscountMultiplier(skillLevel6 = 0, purchasedIUs = new Set()) {
+  let finalMultiplier = 1.0;
 
-  if (baseDiscount <= settings.softCapThreshold) {
-    return 1.0 - baseDiscount;
-  } else {
-    const overflow = baseDiscount - settings.softCapThreshold;
-    const finalDiscount =
-      settings.softCapThreshold + overflow / settings.softCapDivisor;
-    return 1.0 - finalDiscount;
+  // 1. TPスキル#6の割引を計算
+  if (skillLevel6 > 0) {
+    const settings = config.idle.tp_skills.skill6;
+    const baseDiscount = 1.0 - Math.pow(settings.effectBase, skillLevel6);
+
+    if (baseDiscount <= settings.softCapThreshold) {
+      finalMultiplier = 1.0 - baseDiscount;
+    } else {
+      const overflow = baseDiscount - settings.softCapThreshold;
+      const finalDiscount =
+        settings.softCapThreshold + overflow / settings.softCapDivisor;
+      finalMultiplier = 1.0 - finalDiscount;
+    }
   }
+
+  // 2. IU14の割引を乗算
+  if (purchasedIUs.has("IU14")) {
+    const iu14Discount = config.idle.infinityUpgrades.tiers[0].upgrades.IU14.discount;
+    finalMultiplier *= (1 - iu14Discount);
+  }
+
+  return finalMultiplier;
 }
 
 //TPスキル#5によるベース強化を考慮した強化を入れる
@@ -107,23 +118,11 @@ export function calculateFacilityCost(
   // --- 計算は内部的にDecimalで行うのが巨大数に対して最も安全 ---
   const baseCost_d = new Decimal(facility.baseCost);
   const multiplier_d = new Decimal(facility.multiplier);
-  const discountMultiplier_d = new Decimal(
-    calculateDiscountMultiplier(skillLevel6)
-  );
-
-  let finalDiscountMultiplier_d = discountMultiplier_d;
-
-  if (purchasedIUs.has("IU14")) {
-    const iu14Discount =
-      config.idle.infinityUpgrades.tiers[0].upgrades.IU14.discount;
-    finalDiscountMultiplier_d = finalDiscountMultiplier_d.times(
-      1 - iu14Discount
-    );
-  }
+  const discountMultiplier = calculateDiscountMultiplier(skillLevel6, purchasedIUs);
 
   const finalCost_d = baseCost_d
     .times(multiplier_d.pow(level))
-    .times(finalDiscountMultiplier_d);
+    .times(discountMultiplier);
 
   // --- 最終結果をnumberとして返す ---
   // コストが安全な範囲を超えたらInfinityを返すのが最も安全な挙動

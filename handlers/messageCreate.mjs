@@ -506,14 +506,14 @@ export default async (message) => {
             if (embed && embed.thumbnail && embed.thumbnail.url) {
               // ここに除外処理を追加　250706ロスアカデフォサムネ
               if (embed.thumbnail.url !== "https://rev2.reversion.jp/og.webp") {
-                // 除外条件を追加
-                if (!thumbnails.includes(embed.thumbnail.url)) {
-                  thumbnails.push(embed.thumbnail.url);
-                }
-              } else {
-                console.log(
-                  `デフォルトのサムネイルURL ${embed.thumbnail.url} は除外されました。`
+                // ▼▼▼ 変更点 ▼▼▼
+                // URLを変換してから配列に追加する
+                const originalImageUrl = extractOriginalImageUrl(
+                  embed.thumbnail.url
                 );
+                if (!thumbnails.includes(originalImageUrl)) {
+                  thumbnails.push(originalImageUrl);
+                }
               }
             } else {
               console.log(
@@ -541,9 +541,12 @@ export default async (message) => {
                         retryEmbed.thumbnail.url !==
                         "https://rev2.reversion.jp/og.webp"
                       ) {
-                        // 除外条件を追加
-                        if (!thumbnails.includes(retryEmbed.thumbnail.url)) {
-                          thumbnails.push(retryEmbed.thumbnail.url);
+                        const originalImageUrl = extractOriginalImageUrl(
+                          retryEmbed.thumbnail.url
+                        );
+
+                        if (!thumbnails.includes(originalImageUrl)) {
+                          thumbnails.push(originalImageUrl);
                         }
                       } else {
                         console.log(
@@ -945,4 +948,29 @@ async function handleCountingGame(message) {
       console.error("[Counting]エラーリアクションの追加に失敗:", reactError);
     }
   }
+}
+
+// --- ヘルパー関数を定義 (ifブロックの外や、ファイルの上のほうに置いておくと綺麗です) ---
+/**
+ * DiscordのサムネイルURL(_next/image)から元の画像URLを抽出する
+ * @param {string} thumbnailUrl - DiscordのEmbedに表示されるサムネイルURL
+ * @returns {string} 抽出された元の画像URL、または変換不要/失敗した場合は元のURL
+ */
+function extractOriginalImageUrl(thumbnailUrl) {
+  // URLが存在し、かつ_next/imageを含む場合のみ処理
+  if (thumbnailUrl && thumbnailUrl.includes("/_next/image?")) {
+    try {
+      const urlObj = new URL(thumbnailUrl);
+      const originalUrl = urlObj.searchParams.get("url"); // 'url'パラメータの値を取得
+      if (originalUrl) {
+        // URIエンコードされているので、デコードして返す
+        return decodeURIComponent(originalUrl);
+      }
+    } catch (error) {
+      console.error("サムネイルURLの解析に失敗しました:", error);
+      return thumbnailUrl; // エラー時は元のURLをそのまま返す
+    }
+  }
+  // _next/imageを含まないURLは、そのまま返す
+  return thumbnailUrl;
 }

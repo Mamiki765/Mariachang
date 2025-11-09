@@ -30,6 +30,7 @@ import {
   calculateEternityBonuses,
   calculateGravityUpgradeCost,
   calculateCpGainCost,
+  calculateDiscountMultiplier,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -2904,59 +2905,65 @@ function simulatePurchases(
   unlockedSet,
   isFree = false
 ) {
+  const purchases = new Map(); // { "oven": 3, "cheese": 2 } のような購入結果を格納
+  let totalCost = 0;
+  let purchasedCount = 0;
+  // 元のデータを壊さないように、操作用のコピーを作成する
+  const tempIdleGame = JSON.parse(JSON.stringify(initialIdleGame));
   if (isFree) {
     // --- Σ5達成後の「与信枠」購入ロジック ---
     const availableChips_d = new Decimal(budget);
 
-    // 各施設を独立して計算する
+    // --- 必要な情報をinitialIdleGameから直接取得 ---
+    const skillLevel6 = initialIdleGame.skillLevel6 || 0;
+    const purchasedIUs = new Set(initialIdleGame.ipUpgrades?.upgrades || []);
+    const discountMultiplier = calculateDiscountMultiplier(
+      skillLevel6,
+      purchasedIUs
+    );
+
     for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
-      // アンロックされていなければスキップ
       if (
         factoryConfig.unlockAchievementId &&
         !unlockedSet.has(factoryConfig.unlockAchievementId)
-      ) {
+      )
         continue;
-      }
 
       const levelKey = factoryConfig.key;
-      const currentLevel = tempIdleGame[levelKey] || 0;
+      const currentLevel = initialIdleGame[levelKey] || 0;
 
       const baseCost_d = new Decimal(factoryConfig.baseCost);
       const multiplier_d = new Decimal(factoryConfig.multiplier);
 
-      // コストが予算を1円でも超えていたら買えない
-      const costAtCurrentLevel = baseCost_d.times(
+      const discountedBaseCost_d = baseCost_d.times(discountMultiplier);
+
+      // 割引後のコストが、そもそも予算を超えていたら1レベルも買えない
+      const costAtCurrentLevel = discountedBaseCost_d.times(
         multiplier_d.pow(currentLevel)
       );
       if (availableChips_d.lt(costAtCurrentLevel)) {
         continue;
       }
 
-      // 【数学マジック】
-      // 予算(B)で買える目標レベル(T)を求める式: T = log_M(B / C_base)
-      // そこから現在のレベルを引けば、購入できるレベル数(N)がわかる: N = T - L
-      const targetLevel_d = availableChips_d.div(baseCost_d).log(multiplier_d);
-      const levelsToBuy_d = targetLevel_d.minus(currentLevel);
+      // 予算(B)で到達可能な目標レベル(T)を求める
+     // .log()はnumberを返すので、ここからはnumberで計算する
+      const targetLevelFloat = availableChips_d.div(discountedBaseCost_d).log(multiplier_d);
+      // 到達可能なレベル = floor(計算結果) + 1
+      const targetLevel = Math.floor(targetLevelFloat) + 1;
+      const levelsToBuy = targetLevel - currentLevel;
 
-      // 整数にして、0未満にならないようにする
-      const numLevelsToBuy = Math.max(0, levelsToBuy_d.floor().toNumber());
+      const numLevelsToBuy = Math.max(0, Math.floor(levelsToBuy));
 
       if (numLevelsToBuy > 0) {
         purchases.set(name, numLevelsToBuy);
         purchasedCount += numLevelsToBuy;
       }
     }
-    // 無料なので総コストは0
     totalCost = 0;
   } else {
     //Σ5未満の時の従来の購入
     let availableChips = budget;
-    // 元のデータを壊さないように、操作用のコピーを作成する
-    const tempIdleGame = JSON.parse(JSON.stringify(initialIdleGame));
 
-    const purchases = new Map(); // { "oven": 3, "cheese": 2 } のような購入結果を格納
-    let totalCost = 0;
-    let purchasedCount = 0;
     const MAX_ITERATIONS = 1000; // 無限ループ防止
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
