@@ -1139,7 +1139,7 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
     embed.addFields({
       name: "🪐 ギャラクシー",
       value: `${galaxyCount}個のギャラクシーが毎分${formatNumberDynamic_Decimal(gravityPerMinute_d, 3)}グラビティを産みます。
-現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}**^${currentGravityExponent}\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**`,
+現在のグラビティ: **${formatNumberDynamic_Decimal(currentGravity_d)}**^${formatNumberDynamic(currentGravityExponent, 2)}\n全ジェネレーター強化倍率: **x${formatNumberDynamic_Decimal(gravityEffect)}**`,
       inline: false, // 他のフィールドと区切る
     });
   }
@@ -1203,7 +1203,7 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
       },
       {
         name: "⚙ ベース値",
-        value: `${currentGalaxyBase.toFixed(3)} -> ${(currentGalaxyBase + galaxyConfig.upgrades.baseValue.increment).toFixed(3)}  (費用 ${formatNumberDynamic_Decimal(nextBaseValueCost)} IP)`,
+        value: `${currentGalaxyBase.toFixed(2)} -> ${(currentGalaxyBase + galaxyConfig.upgrades.baseValue.increment).toFixed(2)}  (費用 ${formatNumberDynamic_Decimal(nextBaseValueCost)} IP)`,
         inline: true,
       },
       {
@@ -1336,7 +1336,9 @@ function generateInfinityButtons(uiData) {
         .setDisabled(ip_d.lt(baseValueCost)),
       new ButtonBuilder()
         .setCustomId("idle_galaxy_upgrade_chipBaseValue")
-        .setLabel(`ベース値強化(${chipCost.toExponential(0)}©)`)
+        .setLabel(
+          `ベース値強化(${formatNumberJapanese_Decimal(new Decimal(chipCost))}©)`
+        )
         .setStyle(ButtonStyle.Secondary)
         .setEmoji("⚙️")
         .setDisabled(point.legacy_pizza < chipCost),
@@ -2117,14 +2119,20 @@ export async function executeRankingCommand(interaction, isPrivate) {
           ? formatNumberDynamic(game.rankScore, 4)
           : "N/A";
         const ip_d = new Decimal(game.infinityPoints);
-         const ep_d = new Decimal(game.eternityPoints || "0");
+        const ep_d = new Decimal(game.eternityPoints || "0");
         const population_d = new Decimal(game.population);
 
         // EPはΣ1以上で表示
-        const epText = game.eternityCount > 0 ? `EP:**${formatNumberDynamic_Decimal(ep_d)}** | ` : "";
+        const epText =
+          game.eternityCount > 0
+            ? `EP:**${formatNumberDynamic_Decimal(ep_d)}** | `
+            : "";
 
         // IPはΣ1以上または∞1以上で表示
-        const ipText = (game.eternityCount > 0 || game.infinityCount > 0) ? `IP:**${formatNumberDynamic_Decimal(ip_d)}** | ` : "";
+        const ipText =
+          game.eternityCount > 0 || game.infinityCount > 0
+            ? `IP:**${formatNumberDynamic_Decimal(ip_d)}** | `
+            : "";
 
         return {
           name: `**${rank}位** ${displayName}`,
@@ -2148,8 +2156,15 @@ export async function executeRankingCommand(interaction, isPrivate) {
       const myScore = allIdleGames[myIndex].rankScore
         ? formatNumberDynamic(allIdleGames[myIndex].rankScore, 4)
         : "N/A";
-      const myEpText = allIdleGames[myIndex].eternityCount > 0 ? `EP:**${formatNumberDynamic_Decimal(myEp_d)}** | ` : "";
-      const myIpText = (allIdleGames[myIndex].eternityCount > 0 || allIdleGames[myIndex].infinityCount > 0) ? `IP:**${formatNumberDynamic_Decimal(myIp_d)}** | ` : "";
+      const myEpText =
+        allIdleGames[myIndex].eternityCount > 0
+          ? `EP:**${formatNumberDynamic_Decimal(myEp_d)}** | `
+          : "";
+      const myIpText =
+        allIdleGames[myIndex].eternityCount > 0 ||
+        allIdleGames[myIndex].infinityCount > 0
+          ? `IP:**${formatNumberDynamic_Decimal(myIp_d)}** | `
+          : "";
       myRankText = `**${myRank}位** └Score:**${myScore}** | ${myEpText}${myIpText}<:nyowamiyarika:1264010111970574408>:${formatNumberJapanese_Decimal(myPopulation_d)} 匹`;
     }
 
