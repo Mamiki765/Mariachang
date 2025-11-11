@@ -243,7 +243,8 @@ export async function getCharacterSummary(characterId, targetLevel = null) {
         targetLevel
       );
       //levelplusここまで
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
+      const testa = character.testament < 50 || character.testament >= 100 ? `${character.testament}` : character.testament < 80 ? `⚠️${character.testament}` : `⚠️${character.testament}⚠️`;
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}\n`;
 
       const displayOrder = [1, 2, 3, 4, 13, 9, 10, 5, 6, 7, 8, 11, 12, 14];
       const targetStatusIds = new Set(displayOrder);
@@ -537,7 +538,8 @@ export async function getCharacterSummaryCompact(
         targetLevel
       );
       //levelplusここまで
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
+      const testa = character.testament < 50 || character.testament >= 100 ? `${character.testament}` : character.testament < 80 ? `⚠️${character.testament}` : `⚠️${character.testament}⚠️`;
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}\n`;
       if (character.sub_status && character.sub_status.length > 0) {
         reply += `\`\`\`ansi\nP:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 

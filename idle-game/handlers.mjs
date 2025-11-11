@@ -31,7 +31,7 @@ import {
   calculateGravityUpgradeCost,
   calculateCpGainCost,
   calculateDiscountMultiplier,
-  formatInfinityTime
+  formatInfinityTime,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -2746,9 +2746,16 @@ export async function handleEternity(interaction, collector) {
         upgrades: [],
       };
 
-      // 3. Σ5達成でゴーストチップLvを200に設定
+      // Σ2達成ボーナス: 自動化アップグレードの初期取得
+      if (newEternityCount >= 2) {
+        newIpUpgrades.upgrades.push("IU11", "IU12", "IU44", "IU54");
+        newIpUpgrades.ghostChipLevel = 1; // ゴーストチップはLv1からスタート
+      }
+
+      // Σ5達成ボーナス: ゴーストチップLvのブースト
+      //   (Σ2のLv1設定を、より強力なLv999設定で「上書き」する形になります)
       if (newEternityCount >= 5) {
-        newIpUpgrades.ghostChipLevel = 200;
+        newIpUpgrades.ghostChipLevel = 999;
       }
 
       //4. Σ3達成で新しいオブジェクトに最短インフィニティを受け継ぐ
