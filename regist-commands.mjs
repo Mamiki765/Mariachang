@@ -60,7 +60,7 @@ import config from "./config.mjs";
 // グローバルコマンドとギルドコマンドを格納する、二つの空のリストを用意
 const guildCommands = [];
 const globalCommands = [];
-const debugCommands = []; // ← デバッグ用リストを追加
+const debugCommands = [];
 
 // 'commands' フォルダ配下の全てのサブフォルダを動的に探索します
 const foldersPath = path.join(process.cwd(), "commands");
@@ -70,7 +70,6 @@ export default async () => {
   console.log("[INIT] コマンドの読み込みを開始します...");
 
   for (const folder of commandFolders) {
-    // 各サブフォルダへのパスを正しく生成
     const commandsPath = path.join(foldersPath, folder);
     const commandFiles = fs
       .readdirSync(commandsPath)
@@ -80,21 +79,16 @@ export default async () => {
       const filePath = path.join(commandsPath, file);
       try {
         const module = await import(`file://${filePath}`);
-
-        // [安全装置] module.data が存在しないファイルを安全にスキップします
         if (!module.data) {
           console.warn(
             `[WARN] ${file} に 'data' がエクスポートされていません。コマンドとして扱わず、スキップします。`
           );
-          continue; // 次のファイルへ
+          continue;
         }
 
-        // コマンドファイルに 'scope' プロパティがあるかチェックし、リストに仕分ける
-        // 'scope' が未定義の場合は、デフォルトでグローバルコマンドとして扱います
         if (module.scope === "guild") {
           guildCommands.push(module.data.toJSON());
         } else if (module.scope === "debug") {
-          // 新しい'debug'スコープの処理
           debugCommands.push(module.data.toJSON());
         } else {
           globalCommands.push(module.data.toJSON());
@@ -109,15 +103,33 @@ export default async () => {
   }
 
   console.log(
-    `[INIT] ${globalCommands.length}個のグローバルコマンドと${guildCommands.length}個のギルドコマンドを読み込みました。`
+    `[INIT] ${globalCommands.length}個のグローバルコマンドと${guildCommands.length}個のギルドコマンド、${debugCommands.length}個のデバッグコマンドを読み込みました。`
   );
 
-  // これ以降のDiscord APIへの登録処理は、以前の提案と同じです
   const rest = new REST().setToken(process.env.TOKEN);
 
   try {
-    // === ギルドコマンドの登録処理 ===
-    if (guildCommands.length > 0) {
+
+    // ステップ1: ギルドに登録する最終的なコマンドリストを作成する
+    // まず、通常のギルドコマンドをリストの基礎とする
+    let finalGuildCommands = [...guildCommands];
+
+    // ステップ2: 開発環境の場合のみ、デバッグコマンドをリストに追加する
+    if (!config.isProduction && debugCommands.length > 0) {
+      // 開発環境かつ、デバッグコマンドが1つ以上ある場合
+      finalGuildCommands.push(...debugCommands); // スプレッド構文でdebugCommandsの全要素を追加
+      console.log(
+        `[INFO] [DEV MODE] ${debugCommands.length}個のデバッグコマンドをギルドコマンドのリストに追加しました。`
+      );
+    } else if (debugCommands.length > 0) {
+      // 本番環境の場合
+      console.log(
+        `[INFO] [PROD MODE] ${debugCommands.length}個のデバッグコマンドは本番環境のため登録をスキップしました。`
+      );
+    }
+
+    // ステップ3: 統合されたリストを使って、ギルドコマンドを一括で登録する
+    if (finalGuildCommands.length > 0) {
       if (!process.env.GUILD_IDS) {
         console.error(
           "[ERROR] ギルドコマンドが存在しますが、.envにGUILD_IDSが設定されていません。登録をスキップします。"
@@ -127,9 +139,10 @@ export default async () => {
           id.trim()
         );
         console.log(
-          `[INIT] ${guildCommands.length}個のギルドコマンドを、${guildIds.length}個のサーバーに登録します...`
+          `[INIT] 合計${finalGuildCommands.length}個のギルドコマンドを、${guildIds.length}個のサーバーに登録します...`
         );
 
+        // Promise.allで、全サーバーへの登録を並列実行
         await Promise.all(
           guildIds.map((guildId) =>
             rest.put(
@@ -137,7 +150,7 @@ export default async () => {
                 process.env.APPLICATION_ID,
                 guildId
               ),
-              { body: guildCommands }
+              { body: finalGuildCommands } // ★★★ 統合された最終リストを使用 ★★★
             )
           )
         );
@@ -147,46 +160,9 @@ export default async () => {
       }
     }
 
-    // === デバッグコマンドの登録処理 ===
-    if (debugCommands.length > 0) {
-      // isProductionがfalse (つまり開発環境) の場合のみ登録する
-      if (!config.isProduction) {
-        if (!process.env.GUILD_IDS) {
-          console.error(
-            "[ERROR] デバッグコマンドが存在しますが、.envにGUILD_IDSが設定されていません。登録をスキップします。"
-          );
-        } else {
-          const guildIds = process.env.GUILD_IDS.split(",").map((id) =>
-            id.trim()
-          );
-          console.log(
-            `[INIT] [DEV MODE] ${debugCommands.length}個のデバッグコマンドを、${guildIds.length}個のサーバーに登録します...`
-          );
+    // 元のデバッグコマンド登録処理は不要になるので削除します。
 
-           await Promise.all(
-            guildIds.map((guildId) =>
-              rest.put(
-                Routes.applicationGuildCommands(
-                  process.env.APPLICATION_ID,
-                  guildId
-                ),
-                { body: debugCommands } // ★ここをdebugCommandsにする
-              )
-            )
-          );
-          console.log(
-            "[SUCCESS] [DEV MODE] 全ての指定サーバーへのデバッグコマンド登録が完了しました。"
-          );
-        }
-      } else {
-        // 本番環境の場合は、登録せずにメッセージだけ表示する
-        console.log(
-          `[INFO] [PROD MODE] ${debugCommands.length}個のデバッグコマンドは本番環境のため登録をスキップしました。`
-        );
-      }
-    }
-
-    // === グローバルコマンドの登録処理 ===
+    // === グローバルコマンドの登録処理 === 
     if (globalCommands.length > 0) {
       console.log(
         `[INIT] ${globalCommands.length}個のコマンドをグローバルに登録します...`

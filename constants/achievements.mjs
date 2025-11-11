@@ -572,7 +572,8 @@ export const achievements = [
     id: 86,
     name: "アンチマター・ディメンジョンズ",
     description: "ジェネレーターⅡを購入する",
-    effect: "ブレイクインフィニティを解禁、2号機を所持している限り人口はもはや1.79e+308では収まらない。",
+    effect:
+      "ブレイクインフィニティを解禁、2号機を所持している限り人口はもはや1.79e+308では収まらない。",
     reward: {},
   },
   {
@@ -888,6 +889,7 @@ export const achievements = [
     id: 137,
     name: "インフィニティがインフィニティになったら",
     description: "1.00e154 IPに到達する",
+    effect: "1.79e308 IPで…",
     reward: {},
   },
   {
@@ -899,10 +901,36 @@ export const achievements = [
   {
     id: 139,
     name: "きっと全ては夢だった",
-    description: "……。",
-    effect: "ニョボバンクに貯金をする事をお勧めしときます。",
+    description: "……。", //この宇宙の終わりを見る。Eternity
     reward: {},
   },
+  //ここから未実装
+  /*
+  {
+    id: 140,
+    name: "ダブルエタニティ",
+    description: "エタニティを2回する",
+    reward: {},
+  },
+  {
+    id: 141,
+    name: "四次元宇宙",
+    description: "エタニティを4回する",
+    reward: {},
+  },
+  {
+    id: 142,
+    name: "エターナル・ブレイクダウン",
+    description: "Break Eternity",
+    reward: {},
+  },
+  {
+    id: 143,
+    name: "トゥエンティ・フォー",
+    description: "(現実時間)24時間以内にエターネートする",
+    reward: {},
+  },
+  */
   // 今後、ここに実績をどんどん追加していきます
   // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
 ];

@@ -31,6 +31,7 @@ import {
   calculateGravityUpgradeCost,
   calculateCpGainCost,
   calculateDiscountMultiplier,
+  formatInfinityTime
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -2721,6 +2722,9 @@ export async function handleEternity(interaction, collector) {
       return false;
     }
 
+    let isFirstEternity = false;
+    let newEpUpgradesForMessage = {}; // メッセージ表示用のデータを格納
+
     // トランザクションでリセット処理を実行
     await sequelize.transaction(async (t) => {
       // 既存の統計情報を calamity に加算
@@ -2732,6 +2736,9 @@ export async function handleEternity(interaction, collector) {
 
       // 1. 次のエタニティ回数を計算
       const newEternityCount = (idleGame.eternityCount || 0) + 1;
+      if (newEternityCount === 1) {
+        isFirstEternity = true; //1回目ならメッセージ用フラグをON
+      }
 
       // 2. 更新後のipUpgradesオブジェクトを準備
       const newIpUpgrades = {
@@ -2776,6 +2783,9 @@ export async function handleEternity(interaction, collector) {
 
       // c. 「前回のエタニティ日時」として今回のタイムスタンプを記録
       newEpUpgrades.lastEternityDate = eternityTimestamp.toISOString();
+
+      // d.メッセージで使うために、計算結果を外側の変数にコピーしておく
+      newEpUpgradesForMessage = { ...newEpUpgrades, durationInSeconds };
 
       // IdleGameテーブルのデータをほぼ全て初期値に戻す
       await IdleGame.update(
@@ -2841,8 +2851,10 @@ export async function handleEternity(interaction, collector) {
     });
 
     // エンディングメッセージを送信
-    await interaction.followUp({
-      content: `# ●1.79e+308 IP  Eternity
+    let replyMessage;
+    if (isFirstEternity) {
+      // 【初回エタニティのメッセージ】
+      replyMessage = `# ●1.79e+308 IP  Eternity
 ## ――あなたは。
 ## この世界の終わりに辿り着いた。
 　1つのピザ窯から始まった壮大な拡大再生産は止まることを知らず。
@@ -2871,7 +2883,30 @@ export async function handleEternity(interaction, collector) {
 
 **1 EP** と **1 Σ** を手に入れた。
 所持しているニョボチップと今までの全てを失った。
-エタニティストーンが解禁された。`,
+エタニティストーンが解禁された。`;
+    } else {
+      // 【2回目以降のエタニティのメッセージ】
+      const gameTime = formatInfinityTime(idleGame.eternityTime || 0);
+      const realTime = formatInfinityTime(
+        newEpUpgradesForMessage.durationInSeconds
+      );
+      const bestRealTime = formatInfinityTime(
+        newEpUpgradesForMessage.bestEternityRealTime
+      );
+
+      replyMessage = `# ●Eternity
+## ――あなたは再び世界の終わりに辿り着いた。
+　そして、再びピザ窯は動き出した。
+
+- **今回のエタニティまでのゲーム内時間:** ${gameTime}
+- **今回のエタニティまでの現実時間:** ${realTime}
+- **エタニティ最短記録 (現実時間):** ${bestRealTime}
+
+あなたは所持しているニョボチップと工場を捧げた。
+**1 EP** と **1 Σ** を手に入れた。`;
+    }
+    await interaction.followUp({
+      content: replyMessage,
       ephemeral: true,
     });
 
