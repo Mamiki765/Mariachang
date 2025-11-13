@@ -15,7 +15,7 @@ import {
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
 import { safeDelete } from "../utils/messageutil.mjs";
-import { unlockAchievements } from "../utils/achievements.mjs";
+import { unlockAchievements,unlockHiddenAchievements } from "../utils/achievements.mjs";
 import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
 // 放置ゲームの人口を更新する関数をインポート
 import {
@@ -445,10 +445,10 @@ export default async function handleButtonInteraction(interaction) {
       // どんぐり数実績
       const acornChecks = [
         { id: 23, condition: updatedPointEntry.totalacorn >= 1 },
-        { id: 24, condition: updatedPointEntry.totalacorn >= 10 },
-        { id: 25, condition: updatedPointEntry.totalacorn >= 30 },
-        { id: 26, condition: updatedPointEntry.totalacorn >= 50 },
-        { id: 27, condition: updatedPointEntry.totalacorn >= 100 },
+        { id: 24, condition: updatedPointEntry.totalacorn >= 5 },
+        { id: 25, condition: updatedPointEntry.totalacorn >= 10 },
+        { id: 26, condition: updatedPointEntry.totalacorn >= 20 },
+        { id: 27, condition: updatedPointEntry.totalacorn >= 30 },
       ];
       const idsToCheck = acornChecks
         .filter((p) => p.condition)
@@ -457,6 +457,19 @@ export default async function handleButtonInteraction(interaction) {
         interaction.client,
         interaction.user.id,
         ...idsToCheck
+      );
+      
+      const acornHiddenChecks = [
+        { id: 12, condition: updatedPointEntry.totalacorn >= 50 },
+        { id: 13, condition: updatedPointEntry.totalacorn >= 100 },
+      ];
+      const idsToCheckHidden = acornHiddenChecks
+        .filter((p) => p.condition)
+        .map((p) => p.id);
+      await unlockHiddenAchievements(
+        interaction.client,
+        interaction.user.id,
+        ...idsToCheckHidden
       );
 
       // 7. ユーザーに成功を報告するメッセージを作成

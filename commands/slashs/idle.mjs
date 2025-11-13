@@ -237,6 +237,7 @@ export async function execute(interaction) {
       { id: 106, condition: population_d.gte("1e3080") },
       { id: 122, condition: population_d.gte("1e6160") },
       { id: 131, condition: population_d.gte("1e10000") },
+      { id: 147, condition: population_d.gte("1e100000") },
       //ニョボチップ消費量(infinity内)、BIGINTなんで扱いには注意
       {
         id: 57,
@@ -270,6 +271,20 @@ export async function execute(interaction) {
         condition:
           BigInt(idleGame.chipsSpentThisEternity || "0") >= 10000000000n,
       },
+      {
+        id: 144,
+        condition:
+          BigInt(idleGame.chipsSpentThisCalamity || "0") +
+            BigInt(idleGame.chipsSpentThisEternity || "0") >=
+          100000000000n,
+      },
+      {
+        id: 146,
+        condition:
+          BigInt(idleGame.chipsSpentThisCalamity || "0") +
+            BigInt(idleGame.chipsSpentThisEternity || "0") >=
+          1000000000000n,
+      }, // 1兆
       //チップ倍率
       { id: 67, condition: idleGame.pizzaBonusPercentage >= 518 },
       { id: 68, condition: idleGame.pizzaBonusPercentage >= 815 },
@@ -279,6 +294,8 @@ export async function execute(interaction) {
       { id: 109, condition: idleGame.pizzaBonusPercentage >= 100000 },
       { id: 123, condition: idleGame.pizzaBonusPercentage >= 300000 },
       { id: 124, condition: idleGame.pizzaBonusPercentage >= 777777 },
+      { id: 140, condition: idleGame.pizzaBonusPercentage >= 7777777 },
+      { id: 143, condition: idleGame.pizzaBonusPercentage >= 77777777 },
       //GP
       { id: 94, condition: gp_d.gte(1000) },
       { id: 95, condition: gp_d.gte("1e9") },
@@ -307,6 +324,11 @@ export async function execute(interaction) {
       { id: 119, condition: bestTime <= 0.8 }, // 0.8秒
       //gravity
       { id: 133, condition: gravity_d.gte(1000) },
+      //eternity
+      { id: 141, condition: (idleGame.eternityCount || 0) >= 2 },
+      { id: 142, condition: (idleGame.eternityCount || 0) >= 4 },
+      { id: 145, condition: (idleGame.eternityCount || 0) >= 10 },
+
       // 将来ここに人口実績を追加する (例: { id: 4, condition: idleGame.population >= 10000 })
     ];
     const idsToCheck = populationChecks

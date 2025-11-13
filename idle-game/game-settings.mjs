@@ -42,10 +42,10 @@ export default {
         id: "primordialMeat",
         name: "根源的な肉",
         description: (level) =>
-          `精肉工場の最終指数(ソフトキャップ後)に +${(level * 0.01).toFixed(2)} -> +${((level + 1) * 0.01).toFixed(2)}する`,
+          `精肉工場の最終指数(ソフトキャップ後)に +${(level * 0.03).toFixed(2)} -> +${((level + 1) * 0.03).toFixed(2)}する`,
         maxLevel: 500,
         cost: (level) => level + 1,
-        effect: (level) => level * 0.01,
+        effect: (level) => level * 0.03,
       },
       /*考え中
     factoryLevelSynergy: {

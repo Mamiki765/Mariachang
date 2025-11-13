@@ -127,6 +127,29 @@ export async function execute(interaction) {
     }
   }
 
+  // --- 実績149「★あなたは神谷マリアを降参させた」のチェック ---
+  // まだ実績149を解除していない場合のみ、チェックを実行
+  if (!unlockedSet.has(149)) {
+    // 1. achievements配列から#149を除いたリストを作成
+    const achievementsForCheck = config.idle.achievements.filter(
+      (ach) => ach.id < 149
+    );
+
+    // 2. #149を除く全ての実績が解除済みセットに含まれているかを確認
+    const allUnlocked = achievementsForCheck.every((ach) =>
+      unlockedSet.has(ach.id)
+    );
+
+    // 3. 条件を満たしていれば#149を解除
+    if (allUnlocked) {
+      await unlockAchievements(interaction.client, userId, 149);
+
+      // 後続の処理で即時反映されるよう、ローカルのデータも更新しておく
+      unlockedSet.add(149);
+      achievementsData.unlocked.push(149);
+    }
+  }
+
   // --- 隠し実績10「そこに山があるから」のチェック ---
   const hiddenUnlockedSet = new Set(achievementsData.hidden_unlocked);
   // まだ隠し実績10を解除していない場合のみ、チェックを実行

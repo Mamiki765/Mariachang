@@ -2868,6 +2868,12 @@ export async function handleEternity(interaction, collector) {
       // d.メッセージで使うために、計算結果を外側の変数にコピーしておく
       newEpUpgradesForMessage = { ...newEpUpgrades, durationInSeconds };
 
+      // e. 24時間以内エタニティの実績#148をチェック
+      const SECONDS_IN_24H = 24 * 60 * 60;
+      if (durationInSeconds <= SECONDS_IN_24H) {
+        await unlockAchievements(client, userId, 148);
+      }
+
       // IdleGameテーブルのデータをほぼ全て初期値に戻す
       await IdleGame.update(
         {
@@ -2993,6 +2999,7 @@ export async function handleEternity(interaction, collector) {
 
     // 実績#139: きっと全ては夢だった
     await unlockAchievements(client, userId, 139);
+
     return true;
   } catch (error) {
     console.error("Eternity Error:", error);
