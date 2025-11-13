@@ -1426,7 +1426,13 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
     finalExponent +=
       gravityUpgrades.meatExponentBonus * bonusConfig.effectPerLevel;
   }
-
+   //  CPアップグレード「根源的な肉」
+  const primordialMeatLevel = idleGameData.epUpgrades?.chronoUpgrades?.primordialMeat || 0;
+  if (primordialMeatLevel > 0) {
+    const meatConfig = config.idle.eternity.chronoUpgrades.primordialMeat;
+    finalExponent += meatConfig.effect(primordialMeatLevel);
+  }
+  
   return finalExponent;
 }
 

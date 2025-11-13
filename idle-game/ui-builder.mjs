@@ -1830,6 +1830,25 @@ function generateEternityEmbed(uiData) {
     name: "🌌 エタニティマイルストーン",
     value: milestonesText,
   });
+
+  // CPアップグレードの表示を追加
+  const chronoUpgradesConfig = config.idle.eternity.chronoUpgrades;
+  const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
+  let chronoFieldsText = "";
+
+  for (const [id, upgrade] of Object.entries(chronoUpgradesConfig)) {
+    const level = currentChronoUpgrades[id] || 0;
+    const cost = upgrade.cost(level);
+    const isMaxLevel = level >= upgrade.maxLevel;
+    const costText = isMaxLevel ? "✅" : `${cost} CP`;
+
+    chronoFieldsText += `**${upgrade.name}** [Lv.${level}] (${costText})\n${upgrade.description(level)}\n`;
+  }
+  embed.addFields({
+    name: "🌠 クロノアップグレード(仮)",
+    value: chronoFieldsText || "利用可能なアップグレードはありません。",
+  });
+
   // エタニティボーナスの表示 (マイルストーン#1達成時)
   if (eternityCount >= 1) {
     // ここに各ボーナスの現在値を表示するロジックを追加します
@@ -1862,6 +1881,7 @@ export function generateEternityButtons(uiData) {
   const ip_d = new Decimal(idleGame.infinityPoints);
   const ep_d = new Decimal(idleGame.eternityPoints);
   const epUpgrades = idleGame.epUpgrades || {};
+  const chronoPoints_d = new Decimal(epUpgrades.chronoPoints || "0");
 
   const cpGainRow = new ActionRowBuilder();
 
@@ -1902,6 +1922,31 @@ export function generateEternityButtons(uiData) {
   );
 
   components.push(cpGainRow);
+
+  // ★★★ CPアップグレードボタンを追加 ★★★
+  const chronoUpgradesConfig = config.idle.eternity.chronoUpgrades;
+  if (Object.keys(chronoUpgradesConfig).length > 0) {
+    const chronoUpgradeRow = new ActionRowBuilder();
+    const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
+
+    for (const [id, upgrade] of Object.entries(chronoUpgradesConfig)) {
+      const level = currentChronoUpgrades[id] || 0;
+      const cost = upgrade.cost(level);
+      const isMaxLevel = level >= upgrade.maxLevel;
+
+      chronoUpgradeRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`idle_chrono_upgrade_${id}`)
+          .setLabel(upgrade.name)
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(chronoPoints_d.lt(cost) || isMaxLevel)
+      );
+    }
+    // ボタンが1つでもあれば行を追加
+    if (chronoUpgradeRow.components.length > 0) {
+      components.push(chronoUpgradeRow);
+    }
+  }
 
   // 既存のナビゲーションボタン
   const navigationRow = new ActionRowBuilder().addComponents(

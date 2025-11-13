@@ -1839,7 +1839,9 @@ async function postInfinityTasks(
       summaryLines.push(`- ベース値: +${autoBuySummary.baseValueUpgrades}回`);
     }
     if (autoBuySummary.gravityExponentUpgrades > 0) {
-      summaryLines.push(`- グラビティ指数: +${autoBuySummary.gravityExponentUpgrades}回`);
+      summaryLines.push(
+        `- グラビティ指数: +${autoBuySummary.gravityExponentUpgrades}回`
+      );
     }
     if (autoBuySummary.generators.size > 0) {
       const genSummary = Array.from(autoBuySummary.generators.entries())
@@ -3000,6 +3002,64 @@ export async function handleEternity(interaction, collector) {
   }
 }
 
+/**
+ * 【新規】CPアップグレードを購入する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @param {string} upgradeId - 購入するアップグレードのID
+ * @returns {Promise<boolean>}
+ */
+export async function handleChronoUpgradePurchase(interaction, upgradeId) {
+  const userId = interaction.user.id;
+  const t = await sequelize.transaction();
+  try {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!idleGame) throw new Error("ユーザーデータが見つかりません。");
+
+    // 設定ファイルからアップグレード定義を取得
+    const upgradeConfig = config.idle.eternity.chronoUpgrades[upgradeId];
+    if (!upgradeConfig) throw new Error("存在しないアップグレードです。");
+
+    const epUpgrades = idleGame.epUpgrades || { chronoUpgrades: {} };
+    const chronoPoints = new Decimal(epUpgrades.chronoPoints || "0");
+    const currentLevel = epUpgrades.chronoUpgrades?.[upgradeId] || 0;
+
+    if (currentLevel >= upgradeConfig.maxLevel) {
+      throw new Error("最大レベルに到達しています。");
+    }
+
+    const cost = upgradeConfig.cost(currentLevel);
+    if (chronoPoints.lt(cost)) {
+      throw new Error("CPが足りません！");
+    }
+
+    // CPを消費し、レベルを上げる
+    epUpgrades.chronoPoints = chronoPoints.minus(cost).toString();
+    if (!epUpgrades.chronoUpgrades) epUpgrades.chronoUpgrades = {};
+    epUpgrades.chronoUpgrades[upgradeId] = currentLevel + 1;
+
+    idleGame.changed("epUpgrades", true);
+    await idleGame.save({ transaction: t });
+    await t.commit();
+
+    await interaction.followUp({
+      content: `✅ **${upgradeConfig.name}** を購入しました！ (Lv.${currentLevel + 1})`,
+      ephemeral: true,
+    });
+    return true;
+  } catch (error) {
+    await t.rollback();
+    await interaction.followUp({
+      content: `❌ 購入エラー: ${error.message}`,
+      ephemeral: true,
+    });
+    return false;
+  }
+}
+
 //-------------------------
 //ここからは補助的なもの
 //--------------------------
@@ -3582,13 +3642,15 @@ function autoBuyGravityUpgrades(idleGame) {
     if (!cheapestAffordable.id) break;
 
     availableGravity_d = availableGravity_d.minus(cheapestAffordable.cost);
-    
+
     // ▼▼▼ ここが修正箇所です ▼▼▼
     // `undefined++`を避けるための安全なインクリメント
-    const currentLevel = idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] || 0;
-    idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] = currentLevel + 1;
+    const currentLevel =
+      idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] || 0;
+    idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] =
+      currentLevel + 1;
     // ▲▲▲ 修正完了 ▲▲▲
-    
+
     summary.upgrades.set(
       cheapestAffordable.id,
       (summary.upgrades.get(cheapestAffordable.id) || 0) + 1

@@ -16,11 +16,69 @@ export default {
       { count: 2, description: "自動化に関わるアップグレードの初期取得" },
       { count: 3, description: "最短インフィニティ時間を維持" },
       { count: 4, description: "アプグレ・ジェネレーターの自動購入(∞時)" },
-      { count: 5, description: "工場購入はチップを消費せず、ゴーストチップは999から始まる" },
-      { count: 6, description: "ギャラクシー、グラビティアプグレの自動購入(∞時)" },
-      { count: 10, description: "エタニティブレイク(IPの上限解除)※EPはまだ増えません" },
+      {
+        count: 5,
+        description:
+          "工場購入はチップを消費せず、ゴーストチップは999から始まる",
+      },
+      {
+        count: 6,
+        description: "ギャラクシー、グラビティアプグレの自動購入(∞時)",
+      },
+      {
+        count: 10,
+        description: "エタニティブレイク(IPの上限解除)※EPはまだ増えません",
+      },
       //{ count: 100, description: "IPボーナス" },
     ],
+    chronoUpgrades: {
+      primordialMeat: {
+        id: "primordialMeat",
+        name: "根源的な肉",
+        description: (level) =>
+          `精肉工場の最終指数(ソフトキャップ後)に +${(level * 0.01).toFixed(2)} -> +${((level + 1) * 0.01).toFixed(2)}する`,
+        maxLevel: 500,
+        cost: (level) => level + 1,
+        effect: (level) => level * 0.01,
+      },
+      /*考え中
+    factoryLevelSynergy: {
+      id: "factoryLevelSynergy",
+      name: "工場の共鳴",
+      description: (level) => `全8工場の素の合計レベルに応じてなんらかの強化`,
+      maxLevel: Infinity,
+      cost: (level) => level + 1,
+      effect: (level) => level * 0.1,
+    },
+    realityDiscount: {
+        id: "realityDiscount",
+        name: "現実改変割引",
+        description: (level) =>
+          `工場、アセンション、ギャラクシー(チップ)のコストを${((1 - Math.pow(0.97, level)) * 100).toFixed(2)}% -> ${((1 - Math.pow(0.97, level + 1)) * 100).toFixed(2)}%割引`,
+        maxLevel: Infinity,
+        cost: (level) => level + 1,
+        effect: (level) => 1 - Math.pow(0.98, level),
+      },
+    ipMultiplier: {
+        id: "ipMultiplier",
+        name: "時空を超える無限",
+        description: (level) =>
+          `最終IP獲得量が x${formatNumberDynamic(Math.pow(4, level))} -> x${formatNumberDynamic(Math.pow(4, level + 1))}倍になる`,
+        maxLevel: 500,
+        cost: (level) => level + 1,
+        effect: (level) => Math.pow(4, level),
+      },
+    generatorExponent: {
+        id: "generatorExponent",
+        name: "ジェネレーター最適化",
+        description: (level) =>
+          `GPによる工場強化の最終指数に +${(level * 0.02).toFixed(2)} -> +${((level + 1) * 0.02).toFixed(2)}する`,
+        maxLevel: Infinity,
+        cost: (level) => level + 1,
+        effect: (level) => level * 0.02,
+      },
+    */
+    },
   },
   factories: {
     //要の部分
