@@ -846,7 +846,11 @@ export function formatNumberJapanese_Decimal(dec) {
   const KEI = new Decimal("1e16");
 
   // --- 1京以上は指数表記 ---
-  if (dec.gte(KEI)) {
+   if (dec.gte("1e100000")) {
+    // e100000であれば指数だけ表示
+    const exponent = dec.exponent;
+    return `e${exponent}`;
+  } else if (dec.gte(KEI)) {
     return dec.toExponential(4);
   }
 
