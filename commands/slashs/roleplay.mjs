@@ -19,6 +19,7 @@ import { Character, Icon, Point } from "../../models/database.mjs";
 import { deleteFile } from "../../utils/supabaseStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 import { unlockAchievements } from "../../utils/achievements.mjs";
+import config from "../../config.mjs";
 
 // ▼▼▼【連投制限用】ユーザーごとの最終投稿時間を記録するMap ▼▼▼
 const lastPostTimestamps = new Map();
@@ -111,12 +112,11 @@ export const data = new SlashCommandBuilder()
       .setDescription("新しいキャラクターを登録します。")
   )
   // 発言 (新しいモーダル版)
-  .addSubcommand(
-    (subcommand) =>
-      subcommand
-        .setName("post")
-        .setNameLocalizations({ ja: "発言" })
-        .setDescription("登録したキャラクターで発言します。")
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("post")
+      .setNameLocalizations({ ja: "発言" })
+      .setDescription("登録したキャラクターで発言します。")
   )
   // 旧式の発言 (軽量版)
   .addSubcommand((subcommand) =>
@@ -548,8 +548,9 @@ export async function execute(interaction) {
     // ▼▼▼ 旧式の /roleplay post_old の処理 ▼▼▼
     // ==========================================================
     await interaction.deferReply({ ephemeral: true });
+    const message = interaction.options.getString("message"); //先に取得
 
- // ▼▼▼【連投制限ロジック】ここから追加 ▼▼▼
+    // ▼▼▼【連投制限ロジック】ここから追加 ▼▼▼
     const channel = interaction.channel;
     const userId = interaction.user.id;
     const now = Date.now();
@@ -558,24 +559,27 @@ export async function execute(interaction) {
 
     // 1. チャンネルがテキストチャンネル（フォーラムやスレッドではない）かチェック
     // ChannelType.GuildText = 0
-    if (channel.type === 0 && channel.id !== allowed) {
-        const lastPost = lastPostTimestamps.get(userId);
-        // 2. 前回の投稿記録があり、かつ5秒以内かチェック
-        if (lastPost && now - lastPost < COOLDOWN) {
-            const remainingTime = Math.ceil((COOLDOWN - (now - lastPost)) / 1000);
-            return interaction.editReply({
-                content: `❌ テキストチャンネルでの連続投稿は制限されています。あと **${remainingTime}秒** お待ちください。\n（スレッドやフォーラムチャンネル、別館のチップ掘りスレでは、この制限なく連続投稿が可能です）`
-            });
-        }
-        // 3. 制限に引っかからなければ、今回の投稿時間を記録
-        lastPostTimestamps.set(userId, now);
+    if (
+      (channel.type === 0 && channel.id !== allowed) ||
+      message.match(config.dominoTriggerRegex)
+    ) {
+      const lastPost = lastPostTimestamps.get(userId);
+      // 2. 前回の投稿記録があり、かつ5秒以内かチェック
+      if (lastPost && now - lastPost < COOLDOWN) {
+        const remainingTime = Math.ceil((COOLDOWN - (now - lastPost)) / 1000);
+        const content = message.match(config.dominoTriggerRegex) ? `❌ roleplay_oldでの連続ドミノは制限されています。あと **${remainingTime}秒** お待ちください。`:`❌ テキストチャンネルでの連続投稿は制限されています。あと **${remainingTime}秒** お待ちください。\n（スレッドやフォーラムチャンネル、別館のチップ掘りスレでは、この制限なく連続投稿が可能です）`;
+        return interaction.editReply({
+          content: content,
+        });
+      }
+      // 3. 制限に引っかからなければ、今回の投稿時間を記録
+      lastPostTimestamps.set(userId, now);
     }
 
-    //連投チェック
+    //連投チェックここまで
 
     try {
       const slot = interaction.options.getInteger("slot") || 0;
-      const message = interaction.options.getString("message");
       const nocredit = interaction.options.getBoolean("nocredit") || false; // 注意: こっちは true で省略
       const charaslot = dataslot(interaction.user.id, slot);
 

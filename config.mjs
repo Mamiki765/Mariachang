@@ -86,6 +86,7 @@ export default {
   },
   //ドミノ関連
   dominoch: isProduction ? "1288173544232194089" : debugConfig.channel, //ドミノ部屋、ドミノのログもここに出す
+  dominoTriggerRegex: /(どみの|ドミノ|ﾄﾞﾐﾉ|domino|ドミドミ|どみどみ)/i,
   reddice: isProduction
     ? [
         // サイコロのリアクション（赤）0から9まで

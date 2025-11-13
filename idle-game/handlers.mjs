@@ -1415,6 +1415,8 @@ async function executeInfinityTransaction(userId, client) {
   let activeChallenge = null;
   let newCompletedCount = 0;
   let infinitiesGained = 1; // ∞。基本は1
+  let autoBuySummary = null;
+  let autoBuyGravitySummary = null;
 
   await sequelize.transaction(async (t) => {
     const latestIdleGame = await IdleGame.findOne({
@@ -1520,6 +1522,20 @@ async function executeInfinityTransaction(userId, client) {
     // IP獲得量を計算
     gainedIP = calculateGainedIP(latestIdleGame, newCompletedCount);
 
+    // 1. 獲得したIPを一旦加算
+    latestIdleGame.infinityPoints = new Decimal(latestIdleGame.infinityPoints)
+      .add(gainedIP)
+      .toString();
+
+    // 2. Σ4以上なら自動購入を実行
+    if (latestIdleGame.eternityCount >= 4) {
+      autoBuySummary = autoBuyInfinityContent(latestIdleGame); // latestIdleGameが直接変更される
+    }
+    // グラビティを消費 (Σ6以上)
+    if (latestIdleGame.eternityCount >= 6) {
+      autoBuyGravitySummary = autoBuyGravityUpgrades(latestIdleGame);
+    }
+
     // IC6クリア報酬.初期#1~4LvをIPを元に決定
     let initialSkillLevel = 0;
     const completedChallenges = currentChallenges.completedChallenges || [];
@@ -1528,18 +1544,20 @@ async function executeInfinityTransaction(userId, client) {
       initialSkillLevel = Math.floor(Math.log2(bonusSP + 1));
     }
 
-    const oldGenerators = latestIdleGame.ipUpgrades?.generators || [];
-    const newGenerators = Array.from({ length: 8 }, (_, i) => {
-      const oldGen = oldGenerators[i] || { bought: 0 };
-      return {
-        amount: String(oldGen.bought),
-        bought: oldGen.bought,
-      };
-    });
+    // 4. リセット後のipUpgradesオブジェクトを構築
     const newIpUpgrades = {
-      ...(latestIdleGame.ipUpgrades || {}),
-      generators: newGenerators,
-      gravity: "1",
+      ...(latestIdleGame.ipUpgrades || {}), // 自動購入後のupgrades, galaxy, (bought)をコピー
+      generators: Array.from({ length: 8 }, (_, i) => {
+        // generatorsはリセット版で上書き
+        const oldGen = latestIdleGame.ipUpgrades?.generators?.[i] || {
+          bought: 0,
+        };
+        return {
+          amount: String(oldGen.bought), // amountは更新されたbought数と同じになる
+          bought: oldGen.bought,
+        };
+      }),
+      gravity: "1", // gravityは1にリセットして上書き
     };
     latestIdleGame.changed("ipUpgrades", true);
 
@@ -1594,9 +1612,7 @@ async function executeInfinityTransaction(userId, client) {
       generatorPower: "1",
       ipUpgrades: newIpUpgrades,
       buffMultiplier: 2.0,
-      infinityPoints: new Decimal(latestIdleGame.infinityPoints)
-        .add(gainedIP)
-        .toString(),
+      infinityPoints: latestIdleGame.infinityPoints,
       infinityCount: newInfinityCount,
       challenges: currentChallenges,
       lastUpdatedAt: new Date(),
@@ -1643,6 +1659,8 @@ async function executeInfinityTransaction(userId, client) {
     activeChallenge,
     newCompletedCount,
     infinitiesGained,
+    autoBuySummary,
+    autoBuyGravitySummary,
   };
 }
 
@@ -1777,6 +1795,8 @@ async function postInfinityTasks(
     activeChallenge,
     newCompletedCount,
     infinitiesGained,
+    autoBuySummary,
+    autoBuyGravitySummary,
   } = result;
 
   // --- 実績解除 ---
@@ -1802,6 +1822,56 @@ async function postInfinityTasks(
       content: `🎉 **インフィニティチャレンジ ${activeChallenge}** を達成しました！`,
       ephemeral: true,
     });
+  }
+
+  // --- Σ4,6の自動購入の通知 (followUpは複数回可能) ---
+  if (autoBuySummary) {
+    let summaryLines = [
+      "**🤖 エタニティマイルストーンにより自動購入しました！**",
+    ];
+    if (autoBuySummary.upgrades.length > 0) {
+      summaryLines.push(`- IU: ${autoBuySummary.upgrades.join(", ")}`);
+    }
+    if (autoBuySummary.galaxies > 0) {
+      summaryLines.push(`- ギャラクシー: +${autoBuySummary.galaxies}個`);
+    }
+    if (autoBuySummary.baseValueUpgrades > 0) {
+      summaryLines.push(`- ベース値: +${autoBuySummary.baseValueUpgrades}回`);
+    }
+    if (autoBuySummary.gravityExponentUpgrades > 0) {
+      summaryLines.push(`- グラビティ指数: +${autoBuySummary.gravityExponentUpgrades}回`);
+    }
+    if (autoBuySummary.generators.size > 0) {
+      const genSummary = Array.from(autoBuySummary.generators.entries())
+        .map(([id, count]) => `G${id}:+${count}`)
+        .join(", ");
+      summaryLines.push(`- ジェネレーター: ${genSummary}`);
+    }
+
+    await interaction.followUp({
+      content: summaryLines.join("\n"),
+      ephemeral: true,
+    });
+  }
+  if (autoBuyGravitySummary) {
+    let summaryLines = [
+      "**🤖 Σ6効果: グラビティを自動消費しアップグレードしました！**",
+    ];
+    const gvSummary = Array.from(autoBuyGravitySummary.upgrades.entries())
+      .map(([id, count]) => {
+        const upgradeName = config.idle.gravityUpgrades[id]?.name || id;
+        return `${upgradeName}:+${count}Lv`;
+      })
+      .join(", ");
+
+    if (gvSummary) {
+      // 何か購入した場合のみメッセージを送信
+      summaryLines.push(`- ${gvSummary}`);
+      await interaction.followUp({
+        content: summaryLines.join("\n"),
+        ephemeral: true,
+      });
+    }
   }
 
   // --- メインの成功メッセージ作成 ---
@@ -3292,4 +3362,244 @@ export async function handleGainMaxCp(interaction, sacrificeType) {
     });
     return false;
   }
+}
+
+/**
+ * 【新規】インフィニティコンテンツの自動購入を行うヘルパー関数
+ * @param {object} idleGame - IdleGameのモデルインスタンス。このオブジェクトが直接変更されます。
+ * @returns {object|null} 購入内容のサマリー。何も購入しなかった場合はnull。
+ */
+function autoBuyInfinityContent(idleGame) {
+  const eternityCount = idleGame.eternityCount || 0;
+  if (eternityCount < 4) return null; // Σ4未満は何もしない
+
+  //Eternityギリギリの時はストップをかける
+  const eternityUnlockIP_d = new Decimal(config.idle.eternity.unlockIP);
+  const currentIp_d = new Decimal(idleGame.infinityPoints);
+  const safetyBufferLimit_d = new Decimal("1.8e308"); // ユーザー指定の上限
+
+  // 現在IPが「エタニティ可能」かつ「指定されたバッファ範囲内」の場合、
+  // IPを消費する自動購入を一切行わずに処理を終了する
+  if (
+    currentIp_d.gte(eternityUnlockIP_d) &&
+    currentIp_d.lt(safetyBufferLimit_d)
+  ) {
+    // コンソールにログを残しておくと、デバッグ時に役立ちます
+    console.log(
+      `[Auto-Buy] ユーザー ${idleGame.userId} がエタニティ安全圏のため、IP自動購入をスキップしました。`
+    );
+    return null;
+  }
+  //セーフティここまで
+
+  let availableIp_d = currentIp_d;
+  const summary = {
+    upgrades: [],
+    galaxies: 0,
+    baseValueUpgrades: 0,
+    gravityExponentUpgrades: 0,
+    generators: new Map(),
+  };
+  let totalPurchases = 0;
+
+  const MAX_ITERATIONS = 500; // 無限ループ防止
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    let somethingWasBought = false;
+
+    // --- 優先度1: インフィニティアップグレード ---
+    if (eternityCount >= 4) {
+      const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
+      // configから全てのアップグレードを平坦なリストにする
+      const allUpgrades = config.idle.infinityUpgrades.tiers.flatMap((tier) =>
+        Object.entries(tier.upgrades).map(([id, config]) => ({ id, ...config }))
+      );
+
+      for (const upgrade of allUpgrades) {
+        if (
+          !purchasedUpgrades.has(upgrade.id) &&
+          availableIp_d.gte(upgrade.cost)
+        ) {
+          availableIp_d = availableIp_d.minus(upgrade.cost);
+          idleGame.ipUpgrades.upgrades.push(upgrade.id);
+          summary.upgrades.push(upgrade.name);
+          totalPurchases++;
+          somethingWasBought = true;
+          break; // 1つ買ったらループを抜けて優先順位を再評価
+        }
+      }
+      if (somethingWasBought) continue; // 次のイテレーションへ
+    }
+
+    // --- 優先度2: ギャラクシー & そのアップグレード (Σ6以上) ---
+    if (
+      eternityCount >= 6 &&
+      (idleGame.ipUpgrades.upgrades || []).includes("IU91")
+    ) {
+      // 1. galaxyデータがなければ、完全な形で初期化
+      if (!idleGame.ipUpgrades.galaxy) {
+        idleGame.ipUpgrades.galaxy = {
+          count: 0,
+          baseValueUpgrades: 0,
+          gravityExponentUpgrades: 0,
+          chipBaseValueUpgrades: 0,
+        };
+      }
+      const galaxyData = idleGame.ipUpgrades.galaxy;
+
+      // 2. 購入可能なアップグレードを全てリストアップし、コストの安い順にソート
+      const affordableUpgrades = [];
+
+      // a. ギャラクシー本体
+      const galaxyCost = calculateGalaxyCost(galaxyData.count);
+      if (availableIp_d.gte(galaxyCost)) {
+        affordableUpgrades.push({ type: "galaxy", cost: galaxyCost });
+      }
+
+      // b. ベース値アップグレード
+      const baseValueCost = calculateGalaxyUpgradeCost(
+        "baseValue",
+        galaxyData.baseValueUpgrades
+      );
+      if (availableIp_d.gte(baseValueCost)) {
+        affordableUpgrades.push({ type: "baseValue", cost: baseValueCost });
+      }
+
+      // c. グラビティ指数アップグレード
+      const gravityExponentCost = calculateGalaxyUpgradeCost(
+        "gravityExponent",
+        galaxyData.gravityExponentUpgrades
+      );
+      if (availableIp_d.gte(gravityExponentCost)) {
+        affordableUpgrades.push({
+          type: "gravityExponent",
+          cost: gravityExponentCost,
+        });
+      }
+
+      // 3. 買えるものが何かあれば、一番安いものを買う
+      if (affordableUpgrades.length > 0) {
+        affordableUpgrades.sort((a, b) => a.cost.cmp(b.cost)); // Decimal対応のソート
+        const bestToBuy = affordableUpgrades[0];
+
+        // 購入処理
+        availableIp_d = availableIp_d.minus(bestToBuy.cost);
+        if (bestToBuy.type === "galaxy") {
+          galaxyData.count++;
+          summary.galaxies++;
+        } else if (bestToBuy.type === "baseValue") {
+          galaxyData.baseValueUpgrades++;
+          summary.baseValueUpgrades++;
+        } else if (bestToBuy.type === "gravityExponent") {
+          galaxyData.gravityExponentUpgrades++;
+          summary.gravityExponentUpgrades++;
+        }
+
+        totalPurchases++;
+        somethingWasBought = true;
+        continue; // 優先順位を再評価するため、ループの最初に戻る
+      }
+    }
+
+    // --- 優先度3: ジェネレーター (最安のものを1つ買う) ---
+    if (eternityCount >= 4) {
+      const userGenerators = idleGame.ipUpgrades.generators || [];
+      let cheapestGen = { cost: new Decimal(Infinity), id: -1 };
+
+      for (const genConfig of config.idle.infinityGenerators) {
+        const index = genConfig.id - 1;
+        if (index > 0 && !(userGenerators[index - 1]?.bought > 0)) break; // 前提ジェネレーターがなければ買えない
+
+        const bought = userGenerators[index]?.bought || 0;
+        const cost = calculateGeneratorCost(genConfig.id, bought);
+
+        if (cost.lt(cheapestGen.cost)) {
+          cheapestGen = { cost, id: genConfig.id };
+        }
+      }
+
+      if (availableIp_d.gte(cheapestGen.cost)) {
+        availableIp_d = availableIp_d.minus(cheapestGen.cost);
+        const genIndex = cheapestGen.id - 1;
+        idleGame.ipUpgrades.generators[genIndex].bought++;
+        idleGame.ipUpgrades.generators[genIndex].amount = new Decimal(
+          idleGame.ipUpgrades.generators[genIndex].amount
+        )
+          .add(1)
+          .toString();
+        summary.generators.set(
+          cheapestGen.id,
+          (summary.generators.get(cheapestGen.id) || 0) + 1
+        );
+        totalPurchases++;
+        somethingWasBought = true;
+        continue;
+      }
+    }
+
+    // このイテレーションで何も買えなかったらループ終了
+    if (!somethingWasBought) break;
+  }
+
+  // 最終的なIPを反映
+  idleGame.infinityPoints = availableIp_d.toString();
+
+  if (totalPurchases > 0) {
+    idleGame.changed("ipUpgrades", true); // JSONBの変更を通知
+    return summary;
+  }
+
+  return null;
+}
+
+/**
+ * 【修正版】グラビティアップグレードを自動購入するヘルパー関数
+ * @param {object} idleGame - IdleGameのモデルインスタンス。このオブジェクトが直接変更されます。
+ * @returns {object|null} 購入内容のサマリー。何も購入しなかった場合はnull。
+ */
+function autoBuyGravityUpgrades(idleGame) {
+  let availableGravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
+  const summary = { upgrades: new Map() };
+  let totalPurchases = 0;
+
+  const MAX_ITERATIONS = 100;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    let cheapestAffordable = { cost: new Decimal(Infinity), id: null };
+
+    if (!idleGame.ipUpgrades.gravityUpgrades) {
+      idleGame.ipUpgrades.gravityUpgrades = {};
+    }
+
+    for (const [id, Gconfig] of Object.entries(config.idle.gravityUpgrades)) {
+      const currentLevel = idleGame.ipUpgrades.gravityUpgrades[id] || 0;
+      if (currentLevel >= Gconfig.maxLevel) continue;
+      const cost = calculateGravityUpgradeCost(id, currentLevel);
+      if (availableGravity_d.gte(cost) && cost.lt(cheapestAffordable.cost)) {
+        cheapestAffordable = { cost, id };
+      }
+    }
+
+    if (!cheapestAffordable.id) break;
+
+    availableGravity_d = availableGravity_d.minus(cheapestAffordable.cost);
+    
+    // ▼▼▼ ここが修正箇所です ▼▼▼
+    // `undefined++`を避けるための安全なインクリメント
+    const currentLevel = idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] || 0;
+    idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] = currentLevel + 1;
+    // ▲▲▲ 修正完了 ▲▲▲
+    
+    summary.upgrades.set(
+      cheapestAffordable.id,
+      (summary.upgrades.get(cheapestAffordable.id) || 0) + 1
+    );
+    totalPurchases++;
+  }
+
+  if (totalPurchases > 0) {
+    idleGame.changed("ipUpgrades", true);
+    return summary;
+  }
+
+  return null;
 }
