@@ -32,6 +32,7 @@ import {
   calculateCpGainCost,
   calculateDiscountMultiplier,
   formatInfinityTime,
+  calculateGainedEP
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -2785,6 +2786,7 @@ export async function handleEternity(interaction, collector) {
     const idleGame = await IdleGame.findOne({ where: { userId } });
     const ip_d = new Decimal(idleGame.infinityPoints);
     const unlockIP_d = new Decimal(config.idle.eternity.unlockIP);
+    const gainedEP_d = calculateGainedEP(idleGame);
 
     if (ip_d.lt(unlockIP_d)) {
       await interaction.followUp({
@@ -2909,7 +2911,7 @@ export async function handleEternity(interaction, collector) {
           // エタニティ関連の更新
           eternityCount: newEternityCount,
           eternityPoints: new Decimal(idleGame.eternityPoints || "0")
-            .add(1)
+            .add(gainedEP_d)
             .toString(), // とりあえずEPは+1
           epUpgrades: newEpUpgrades,
 

@@ -846,10 +846,10 @@ export function formatNumberJapanese_Decimal(dec) {
   const KEI = new Decimal("1e16");
 
   // --- 1京以上は指数表記 ---
-   if (dec.gte("1e100000")) {
+  if (dec.gte("1e100000")) {
     // e100000であれば指数だけ表示
     const exponent = dec.exponent;
-    return `e${exponent}`;
+    return `e${exponent.toLocaleString()}`;
   } else if (dec.gte(KEI)) {
     return dec.toExponential(4);
   }
@@ -1430,13 +1430,14 @@ function calculateFinalMeatEffect(idleGameData, externalData) {
     finalExponent +=
       gravityUpgrades.meatExponentBonus * bonusConfig.effectPerLevel;
   }
-   //  CPアップグレード「根源的な肉」
-  const primordialMeatLevel = idleGameData.epUpgrades?.chronoUpgrades?.primordialMeat || 0;
+  //  CPアップグレード「根源的な肉」
+  const primordialMeatLevel =
+    idleGameData.epUpgrades?.chronoUpgrades?.primordialMeat || 0;
   if (primordialMeatLevel > 0) {
     const meatConfig = config.idle.eternity.chronoUpgrades.primordialMeat;
     finalExponent += meatConfig.effect(primordialMeatLevel);
   }
-  
+
   return finalExponent;
 }
 
@@ -2169,4 +2170,41 @@ export function calculateCpGainCost(sacrificeType, timesSacrificed) {
 
   // コスト = 初期費用 * (コスト増加倍率 ^ これまでに捧げた回数)
   return baseCost_d.times(multiplier_d.pow(timesSacrificed));
+}
+
+/**
+ * 【新規】エタニティ時に獲得できるEP量を計算する
+ * @param {object} idleGame - エタニティ直前のIdleGameデータ
+ * @returns {Decimal} 獲得EP量
+ */
+export function calculateGainedEP(idleGame) {
+  const eternityCount = idleGame.eternityCount || 0;
+  const epConfig = config.idle.eternity.epFormula;
+
+  // Σが閾値未満の場合は1 EP固定
+  if (eternityCount < epConfig.breakEternityCount) {
+    return new Decimal(1);
+  }
+
+  // Σが閾値以上の場合は計算式を適用
+  const ip_d = new Decimal(idleGame.infinityPoints);
+  const unlockIP_d = new Decimal(config.idle.eternity.unlockIP);
+
+  // 最低IP条件を満たしていない場合は0を返す
+  if (ip_d.lt(unlockIP_d)) {
+    return new Decimal(0);
+  }
+
+  // B (ボーナス) は現時点では1。将来的にCPアップグレード等で強化できるよう変数にしておく。
+  const bonus = new Decimal(1);
+
+  // EP = floor( (5 ^ ( (log10(IP) / 308) - 0.7 )) * B )
+  const logIp_floor = ip_d.log10();
+  const exponent = new Decimal(logIp_floor)
+    .div(epConfig.exponentDivisor)
+    .minus(epConfig.exponentSubtraction);
+  const gainedEp_d = Decimal.pow(epConfig.base, exponent).times(bonus).floor();
+
+  // 計算結果が0以下になる可能性も考慮し、最低でも1は保証する
+  return gainedEp_d.max(1);
 }

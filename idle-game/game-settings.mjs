@@ -11,6 +11,12 @@ export default {
   infinity: "1.79769e308",
   eternity: {
     unlockIP: "1.79769e308", // エタニティ実行に必要なIP
+    epFormula: { //EP-IPの関係
+      breakEternityCount: 10, // このΣ回数以上で計算式を有効化
+      base: 5,
+      exponentDivisor: 308,
+      exponentSubtraction: 0.7,
+    },
     milestones: [
       { count: 1, description: "Σに応じたエタニティボーナスの解禁" },
       { count: 2, description: "自動化に関わるアップグレードの初期取得" },
@@ -27,7 +33,7 @@ export default {
       },
       {
         count: 10,
-        description: "エタニティブレイク(IPの上限解除)※EPはまだ増えません",
+        description: "エタニティブレイク(IPの上限解除)",
       },
       //{ count: 100, description: "IPボーナス" },
     ],

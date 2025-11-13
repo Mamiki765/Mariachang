@@ -33,6 +33,7 @@ import {
   calculateEternityBonuses,
   calculateGravityUpgradeCost,
   calculateCpGainCost,
+  calculateGainedEP
 } from "./idle-game-calculator.mjs";
 
 //---------------
@@ -768,8 +769,8 @@ function generateFactoryButtons(uiData, isDisabled = false) {
     );
   }
   if (ip_d.gte(eternityUnlockIP_d)) {
-    const potentialEP = 1; // 現状は1固定
-    const buttonLabel = `エターネート ${potentialEP} EP(全ての所持チップと工場を捧げる)`;
+    const potentialEP_d = calculateGainedEP(idleGame); 
+    const buttonLabel = `エターネート ${formatNumberDynamic_Decimal(potentialEP_d)} EP(全ての所持チップと工場を捧げる)`;
     infinityRow.addComponents(
       new ButtonBuilder()
         .setCustomId("idle_eternity")
