@@ -3,27 +3,696 @@ import axios from "axios";
 import { getSupabaseClient } from "./supabaseClient.mjs";
 
 /**
- * 【低レベル関数】（変更なし）
+ * 【低レベル関数】（更新済み）
  * 指定されたキャラクターIDの詳細情報をAPIから直接取得します。
  * @param {string} characterId
  * @returns {Promise<object|null>}
  */
 async function getCharacterDetail(characterId) {
-  // この関数の中身は前回から一切変更ありません
   const url = "https://rev2.reversion.jp/graphql?opname=GetCharacterDetail";
   const headers = {
     "content-type": "application/json",
     accept: "*/*",
+    // User-Agentを最新のcurlに合わせて更新
     "user-agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
     referer: `https://rev2.reversion.jp/character/detail/${characterId}`,
   };
+
+  // クエリ文字列を最新のものに更新
   const data = {
     operationName: "GetCharacterDetail",
     variables: { character_id: characterId },
-    query:
-      "query GetCharacterDetail($character_id: String!) { character: rev2GetCharacterDetail(character_id: $character_id) { ...CharacterDetailPageContent \n __typename } status_range: rev2GetStatusGlobalRanges { ...StatusGlobalRange \n __typename } notes: rev2GetCharacterNoteSummariesForSheet( character_id: $character_id page: 1 ) { ...CharacterNoteSummary \n __typename } } fragment CharacterDetailPageContent on Rev2CharacterDataDetail { name name_ruby org_name org_name_ruby given_part_at given_part_length character_id is_angel owner { ...Rev2Character \n __typename } roots { name popup \n __typename } roots_specialization { name ruby description is_specializing \n __typename } roots_specializable generation { name description popup \n __typename } gender { name description popup \n __typename } age { name description popup \n __typename } height { name description popup \n __typename } style { name description popup \n __typename } hair_color { name \n __typename } eye_color { name \n __typename } skin_color { name \n __typename } career { name popup \n __typename } sin { name popup \n __typename } punishment { name popup \n __typename } halo { name popup \n __typename } halo_emblem_id properties { name popup \n __typename } noise { name description popup \n __typename } title title_id licenses { ...ReversionPlayerLicense \n __typename } testament birthday icon_path main_sound_path catchphrase_icon_path catchphrase_sound_path profile profile_fragments { ...Rev2CharacterProfileFragmentView \n __typename } has_visible_fragment relation_depth catchphrase comment first_person second_person tone internal_attributes external_attributes visuals { ...CharacterVisualView \n __typename } sp nsp stp level exp exp_to_next state p m t c classes { ...Rev2EquipmentSkill \n __typename } esprits { ...Rev2EquipmentSkill \n __typename } skills { a { ...Rev2EquipmentActiveSkill \n __typename } p { ...Rev2EquipmentSkill \n __typename } n { ...Rev2EquipmentSkill \n __typename } \n __typename } allows_two_weapon items { ...Rev2EquipmentItem \n __typename } item_attachments { ...Rev2EquipmentItem \n __typename } sub_status { ...Rev2SubStatus \n __typename } build_tendency nexts { ...Rev2CharacterNext \n __typename } element_bonus { ...Rev2ElementBonus \n __typename } active_element_id fames { ...Rev2CharacterFame \n __typename } communities { ...Rev2CharacterCommunity \n __typename } friends { ...Rev2CharacterFriend \n __typename } handler_creator { id penname image_icon_url type \n __typename } \n __typename } fragment Rev2Character on Rev2CharacterView { ...Rev2CharacterTinyAndTitle \n icon_url \n __typename } fragment Rev2CharacterTinyAndTitle on Rev2CharacterView { ...Rev2CharacterTiny \n title \n __typename } fragment Rev2CharacterTiny on Rev2CharacterView { character_id name \n __typename } fragment ReversionPlayerLicense on ReversionPlayerLicense { id name description \n __typename } fragment Rev2CharacterProfileFragmentView on Rev2CharacterProfileFragment { key publicity title body expired image { id title image_url url width height \n __typename } sound { id title sound_url url \n __typename } sources { url title type \n __typename } \n __typename } fragment CharacterVisualView on Rev2CharacterVisual { id title thumb_url width height items { id order pos_x pos_y width rotation type title original_width original_height url \n __typename } \n __typename } fragment Rev2EquipmentSkill on Rev2CharacterSpecField { id name name_ruby description display_effects element specialization_base { name description \n __typename } included pinup { ...Rev2SkillPinup \n __typename } \n __typename } fragment Rev2SkillPinup on Rev2SkillPinup { illust { ...SkillPinupIllust \n __typename } sound { ...SkillPinupSound \n __typename } \n __typename } fragment SkillPinupIllust on Rev2IllustForUsage { type id title image_url width height \n __typename } fragment SkillPinupSound on Rev2SoundForUsage { type id title audio_url image_url \n __typename } fragment Rev2EquipmentActiveSkill on Rev2CharacterSpecField { ...Rev2EquipmentSkill \n active { category ap_cost ticks power hit critical fumble \n __typename } \n __typename } fragment Rev2EquipmentItem on Rev2CharacterItemField { id name name_ruby description display_effects icon_url element attachment_ids sender { ...Rev2Character \n __typename } specialization_base { name description \n __typename } slot_type ex_slot_type rarity price_type buy_price sell_price target desire_slot_count slot_count ex_slot_count level \n __typename } fragment Rev2SubStatus on Rev2CharacterSubStatusField { id type name abbr description value \n __typename } fragment Rev2CharacterNext on Rev2CharacterNextField { type name ruby description annotation rank is_visible accepted \n __typename } fragment Rev2ElementBonus on Rev2CharacterElementBonusField { element_id element_value name display_effects \n __typename } fragment Rev2CharacterFame on Rev2CharacterFameField { id name description value icon_url \n __typename } fragment Rev2CharacterCommunity on Rev2CharacterCommunityField { id name emblem_image_url \n __typename } fragment Rev2CharacterFriend on Rev2CharacterDataFriendField { character_id name icon_url text call_as \n __typename } fragment StatusGlobalRange on Rev2CharacterStatusGlobalRange { id min max \n __typename } fragment CharacterNoteSummary on Rev2CharacterNoteSummary { id title body_introduction has_image has_sound is_official \n __typename }",
+    query: `
+      query GetCharacterDetail($character_id: String!) {
+        character: rev2GetCharacterDetail(character_id: $character_id) {
+          ...CharacterDetailPageContent
+          __typename
+        }
+        status_range: rev2GetStatusGlobalRanges {
+          ...StatusGlobalRange
+          __typename
+        }
+        notes: rev2GetCharacterNoteSummariesForSheet(
+          character_id: $character_id
+          page: 1
+        ) {
+          ...CharacterNoteSummary
+          __typename
+        }
+        materials: rev2GetCharacterMaterials(character_id: $character_id) {
+          ...CharacterMaterial
+          __typename
+        }
+      }
+
+      fragment CharacterDetailPageContent on Rev2CharacterDataDetail {
+        name
+        name_ruby
+        org_name
+        org_name_ruby
+        given_part_at
+        given_part_length
+        character_id
+        is_angel
+        owner {
+          ...Rev2Character
+          __typename
+        }
+        roots {
+          name
+          popup
+          __typename
+        }
+        roots_specialization {
+          name
+          ruby
+          description
+          is_specializing
+          __typename
+        }
+        roots_specializable
+        generation {
+          name
+          description
+          popup
+          __typename
+        }
+        gender {
+          name
+          description
+          popup
+          __typename
+        }
+        age {
+          name
+          description
+          popup
+          __typename
+        }
+        height {
+          name
+          description
+          popup
+          __typename
+        }
+        style {
+          name
+          description
+          popup
+          __typename
+        }
+        hair_color {
+          name
+          __typename
+        }
+        eye_color {
+          name
+          __typename
+        }
+        skin_color {
+          name
+          __typename
+        }
+        career {
+          name
+          popup
+          __typename
+        }
+        sin {
+          name
+          popup
+          __typename
+        }
+        punishment {
+          name
+          popup
+          __typename
+        }
+        halo {
+          name
+          popup
+          __typename
+        }
+        halo_emblem_id
+        properties {
+          name
+          popup
+          __typename
+        }
+        noise {
+          name
+          description
+          popup
+          __typename
+        }
+        title
+        title_id
+        licenses {
+          ...ReversionPlayerLicense
+          __typename
+        }
+        testament
+        birthday
+        icon_path
+        main_sound_path
+        catchphrase_icon_path
+        catchphrase_sound_path
+        profile
+        profile_fragments {
+          ...Rev2CharacterProfileFragmentView
+          __typename
+        }
+        has_visible_fragment
+        relation_depth
+        catchphrase
+        comment
+        first_person
+        second_person
+        tone
+        internal_attributes
+        external_attributes
+        visuals {
+          ...CharacterVisualView
+          __typename
+        }
+        sp
+        nsp
+        stp
+        level
+        exp
+        exp_to_next
+        state
+        p
+        m
+        t
+        c
+        classes {
+          ...Rev2EquipmentSkill
+          __typename
+        }
+        esprits {
+          ...Rev2EquipmentSkill
+          __typename
+        }
+        skills {
+          a {
+            ...Rev2EquipmentActiveSkill
+            __typename
+          }
+          p {
+            ...Rev2EquipmentSkill
+            __typename
+          }
+          n {
+            ...Rev2EquipmentSkill
+            __typename
+          }
+          __typename
+        }
+        allows_two_weapon
+        items {
+          ...Rev2EquipmentItem
+          __typename
+        }
+        item_attachments {
+          ...Rev2EquipmentItem
+          __typename
+        }
+        display_items {
+          ...Rev2DisplayItem
+          __typename
+        }
+        sub_status {
+          ...Rev2SubStatus
+          __typename
+        }
+        build_tendency
+        nexts {
+          ...Rev2CharacterNext
+          __typename
+        }
+        element_bonus {
+          ...Rev2ElementBonus
+          __typename
+        }
+        active_element_id
+        fames {
+          ...Rev2CharacterFame
+          __typename
+        }
+        location_fames {
+          ...Rev2CharacterLocationFame
+          __typename
+        }
+        location_fame_display_setting {
+          location_fame_id
+          __typename
+        }
+        communities {
+          ...Rev2CharacterCommunity
+          __typename
+        }
+        friends {
+          ...Rev2CharacterFriend
+          __typename
+        }
+        handler_creator {
+          id
+          penname
+          image_icon_url
+          type
+          __typename
+        }
+        __typename
+      }
+
+      fragment Rev2Character on Rev2CharacterView {
+        ...Rev2CharacterTinyAndTitle
+        icon_url
+        __typename
+      }
+
+      fragment Rev2CharacterTinyAndTitle on Rev2CharacterView {
+        ...Rev2CharacterTiny
+        title
+        __typename
+      }
+
+      fragment Rev2CharacterTiny on Rev2CharacterView {
+        character_id
+        name
+        __typename
+      }
+
+      fragment ReversionPlayerLicense on ReversionPlayerLicense {
+        id
+        name
+        description
+        __typename
+      }
+
+      fragment Rev2CharacterProfileFragmentView on Rev2CharacterProfileFragment {
+        key
+        publicity
+        title
+        body
+        expired
+        image {
+          id
+          title
+          image_url
+          url
+          width
+          height
+          __typename
+        }
+        sound {
+          id
+          title
+          sound_url
+          url
+          __typename
+        }
+        sources {
+          url
+          title
+          type
+          __typename
+        }
+        __typename
+      }
+
+      fragment CharacterVisualView on Rev2CharacterVisual {
+        id
+        title
+        thumb_url
+        width
+        height
+        items {
+          id
+          order
+          pos_x
+          pos_y
+          width
+          rotation
+          type
+          title
+          original_width
+          original_height
+          url
+          __typename
+        }
+        __typename
+      }
+
+      fragment Rev2EquipmentSkill on Rev2CharacterSpecField {
+        id
+        name
+        name_ruby
+        description
+        display_effects
+        element
+        specialization_base {
+          name
+          description
+          __typename
+        }
+        included
+        pinup {
+          ...Rev2SkillPinup
+          __typename
+        }
+        __typename
+      }
+
+      fragment Rev2SkillPinup on Rev2SkillPinup {
+        illust {
+          ...SkillPinupIllust
+          __typename
+        }
+        sound {
+          ...SkillPinupSound
+          __typename
+        }
+        __typename
+      }
+
+      fragment SkillPinupIllust on Rev2IllustForUsage {
+        type
+        id
+        title
+        image_url
+        width
+        height
+        __typename
+      }
+
+      fragment SkillPinupSound on Rev2SoundForUsage {
+        type
+        id
+        title
+        audio_url
+        image_url
+        __typename
+      }
+
+      fragment Rev2EquipmentActiveSkill on Rev2CharacterSpecField {
+        ...Rev2EquipmentSkill
+        active {
+          category
+          ap_cost
+          ticks
+          power
+          hit
+          critical
+          fumble
+          __typename
+        }
+        __typename
+      }
+
+      fragment Rev2EquipmentItem on Rev2CharacterItemField {
+        id
+        name
+        name_ruby
+        description
+        display_effects
+        icon_url
+        element
+        attachment_ids
+        sender {
+          ...Rev2Character
+          __typename
+        }
+        specialization_base {
+          name
+          description
+          __typename
+        }
+        slot_type
+        ex_slot_type
+        rarity
+        price_type
+        buy_price
+        sell_price
+        target
+        desire_slot_count
+        slot_count
+        ex_slot_count
+        level
+        synced_level
+        __typename
+      }
+
+      fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
+        id
+        name
+        name_ruby
+        description
+        display_effects
+        icon_url
+        slot {
+          slot_type
+          slot_count
+          ex_slot_type
+          ex_slot_count
+          __typename
+        }
+        desire_slot_count
+        price_type
+        buy_price
+        sell_price
+        rarity
+        is_marked
+        is_collected
+        transfer_type
+        sender {
+          ...Rev2CharacterTinyAndIcon
+          __typename
+        }
+        specialization_base {
+          name
+          description
+          __typename
+        }
+        level
+        synced_level
+        target
+        can_modify
+        is_specializing
+        can_enhance
+        enhancement {
+          ...ItemEnhancement
+          __typename
+        }
+        desires {
+          id
+          name
+          name_ruby
+          description
+          display_effects
+          icon_url
+          slot {
+            slot_type
+            slot_count
+            ex_slot_type
+            ex_slot_count
+            __typename
+          }
+          desire_slot_count
+          sell_price
+          rarity
+          is_marked
+          is_collected
+          transfer_type
+          sender {
+            ...Rev2CharacterTinyAndIcon
+            __typename
+          }
+          specialization_base {
+            name
+            description
+            __typename
+          }
+          __typename
+        }
+        prefixes {
+          id
+          name
+          name_ruby
+          description
+          display_effects
+          icon_url
+          slot {
+            slot_type
+            slot_count
+            ex_slot_type
+            ex_slot_count
+            __typename
+          }
+          desire_slot_count
+          sell_price
+          rarity
+          is_marked
+          is_collected
+          transfer_type
+          sender {
+            ...Rev2CharacterTinyAndIcon
+            __typename
+          }
+          specialization_base {
+            name
+            description
+            __typename
+          }
+          level
+          __typename
+        }
+        postfixes {
+          id
+          name
+          name_ruby
+          description
+          display_effects
+          icon_url
+          slot {
+            slot_type
+            slot_count
+            ex_slot_type
+            ex_slot_count
+            __typename
+          }
+          desire_slot_count
+          sell_price
+          rarity
+          is_marked
+          is_collected
+          transfer_type
+          sender {
+            ...Rev2CharacterTinyAndIcon
+            __typename
+          }
+          specialization_base {
+            name
+            description
+            __typename
+          }
+          level
+          __typename
+        }
+        __typename
+      }
+
+      fragment Rev2CharacterTinyAndIcon on Rev2CharacterView {
+        ...Rev2CharacterTiny
+        icon_url
+        __typename
+      }
+
+      fragment ItemEnhancement on Rev2ItemEnhancement {
+        id
+        level
+        synced_level
+        points_by_level
+        points_per_level
+        exp
+        spent_points_by_level
+        spent_points
+        merge_rank_with_surplus
+        __typename
+      }
+
+      fragment Rev2SubStatus on Rev2CharacterSubStatusField {
+        id
+        type
+        name
+        abbr
+        description
+        value
+        __typename
+      }
+
+      fragment Rev2CharacterNext on Rev2CharacterNextField {
+        type
+        name
+        ruby
+        description
+        annotation
+        rank
+        is_visible
+        accepted
+        __typename
+      }
+
+      fragment Rev2ElementBonus on Rev2CharacterElementBonusField {
+        element_id
+        element_value
+        name
+        display_effects
+        __typename
+      }
+
+      fragment Rev2CharacterFame on Rev2CharacterFameField {
+        id
+        name
+        description
+        value
+        icon_url
+        __typename
+      }
+
+      fragment Rev2CharacterLocationFame on Rev2CharacterLocationFameField {
+        id
+        name
+        description
+        value
+        icon_url
+        location_hierarchy_path
+        __typename
+      }
+
+      fragment Rev2CharacterCommunity on Rev2CharacterCommunityField {
+        id
+        name
+        emblem_image_url
+        __typename
+      }
+
+      fragment Rev2CharacterFriend on Rev2CharacterDataFriendField {
+        character_id
+        name
+        icon_url
+        text
+        call_as
+        __typename
+      }
+
+      fragment StatusGlobalRange on Rev2CharacterStatusGlobalRange {
+        id
+        min
+        max
+        __typename
+      }
+
+      fragment CharacterNoteSummary on Rev2CharacterNoteSummary {
+        id
+        title
+        body_introduction
+        has_image
+        has_sound
+        is_official
+        __typename
+      }
+
+      fragment CharacterMaterial on Rev2CharacterMaterial {
+        image_id
+        image_url
+        __typename
+      }
+    `,
   };
+
   try {
     const response = await axios.post(url, data, { headers });
     return response.data.data;
@@ -243,7 +912,12 @@ export async function getCharacterSummary(characterId, targetLevel = null) {
         targetLevel
       );
       //levelplusここまで
-      const testa = character.testament < 50 || character.testament >= 100 ? `${character.testament}` : character.testament < 80 ? `⚠️${character.testament}` : `⚠️${character.testament}⚠️`;
+      const testa =
+        character.testament < 50 || character.testament >= 100
+          ? `${character.testament}`
+          : character.testament < 80
+            ? `⚠️${character.testament}`
+            : `⚠️${character.testament}⚠️`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}\n`;
 
       const displayOrder = [1, 2, 3, 4, 13, 9, 10, 5, 6, 7, 8, 11, 12, 14];
@@ -538,7 +1212,12 @@ export async function getCharacterSummaryCompact(
         targetLevel
       );
       //levelplusここまで
-      const testa = character.testament < 50 || character.testament >= 100 ? `${character.testament}` : character.testament < 80 ? `⚠️${character.testament}` : `⚠️${character.testament}⚠️`;
+      const testa =
+        character.testament < 50 || character.testament >= 100
+          ? `${character.testament}`
+          : character.testament < 80
+            ? `⚠️${character.testament}`
+            : `⚠️${character.testament}⚠️`;
       reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}\n`;
       if (character.sub_status && character.sub_status.length > 0) {
         reply += `\`\`\`ansi\nP:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
@@ -714,35 +1393,37 @@ function calculateRealLevelFromTotalXp(totalXp, startLevel = 2) {
 /**
  * 【NEW - 改訂版】キャラクターの装備品情報を整形して、
  * Discordのコードブロックで表示するための文字列を生成します。
- * itemsとitem_attachmentsの両方を処理します。
+ * items, item_attachments, display_items を処理します。
  * @param {object} character - APIから取得したキャラクターオブジェクト
  * @returns {string} 整形された装備情報の文字列。表示すべき情報がなければ空文字列を返す。
  */
 function createEquipmentSection(character) {
-  // ★★★ 1. character.items と character.item_attachments を合体させる ★★★
-  const allItems = [
+  // 1. 通常装備(items, attachments) と 掲示装備(display_items) をそれぞれ取得
+  const statItems = [
     ...(character.items || []),
     ...(character.item_attachments || []),
   ];
+  const displayItems = character.display_items || [];
 
-  // 合体させた結果、アイテムが1つもなければ何もせずに終了
-  if (allItems.length === 0) {
+  // どちらも空なら何も表示しない
+  if (statItems.length === 0 && displayItems.length === 0) {
     return "";
   }
 
-  // 2. 装備品をカテゴリごとに分類するための入れ物を準備（DESIREを追加）
+  // 2. 装備品をカテゴリごとに分類するための入れ物を準備
   const equipmentGroups = {
     HAND_BOTH: [], // 両手武器
-    HAND_1: [], // 主武装
-    HAND_2: [], // 副武装
+    HAND_1: [],    // 主武装
+    HAND_2: [],    // 副武装
     SUB_WEAPON: [], // 追加武装
-    ARMOR: [], // 防具
+    ARMOR: [],     // 防具
     ACCESSORY: [], // アクセサリ
-    DESIRE: [], // ★★★ デザイアを追加 ★★★
+    DESIRE: [],    // デザイア
+    DISPLAY: [],   // 掲示（NEW）
   };
 
-  // 3. 全てのアイテム（合体済み）をループして、カテゴリに分類していく
-  for (const item of allItems) {
+  // 3-1. 通常アイテム（ステータス反映分）を分類
+  for (const item of statItems) {
     let formattedName = item.name;
     if (item.specialization_base && item.specialization_base.name) {
       formattedName = `${item.name}（${item.specialization_base.name}）`;
@@ -761,23 +1442,30 @@ function createEquipmentSection(character) {
     } else if (item.slot_type === "ACCESSORY") {
       equipmentGroups.ACCESSORY.push(formattedName);
     } else if (item.slot_type === "DESIRE") {
-      // ★★★ デザイアの分類を追加 ★★★
       equipmentGroups.DESIRE.push(formattedName);
     }
+  }
+
+  // 3-2. 掲示アイテムを分類（スロットタイプ不問ですべてDISPLAYへ）
+  for (const item of displayItems) {
+    // 掲示アイテムはフレーバーのみなので、特殊化元は考慮せず名前のみ追加
+    equipmentGroups.DISPLAY.push(item.name);
   }
 
   // 4. 表示用の文字列を組み立てる
   const lines = [];
 
-  // 表示順とラベル名を定義（DESIREを追加し、桁揃えを調整）
+  // 表示順とラベル名を定義
+  // 桁揃えのため全角スペースを使用（基準は全角5文字分）
   const displayOrder = [
-    { key: "HAND_BOTH", label: "両手武器　" }, // 全角5文字分の幅に調整
-    { key: "HAND_1", label: "主武装　　" },
-    { key: "HAND_2", label: "副武装　　" },
-    { key: "SUB_WEAPON", label: "追加武装　" },
-    { key: "ARMOR", label: "防具　　　" },
-    { key: "ACCESSORY", label: "アクセサリ" },
-    { key: "DESIRE", label: "デザイア　" }, // ★★★ デザイアの表示を追加 ★★★
+    { key: "HAND_BOTH",  label: "両手武器　" }, // 4文字+空白1
+    { key: "HAND_1",     label: "主武装　　" }, // 3文字+空白2
+    { key: "HAND_2",     label: "副武装　　" }, // 3文字+空白2
+    { key: "SUB_WEAPON", label: "追加武装　" }, // 4文字+空白1
+    { key: "ARMOR",      label: "防具　　　" }, // 2文字+空白3
+    { key: "ACCESSORY",  label: "アクセサリ" }, // 5文字
+    { key: "DESIRE",     label: "デザイア　" }, // 4文字+空白1
+    { key: "DISPLAY",    label: "掲示　　　" }, // 2文字+空白3 (NEW)
   ];
 
   for (const { key, label } of displayOrder) {
