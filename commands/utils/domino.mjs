@@ -175,197 +175,198 @@ export async function execute(interaction) {
 
 //メッセージ、クライアント
 export async function dominoeffect(message, client, id, username, dpname) {
-  const t = await sequelize.transaction();
+  // ■ 1. 実行結果を保存する変数を用意
+  let result = null;
+
+  // ■ 2. データベース処理（ここだけをトランザクションにする）
   try {
-    const randomNum = Math.floor(Math.random() * 100);
-    // 十の桁と一の桁を取得
-    const tens = Math.floor(randomNum / 10); // 十の桁
-    const ones = randomNum % 10; // 一の桁
-    // サイコロのリアクションを取得
-    const redResult = config.reddice[tens];
-    const blueResult = config.bluedice[ones];
-    await message.react(redResult);
-    await message.react(blueResult);
-    //ログ送信チャンネルを選択
-    const dominochannel = client.channels.cache.get(config.dominoch);
-
-    const [currentDomino, created] = await CurrentDomino.findOrCreate({
-      where: {},
-      defaults: { attemptNumber: 1, totalCount: 0, totalPlayers: 0 },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-
-    if (randomNum === 0) {
-      //ガシャーン！
-      const rarity = 1 / 0.99 ** currentDomino.totalPlayers;
-      const fixrarity = rarity.toFixed(2);
-      await message.react("💥");
-      await dominochannel.send({
-        flags: [4096],
-        content: `# 100　<@${id}>は${currentDomino.totalPlayers}人が並べた${
-          currentDomino.totalCount
-        }枚のドミノを崩してしまいました！\nこれは${fixrarity}回に1回しか見られないドミノだったようです。\n${
-          currentDomino.attemptNumber
-        }回目の開催は終わり、${escapeDiscordText(username)}の名が刻まれました。`,
+    result = await sequelize.transaction(async (t) => {
+      const randomNum = Math.floor(Math.random() * 100);
+      
+      // データベースから取得してロック
+      const [currentDomino] = await CurrentDomino.findOrCreate({
+        where: {}, // 注意: 行が複数あると予期せぬ挙動になる可能性がありますが、今回は現状維持
+        defaults: { attemptNumber: 1, totalCount: 0, totalPlayers: 0 },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
       });
 
-      await unlockAchievements(client, id, 32); //ドミノを崩した実績
+      // 崩壊判定 (0の場合)
+      if (randomNum === 0) {
+        const totalPlayers = currentDomino.totalPlayers;
+        const totalCount = currentDomino.totalCount;
+        const attemptNumber = currentDomino.attemptNumber;
 
-      // 新しいドミノの履歴を DominoLog に保存
-      await DominoLog.create(
-        {
-          attemptNumber: currentDomino.attemptNumber,
-          totalCount: currentDomino.totalCount,
-          playerCount: currentDomino.totalPlayers,
-          loserName: username,
-        },
-        { transaction: t }
-      );
+        // ログ保存
+        await DominoLog.create(
+          {
+            attemptNumber: attemptNumber,
+            totalCount: totalCount,
+            playerCount: totalPlayers,
+            loserName: username,
+          },
+          { transaction: t }
+        );
 
-      console.log("DominoLog created successfully.");
-
-      if (currentDomino.totalCount === 0) {
-        await dominochannel.send({
-          flags: [4096],
-          content: `# __★★【特別賞】0枚で終わった回数：${
-            (await DominoLog.count({
-              where: { totalCount: 0 },
-            })) + 1
-          }回目__`,
+        // 最高記録チェック用データの取得（ロック外で計算してもいいが、整合性のためここで）
+        const highestLog = await DominoLog.findOne({
+            order: [["totalCount", "DESC"]],
+            transaction: t
         });
-      }
-      // 最高記録の更新通知 (DominoLog から取得)
-      const currentHighestRecordLog = await DominoLog.findOne({
-        order: [["totalCount", "DESC"]],
-      });
-      if (
-        currentHighestRecordLog &&
-        currentDomino.totalCount > currentHighestRecordLog.totalCount
-      ) {
-        await dominochannel.send({
-          flags: [4096],
-          content: `# __★★【新記録】${currentDomino.totalCount}枚★★__`,
-        });
-      }
+        const isNewRecord = highestLog && totalCount > highestLog.totalCount;
 
-      await currentDomino.update(
-        // ← updateの呼び出し方と
-        {
-          attemptNumber: currentDomino.attemptNumber + 1,
-          totalCount: 0,
-          totalPlayers: 0,
-        },
-        { transaction: t } // ← オプションの渡し方を変更
-      );
-      const replyMessage = await message.reply({
-        flags: [4096],
-        content: `# ガッシャーン！`,
-      });
-      setTimeout(() => {
-        safeDelete(replyMessage);
-      }, 5000);
-    } else {
-      //セーフ
-      const dpplayer = String(currentDomino.totalPlayers + 1).padStart(4, "0");
-      //ドミノを並べたログここから
-      //共通部分手前
-      let uniqueMessage = `Take${dpplayer}:`;
-      // config.mjs から対応するメッセージを取得
-      const messageFunc =
-        config.dominoMessages[randomNum] || config.dominoMessages.default;
-      uniqueMessage += messageFunc(dpname, randomNum);
-      // 共通部分後ろ
-      uniqueMessage += ` 現在:${currentDomino.totalCount + randomNum}枚`;
+        // 0枚崩しチェック
+        const isZeroCollapse = totalCount === 0;
+        const zeroCount = isZeroCollapse ? (await DominoLog.count({ where: { totalCount: 0 }, transaction: t })) : 0;
 
-      // 10000枚達成した場合に画像を添付
-      if (
-        currentDomino.totalCount < 10000 &&
-        currentDomino.totalCount + randomNum >= 10000
-      ) {
-        const celebrationImageURL =
-          config.domino10000Images[
-            Math.floor(Math.random() * config.domino10000Images.length)
-          ];
+        // カウントリセット
+        await currentDomino.update(
+          {
+            attemptNumber: attemptNumber + 1,
+            totalCount: 0,
+            totalPlayers: 0,
+          },
+          { transaction: t }
+        );
 
-        const messageContent = `${uniqueMessage}\n${celebrationImageURL}`; // 本文に URL を含める
+        // ★結果オブジェクトを返す（Discord送信はここではしない！）
+        return {
+            type: "COLLAPSE",
+            randomNum,
+            totalPlayers,
+            totalCount,
+            attemptNumber,
+            isNewRecord,
+            isZeroCollapse,
+            zeroCount,
+            tens: Math.floor(randomNum / 10),
+            ones: randomNum % 10
+        };
 
-        await dominochannel.send({ content: messageContent, flags: [4096] });
-
-        /*
-    if (
-      currentDomino.totalCount < 10000 &&
-      currentDomino.totalCount + randomNum >= 10000
-    ) {
-      const celebrationImage =
-        config.domino10000Images[
-          Math.floor(Math.random() * config.domino10000Images.length)
-        ];
-
-      // メッセージ送信時に画像を添付
-      await dominochannel.send({
-        flags: [4096],
-        content: uniqueMessage,
-        files: [celebrationImage], // 画像URLを添付ファイルとして送信
-      });*/
       } else {
-        // 10000枚未満の場合は通常メッセージを送信
-        await dominochannel.send({
-          flags: [4096],
-          content: uniqueMessage,
-        });
+        // セーフの場合
+        const nextCount = currentDomino.totalCount + randomNum;
+        const nextPlayers = currentDomino.totalPlayers + 1;
+
+        await currentDomino.update(
+          {
+            totalCount: nextCount,
+            totalPlayers: nextPlayers,
+          },
+          { transaction: t }
+        );
+
+        // ★結果オブジェクトを返す
+        return {
+            type: "SAFE",
+            randomNum,
+            prevCount: currentDomino.totalCount, // 足す前の値が必要なら計算調整
+            currentCount: nextCount,
+            currentPlayerCount: nextPlayers,
+            tens: Math.floor(randomNum / 10),
+            ones: randomNum % 10
+        };
       }
-      await currentDomino.update(
-        // ← こちらもインスタンスからupdate
-        {
-          totalCount: currentDomino.totalCount + randomNum,
-          totalPlayers: currentDomino.totalPlayers + 1,
-        },
-        { transaction: t } // ← オプションを追加
-      );
-      //実績
-      // 実績ID 29: ドミノ (1回並べた)
-      await unlockAchievements(client, id, 29);
+    }); // トランザクションはここで終了（コミット完了）
 
-      // 実績ID 30: ドミノドミノドミノ (100回) の進捗を更新
-      await updateAchievementProgress(client, id, 30);
-
-      // 実績ID 31: ドミノドミノドミノドミノドミノドミノ (1000回) の進捗を更新
-      await updateAchievementProgress(client, id, 31);
-
-      if (randomNum === 79) {
-        // 実績ID: i7 「79」
-        await unlockHiddenAchievements(client, id, 7);
-      }
-
-      if (message.channel?.type === ChannelType.DM) {
-        await unlockHiddenAchievements(client, id, 8); //実績i8
-      }
-      //5秒後に消える奴
-      if (message.channel.id !== config.dominoch) {
-        const replyMessage = await message.reply({
-          flags: [4096],
-          content: `${randomNum}ドミドミ…Take${currentDomino.totalPlayers + 1}:${
-            currentDomino.totalCount + randomNum
-          }枚`,
-        });
-        setTimeout(() => {
-          safeDelete(replyMessage);
-        }, 5000);
-      }
-    }
-    await t.commit();
-
-    // ▼▼▼ この6行を追加 ▼▼▼
   } catch (error) {
-    await t.rollback();
-    console.error("Domino effect transaction failed:", error);
+    console.error("Domino DB transaction failed:", error);
+    // DB更新に失敗したらメッセージも送らず終了（あるいはエラーメッセージを返す）
     try {
-      await message.reply({
-        content: "ドミノの処理中にエラーが発生しました。",
-        ephemeral: true,
-      });
-    } catch (e) {}
+        await message.reply({ content: "ドミノの処理中にエラーが発生しました。", ephemeral: true });
+    } catch(e) {}
+    return;
+  }
+
+  // ■ 3. 通知処理（DBロックは解放済みなので、ゆっくり処理してOK）
+  if (!result) return;
+
+  const { tens, ones, randomNum } = result;
+  
+  // リアクション付与（失敗してもゲーム進行には影響しないのでtry-catch推奨ですが、このままでもOK）
+  const redResult = config.reddice[tens];
+  const blueResult = config.bluedice[ones];
+  try {
+      await message.react(redResult);
+      await message.react(blueResult);
+  } catch (e) {
+      console.warn("Reaction failed:", e.message);
+  }
+
+  const dominochannel = client.channels.cache.get(config.dominoch);
+
+  // ▼▼▼ 崩壊時の処理 ▼▼▼
+  if (result.type === "COLLAPSE") {
+    try {
+        await message.react("💥");
+        
+        const rarity = 1 / 0.99 ** result.totalPlayers;
+        const fixrarity = rarity.toFixed(2);
+        
+        await dominochannel.send({
+            flags: [4096],
+            content: `# 100　<@${id}>は${result.totalPlayers}人が並べた${result.totalCount}枚のドミノを崩してしまいました！\nこれは${fixrarity}回に1回しか見られないドミノだったようです。\n${result.attemptNumber}回目の開催は終わり、${escapeDiscordText(username)}の名が刻まれました。`,
+        });
+
+        // 特別賞・新記録通知
+        if (result.isZeroCollapse) {
+             await dominochannel.send({ flags: [4096], content: `# __★★【特別賞】0枚で終わった回数：${result.zeroCount}回目__` });
+        }
+        if (result.isNewRecord) {
+             await dominochannel.send({ flags: [4096], content: `# __★★【新記録】${result.totalCount}枚★★__` });
+        }
+
+        const replyMessage = await message.reply({ flags: [4096], content: `# ガッシャーン！` });
+        setTimeout(() => safeDelete(replyMessage), 5000);
+
+        // 実績解除は最後に行う（これが失敗してもゲームは成立している）
+        await unlockAchievements(client, id, 32); 
+
+    } catch (e) {
+        console.error("Error in collapse notification:", e);
+    }
+  } 
+  // ▼▼▼ セーフ時の処理 ▼▼▼
+  else if (result.type === "SAFE") {
+    try {
+        const dpplayer = String(result.currentPlayerCount).padStart(4, "0");
+        let uniqueMessage = `Take${dpplayer}:`;
+        
+        const messageFunc = config.dominoMessages[randomNum] || config.dominoMessages.default;
+        uniqueMessage += messageFunc(dpname, randomNum);
+        uniqueMessage += ` 現在:${result.currentCount}枚`;
+
+        // 10000枚画像処理
+        // 直前の枚数が必要なら result オブジェクトに含める必要がありますが、簡易的に判定
+        // (厳密には (result.currentCount - randomNum) < 10000 && result.currentCount >= 10000 )
+        const prevCount = result.currentCount - randomNum;
+
+        if (prevCount < 10000 && result.currentCount >= 10000) {
+            const celebrationImageURL = config.domino10000Images[Math.floor(Math.random() * config.domino10000Images.length)];
+            await dominochannel.send({ content: `${uniqueMessage}\n${celebrationImageURL}`, flags: [4096] });
+        } else {
+            await dominochannel.send({ flags: [4096], content: uniqueMessage });
+        }
+
+        // 一時メッセージ
+        if (message.channel.id !== config.dominoch) {
+            const replyMessage = await message.reply({
+                flags: [4096],
+                content: `${randomNum}ドミドミ…Take${result.currentPlayerCount}:${result.currentCount}枚`,
+            });
+            setTimeout(() => safeDelete(replyMessage), 5000);
+        }
+
+        // 実績解除（非同期で投げっぱなしにするか、awaitするかは運用次第ですが、await推奨）
+        await unlockAchievements(client, id, 29);
+        await updateAchievementProgress(client, id, 30);
+        await updateAchievementProgress(client, id, 31);
+        if (randomNum === 79) await unlockHiddenAchievements(client, id, 7);
+        if (message.channel?.type === ChannelType.DM) await unlockHiddenAchievements(client, id, 8);
+
+    } catch (e) {
+        console.error("Error in safe notification:", e);
+    }
   }
 }
 
