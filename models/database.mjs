@@ -161,6 +161,12 @@ const Point = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true, // まだ一度もRPを受け取っていないユーザーはnullになるようにします
     },
+    //最後にRPしたキャラ番号
+    lastRoleplaySlot: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0, // 初回は0番
+      allowNull: false,
+    },
     //明示的に定義
     updatedAt: {
       type: DataTypes.DATE,

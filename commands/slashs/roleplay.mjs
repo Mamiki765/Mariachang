@@ -436,25 +436,51 @@ export async function execute(interaction) {
         { length: MAX_SLOTS },
         (_, i) => `${userId}${i > 0 ? `-${i}` : ""}`
       );
-      const existingCharacters = await Character.findAll({
-        where: { userId: { [Op.in]: potentialSlotIds } },
-      });
+      // modalは3秒しか猶予がないのでPromise.all で「キャラ一覧取得」と「ユーザー設定取得」を同時に取得。
+      const [existingCharacters, userPointData] = await Promise.all([
+        // タスク1: キャラ一覧
+        Character.findAll({
+          where: { userId: { [Op.in]: potentialSlotIds } },
+        }),
+        // タスク2: ユーザー設定（最後に使ったスロット）
+        Point.findOne({
+          where: { userId },
+          attributes: ["lastRoleplaySlot"], // 必要なカラムだけ指定すると更に高速
+        }),
+      ]);
+      // 取得結果を展開
       const characterMap = new Map(
         existingCharacters.map((char) => [char.userId, char])
       );
+      const lastUsedSlot = userPointData ? userPointData.lastRoleplaySlot : 0;
 
       const slotOptions = [];
+      // defaultFoundフラグを用意して、「最後に使ったキャラ」がいなくなっていた場合の保険をかける
+      let isDefaultSet = false;
+
+      //登録済みのキャラのみ選択肢に追加
       for (let i = 0; i < MAX_SLOTS; i++) {
         const character = characterMap.get(potentialSlotIds[i]);
         if (character) {
-          // ★ 登録済みのキャラのみ選択肢に追加
-          slotOptions.push(
-            new StringSelectMenuOptionBuilder()
-              .setValue(String(i))
-              .setLabel(`スロット${i}: ${character.name}`)
-              .setEmoji(emojis[i])
-          );
+          const option = new StringSelectMenuOptionBuilder()
+            .setValue(String(i))
+            .setLabel(`スロット${i}: ${character.name}`)
+            .setEmoji(emojis[i]);
+
+          // 最後に使ったキャラがいたらデフォルトをつける
+          if (i === lastUsedSlot) {
+            option.setDefault(true);
+            isDefaultSet = true;
+          }
+
+          slotOptions.push(option);
         }
+      }
+
+      // もし「最後に使ったスロット」のキャラが削除されていた場合、
+      // リストの先頭（スロット番号が一番小さいキャラ）をデフォルトにする
+      if (!isDefaultSet && slotOptions.length > 0) {
+        slotOptions[0].setDefault(true);
       }
 
       // --- 2. 投稿できるキャラがいない場合はエラー ---
@@ -567,7 +593,9 @@ export async function execute(interaction) {
       // 2. 前回の投稿記録があり、かつ5秒以内かチェック
       if (lastPost && now - lastPost < COOLDOWN) {
         const remainingTime = Math.ceil((COOLDOWN - (now - lastPost)) / 1000);
-        const content = message.match(config.dominoTriggerRegex) ? `❌ roleplay_oldでの連続ドミノは制限されています。あと **${remainingTime}秒** お待ちください。`:`❌ テキストチャンネルでの連続投稿は制限されています。あと **${remainingTime}秒** お待ちください。\n（スレッドやフォーラムチャンネル、別館のチップ掘りスレでは、この制限なく連続投稿が可能です）`;
+        const content = message.match(config.dominoTriggerRegex)
+          ? `❌ roleplay_oldでの連続ドミノは制限されています。あと **${remainingTime}秒** お待ちください。`
+          : `❌ テキストチャンネルでの連続投稿は制限されています。あと **${remainingTime}秒** お待ちください。\n（スレッドやフォーラムチャンネル、別館のチップ掘りスレでは、この制限なく連続投稿が可能です）`;
         return interaction.editReply({
           content: content,
         });
@@ -603,7 +631,8 @@ export async function execute(interaction) {
 
       const rewardResult = await updatePoints(
         interaction.user.id,
-        interaction.client
+        interaction.client,
+        slot
       );
       const deleteRequestButtonRow = createRpDeleteRequestButton(
         postedMessage.id,
@@ -842,16 +871,34 @@ function dataslot(id, slot) {
   return slot >= 0 ? `${id}${slot > 0 ? `-${slot}` : ""}` : `${id}`;
 }
 
-//発言するたびにポイント+1
-export async function updatePoints(userId, client) {
+//発言するたびにポイント+1、最終発言キャラを更新
+export async function updatePoints(userId, client, currentSlot = null) {
   try {
     const now = new Date();
     const cooldownSeconds = 60;
     const basePizzaAmount = 600;
     const [pointEntry, created] = await Point.findOrCreate({
       where: { userId: userId },
-      defaults: { point: 0, totalpoint: 0 },
+      defaults: { point: 0, totalpoint: 0, lastRoleplaySlot: currentSlot ?? 0 },
     });
+
+    // 追加: スロット番号の更新 ▼▼▼
+    // スロット指定があり、かつ前回と違う場合のみ更新（無駄な書き込み防止）
+    // ※Sequelizeのupdateは変更がないとSQLを発行しないので、単に渡すだけでもOK
+    if (currentSlot !== null) {
+      // pointEntry.updateは後続の処理で行われるので、
+      // ここではメモリ上のインスタンスの値を書き換えておき、後でまとめてsaveするか、
+      // あるいは個別にupdateするかですが、今回はincrement等の兼ね合いもあるので
+      // シンプルにここでupdateをかけてしまうのが安全です。
+
+      // ただし、incrementは数値を増やすメソッドなので、
+      // "その他のカラム"を同時に更新したい場合は、save()メソッドを使うか、
+      // 先にupdateしてからincrementするのが定石です。
+
+      await pointEntry.update({ lastRoleplaySlot: currentSlot });
+    }
+    //スロ番号更新ここまで
+
     const lastRpDate = pointEntry.lastRpDate;
     // 前回の実行からの経過時間を計算します。初回の場合はInfinity（無限大）とします。
     const secondsSinceLastRp = lastRpDate

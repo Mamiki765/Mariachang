@@ -13,7 +13,7 @@ import {
 } from "../components/buttons.mjs";
 //RP機能周りimport
 import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
-import { Character, Icon, sequelize } from "../models/database.mjs";
+import { Character, Icon, Point, sequelize } from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 import { uploadFile, deleteFile } from "../utils/supabaseStorage.mjs";
 //RP周りここまで
@@ -347,7 +347,7 @@ async function handleRoleplayRegisterModal(interaction) {
 }
 
 // ==========================================================
-// ▼▼▼ RP投稿モーダル処理用の専用関数 (将来の実装用) ▼▼▼
+// ▼▼▼ RP投稿モーダル処理用の専用関数  ▼▼▼
 // ==========================================================
 /**
  * /roleplay post のモーダル送信を処理します
@@ -446,10 +446,12 @@ async function handleRoleplayPostModal(interaction) {
       nocredit
     );
 
-    // --- 6. ポイント加算と完了通知 ---
+    // --- 6. ポイント加算と完了通知（ついでにスロットも保存） ---
+    // 第3引数に slot を渡す
     const rewardResult = await updatePoints(
       interaction.user.id,
-      interaction.client
+      interaction.client,
+      slot
     );
     const deleteRequestButtonRow = createRpDeleteRequestButton(
       postedMessage.id,
