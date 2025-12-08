@@ -492,7 +492,6 @@ export async function execute(interaction) {
         });
       }
 
-      slotOptions[0].setDefault(true); // 最初のキャラをデフォルト選択
 
       // --- 3. モーダルを構築 ---
       const modal = new ModalBuilder()
