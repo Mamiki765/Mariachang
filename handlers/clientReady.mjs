@@ -148,7 +148,7 @@ export default async (client) => {
     console.log("[TASK] Booster Sync: Performing initial synchronization.");
     await synchronizeBoosters(client);
     //ついでにRSSもチェック
-    initializeRssWatcher(client);
+    //initializeRssWatcher(client);
   } else {
     console.log(
       "[TASK] Scenario checker: Initial check skipped in development mode."
