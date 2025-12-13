@@ -94,6 +94,18 @@ export async function execute(interaction) {
                     "この経験値でレベルアップをしても通知が出ません。数量指定はできません。"
                   ),
                 new StringSelectMenuOptionBuilder()
+                  .setLabel("【一括】全てニョワコインにする")
+                  .setValue("consolidate_to_coin")
+                  .setDescription(
+                    "RP・どんぐりを全てコインに変換 (要:数量欄に'all')"
+                  ),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("【一括】全てニョボチップにする")
+                  .setValue("consolidate_to_pizza")
+                  .setDescription(
+                    "RP・どんぐり・コイン・バンクを全てチップに変換 (要:数量欄に'all')"
+                  ),
+                new StringSelectMenuOptionBuilder()
                   .setLabel("チップを他人に送金する(ニョボバンクのみ)")
                   .setValue("send_nyobobank")
                   .setDescription(
@@ -159,6 +171,16 @@ export async function execute(interaction) {
             lock: t.LOCK.UPDATE,
           });
           if (!user) throw new Error("ユーザーデータが見つかりませんでした。");
+
+          if (
+            (selectedAction === "consolidate_to_coin" ||
+              selectedAction === "consolidate_to_pizza") &&
+            amountRaw.toLowerCase().trim() !== "all"
+          ) {
+            throw new Error(
+              "⚠️ この操作は全資産を変換するため、安全のため数量欄に **all** と入力する必要があります。"
+            );
+          }
 
           switch (
             selectedAction // interaction.customId を selectedAction に変更
@@ -327,6 +349,95 @@ export async function execute(interaction) {
 
               // 送信者への成功メッセージ
               resultMessage = `🏦 ${targetUser.username} さんに、バンクから **${amount.toLocaleString()}** チップを送金しました。`;
+              break;
+            }
+            case "consolidate_to_coin": {
+              let totalGainedCoin = 0;
+              let details = [];
+
+              // 1. RP (1 -> 20)
+              if (user.point > 0) {
+                const gained = user.point * 20;
+                totalGainedCoin += gained;
+                details.push(
+                  `RP:${user.point.toLocaleString()}→${gained.toLocaleString()}`
+                );
+                user.point = 0;
+              }
+              // 2. どんぐり (1 -> 100)
+              if (user.acorn > 0) {
+                const gained = user.acorn * 100;
+                totalGainedCoin += gained;
+                details.push(
+                  `どんぐり:${user.acorn.toLocaleString()}→${gained.toLocaleString()}`
+                );
+                user.acorn = 0;
+              }
+
+              if (totalGainedCoin === 0) {
+                throw new Error("両替可能な資産がありません。");
+              }
+
+              user.coin += totalGainedCoin;
+              resultMessage = `💰 **資産整理完了！**\n合計 **${totalGainedCoin.toLocaleString()}** 枚のニョワコインを入手しました。\n(内訳: ${details.join(", ")})`;
+              break;
+            }
+
+            // ▼▼▼ 追加: 全てニョボチップにする ▼▼▼
+            case "consolidate_to_pizza": {
+              let totalGainedPizza = 0;
+              let details = [];
+              const basePizzaRate = 30; // コイン→チップの基本レート
+
+              // 1. RP (1 -> 20コイン -> 20*30チップ = 600)
+              if (user.point > 0) {
+                const gained = user.point * 20 * basePizzaRate;
+                totalGainedPizza += gained;
+                details.push(
+                  `RP:${user.point.toLocaleString()}→${gained.toLocaleString()}`
+                );
+                user.point = 0;
+              }
+              // 2. どんぐり (1 -> 100コイン -> 100*30チップ = 3000)
+              if (user.acorn > 0) {
+                const gained = user.acorn * 100 * basePizzaRate;
+                totalGainedPizza += gained;
+                details.push(
+                  `どんぐり:${user.acorn.toLocaleString()}→${gained.toLocaleString()}`
+                );
+                user.acorn = 0;
+              }
+              // 3. ニョワコイン (1 -> 30)
+              if (user.coin > 0) {
+                const gained = user.coin * basePizzaRate;
+                totalGainedPizza += gained;
+                details.push(
+                  `コイン:${user.coin.toLocaleString()}→${gained.toLocaleString()}`
+                );
+                user.coin = 0;
+              }
+              // 4. バンク (引き出し 1 -> 1)
+              if (user.nyobo_bank > 0) {
+                const gained = user.nyobo_bank;
+                totalGainedPizza += gained;
+                details.push(`バンク引き出し:${gained.toLocaleString()}`);
+                user.nyobo_bank = 0;
+              }
+
+              if (totalGainedPizza === 0) {
+                throw new Error("両替可能な資産がありません。");
+              }
+
+              // ボーナス計算（一括変換後の総額に対してボーナスをかける）
+              const finalPizzaToGet = await applyPizzaBonus(
+                userId,
+                totalGainedPizza
+              );
+              const bonusAmount = finalPizzaToGet - totalGainedPizza;
+
+              user.legacy_pizza += finalPizzaToGet;
+
+              resultMessage = `🍕 **資産整理完了！**\n合計 **${finalPizzaToGet.toLocaleString()}** 枚のニョボチップを入手しました！\n(内訳: 基本${totalGainedPizza.toLocaleString()} + ボーナス${bonusAmount.toLocaleString()})\n(詳細: ${details.join(", ")})`;
               break;
             }
           }
