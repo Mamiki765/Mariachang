@@ -455,10 +455,13 @@ export async function execute(interaction) {
           content: `✅ **両替/引き出し成功！**\n${resultMessage}`,
         });
       } catch (error) {
-        // エラーメッセージ
-        await submitted.editReply({
-          content: `❌ **エラー**\n${error.message}`,
-        });
+        // ★修正2: 状態を見て送り分ける
+        const errorContent = `❌ **エラー**\n${error.message}`;
+        if (submitted.replied || submitted.deferred) {
+          await submitted.editReply({ content: errorContent });
+        } else {
+          await submitted.reply({ content: errorContent, flags: 64 });
+        }
       }
     }
   } catch (error) {
