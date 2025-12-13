@@ -205,6 +205,11 @@ export default {
         displayName: "RP",
         emoji: "💎",
       },
+      nyobo_bank: {
+        db_column: "nyobo_bank",
+        displayName: "ニョボバンク(預金)",
+        emoji: "🏦",
+      },
     },
     lines_display: {
       // isProduction ? [赤ダイス配列] : [デバッグ絵文字配列] のようにするのがおすすめです

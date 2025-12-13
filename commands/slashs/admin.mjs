@@ -2,6 +2,16 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
   PermissionsBitField,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  LabelBuilder,
+  ChannelSelectMenuBuilder,
+  ChannelType,
+  ActionRowBuilder,
+  UserSelectMenuBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
 } from "discord.js";
 import { Op } from "sequelize";
 
@@ -28,37 +38,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("chat_as_maria")
-      .setNameLocalizations({
-        ja: "マリアで発言",
-      })
+      .setNameLocalizations({ ja: "マリアで発言" })
       .setDescription(
-        "管理人として発言します。画像などは別の場所に貼り付けてリンクをコピーしてください。"
-      )
-      .addStringOption((option) =>
-        option
-          .setName("message")
-          .setNameLocalizations({
-            ja: "内容",
-          })
-          .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
-          .setRequired(true)
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("channel")
-          .setNameLocalizations({
-            ja: "チャンネル",
-          })
-          .setDescription(
-            "送信先チャンネルを指定してください(指定が無ければ現在のチャンネルに送信します)"
-          )
-          .addChannelTypes(
-            0, // テキストチャンネル
-            5, // ニュースチャンネル
-            10, // ニューススレッド
-            11, //公開スレッド
-            12 //プライベートスレッド
-          )
+        "管理人として発言します。実行すると入力フォームが開きます。"
       )
   )
   //マリアで発言機能登録ここまで
@@ -66,35 +48,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) =>
     subcommand
       .setName("dm_from_maria")
-      .setNameLocalizations({
-        ja: "ダイレクトメール",
-      })
-      .setDescription("管理人としてマリアからDMを送信します。")
-      .addUserOption((option) =>
-        option
-          .setName("user")
-          .setNameLocalizations({
-            ja: "送信先",
-          })
-          .setDescription("DMを送信する相手を指定してください。")
-          .setRequired(true)
-      )
-      .addStringOption((option) =>
-        option
-          .setName("message")
-          .setNameLocalizations({
-            ja: "内容",
-          })
-          .setDescription("発言内容を記述(改行は\n、<br>、@@@などでもできます)")
-          .setRequired(true)
-      )
-      .addBooleanOption((option) =>
-        option
-          .setName("reply")
-          .setNameLocalizations({
-            ja: "返信許可",
-          })
-          .setDescription("このDMに対する返信を許可するか(デフォルトはTrue)")
+      .setNameLocalizations({ ja: "ダイレクトメール" })
+      .setDescription(
+        "管理人としてマリアからDMを送信します。実行すると入力フォームが開きます。"
       )
   )
   //マリアの発言編集機能
@@ -238,7 +194,8 @@ export const data = new SlashCommandBuilder()
             { name: "ニョワコイン", value: "coin" },
             { name: "RP", value: "point" },
             { name: "あまやどんぐり", value: "acorn" },
-            { name: "ニョボチップ", value: "legacy_pizza" }
+            { name: "ニョボチップ", value: "legacy_pizza" },
+             { name: "ニョボバンク", value: "nyobo_bank" } 
           )
       )
       .addIntegerOption((option) =>
@@ -279,32 +236,82 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   const serverId = interaction.guild ? interaction.guild.id : "DM";
-  //chat as maria
+  // ==========================================================
+  // ▼▼▼ マリアで発言 (Modal版) ▼▼▼
+  // ==========================================================
   if (subcommand == "chat_as_maria") {
-    let content = interaction.options.getString("message");
-    const targetChannel =
-      interaction.options.getChannel("channel") || interaction.channel;
-    // 改行文字を置き換え
-    content = content
-      .replace(/@@@/g, "\n")
-      .replace(/<br>/g, "\n")
-      .replace(/\\n/g, "\n");
+    // 1. Modal構築
+    const modal = new ModalBuilder()
+      .setTitle("マリアとして発言")
+      .setCustomId(`chat_as_maria_modal_${interaction.id}`) // IDを一意にする
+      .addLabelComponents(
+        new LabelBuilder()
+          .setLabel("送信先チャンネル (任意)")
+          .setDescription("指定しない場合は、このチャンネルに送信されます。")
+          .setChannelSelectMenuComponent(
+            new ChannelSelectMenuBuilder()
+              .setCustomId("target_channel")
+              .setPlaceholder("チャンネルを選択 (任意)")
+              .setChannelTypes([
+                ChannelType.GuildText, // 0
+                ChannelType.GuildAnnouncement, // 5
+                ChannelType.AnnouncementThread, // 10
+                ChannelType.PublicThread, // 11
+                ChannelType.PrivateThread, // 12
+              ])
+              .setRequired(false)
+              .setMinValues(0) // 任意なので0個でもOK
+              .setMaxValues(1)
+          )
+      )
+      .addLabelComponents(
+        new LabelBuilder()
+          .setLabel("発言内容")
+          .setTextInputComponent(
+            new TextInputBuilder()
+              .setCustomId("message_content")
+              .setStyle(TextInputStyle.Paragraph)
+              .setPlaceholder("発言内容を入力してください。改行も使えます。")
+              .setRequired(true)
+          )
+      );
+
+    // 2. Modal表示
+    await interaction.showModal(modal);
+
+    // 3. 送信待ち受け
     try {
-      // メッセージを指定されたチャンネルに送信
-      await targetChannel.send({
-        content: content,
+      const submitted = await interaction.awaitModalSubmit({
+        filter: (i) => i.customId === modal.data.custom_id,
+        time: 600_000, // 10分待機
       });
+
+      // 4. 処理開始
+      await submitted.deferReply({ flags: 64 }); // Ephemeral
+
+      // 入力値の取得 (ChannelSelectMenuの戻り値はCollection)
+      const selectedChannels = submitted.fields.getSelectedChannels("target_channel");
+      const contentRaw = submitted.fields.getTextInputValue("message_content");
+
+      // チャンネル決定: 選択されていればそれ、なければ実行したチャンネル
+      const targetChannel = selectedChannels.first() || interaction.channel;
+
+      const content = contentRaw
+        .replace(/@@@/g, "\n")
+        .replace(/<br>/g, "\n")
+        .replace(/\\n/g, "\n");
+
+      // 送信処理
+      await targetChannel.send({ content: content });
+
+      // ログ出力
       await interaction.client.channels.cache.get(config.logch.admin).send({
         embeds: [
           new EmbedBuilder()
             .setTitle("管理者発言ログ(チャンネル)")
             .setColor("#FFD700")
             .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
-            .setThumbnail(
-              interaction.user.displayAvatarURL({
-                dynamic: true,
-              })
-            )
+            .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
             .setTimestamp()
             .addFields(
               {
@@ -318,29 +325,103 @@ export async function execute(interaction) {
             ),
         ],
       });
-      await interaction.reply({
-        flags: 64, //ephemeral
-        content: `メッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``,
+
+      await submitted.editReply({
+        content: `✅ メッセージを送信しました。\n送信先: <#${targetChannel.id}>\n送信内容\`\`\`\n${content}\n\`\`\``,
       });
-    } catch (e) {
-      console.error("メッセージ送信に失敗しました:", e);
-      await interaction.reply({
-        flags: 64, //ephemeral
-        content: `メッセージの送信に失敗しました: ${e.message}`,
-      });
+    } catch (error) {
+      // タイムアウト等は静かに終了
+      if (error.code !== "InteractionCollectorError") {
+        console.error("マリア発言エラー:", error);
+        // 応答可能ならエラー通知
+      }
     }
+    // ==========================================================
+    // ▼▼▼ DM送信 (頂いたコードをベースにしたModal版) ▼▼▼
+    // ==========================================================
   } else if (subcommand == "dm_from_maria") {
-    let content = interaction.options.getString("message");
-    const targetUser = interaction.options.getUser("user");
-    let replyable = interaction.options.getBoolean("reply");
-    replyable = replyable === null ? true : replyable;
-    const replybutton = replyable ? [replyfromDM] : null;
-    // 改行文字を置き換え
-    content = content
-      .replace(/@@@/g, "\n")
-      .replace(/<br>/g, "\n")
-      .replace(/\\n/g, "\n");
+    // 1. Modal構築
+    const modal = new ModalBuilder()
+      .setTitle("DM送信フォーム")
+      .setCustomId(`dm_modal_${interaction.id}`)
+
+      // 送信先 (User Select)
+      .addLabelComponents(
+        new LabelBuilder()
+          .setLabel("送信先ユーザー")
+          .setUserSelectMenuComponent(
+            new UserSelectMenuBuilder()
+              .setCustomId("target_user_select")
+              .setPlaceholder("DMを送る相手を選んでください")
+              .setMinValues(1)
+              .setMaxValues(1)
+          )
+      )
+      // 返信設定 (String Select)
+      .addLabelComponents(
+        new LabelBuilder()
+          .setLabel("返信設定")
+          .setStringSelectMenuComponent(
+            new StringSelectMenuBuilder()
+              .setCustomId("reply_setting_select")
+              .setPlaceholder("返信を許可しますか？")
+              .setMinValues(1)
+              .setMaxValues(1)
+              .addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("相手が返信可")
+                  .setValue("enable_reply")
+                  .setDefault(true),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel("相手が返信不可")
+                  .setValue("disable_reply")
+              )
+          )
+      )
+      // メッセージ内容 (Text Input)
+      .addLabelComponents(
+        new LabelBuilder()
+          .setLabel("メッセージ内容")
+          .setTextInputComponent(
+            new TextInputBuilder()
+              .setCustomId("dm_content")
+              .setStyle(TextInputStyle.Paragraph)
+              .setPlaceholder("送信する内容を入力してください")
+              .setRequired(true)
+          )
+      );
+
+    // 2. Modal表示
+    await interaction.showModal(modal);
+
+    // 3. 送信待ち受け
     try {
+      const submitted = await interaction.awaitModalSubmit({
+        filter: (i) => i.customId === modal.data.custom_id,
+        time: 600_000, // 10分
+      });
+
+      await submitted.deferReply({ flags: 64 });
+
+      // 4. 入力データの取得
+      const targetUserCollection =
+        submitted.fields.getSelectedUsers("target_user_select");
+      const targetUser = targetUserCollection.first(); // Userオブジェクトが取れます
+
+      const replySetting = submitted.fields.getStringSelectValues(
+        "reply_setting_select"
+      )[0];
+      const replyable = replySetting === "enable_reply";
+
+      const contentRaw = submitted.fields.getTextInputValue("dm_content");
+      const content = contentRaw
+        .replace(/@@@/g, "\n")
+        .replace(/<br>/g, "\n")
+        .replace(/\\n/g, "\n");
+
+      // 5. 送信処理
+      const replybutton = replyable ? [replyfromDM] : null;
+
       const embed = new EmbedBuilder()
         .setTitle(`管理人室からのメッセージ`)
         .setDescription(content)
@@ -349,50 +430,56 @@ export async function execute(interaction) {
         .setFooter({
           text: "このダイレクトメールへの書き込みには返信できません、ご了承ください",
         });
-      // メッセージを指定されたチャンネルに送信
-      await targetUser.send({
-        content: `【重要】このメッセージの下の埋め込みが見えない場合「埋め込みとリンクのプレビュー」の設定をONにしてください。`,
-        embeds: [embed],
-        components: replybutton,
-      });
-      await interaction.client.channels.cache.get(config.logch.admin).send({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("管理者発言ログ(DM)")
-            .setColor("#FFD700")
-            .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
-            .setThumbnail(
-              interaction.user.displayAvatarURL({
-                dynamic: true,
-              })
-            )
-            .setTimestamp()
-            .addFields(
-              {
-                name: "送信者",
-                value: `${interaction.member.displayName}(ID:${interaction.user.id})`,
-              },
-              {
-                name: "送信相手",
-                value: `\@${targetUser.username} (<@${targetUser.id}>)`,
-              },
-              {
-                name: "返信可否",
-                value: `${replyable}`,
-              }
-            ),
-        ],
-      });
-      await interaction.reply({
-        flags: 64, //ephemeral
-        content: `${targetUser.username}にメッセージを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``,
-      });
-    } catch (e) {
-      console.error("メッセージ送信に失敗しました:", e);
-      await interaction.reply({
-        flags: 64, //ephemeral
-        content: `メッセージの送信に失敗しました: ${e.message}`,
-      });
+
+      try {
+        await targetUser.send({
+          content: `【重要】このメッセージの下の埋め込みが見えない場合「埋め込みとリンクのプレビュー」の設定をONにしてください。`,
+          embeds: [embed],
+          components: replybutton,
+        });
+
+        // ログ送信
+        await interaction.client.channels.cache.get(config.logch.admin).send({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("管理者発言ログ(DM)")
+              .setColor("#FFD700")
+              .setDescription(`送信内容\`\`\`\n${content}\n\`\`\``)
+              .setThumbnail(
+                interaction.user.displayAvatarURL({ dynamic: true })
+              )
+              .setTimestamp()
+              .addFields(
+                {
+                  name: "送信者",
+                  value: `${interaction.member.displayName}(ID:${interaction.user.id})`,
+                },
+                {
+                  name: "送信相手",
+                  value: `@${targetUser.username} (<@${targetUser.id}>)`,
+                },
+                {
+                  name: "返信可否",
+                  value: replyable ? "許可" : "不可",
+                }
+              ),
+          ],
+        });
+
+        await submitted.editReply({
+          content: `✅ ${targetUser.username} にDMを送信しました。\n送信内容\`\`\`\n${content}\n\`\`\``,
+        });
+      } catch (sendError) {
+        console.error("DM送信失敗:", sendError);
+        await submitted.editReply({
+          content: `❌ DMの送信に失敗しました。\n相手がDMをブロックしているか、サーバー設定でDMを許可していない可能性があります。\nエラー: ${sendError.message}`,
+        });
+      }
+    } catch (error) {
+      // タイムアウトなどのエラー処理
+      if (error.code !== "InteractionCollectorError") {
+        console.error("DM Modalエラー:", error);
+      }
     }
   } else if (subcommand == "edit_maria_message") {
     const messageUrl = interaction.options.getString("messageurl");
