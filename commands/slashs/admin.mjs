@@ -294,7 +294,7 @@ export async function execute(interaction) {
       const contentRaw = submitted.fields.getTextInputValue("message_content");
 
       // チャンネル決定: 選択されていればそれ、なければ実行したチャンネル
-      const targetChannel = selectedChannels.first() || interaction.channel;
+      const targetChannel = selectedChannels?.first() || interaction.channel;
 
       const content = contentRaw
         .replace(/@@@/g, "\n")
