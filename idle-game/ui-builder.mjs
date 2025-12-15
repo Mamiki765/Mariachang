@@ -2072,6 +2072,11 @@ export function generateProfileEmbed(uiData, user) {
       idleGame.eternityTime || 0
     );
 
+    const bestEternitySeconds = idleGame.epUpgrades?.bestEternityRealTime;
+    const formattedBestEternity = bestEternitySeconds
+      ? formatInfinityTime(bestEternitySeconds)
+      : "記録なし";
+
     const totalCalamityTime =
       (idleGame.calamityTime || 0) + (idleGame.eternityTime || 0);
     const formattedCalamityTime = formatInfinityTime(totalCalamityTime);
@@ -2084,7 +2089,7 @@ export function generateProfileEmbed(uiData, user) {
 
     description = [
       ...commonLines,
-      `EP: **${formatNumberDynamic_Decimal(eternityPoints_d)}** | Σ: **${eternityCount.toLocaleString()}** | Σ⏳: **${formattedEternityTime}**`,
+      `EP: **${formatNumberDynamic_Decimal(eternityPoints_d)}** | Σ: **${eternityCount.toLocaleString()}** | Σ⏳: **${formattedEternityTime}** | ΣBest: **${formattedBestEternity}**`,
       `𝒞alamity(累計) | ${config.casino.currencies.legacy_pizza.emoji}: **${formattedCalamityChips}枚** | ⏳: **${formattedCalamityTime}** | Score: **${formatNumberDynamic(idleGame.rankScore, 4)}**`,
     ].join("\n");
   } else {
