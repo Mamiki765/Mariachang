@@ -1950,6 +1950,19 @@ export function generateEternityButtons(uiData) {
           .setDisabled(chronoPoints_d.lt(cost) || isMaxLevel)
       );
     }
+    const hasPurchasedAny = Object.values(currentChronoUpgrades).some(
+      (lv) => lv > 0
+    );
+
+    if (hasPurchasedAny) {
+      chronoUpgradeRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId("idle_chrono_reset")
+          .setLabel("CP振り直し")
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji("🔄")
+      );
+    }
     // ボタンが1つでもあれば行を追加
     if (chronoUpgradeRow.components.length > 0) {
       components.push(chronoUpgradeRow);

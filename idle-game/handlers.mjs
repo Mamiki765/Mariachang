@@ -103,7 +103,7 @@ export async function handleSettings(interaction) {
         new StringSelectMenuBuilder()
           .setCustomId("skip_confirmations_select")
           .setPlaceholder("スキップしたい確認画面を選択...")
-          .setMaxValues(4) // 4つまで選択可能
+          .setMaxValues(5) // 5つまで選択可能
           .setRequired(false) //これがないと「何もスキップしない」設定ができない
           .addOptions(
             new StringSelectMenuOptionBuilder()
@@ -121,7 +121,11 @@ export async function handleSettings(interaction) {
             new StringSelectMenuOptionBuilder()
               .setLabel("チャレンジ")
               .setValue("challenge") // challengeという値を設定
-              .setDefault(skippedConfirmations.has("challenge"))
+              .setDefault(skippedConfirmations.has("challenge")),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("CPリセット")
+              .setValue("chronoreset")
+              .setDefault(skippedConfirmations.has("chronoreset"))
           )
       )
   );
@@ -1767,7 +1771,7 @@ export async function handleInfinity(interaction, collector) {
       return true;
     }
   } catch (error) {
-    console.error("Infinity Error:", error);
+    //console.error("Infinity Error:", error);
     // エラーがタイムアウト（.awaitMessageComponent起因）か、それ以外かを判定
     if (error.code === "InteractionCollectorError") {
       await interaction.editReply({
@@ -3087,6 +3091,203 @@ export async function handleChronoUpgradePurchase(interaction, upgradeId) {
     });
     return false;
   }
+}
+
+/**
+ * 【新規】CPアップグレードのリセット（振り直し）を行う
+ * @param {import("discord.js").ButtonInteraction} interaction
+ * @param {import("discord.js").InteractionCollector} collector
+ * @returns {Promise<boolean>} UI更新が必要な場合はtrue
+ */
+export async function handleChronoUpgradeReset(interaction, collector) {
+  const userId = interaction.user.id;
+  const idleGame = await IdleGame.findOne({ where: { userId } });
+  if (!idleGame) return false;
+
+  const settings = idleGame.settings || {};
+  // ★設定キーを chronoreset に変更
+  const skipConfirmation = settings.skipConfirmations?.includes("chronoreset") || false;
+
+  if (skipConfirmation) {
+    try {
+      const refundedCP = await executeChronoResetTransaction(userId);
+      await interaction.followUp({
+        content: `✅ クロノアップグレードをリセットしました。(所持: **${refundedCP} CP**)\n※エタニティリセットが行われました。`,
+        ephemeral: true,
+      });
+      return true;
+    } catch (error) {
+      console.error("CP Reset Error:", error);
+      await interaction.followUp({
+        content: "❌ リセット中にエラーが発生しました。",
+        ephemeral: true,
+      });
+      return false;
+    }
+  } else {
+    collector.stop();
+
+    const confirmationRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("cp_reset_confirm_yes")
+        .setLabel("はい、リセットします")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("cp_reset_confirm_no")
+        .setLabel("いいえ")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    const confirmationMessage = await interaction.followUp({
+      content:
+        "### ⚠️ **クロノアップグレードをリセットしますか？**\n" +
+        "1. 全てのCPアップグレードが初期化され、消費したCPが返還されます。\n" +
+        "2. **【重要】エタニティ実行時と同様の「強制リセット」が行われます。**\n" +
+        "   (EPやΣは増えず、工場・人口・IP・チップ等は全て失われます)",
+      components: [confirmationRow],
+      ephemeral: true,
+      fetchReply: true,
+    });
+
+    try {
+      const confirmationInteraction =
+        await confirmationMessage.awaitMessageComponent({
+          filter: (i) => i.user.id === userId,
+          time: 60_000,
+        });
+
+      if (confirmationInteraction.customId === "cp_reset_confirm_no") {
+        await confirmationInteraction.update({
+          content: "リセットをキャンセルしました。",
+          components: [],
+        });
+        return false;
+      }
+
+      await confirmationInteraction.deferUpdate();
+      const refundedCP = await executeChronoResetTransaction(userId);
+
+      await confirmationInteraction.editReply({
+        content: `🔄 **クロノアップグレードをリセットしました！**\n現在 **${refundedCP} CP** を所持しています。\n世界は再構築されました。`,
+        components: [],
+      });
+      return false; 
+
+    } catch (error) {
+      await interaction.editReply({
+        content: "タイムアウトしました。",
+        components: [],
+      });
+      return false;
+    }
+  }
+}
+
+/**
+ * CPリセットの内部トランザクション処理
+ * CPを再計算・初期化し、同時にエタニティ相当の強制リセットを行う
+ */
+async function executeChronoResetTransaction(userId) {
+  let totalCP = 0;
+  
+  await sequelize.transaction(async (t) => {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    // --- 1. CPの再計算 ---
+    const epUpgrades = idleGame.epUpgrades || {};
+    const gained = epUpgrades.cpGainedFrom || {};
+    // 獲得回数の合計を計算
+    totalCP = (gained.nyowamiya || 0) + (gained.ip || 0) + (gained.ep || 0);
+
+    // epUpgradesを更新 (CP上書き、購入状況リセット、記録は保持)
+    const newEpUpgrades = {
+      ...epUpgrades,
+      chronoPoints: totalCP.toString(),
+      chronoUpgrades: {}, // 空にする
+    };
+
+    // --- 2. エタニティ相当のリセット処理 ---
+    // (handleEternityのロジックから、EP/Σ加算を除いたもの)
+    
+    // Σ2, Σ5ボーナスのための準備
+    const eternityCount = idleGame.eternityCount || 0;
+    const newIpUpgrades = {
+      generators: Array(8).fill({ amount: "0", bought: 0 }),
+      upgrades: [],
+    };
+    if (eternityCount >= 2) {
+      newIpUpgrades.upgrades.push("IU11", "IU12", "IU44", "IU54");
+      newIpUpgrades.ghostChipLevel = 1;
+    }
+    if (eternityCount >= 5) {
+      newIpUpgrades.ghostChipLevel = 999;
+    }
+    const newChallenges = {};
+    if (eternityCount >= 3 && idleGame.challenges?.bestInfinityRealTime) {
+      newChallenges.bestInfinityRealTime = idleGame.challenges.bestInfinityRealTime;
+    }
+
+    // データを更新
+    await idleGame.update(
+      {
+        // --- リセットされる要素 ---
+        population: "0",
+        highestPopulation: "0",
+        pizzaOvenLevel: 0,
+        cheeseFactoryLevel: 0,
+        tomatoFarmLevel: 0,
+        mushroomFarmLevel: 0,
+        anchovyFactoryLevel: 0,
+        oliveFarmLevel: 0,
+        wheatFarmLevel: 0,
+        pineappleFarmLevel: 0,
+        prestigeCount: 0,
+        prestigePower: 0,
+        skillPoints: 0,
+        transcendencePoints: 0,
+        skillLevel1: 0,
+        skillLevel2: 0,
+        skillLevel3: 0,
+        skillLevel4: 0,
+        skillLevel5: 0,
+        skillLevel6: 0,
+        skillLevel7: 0,
+        skillLevel8: 0,
+        ascensionCount: 0,
+        infinityTime: 0,
+        eternityTime: 0,
+        infinityPoints: "0",
+        infinityCount: 0,
+        generatorPower: "1",
+        ipUpgrades: newIpUpgrades,
+        chipsSpentThisInfinity: "0",
+        chipsSpentThisEternity: "0",
+        challenges: newChallenges,
+        buffMultiplier: 1.0,
+        buffExpiresAt: null,
+        pizzaBonusPercentage: 0,
+        lastUpdatedAt: new Date(),
+
+        // --- 維持/更新される要素 ---
+        // eternityCount, eternityPoints はそのまま維持 (増えない)
+        epUpgrades: newEpUpgrades, // CPリセット反映済み
+      },
+      { transaction: t }
+    );
+
+    // ポイント(チップ)もリセット
+    // ※エタニティ同様、所持チップは捧げられる
+    await Point.update(
+      { legacy_pizza: 0 },
+      { where: { userId }, transaction: t }
+    );
+  });
+
+  return totalCP;
 }
 
 //-------------------------

@@ -31,6 +31,7 @@ import {
   handleGravityUpgradePurchase,
   handleGainMaxCp,
   handleChronoUpgradePurchase,
+  handleChronoUpgradeReset
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import { getSingleUserUIData } from "../../idle-game/idle-game-calculator.mjs";
@@ -706,6 +707,9 @@ export async function execute(interaction) {
       } else if (i.customId.startsWith("idle_chrono_upgrade_")) {
         const upgradeId = i.customId.substring("idle_chrono_upgrade_".length);
         success = await handleChronoUpgradePurchase(i, upgradeId);
+      } else if (i.customId === "idle_chrono_reset") {
+        success = await handleChronoUpgradeReset(i, collector);
+        if (!success) return;
       } else if (i.customId.startsWith("idle_iu_purchase_")) {
         const upgradeId = i.customId.substring("idle_iu_purchase_".length);
         success = await handleInfinityUpgradePurchase(i, upgradeId);
