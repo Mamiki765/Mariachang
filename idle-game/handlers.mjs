@@ -32,7 +32,7 @@ import {
   calculateCpGainCost,
   calculateDiscountMultiplier,
   formatInfinityTime,
-  calculateGainedEP
+  calculateGainedEP,
 } from "./idle-game-calculator.mjs";
 
 import Decimal from "break_infinity.js";
@@ -305,8 +305,9 @@ export async function handleFacilityUpgrade(interaction, facilityName) {
   const skillLevel6 = latestIdleGame.skillLevel6 || 0;
   const currentLevel =
     latestIdleGame[config.idle.factories[facilityName].key] || 0;
-    const activeChallenge = latestIdleGame.challenges?.activeChallenge;
-  const realityDiscountLevel = latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
+  const activeChallenge = latestIdleGame.challenges?.activeChallenge;
+  const realityDiscountLevel =
+    latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
   const cost = calculateFacilityCost(
     facilityName,
     currentLevel,
@@ -736,7 +737,7 @@ async function executePrestigeTransaction(userId, client) {
         skillLevel8: latestIdleGame.skillLevel8,
         lastUpdatedAt: new Date(),
         challenges: latestIdleGame.challenges,
-        epUpgrades: latestIdleGame.epUpgrades, 
+        epUpgrades: latestIdleGame.epUpgrades,
       };
 
       // 4. IU11「ゴーストチップ」の処理
@@ -1228,7 +1229,8 @@ export async function handleAscension(interaction) {
     const ascensionCount = latestIdleGame.ascensionCount || 0;
     const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
     const activeChallenge = latestIdleGame.challenges?.activeChallenge;
-    const realityDiscountLevel = latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
+    const realityDiscountLevel =
+      latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
     const { requiredPopulation_d, requiredChips } =
       calculateAscensionRequirements(
         ascensionCount,
@@ -1337,7 +1339,8 @@ export async function handleAscensionMax(interaction) {
 
     const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
     const activeChallenge = latestIdleGame.challenges?.activeChallenge;
-    const realityDiscountLevel = latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
+    const realityDiscountLevel =
+      latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
 
     for (let i = 0; i < 10; i++) {
       const currentAscensionCount =
@@ -1764,7 +1767,7 @@ export async function handleInfinity(interaction, collector) {
       return true;
     }
   } catch (error) {
-    //console.error("Infinity Error:", error);
+    console.error("Infinity Error:", error);
     // エラーがタイムアウト（.awaitMessageComponent起因）か、それ以外かを判定
     if (error.code === "InteractionCollectorError") {
       await interaction.editReply({
@@ -2711,7 +2714,8 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
       gravityExponentUpgrades: 0,
       chipBaseValueUpgrades: 0,
     };
-    const realityDiscountLevel = idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
+    const realityDiscountLevel =
+      idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
 
     let cost_d;
     let successMessage = "";
@@ -2737,7 +2741,11 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
       }
     } else if (purchaseType === "chipBaseValue") {
       const currentLevel = galaxyData.chipBaseValueUpgrades || 0;
-      const cost = calculateGalaxyUpgradeCost("chipBaseValue", currentLevel, realityDiscountLevel);
+      const cost = calculateGalaxyUpgradeCost(
+        "chipBaseValue",
+        currentLevel,
+        realityDiscountLevel
+      );
 
       if (point.legacy_pizza < cost) throw new Error("チップが足りません！");
       const costBigInt = BigInt(Math.floor(cost));
@@ -3110,7 +3118,8 @@ function simulatePurchases(
     // --- 必要な情報をinitialIdleGameから直接取得 ---
     const skillLevel6 = initialIdleGame.skillLevel6 || 0;
     const purchasedIUs = new Set(initialIdleGame.ipUpgrades?.upgrades || []);
-    const realityDiscountLevel = initialIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
+    const realityDiscountLevel =
+      initialIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
     const discountMultiplier = calculateDiscountMultiplier(
       skillLevel6,
       purchasedIUs,
@@ -3585,12 +3594,14 @@ function autoBuyInfinityContent(idleGame) {
 
     // --- 優先度3: ジェネレーター (最安のものを1つ買う) ---
     if (eternityCount >= 4) {
+      // 読み取り時は || [] で安全策をとっているが...
       const userGenerators = idleGame.ipUpgrades.generators || [];
       let cheapestGen = { cost: new Decimal(Infinity), id: -1 };
 
       for (const genConfig of config.idle.infinityGenerators) {
+        // ... (省略: 最安ジェネレーターを探すループ) ...
         const index = genConfig.id - 1;
-        if (index > 0 && !(userGenerators[index - 1]?.bought > 0)) break; // 前提ジェネレーターがなければ買えない
+        if (index > 0 && !(userGenerators[index - 1]?.bought > 0)) break;
 
         const bought = userGenerators[index]?.bought || 0;
         const cost = calculateGeneratorCost(genConfig.id, bought);
@@ -3603,6 +3614,21 @@ function autoBuyInfinityContent(idleGame) {
       if (availableIp_d.gte(cheapestGen.cost)) {
         availableIp_d = availableIp_d.minus(cheapestGen.cost);
         const genIndex = cheapestGen.id - 1;
+
+        // ▼▼▼ 【修正】書き込み先の安全確保を追加 ▼▼▼
+        if (!idleGame.ipUpgrades.generators) {
+          // 配列そのものがない場合、8個分の枠を作成
+          idleGame.ipUpgrades.generators = Array.from({ length: 8 }, () => ({
+            amount: "0",
+            bought: 0,
+          }));
+        }
+        // 特定のインデックスが空の場合（念のため）
+        if (!idleGame.ipUpgrades.generators[genIndex]) {
+          idleGame.ipUpgrades.generators[genIndex] = { amount: "0", bought: 0 };
+        }
+        // ▲▲▲ 修正ここまで ▲▲▲
+
         idleGame.ipUpgrades.generators[genIndex].bought++;
         idleGame.ipUpgrades.generators[genIndex].amount = new Decimal(
           idleGame.ipUpgrades.generators[genIndex].amount
