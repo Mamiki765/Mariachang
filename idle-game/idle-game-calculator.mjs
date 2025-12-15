@@ -10,14 +10,16 @@ Decimal.prototype.mod = function (b) {
 };
 
 /**
- * 【改訂版】TPスキル#6とIU14によるコスト割引率を計算する
- * @param {number} skillLevel6 - スキル#6の現在のレベル
- * @param {Set<string>} [purchasedIUs=new Set()] - 購入済みのIU IDのSet
- * @returns {number} コストに乗算する最終的な割引率 (例: 0.72 => 28%引き)
+ * TPスキル#6、IU14、CPアップグレードによるコスト割引率を計算する
+ * @param {number} skillLevel6
+ * @param {Set<string>} purchasedIUs
+ * @param {number} [realityDiscountLevel=0] - ★追加: 現実改変割引のレベル
+ * @returns {number} コストに乗算する倍率 (例: 0.7)
  */
 export function calculateDiscountMultiplier(
   skillLevel6 = 0,
-  purchasedIUs = new Set()
+  purchasedIUs = new Set(),
+  realityDiscountLevel = 0
 ) {
   let finalMultiplier = 1.0;
 
@@ -41,6 +43,16 @@ export function calculateDiscountMultiplier(
     const iu14Discount =
       config.idle.infinityUpgrades.tiers[0].upgrades.IU14.discount;
     finalMultiplier *= 1 - iu14Discount;
+  }
+
+  // 3. CP: 現実改変割引 (新規)
+  if (realityDiscountLevel > 0) {
+    // effectは「割引率(0.03)」を返すので、倍率は (1 - 0.03 = 0.97)
+    const discount =
+      config.idle.eternity.chronoUpgrades.realityDiscount.effect(
+        realityDiscountLevel
+      );
+    finalMultiplier *= 1 - discount;
   }
 
   return finalMultiplier;
@@ -103,6 +115,7 @@ export function calculateFactoryEffects(idleGame, pp, unlockedSet = new Set()) {
  * @param {number} skillLevel6 - TPスキル#6のレベル
  * @param {Set<string>} purchasedIUs - 購入済みのIU IDのSet
  * @param {string|null} [activeChallenge=null] - 現在実行中のインフィニティ・チャレンジのID
+ * @param {number} [realityDiscountLevel=0] - 現実改変割引のレベル
  * @returns {number}
  */
 export function calculateFacilityCost(
@@ -110,7 +123,8 @@ export function calculateFacilityCost(
   level,
   skillLevel6 = 0,
   purchasedIUs = new Set(),
-  activeChallenge = null
+  activeChallenge = null,
+  realityDiscountLevel = 0
 ) {
   const facility = config.idle.factories[type];
   if (!facility) return Infinity;
@@ -124,7 +138,8 @@ export function calculateFacilityCost(
   const multiplier_d = new Decimal(facility.multiplier);
   const discountMultiplier = calculateDiscountMultiplier(
     skillLevel6,
-    purchasedIUs
+    purchasedIUs,
+    realityDiscountLevel
   );
 
   const finalCost_d = baseCost_d
@@ -149,6 +164,8 @@ export function calculateAllCosts(idleGame) {
   const skillLevel6 = idleGame.skillLevel6 || 0;
   const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
   const activeChallenge = idleGame.challenges?.activeChallenge;
+  const realityDiscountLevel =
+    idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
   // config.idle.factories をループで処理
   for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {
     // configからDBカラム名を取得
@@ -162,7 +179,8 @@ export function calculateAllCosts(idleGame) {
       currentLevel,
       skillLevel6,
       purchasedIUs,
-      activeChallenge
+      activeChallenge,
+      realityDiscountLevel
     );
   }
 
@@ -485,16 +503,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     //--- 2.1. ジェネレーターの再計算（平均値を用いた高精度版） ---
     if (idleGameData.infinityCount > 0) {
       ipUpgradesChanged = true;
-      const completedChallenges =
-        idleGameData.challenges?.completedChallenges || [];
-      const infBonusMaxGen =
-        idleGameData.ipUpgrades?.gravityUpgrades?.infBonusOnGen || 0;
 
-      //グラビティの計算
+      // 1. グラビティの計算 (IU91所持時のみ)
       let averageGravityEffect_d = new Decimal(1); // デフォルトは1倍
 
       if (purchasedIUs.has("IU91")) {
-        // --- a. グラビティ産出量の計算 ---
+        // --- a. グラビティ設定値の取得 ---
         const galaxyConfig = config.idle.galaxy;
         const galaxyData = idleGameData.ipUpgrades?.galaxy || {
           count: 0,
@@ -504,16 +518,19 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         };
         const galaxyCount = galaxyData.count;
         const chipLv = galaxyData.chipBaseValueUpgrades || 0;
+
         // config と 購入回数 から現在の値を計算
         const currentGalaxyBase =
           galaxyConfig.upgrades.baseValue.initial +
           (galaxyData.baseValueUpgrades + chipLv) *
             galaxyConfig.upgrades.baseValue.increment;
+
         const currentGravityExponent =
           galaxyConfig.upgrades.gravityExponent.initial +
           galaxyData.gravityExponentUpgrades *
             galaxyConfig.upgrades.gravityExponent.increment;
-        // --- b. グラビティ産出量の計算 ---
+
+        // --- b. グラビティ産出量の計算と加算 ---
         if (galaxyCount > 0) {
           gravity_d = gravity_d.add(
             new Decimal(config.idle.galaxy.productionBaseMultiplier)
@@ -526,49 +543,32 @@ export function calculateOfflineProgress(idleGameData, externalData) {
         }
 
         // --- c. 平均強化倍率の計算 ---
+        // (開始時グラビティ + 終了時グラビティ) / 2
         const averageGravity_d = initial_gravity_d.add(gravity_d).div(2);
         averageGravityEffect_d = averageGravity_d.pow(currentGravityExponent);
       }
 
-      // ▼▼▼【実績103対応】▼▼▼
-      // externalDataから実績情報を取得
+      // 2. 実績情報の準備
       const unlockedSet = externalData.unlockedSet || new Set();
-      let achievementBonus = 1.0;
-      if (unlockedSet.has(103)) {
-        const achievementCount = externalData.achievementCount || 0;
-        achievementBonus = 1.0 + achievementCount / 100.0;
-      }
 
-      // IU81のボーナス倍率をここで計算
-      let iu81Multiplier = 1.0;
-      if (purchasedIUs.has("IU81")) {
-        const iu81Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU81;
-        const bestTime = idleGameData.challenges?.bestInfinityRealTime;
-        if (bestTime && bestTime > 0) {
-          let skillBestTime =
-            bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
-          skillBestTime = Math.max(0.001, skillBestTime / 3);
+      // 3. コンテキストを作成 (共通関数に渡す荷物)
+      const context = {
+        gravityEffect_d: averageGravityEffect_d, // 計算した平均値を渡す
+        currentIp_d: new Decimal(idleGameData.infinityPoints || "0"),
+        infinityCount: idleGameData.infinityCount || 0,
+        eternityBonuses: eternityBonuses,
+        unlockedSet: unlockedSet,
+      };
 
-          const bestTimeInMs = skillBestTime * 1000;
-          iu81Multiplier = 1 + iu81Config.max / bestTimeInMs;
-        }
-      }
-
-      // IC9(全チャレンジ)クリア実績報酬: 全ジェネレーターの性能が2倍になる。
-      const generatorMultiplier =
-        completedChallenges.includes("IC9") || idleGameData.eternityCount > 0
-          ? 2.0
-          : 1.0;
-      const infinityCount = idleGameData.infinityCount || 0;
-      const currentIp_d = new Decimal(idleGameData.infinityPoints || "0");
+      // 4. ジェネレーター計算ループ (G8 -> G1)
       let amountProducedByParent_d = new Decimal(0);
 
       for (let i = 7; i >= 0; i--) {
-        // G8からG1へ
         const genData = generators[i];
         const bought = genData.bought || 0;
         const generatorId = i + 1;
 
+        // 所持数の更新計算
         const initialAmount_d = new Decimal(genData.amount);
         const finalAmount_d = initialAmount_d.add(amountProducedByParent_d);
         genData.amount = finalAmount_d.toString();
@@ -578,94 +578,35 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           continue;
         }
 
+        // 平均所持数での生産計算
         const averageAmount_d = initialAmount_d.add(
           amountProducedByParent_d.div(2)
         );
-        const multiplier = Math.pow(2, bought - 1);
-        let productionPerSecond_d = averageAmount_d.times(multiplier).div(60);
+        const baseMultiplier = Math.pow(2, bought - 1);
+        let productionPerSecond_d = averageAmount_d
+          .times(baseMultiplier)
+          .div(60);
 
-        //IU31,32
-        // ジェネレーターIDは (i + 1) で取得できる
-        if (generatorId === 1 && purchasedIUs.has("IU31")) {
-          const bonusMultiplier =
-            config.idle.infinityUpgrades.tiers[2].upgrades.IU31.bonus;
-          productionPerSecond_d = productionPerSecond_d.times(bonusMultiplier);
-        }
-        if (generatorId === 2 && purchasedIUs.has("IU32")) {
-          const bonusMultiplier =
-            config.idle.infinityUpgrades.tiers[2].upgrades.IU32.bonus;
-          productionPerSecond_d = productionPerSecond_d.times(bonusMultiplier);
-        }
-        //33,34
-        if (generatorId === 1 && purchasedIUs.has("IU33")) {
-          const bonus = calculateIPBonusMultiplier("IU33", currentIp_d); // ★新しい関数を呼び出す
-          productionPerSecond_d = productionPerSecond_d.times(bonus);
-        }
-        if (generatorId === 2 && purchasedIUs.has("IU34")) {
-          const bonus = calculateIPBonusMultiplier("IU34", currentIp_d); // ★新しい関数を呼び出す
-          productionPerSecond_d = productionPerSecond_d.times(bonus);
-        }
-        if (generatorId === 2 && purchasedIUs.has("IU41")) {
-          const bonus = calculateInfinityCountBonus(infinityCount); // ★新しい関数を呼び出す
-          productionPerSecond_d = productionPerSecond_d.times(bonus);
-        }
-        //61
-        if (generatorId === 1 && purchasedIUs.has("IU61")) {
-          productionPerSecond_d = productionPerSecond_d.times(
-            config.idle.infinityUpgrades.tiers[5].upgrades.IU61.bonus
-          );
-        }
-        //52,53
-        if (generatorId === 1 && purchasedIUs.has("IU52")) {
-          const iu52Config =
-            config.idle.infinityUpgrades.tiers[4].upgrades.IU52;
-          productionPerSecond_d = productionPerSecond_d.times(
-            calculateIC9TimeBasedBonus(idleGameData, iu52Config)
-          );
-        }
-        if (generatorId === 2 && purchasedIUs.has("IU53")) {
-          const iu53Config =
-            config.idle.infinityUpgrades.tiers[4].upgrades.IU53;
-          productionPerSecond_d = productionPerSecond_d.times(
-            calculateIC9TimeBasedBonus(idleGameData, iu53Config)
-          );
-        }
-        //71,72
-        if (generatorId === 3 && purchasedIUs.has("IU71")) {
-          const g2Bought = generators[1].bought || 0; // G2はindex 1
-          productionPerSecond_d = productionPerSecond_d.times(g2Bought + 1);
-        }
-        if (generatorId === 4 && purchasedIUs.has("IU72")) {
-          const g3Bought = generators[2].bought || 0; // G3はindex 2
-          productionPerSecond_d = productionPerSecond_d.times(g3Bought + 1);
-        }
-        if (generatorId === 3 && purchasedIUs.has("IU63")) {
-          const iu63Config =
-            config.idle.infinityUpgrades.tiers[5].upgrades.IU63;
-          const bonus = 1 + Math.log10(infinityCount + 1) * iu63Config.bonus;
-          productionPerSecond_d = productionPerSecond_d.times(bonus);
-        }
-        //∞によるボーナスをG2以降も受け取れるように移動
-        if (generatorId <= 1 + infBonusMaxGen) {
-          productionPerSecond_d = productionPerSecond_d.times(
-            idleGameData.infinityCount
-          );
-        }
+        // ★共通関数で倍率を取得して掛ける★
+        const multiplier_d = calculateGeneratorMultiplier(
+          generatorId,
+          idleGameData,
+          purchasedIUs,
+          context
+        );
+        productionPerSecond_d = productionPerSecond_d.times(multiplier_d);
 
+        // 経過時間などを掛ける
         const producedAmount_d = productionPerSecond_d
           .times(elapsedSeconds)
-          .times(timeAccelerationMultiplier)
-          .times(generatorMultiplier)
-          .times(achievementBonus)
-          .times(iu81Multiplier)
-          .times(averageGravityEffect_d);
+          .times(timeAccelerationMultiplier);
 
         amountProducedByParent_d = producedAmount_d;
       }
 
-      const finalGpProduction_d = amountProducedByParent_d.times(
-        eternityBonuses.gp
-      );
+      // 5. GPの加算処理
+      // (G1の倍率計算にeternityBonuses.gpは含まれているので、そのまま加算)
+      const finalGpProduction_d = amountProducedByParent_d;
       gp_d = gp_d.add(finalGpProduction_d);
     }
 
@@ -1153,13 +1094,15 @@ function calculateAchievement66Bonus(idleGameData, unlockedSet) {
  * @param {number} skillLevel6 - TPスキル#6のレベル
  * @param {Set<string>} purchasedIUs - 購入済みのIU IDのSet
  * @param {string|null} activeChallenge - 実行中のチャレンジID
+ * @param {number} [realityDiscountLevel=0] - 現実改変割引のレベル
  * @returns {{requiredPopulation_d: Decimal, requiredChips: number}}
  */
 export function calculateAscensionRequirements(
   currentAscensionCount,
   skillLevel6 = 0,
   purchasedIUs = new Set(),
-  activeChallenge = null
+  activeChallenge = null,
+  realityDiscountLevel = 0
 ) {
   const ascensionConfig = config.idle.ascension;
 
@@ -1198,7 +1141,8 @@ export function calculateAscensionRequirements(
       targetLevel,
       skillLevel6,
       purchasedIUs, //そのままIU14用に流す！
-      null
+      null,
+      realityDiscountLevel
     );
   }
 
@@ -1281,6 +1225,15 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
     const multiplier =
       Math.log10(newInfinityCount + 1) * iu55Config.bonusBase + 1;
     baseIP = baseIP.times(multiplier);
+  }
+
+  // CPアップグレード: IP Multiplier
+  const ipMultLevel = idleGame.epUpgrades?.chronoUpgrades?.ipMultiplier || 0;
+  if (ipMultLevel > 0) {
+    const upgradeConfig = config.idle.eternity.chronoUpgrades.ipMultiplier;
+    // 設定ファイルから Decimal が返ってくるので、そのまま掛ける
+    const multiplier_d = upgradeConfig.effect(ipMultLevel);
+    baseIP = baseIP.times(multiplier_d);
   }
   // (ここに将来的にボーナスなどを追加していく)
 
@@ -1546,164 +1499,65 @@ export function calculateGeneratorProductionRates(
   const rates = Array(8).fill(new Decimal(0));
   if (idleGameData.infinityCount === 0) return rates;
 
-  //【実績103対応】
-  const achievementCount = unlockedSet.size;
-  let achievementBonus = 1.0;
-  if (unlockedSet.has(103)) {
-    achievementBonus = 1.0 + achievementCount / 100.0;
-  }
-
-  // 必要なデータを準備
+  // 1. 必要なデータを準備
   const userGenerators = idleGameData.ipUpgrades?.generators || [];
   const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
-  const completedChallenges = new Set(
-    idleGameData.challenges?.completedChallenges || []
-  );
-  const currentIp_d = new Decimal(idleGameData.infinityPoints);
-  const infinityCount = idleGameData.infinityCount || 0;
-  const infBonusMaxGen =
-    idleGameData.ipUpgrades?.gravityUpgrades?.infBonusOnGen || 0;
+  const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
 
-  // 全体に掛かる倍率
-  const globalMultiplier =
-    completedChallenges.has("IC9") || idleGameData.eternityCount > 0
-      ? 2.0
-      : 1.0;
-
-  // IU81のボーナス倍率
-  let iu81Multiplier = 1.0;
-  if (purchasedIUs.has("IU81")) {
-    const iu81Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU81; // Tier 8はindex 7
-    const bestTime = idleGameData.challenges?.bestInfinityRealTime;
-    if (bestTime && bestTime > 0) {
-      let skillBestTime =
-        bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
-      skillBestTime = Math.max(0.001, skillBestTime / 3);
-
-      const bestTimeInMs = skillBestTime * 1000;
-      iu81Multiplier = 1 + iu81Config.max / bestTimeInMs;
-    }
-  }
-
-  let gravityEffect_d = new Decimal(1); // デフォルトは1倍
-
+  // 2. グラビティ効果を計算 (現在値)
+  let gravityEffect_d = new Decimal(1);
   if (purchasedIUs.has("IU91")) {
     const galaxyConfig = config.idle.galaxy;
     const galaxyData = idleGameData.ipUpgrades?.galaxy || {
-      count: 0,
-      baseValueUpgrades: 0,
       gravityExponentUpgrades: 0,
-      chipBaseValueUpgrades: 0,
     };
-
-    // 現在のグラビティ指数を計算
     const currentGravityExponent =
       galaxyConfig.upgrades.gravityExponent.initial +
       galaxyData.gravityExponentUpgrades *
         galaxyConfig.upgrades.gravityExponent.increment;
-
-    // 現在のグラビティ量を取得して、強化倍率を計算
     const currentGravity_d = new Decimal(
       idleGameData.ipUpgrades?.gravity || "1"
     );
     gravityEffect_d = currentGravity_d.pow(currentGravityExponent);
   }
 
-  // G1からG8まで、順番に計算する
+  // 3. コンテキストを作成 (共通関数に渡す荷物)
+  const context = {
+    gravityEffect_d: gravityEffect_d,
+    currentIp_d: new Decimal(idleGameData.infinityPoints),
+    infinityCount: idleGameData.infinityCount || 0,
+    eternityBonuses: eternityBonuses,
+    unlockedSet: unlockedSet,
+  };
+
+  // 4. G1からG8まで、順番に計算する
   for (let i = 0; i < 8; i++) {
     const genData = userGenerators[i] || { amount: "0", bought: 0 };
     const bought = genData.bought || 0;
 
-    // 購入数が0なら生産しない
     if (bought === 0) {
       rates[i] = new Decimal(0);
       continue;
     }
 
-    // 生産速度は、純粋に「自身の所持数」にのみ依存する
     const currentAmount_d = new Decimal(genData.amount);
 
     // 基本生産量 = 所持数 * (2 ^ (購入数 - 1))
     let productionPerMinute_d = currentAmount_d.times(Math.pow(2, bought - 1));
 
-    // --- 各種ボーナスを適用 ---
-    productionPerMinute_d = productionPerMinute_d.times(globalMultiplier);
-    productionPerMinute_d = productionPerMinute_d.times(achievementBonus); //実績103
-    productionPerMinute_d = productionPerMinute_d.times(iu81Multiplier); //iu81
-    productionPerMinute_d = productionPerMinute_d.times(gravityEffect_d); //グラビティ
-    const generatorId = i + 1;
-
-    if (generatorId === 1 && purchasedIUs.has("IU31")) {
-      productionPerMinute_d = productionPerMinute_d.times(
-        config.idle.infinityUpgrades.tiers[2].upgrades.IU31.bonus
-      );
-    }
-    if (generatorId === 2 && purchasedIUs.has("IU32")) {
-      productionPerMinute_d = productionPerMinute_d.times(
-        config.idle.infinityUpgrades.tiers[2].upgrades.IU32.bonus
-      );
-    }
-    if (generatorId === 1 && purchasedIUs.has("IU33")) {
-      productionPerMinute_d = productionPerMinute_d.times(
-        calculateIPBonusMultiplier("IU33", currentIp_d)
-      );
-    }
-    if (generatorId === 2 && purchasedIUs.has("IU34")) {
-      productionPerMinute_d = productionPerMinute_d.times(
-        calculateIPBonusMultiplier("IU34", currentIp_d)
-      );
-    }
-    if (generatorId === 2 && purchasedIUs.has("IU41")) {
-      productionPerMinute_d = productionPerMinute_d.times(
-        calculateInfinityCountBonus(infinityCount)
-      );
-    }
-    if (generatorId === 1 && purchasedIUs.has("IU61")) {
-      productionPerMinute_d = productionPerMinute_d.times(
-        config.idle.infinityUpgrades.tiers[5].upgrades.IU61.bonus
-      );
-    }
-    if (generatorId === 1 && purchasedIUs.has("IU52")) {
-      const iu52Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU52;
-      productionPerMinute_d = productionPerMinute_d.times(
-        calculateIC9TimeBasedBonus(idleGameData, iu52Config)
-      );
-    }
-    if (generatorId === 2 && purchasedIUs.has("IU53")) {
-      const iu53Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU53;
-      productionPerMinute_d = productionPerMinute_d.times(
-        calculateIC9TimeBasedBonus(idleGameData, iu53Config)
-      );
-    }
-    if (generatorId === 3 && purchasedIUs.has("IU71")) {
-      const g2Bought = userGenerators[1]?.bought || 0; // G2はindex 1
-      productionPerMinute_d = productionPerMinute_d.times(g2Bought + 1);
-    }
-    if (generatorId === 4 && purchasedIUs.has("IU72")) {
-      const g3Bought = userGenerators[2]?.bought || 0; // G3はindex 2
-      productionPerMinute_d = productionPerMinute_d.times(g3Bought + 1);
-    }
-    if (generatorId === 3 && purchasedIUs.has("IU63")) {
-      // infinityCountは関数の冒頭で定義済み
-      const iu63Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU63;
-      const bonus = 1 + Math.log10(infinityCount + 1) * iu63Config.bonus;
-      productionPerMinute_d = productionPerMinute_d.times(bonus);
-    }
-
-    // G1の場合、生産するのはGPなので、さらにインフィニティ回数を乗算
-    //グラビティで強化されていれば、G2以降も強化
-    if (generatorId <= 1 + infBonusMaxGen) {
-      const bonuses = calculateEternityBonuses(idleGameData.eternityCount);
-      productionPerMinute_d = productionPerMinute_d
-        .times(infinityCount)
-        .times(bonuses.gp);
-    }
+    // ★共通関数で倍率を取得して掛ける
+    const multiplier_d = calculateGeneratorMultiplier(
+      i + 1,
+      idleGameData,
+      purchasedIUs,
+      context
+    );
+    productionPerMinute_d = productionPerMinute_d.times(multiplier_d);
 
     rates[i] = productionPerMinute_d;
   }
 
   return {
-    // .reverse() を削除！ 配列はすでに正しい順序 [G1, G2, ...] になっている
     productionRates: rates,
     gravityEffect: gravityEffect_d,
   };
@@ -1987,6 +1841,15 @@ export function getFinalGpExponent(idleGameData) {
     }
   }
 
+  // CPアップグレード (Generator Exponent)
+  const genExpLevel =
+    idleGameData.epUpgrades?.chronoUpgrades?.generatorExponent || 0;
+  if (genExpLevel > 0) {
+    const upgradeConfig = config.idle.eternity.chronoUpgrades.generatorExponent;
+    // effectはNumber (+0.02 * Lv) を返すのでそのまま足す
+    baseExponent += upgradeConfig.effect(genExpLevel);
+  }
+
   return baseExponent;
 }
 
@@ -2051,9 +1914,14 @@ export function calculateGalaxyCost(currentGalaxyCount) {
  * ギャラクシーアップグレード（ベース値・グラビティ指数）のコストを計算する
  * @param {'baseValue' | 'gravityExponent'} upgradeType - 強化の種類
  * @param {number} currentUpgradeLevel - 現在の強化レベル
+ * @param {number} [realityDiscountLevel=0] - ★追加: 現実改変割引のレベル
  * @returns {Decimal | number} IPコストの場合はDecimal, チップコストの場合はnumberを返す
  */
-export function calculateGalaxyUpgradeCost(upgradeType, currentUpgradeLevel) {
+export function calculateGalaxyUpgradeCost(
+  upgradeType,
+  currentUpgradeLevel,
+  realityDiscountLevel = 0
+) {
   const upgradeConfig = config.idle.galaxy.upgrades[upgradeType];
   if (!upgradeConfig) return new Decimal(Infinity);
 
@@ -2061,7 +1929,16 @@ export function calculateGalaxyUpgradeCost(upgradeType, currentUpgradeLevel) {
     const baseCost = upgradeConfig.cost.base;
     const multiplier = upgradeConfig.cost.multiplier;
     // チップはnumberで十分なので、numberで計算して返す
-    return baseCost * Math.pow(multiplier, currentUpgradeLevel);
+    let cost = baseCost * Math.pow(multiplier, currentUpgradeLevel);
+    // CP割引適用
+    if (realityDiscountLevel > 0) {
+      const discount =
+        config.idle.eternity.chronoUpgrades.realityDiscount.effect(
+          realityDiscountLevel
+        );
+      cost *= 1 - discount;
+    }
+    return cost;
   }
 
   const startCost_d = new Decimal(upgradeConfig.cost.start);
@@ -2207,4 +2084,145 @@ export function calculateGainedEP(idleGame) {
 
   // 計算結果が0以下になる可能性も考慮し、最低でも1は保証する
   return gainedEp_d.max(1);
+}
+
+/**
+ * ジェネレーターIDにかかる倍率を計算する共通関数
+ *
+ * @param {number} generatorId - ジェネレーター番号(1-8)
+ * @param {object} idleGameData - DBデータ
+ * @param {Set<string>} purchasedIUs - 購入済みIU
+ * @param {object} context - 計算済みの外部要素まとめ
+ * @param {Decimal} context.gravityEffect_d - 計算済みのグラビティ倍率
+ * @param {Decimal} context.currentIp_d - 現在のIP
+ * @param {number} context.infinityCount - インフィニティ回数
+ * @param {object} context.eternityBonuses - エタニティボーナス
+ * @param {Set<number>} context.unlockedSet - 解除済み実績ID
+ * @returns {Decimal} 最終的な倍率
+ */
+export function calculateGeneratorMultiplier(
+  generatorId,
+  idleGameData,
+  purchasedIUs,
+  context
+) {
+  let multiplier_d = new Decimal(1);
+
+  // 1. グラビティ倍率 (外部で計算された値を掛けるだけ)
+  if (context.gravityEffect_d && context.gravityEffect_d.gt(1)) {
+    multiplier_d = multiplier_d.times(context.gravityEffect_d);
+  }
+
+  // 2. 全体倍率 (IC9, エタニティ済み)
+  const completedChallenges =
+    idleGameData.challenges?.completedChallenges || [];
+  if (completedChallenges.includes("IC9") || idleGameData.eternityCount > 0) {
+    multiplier_d = multiplier_d.times(2.0);
+  }
+
+  // 3. 実績103ボーナス
+  if (context.unlockedSet.has(103)) {
+    // 実績数 / 100 を加算
+    const achievementBonus = 1.0 + context.unlockedSet.size / 100.0;
+    multiplier_d = multiplier_d.times(achievementBonus);
+  }
+
+  // 4. IU81 (超時空エンジン)
+  if (purchasedIUs.has("IU81")) {
+    const iu81Config = config.idle.infinityUpgrades.tiers[7].upgrades.IU81;
+    const bestTime = idleGameData.challenges?.bestInfinityRealTime;
+    if (bestTime && bestTime > 0) {
+      let skillBestTime =
+        bestTime > 0.3 ? Math.max(0.3, bestTime - 0.5) : bestTime;
+      skillBestTime = Math.max(0.001, skillBestTime / 3);
+      const bestTimeInMs = skillBestTime * 1000;
+      const bonus = 1 + iu81Config.max / bestTimeInMs;
+      multiplier_d = multiplier_d.times(bonus);
+    }
+  }
+
+  // 5. ジェネレーターごとの個別IUボーナス
+  const userGenerators = idleGameData.ipUpgrades?.generators || [];
+
+  // IU31, IU32
+  if (generatorId === 1 && purchasedIUs.has("IU31")) {
+    multiplier_d = multiplier_d.times(
+      config.idle.infinityUpgrades.tiers[2].upgrades.IU31.bonus
+    );
+  }
+  if (generatorId === 2 && purchasedIUs.has("IU32")) {
+    multiplier_d = multiplier_d.times(
+      config.idle.infinityUpgrades.tiers[2].upgrades.IU32.bonus
+    );
+  }
+
+  // IU33, IU34 (IP依存)
+  if (generatorId === 1 && purchasedIUs.has("IU33")) {
+    multiplier_d = multiplier_d.times(
+      calculateIPBonusMultiplier("IU33", context.currentIp_d)
+    );
+  }
+  if (generatorId === 2 && purchasedIUs.has("IU34")) {
+    multiplier_d = multiplier_d.times(
+      calculateIPBonusMultiplier("IU34", context.currentIp_d)
+    );
+  }
+
+  // IU41 (∞回数依存)
+  if (generatorId === 2 && purchasedIUs.has("IU41")) {
+    multiplier_d = multiplier_d.times(
+      calculateInfinityCountBonus(context.infinityCount)
+    );
+  }
+
+  // IU61
+  if (generatorId === 1 && purchasedIUs.has("IU61")) {
+    multiplier_d = multiplier_d.times(
+      config.idle.infinityUpgrades.tiers[5].upgrades.IU61.bonus
+    );
+  }
+
+  // IU52, IU53 (IC9タイム依存)
+  if (generatorId === 1 && purchasedIUs.has("IU52")) {
+    const iu52Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU52;
+    multiplier_d = multiplier_d.times(
+      calculateIC9TimeBasedBonus(idleGameData, iu52Config)
+    );
+  }
+  if (generatorId === 2 && purchasedIUs.has("IU53")) {
+    const iu53Config = config.idle.infinityUpgrades.tiers[4].upgrades.IU53;
+    multiplier_d = multiplier_d.times(
+      calculateIC9TimeBasedBonus(idleGameData, iu53Config)
+    );
+  }
+
+  // IU71, IU72 (下位ジェネレーター所持数依存)
+  if (generatorId === 3 && purchasedIUs.has("IU71")) {
+    const g2Bought = userGenerators[1]?.bought || 0; // G2 is index 1
+    multiplier_d = multiplier_d.times(g2Bought + 1);
+  }
+  if (generatorId === 4 && purchasedIUs.has("IU72")) {
+    const g3Bought = userGenerators[2]?.bought || 0; // G3 is index 2
+    multiplier_d = multiplier_d.times(g3Bought + 1);
+  }
+
+  // IU63 (∞回数依存)
+  if (generatorId === 3 && purchasedIUs.has("IU63")) {
+    const iu63Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU63;
+    const bonus = 1 + Math.log10(context.infinityCount + 1) * iu63Config.bonus;
+    multiplier_d = multiplier_d.times(bonus);
+  }
+
+  // インフィニティ回数ボーナス & エタニティGPボーナス (G1など)
+  const infBonusMaxGen =
+    idleGameData.ipUpgrades?.gravityUpgrades?.infBonusOnGen || 0;
+  if (generatorId <= 1 + infBonusMaxGen) {
+    multiplier_d = multiplier_d.times(context.infinityCount);
+    // G1 (GP生産) の場合のみエタニティGPボーナスも乗る
+    if (generatorId === 1) {
+      multiplier_d = multiplier_d.times(context.eternityBonuses.gp);
+    }
+  }
+
+  return multiplier_d;
 }

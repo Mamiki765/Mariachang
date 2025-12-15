@@ -305,11 +305,15 @@ export async function handleFacilityUpgrade(interaction, facilityName) {
   const skillLevel6 = latestIdleGame.skillLevel6 || 0;
   const currentLevel =
     latestIdleGame[config.idle.factories[facilityName].key] || 0;
+    const activeChallenge = latestIdleGame.challenges?.activeChallenge;
+  const realityDiscountLevel = latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
   const cost = calculateFacilityCost(
     facilityName,
     currentLevel,
     skillLevel6,
-    purchasedIUs
+    purchasedIUs,
+    activeChallenge,
+    realityDiscountLevel
   );
 
   // 3. チップが足りるかチェック
@@ -732,6 +736,7 @@ async function executePrestigeTransaction(userId, client) {
         skillLevel8: latestIdleGame.skillLevel8,
         lastUpdatedAt: new Date(),
         challenges: latestIdleGame.challenges,
+        epUpgrades: latestIdleGame.epUpgrades, 
       };
 
       // 4. IU11「ゴーストチップ」の処理
@@ -1223,12 +1228,14 @@ export async function handleAscension(interaction) {
     const ascensionCount = latestIdleGame.ascensionCount || 0;
     const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
     const activeChallenge = latestIdleGame.challenges?.activeChallenge;
+    const realityDiscountLevel = latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
     const { requiredPopulation_d, requiredChips } =
       calculateAscensionRequirements(
         ascensionCount,
         latestIdleGame.skillLevel6,
         purchasedIUs,
-        activeChallenge
+        activeChallenge,
+        realityDiscountLevel
       );
 
     if (
@@ -1330,6 +1337,7 @@ export async function handleAscensionMax(interaction) {
 
     const purchasedIUs = new Set(latestIdleGame.ipUpgrades?.upgrades || []);
     const activeChallenge = latestIdleGame.challenges?.activeChallenge;
+    const realityDiscountLevel = latestIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
 
     for (let i = 0; i < 10; i++) {
       const currentAscensionCount =
@@ -1339,7 +1347,8 @@ export async function handleAscensionMax(interaction) {
           currentAscensionCount,
           latestIdleGame.skillLevel6,
           purchasedIUs,
-          activeChallenge
+          activeChallenge,
+          realityDiscountLevel
         );
 
       if (
@@ -1617,6 +1626,7 @@ async function executeInfinityTransaction(userId, client) {
       infinityCount: newInfinityCount,
       challenges: currentChallenges,
       lastUpdatedAt: new Date(),
+      epUpgrades: latestIdleGame.epUpgrades,
     };
 
     // 2. IU44を所持している場合、設計図にゴーストチップの効果を上乗せする
@@ -2420,6 +2430,7 @@ async function executeStartChallengeTransaction(userId, challengeId, client) {
       buffMultiplier: 2.0,
       lastUpdatedAt: new Date(), // lastUpdatedAtは一旦ここで設定
       challenges: currentChallenges, // challengesも一旦設定
+      epUpgrades: idleGame.epUpgrades,
     };
 
     // 2. IU44/IU11「ゴーストチップ」の効果を適用する
@@ -2700,6 +2711,7 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
       gravityExponentUpgrades: 0,
       chipBaseValueUpgrades: 0,
     };
+    const realityDiscountLevel = idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
 
     let cost_d;
     let successMessage = "";
@@ -2725,7 +2737,7 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
       }
     } else if (purchaseType === "chipBaseValue") {
       const currentLevel = galaxyData.chipBaseValueUpgrades || 0;
-      const cost = calculateGalaxyUpgradeCost("chipBaseValue", currentLevel);
+      const cost = calculateGalaxyUpgradeCost("chipBaseValue", currentLevel, realityDiscountLevel);
 
       if (point.legacy_pizza < cost) throw new Error("チップが足りません！");
       const costBigInt = BigInt(Math.floor(cost));
@@ -3098,9 +3110,11 @@ function simulatePurchases(
     // --- 必要な情報をinitialIdleGameから直接取得 ---
     const skillLevel6 = initialIdleGame.skillLevel6 || 0;
     const purchasedIUs = new Set(initialIdleGame.ipUpgrades?.upgrades || []);
+    const realityDiscountLevel = initialIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
     const discountMultiplier = calculateDiscountMultiplier(
       skillLevel6,
-      purchasedIUs
+      purchasedIUs,
+      realityDiscountLevel
     );
 
     for (const [name, factoryConfig] of Object.entries(config.idle.factories)) {

@@ -33,7 +33,7 @@ import {
   calculateEternityBonuses,
   calculateGravityUpgradeCost,
   calculateCpGainCost,
-  calculateGainedEP
+  calculateGainedEP,
 } from "./idle-game-calculator.mjs";
 
 //---------------
@@ -577,12 +577,15 @@ function generateFactoryButtons(uiData, isDisabled = false) {
   // アセンションの要件を計算する
   const ascensionCount = idleGame.ascensionCount || 0;
   const activeChallenge = idleGame.challenges?.activeChallenge;
+  const realityDiscountLevel =
+    idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
   const { requiredPopulation_d, requiredChips } =
     calculateAscensionRequirements(
       ascensionCount,
       idleGame.skillLevel6,
       purchasedIUs,
-      activeChallenge
+      activeChallenge,
+      realityDiscountLevel
     );
   // アセンションボタンを表示する条件を定義
   // 1. 人口が要件を満たしている
@@ -609,7 +612,8 @@ function generateFactoryButtons(uiData, isDisabled = false) {
       ascensionCount + 9, // 0回目なら9, 10回目なら19...
       idleGame.skillLevel6,
       purchasedIUs,
-      activeChallenge
+      activeChallenge,
+      realityDiscountLevel
     );
 
     advancedFacilityRow.addComponents(
@@ -769,7 +773,7 @@ function generateFactoryButtons(uiData, isDisabled = false) {
     );
   }
   if (ip_d.gte(eternityUnlockIP_d)) {
-    const potentialEP_d = calculateGainedEP(idleGame); 
+    const potentialEP_d = calculateGainedEP(idleGame);
     const buttonLabel = `エターネート ${formatNumberDynamic_Decimal(potentialEP_d)} EP(全ての所持チップと工場を捧げる)`;
     infinityRow.addComponents(
       new ButtonBuilder()
@@ -1306,6 +1310,8 @@ function generateInfinityButtons(uiData) {
       gravityExponentUpgrades: 0,
       chipBaseValueUpgrades: 0,
     };
+    const realityDiscountLevel =
+      idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
 
     // 各コストを計算
     const galaxyCost = calculateGalaxyCost(galaxyData.count);
@@ -1315,7 +1321,8 @@ function generateInfinityButtons(uiData) {
     );
     const chipCost = calculateGalaxyUpgradeCost(
       "chipBaseValue",
-      galaxyData.chipBaseValueUpgrades || 0
+      galaxyData.chipBaseValueUpgrades || 0,
+      realityDiscountLevel
     );
     const gravityExponentCost = calculateGalaxyUpgradeCost(
       "gravityExponent",
@@ -1812,7 +1819,7 @@ function generateEternityEmbed(uiData) {
   const costEp = calculateCpGainCost("ep", timesEp);
 
   embed.addFields({
-    name: "🕰️ クロノポイント獲得(未実装)",
+    name: "🕰️ クロノポイント獲得",
     value:
       `以下のリソースを捧げて、クロノポイント(CP)を獲得できます。` +
       `\n- **ニョワミヤ:** ${formatNumberDynamic_Decimal(costNyo)} 匹で 1 CP` +
@@ -1846,7 +1853,7 @@ function generateEternityEmbed(uiData) {
     chronoFieldsText += `**${upgrade.name}** [Lv.${level}] (${costText})\n${upgrade.description(level)}\n`;
   }
   embed.addFields({
-    name: "🌠 クロノアップグレード(仮)",
+    name: "🌠 クロノアップグレード",
     value: chronoFieldsText || "利用可能なアップグレードはありません。",
   });
 

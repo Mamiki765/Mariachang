@@ -4,6 +4,7 @@ import {
   achievements,
   hidden_achievements,
 } from "../constants/achievements.mjs";
+import Decimal from "break_infinity.js";
 
 // config.mjsから持ってきた巨大な idle オブジェクトをここに貼り付ける
 //    そして、それをデフォルトエクスポートする
@@ -11,7 +12,8 @@ export default {
   infinity: "1.79769e308",
   eternity: {
     unlockIP: "1.79769e308", // エタニティ実行に必要なIP
-    epFormula: { //EP-IPの関係
+    epFormula: {
+      //EP-IPの関係
       breakEternityCount: 10, // このΣ回数以上で計算式を有効化
       base: 5,
       exponentDivisor: 308,
@@ -38,14 +40,55 @@ export default {
       //{ count: 100, description: "IPボーナス" },
     ],
     chronoUpgrades: {
+      ipMultiplier: {
+        id: "ipMultiplier",
+        name: "時空を超える無限",
+        description: (level) => {
+          // ★ここで formatNumberDynamic を使わず、Decimalの機能で表示する
+          const current = new Decimal(4).pow(level);
+          const next = new Decimal(4).pow(level + 1);
+          // 指数表記にする (例: 1.23e+10)
+          // toExponential(2) は "1.23e+10" のような文字列を返します
+          const curStr = current.lt(1e9)
+            ? current.toNumber().toLocaleString()
+            : current.toExponential(2);
+          const nextStr = next.lt(1e9)
+            ? next.toNumber().toLocaleString()
+            : next.toExponential(2);
+
+          return `最終IP獲得量が x${curStr} -> x${nextStr}倍になる`;
+        },
+        maxLevel: 999999,
+        cost: (level) => 1,
+        //  Decimal オブジェクトを返す
+        effect: (level) => new Decimal(4).pow(level),
+      },
+      realityDiscount: {
+        id: "realityDiscount",
+        name: "現実改変割引",
+        description: (level) =>
+          `工場、アセンション、ギャラクシー(チップ)のコストを${((1 - Math.pow(0.97, level)) * 100).toFixed(2)}% -> ${((1 - Math.pow(0.97, level + 1)) * 100).toFixed(2)}%割引`,
+        maxLevel: 1000,
+        cost: (level) => 1,
+        effect: (level) => 1 - Math.pow(0.97, level),
+      },
+      generatorExponent: {
+        id: "generatorExponent",
+        name: "ジェネレーター最適化",
+        description: (level) =>
+          `GPによる工場強化の最終指数に +${(level * 0.02).toFixed(2)} -> +${((level + 1) * 0.02).toFixed(2)}する`,
+        maxLevel: 999999,
+        cost: (level) => 1,
+        effect: (level) => level * 0.02,
+      },
       primordialMeat: {
         id: "primordialMeat",
         name: "根源的な肉",
         description: (level) =>
           `精肉工場の最終指数(ソフトキャップ後)に +${(level * 0.03).toFixed(2)} -> +${((level + 1) * 0.03).toFixed(2)}する`,
         maxLevel: 500,
-        cost: (level) => level + 1,
-        effect: (level) => level * 0.03,
+        cost: (level) => 1,
+        effect: (level) => level * 0.05,
       },
       /*考え中
     factoryLevelSynergy: {
@@ -56,33 +99,7 @@ export default {
       cost: (level) => level + 1,
       effect: (level) => level * 0.1,
     },
-    realityDiscount: {
-        id: "realityDiscount",
-        name: "現実改変割引",
-        description: (level) =>
-          `工場、アセンション、ギャラクシー(チップ)のコストを${((1 - Math.pow(0.97, level)) * 100).toFixed(2)}% -> ${((1 - Math.pow(0.97, level + 1)) * 100).toFixed(2)}%割引`,
-        maxLevel: Infinity,
-        cost: (level) => level + 1,
-        effect: (level) => 1 - Math.pow(0.98, level),
-      },
-    ipMultiplier: {
-        id: "ipMultiplier",
-        name: "時空を超える無限",
-        description: (level) =>
-          `最終IP獲得量が x${formatNumberDynamic(Math.pow(4, level))} -> x${formatNumberDynamic(Math.pow(4, level + 1))}倍になる`,
-        maxLevel: 500,
-        cost: (level) => level + 1,
-        effect: (level) => Math.pow(4, level),
-      },
-    generatorExponent: {
-        id: "generatorExponent",
-        name: "ジェネレーター最適化",
-        description: (level) =>
-          `GPによる工場強化の最終指数に +${(level * 0.02).toFixed(2)} -> +${((level + 1) * 0.02).toFixed(2)}する`,
-        maxLevel: Infinity,
-        cost: (level) => level + 1,
-        effect: (level) => level * 0.02,
-      },
+
     */
     },
   },
