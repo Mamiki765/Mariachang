@@ -2942,7 +2942,7 @@ export async function handleEternity(interaction, collector) {
           eternityCount: newEternityCount,
           eternityPoints: new Decimal(idleGame.eternityPoints || "0")
             .add(gainedEP_d)
-            .toString(), // とりあえずEPは+1
+            .toString(),
           epUpgrades: newEpUpgrades,
 
           // カラミティ（累計）データの更新
@@ -2955,11 +2955,13 @@ export async function handleEternity(interaction, collector) {
       // ポイントテーブルのチップもリセット
       await Point.update(
         {
-          legacy_pizza: 0,
+          legacy_pizza: 100,
         },
         { where: { userId }, transaction: t }
       );
     });
+
+    const formattedGainedEP = formatNumberDynamic_Decimal(gainedEP_d);
 
     // エンディングメッセージを送信
     let replyMessage;
@@ -2992,7 +2994,7 @@ export async function handleEternity(interaction, collector) {
 そして……
 
 
-**1 EP** と **1 Σ** を手に入れた。
+**${formattedGainedEP} EP** と **1 Σ** を手に入れた。
 所持しているニョボチップと今までの全てを失った。
 エタニティストーンが解禁された。`;
     } else {
@@ -3014,7 +3016,7 @@ export async function handleEternity(interaction, collector) {
 - **エタニティ最短記録 (現実時間):** ${bestRealTime}
 
 あなたは所持しているニョボチップと工場を捧げた。
-**1 EP** と **1 Σ** を手に入れた。`;
+**${formattedGainedEP} EP** と **1 Σ** を手に入れた。`;
     }
     await interaction.followUp({
       content: replyMessage,
@@ -3282,7 +3284,7 @@ async function executeChronoResetTransaction(userId) {
     // ポイント(チップ)もリセット
     // ※エタニティ同様、所持チップは捧げられる
     await Point.update(
-      { legacy_pizza: 0 },
+      { legacy_pizza: 100 },
       { where: { userId }, transaction: t }
     );
   });
