@@ -931,15 +931,21 @@ export async function handlePrestige(interaction, collector) {
       await confirmationInteraction.deferUpdate();
       const result = await executePrestigeTransaction(userId, client);
 
+     // 表示用にデータを整形
+      const messageData = {
+        population: formatNumberJapanese_Decimal(result.population_d),
+        tp: result.gainedTP.toFixed(2)
+      };
+
       // 結果に応じたストーリー付きの成功メッセージを送信
       if (result.type === "PP_SP") {
         await confirmationInteraction.editReply({
-          content: `●プレステージ\n# なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！\n凄まじい地響きと共に${formatNumberJapanese_Decimal(result.population_d)}匹のニョワミヤ達が押し寄せてきます！\n彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！\n狂った様にパイナップルピザを求めたニョワミヤ達によって、今までのピザ工場は藻屑のように吹き飛ばされてしまいました……\n-# そしてなぜか次の工場は強化されました。`,
+          content: config.idle.prestige.messages.normal(messageData), // ★呼び出し
           components: [],
         });
       } else if (result.type === "TP_ONLY") {
         await confirmationInteraction.editReply({
-          content: `●TPプレステージ\n# そうだ、サイドメニュー作ろう。\nあなた達は${formatNumberJapanese_Decimal(result.population_d)}匹のニョワミヤ達と一緒にサイドメニューを作ることにしました。\n美味しそうなポテトやナゲット、そして何故か天ぷらの数々が揚がっていきます・　・　・　・　・　・。\n-# 何故か終わる頃には工場は蜃気楼のように消えてしまっていました。\n${result.gainedTP.toFixed(2)}TPを手に入れました。`,
+          content: config.idle.prestige.messages.tpOnly(messageData), // ★呼び出し
           components: [],
         });
       }
@@ -2962,62 +2968,26 @@ export async function handleEternity(interaction, collector) {
     });
 
     const formattedGainedEP = formatNumberDynamic_Decimal(gainedEP_d);
+    // 表示用にデータをまとめる
+    const messageData = {
+      ep: formattedGainedEP,
+      sigma: "1", // あるいは計算したΣ
+      gameTime: formatInfinityTime(idleGame.eternityTime || 0),
+      realTime: formatInfinityTime(newEpUpgradesForMessage.durationInSeconds),
+      bestRealTime: formatInfinityTime(
+        newEpUpgradesForMessage.bestEternityRealTime
+      ),
+    };
 
     // エンディングメッセージを送信
     let replyMessage;
     if (isFirstEternity) {
-      // 【初回エタニティのメッセージ】
-      replyMessage = `# ●1.79e+308 IP  Eternity
-## ――あなたは。
-## この世界の終わりに辿り着いた。
-　1つのピザ窯から始まった壮大な拡大再生産は止まることを知らず。
-　最早数えるのも辞めたくなる様なニョワミヤが集まった星が幾つも連なり、惑星系を作り、それは……とても、とても大きな、銀河系となった。
-　そして、ああ、あれはあなたが最初に生み出した星だろうか。重力崩壊を起こし、中央に渦巻くブラックホールにあなたは吸い込まれ、どこまでも、どこまでも落ちていき……。
-　まるで永遠の様に感じられる時間の果てに、無限の闇の深淵から差し込んだ凄まじい光に目が眩んだ次の瞬間。
-　あなたはがらんどうとしたピザ工場に座り込んでいた。
-　眼の前には埃を被ったたった一つのピザ窯と、あなたを心配そうに見つめるニョワミヤが1匹だけ、そこにいた。
-
-## 『雨宿り ピザ工場』
-### 制作
-- あまみやりか
-### プログラマー
-- あまみやりか
-### ゲームデザイン
-- あまみやりか
-
-### スペシャルサンクス
-- ニョワミヤを産んだ桜海こも氏
-- プログラム補助に使われたGemeni、ChatGPT
-- このゲームの元になったRevolution Idle およびAntimatter Dimensions
-
-あなたは、今まできっと、長い夢を見ていたのだ。
-そして……
-
-
-**${formattedGainedEP} EP** と **1 Σ** を手に入れた。
-所持しているニョボチップと今までの全てを失った。
-エタニティストーンが解禁された。`;
+      // 設定ファイルから関数を呼び出す
+      replyMessage = config.idle.eternity.messages.firstEnding(messageData);
     } else {
-      // 【2回目以降のエタニティのメッセージ】
-      const gameTime = formatInfinityTime(idleGame.eternityTime || 0);
-      const realTime = formatInfinityTime(
-        newEpUpgradesForMessage.durationInSeconds
-      );
-      const bestRealTime = formatInfinityTime(
-        newEpUpgradesForMessage.bestEternityRealTime
-      );
-
-      replyMessage = `# ●Eternity
-## ――あなたは再び世界の終わりに辿り着いた。
-　そして、再びピザ窯は動き出した。
-
-- **今回のエタニティまでのゲーム内時間:** ${gameTime}
-- **今回のエタニティまでの現実時間:** ${realTime}
-- **エタニティ最短記録 (現実時間):** ${bestRealTime}
-
-あなたは所持しているニョボチップと工場を捧げた。
-**${formattedGainedEP} EP** と **1 Σ** を手に入れた。`;
+      replyMessage = config.idle.eternity.messages.normalEnding(messageData);
     }
+
     await interaction.followUp({
       content: replyMessage,
       ephemeral: true,
@@ -3108,7 +3078,8 @@ export async function handleChronoUpgradeReset(interaction, collector) {
 
   const settings = idleGame.settings || {};
   // ★設定キーを chronoreset に変更
-  const skipConfirmation = settings.skipConfirmations?.includes("chronoreset") || false;
+  const skipConfirmation =
+    settings.skipConfirmations?.includes("chronoreset") || false;
 
   if (skipConfirmation) {
     try {
@@ -3173,8 +3144,7 @@ export async function handleChronoUpgradeReset(interaction, collector) {
         content: `🔄 **クロノアップグレードをリセットしました！**\n現在 **${refundedCP} CP** を所持しています。\n世界は再構築されました。`,
         components: [],
       });
-      return false; 
-
+      return false;
     } catch (error) {
       await interaction.editReply({
         content: "タイムアウトしました。",
@@ -3191,7 +3161,7 @@ export async function handleChronoUpgradeReset(interaction, collector) {
  */
 async function executeChronoResetTransaction(userId) {
   let totalCP = 0;
-  
+
   await sequelize.transaction(async (t) => {
     const idleGame = await IdleGame.findOne({
       where: { userId },
@@ -3214,7 +3184,7 @@ async function executeChronoResetTransaction(userId) {
 
     // --- 2. エタニティ相当のリセット処理 ---
     // (handleEternityのロジックから、EP/Σ加算を除いたもの)
-    
+
     // Σ2, Σ5ボーナスのための準備
     const eternityCount = idleGame.eternityCount || 0;
     const newIpUpgrades = {
@@ -3230,7 +3200,8 @@ async function executeChronoResetTransaction(userId) {
     }
     const newChallenges = {};
     if (eternityCount >= 3 && idleGame.challenges?.bestInfinityRealTime) {
-      newChallenges.bestInfinityRealTime = idleGame.challenges.bestInfinityRealTime;
+      newChallenges.bestInfinityRealTime =
+        idleGame.challenges.bestInfinityRealTime;
     }
 
     // データを更新
