@@ -103,7 +103,7 @@ export async function handleSettings(interaction) {
         new StringSelectMenuBuilder()
           .setCustomId("skip_confirmations_select")
           .setPlaceholder("スキップしたい確認画面を選択...")
-          .setMaxValues(5) // 5つまで選択可能
+          .setMaxValues(6) // 6つまで選択可能
           .setRequired(false) //これがないと「何もスキップしない」設定ができない
           .addOptions(
             new StringSelectMenuOptionBuilder()
