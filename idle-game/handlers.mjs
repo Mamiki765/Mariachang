@@ -3239,6 +3239,105 @@ async function executeChronoResetTransaction(userId) {
   return totalCP;
 }
 
+/**
+ * 【新規】ストーリー回想（アカシックレコード）モーダルを表示・処理する
+ * @param {import("discord.js").ButtonInteraction} interaction
+ */
+export async function handleStoryReplay(interaction) {
+  // 1. モーダルを構築
+  const modal = new ModalBuilder()
+    .setCustomId("idle_story_modal")
+    .setTitle("📚️ ピザ工場の記憶 (回想)");
+
+  // 2. セレクトメニューを作成
+  modal.addLabelComponents(
+    new LabelBuilder()
+      .setLabel("再生する記憶")
+      .setDescription("観測したい過去の事象を選択してください。")
+      .setStringSelectMenuComponent(
+        new StringSelectMenuBuilder()
+          .setCustomId("story_select")
+          .setPlaceholder("記憶を選択...")
+          .setMaxValues(1)
+          .addOptions(
+            // プレステージ
+            { label: "プレステージ (通常)", value: "prestige_normal", description: "人口更新時のプレステージ", emoji: "🍍" },
+            { label: "プレステージ (TPのみ)", value: "prestige_tp", description: "TP返還時のプレステージ", emoji: "🍤" },
+            // インフィニティ
+            { label: "インフィニティ (初回)", value: "inf_first", description: "初めて星を作った時", emoji: "🌌" },
+            { label: "インフィニティ (通常)", value: "inf_normal", description: "2回目以降のインフィニティ", emoji: "🔄" },
+            { label: "インフィニティ (Break)", value: "inf_break", description: "ブレイクインフィニティ", emoji: "💥" },
+            // エタニティ
+            { label: "エタニティ (初回)", value: "eternity_first", description: "宇宙の終わりと始まり", emoji: "🌠" },
+            { label: "エタニティ (通常)", value: "eternity_normal", description: "繰り返される創世", emoji: "💤" }
+          )
+      )
+  );
+
+  // 3. モーダルを表示
+  await interaction.showModal(modal);
+
+  // 4. 送信を待機
+  const submitted = await interaction
+    .awaitModalSubmit({
+      time: 60_000,
+      filter: (i) => i.user.id === interaction.user.id && i.customId === "idle_story_modal",
+    })
+    .catch(() => null);
+
+  if (submitted) {
+    const selectedStory = submitted.fields.getStringSelectValues("story_select")[0];
+    
+    // 回想用のダミーデータ (実際の数値の代わりに表示するもの)
+    const dummyData = {
+      population: "---",
+      tp: "---",
+      ip: "---",
+      infinities: "---",
+      ep: "---",
+      sigma: "---",
+      gameTime: "---",
+      realTime: "---",
+      bestRealTime: "---"
+    };
+
+    let storyText = "";
+
+    // 選択肢に応じてテキストを取得
+    switch (selectedStory) {
+      case "prestige_normal":
+        storyText = config.idle.prestige.messages.normal(dummyData);
+        break;
+      case "prestige_tp":
+        storyText = config.idle.prestige.messages.tpOnly(dummyData);
+        break;
+      case "inf_first":
+        storyText = config.idle.infinityMessages.firstInfinity(dummyData);
+        break;
+      case "inf_normal":
+        storyText = config.idle.infinityMessages.normalInfinity(dummyData);
+        break;
+      case "inf_break":
+        storyText = config.idle.infinityMessages.breakInfinity(dummyData);
+        break;
+      case "eternity_first":
+        storyText = config.idle.eternity.messages.firstEnding(dummyData);
+        break;
+      case "eternity_normal":
+        storyText = config.idle.eternity.messages.normalEnding(dummyData);
+        break;
+      default:
+        storyText = "記憶が見つかりませんでした。";
+    }
+
+    // エフェメラルで表示
+    await submitted.reply({
+      content: `## 📚️ 記憶の再生\n\n${storyText}`,
+      ephemeral: true
+    });
+  }
+}
+
 //-------------------------
 //ここからは補助的なもの
 //--------------------------

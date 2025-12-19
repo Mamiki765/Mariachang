@@ -1975,7 +1975,12 @@ export function generateEternityButtons(uiData) {
       .setCustomId("idle_show_factory")
       .setLabel("工場画面に戻る")
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("🏭")
+      .setEmoji("🏭"),
+    new ButtonBuilder()
+      .setCustomId("idle_story_mode")
+      .setLabel("ストーリー回想")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("📖")
   );
   components.push(navigationRow);
   return components;

@@ -31,7 +31,8 @@ import {
   handleGravityUpgradePurchase,
   handleGainMaxCp,
   handleChronoUpgradePurchase,
-  handleChronoUpgradeReset
+  handleChronoUpgradeReset,
+  handleStoryReplay,
 } from "../../idle-game/handlers.mjs";
 //idlegame関数群
 import { getSingleUserUIData } from "../../idle-game/idle-game-calculator.mjs";
@@ -591,6 +592,9 @@ export async function execute(interaction) {
         await handleSettings(i);
         // handleSettingsはモーダルの表示と処理を自己完結で行うため、
         // この後のUI更新は不要。returnしてコレクターの処理を抜ける。
+        return;
+      } else if (i.customId === "idle_story_mode") {
+        await handleStoryReplay(i);
         return;
       }
       await i.deferUpdate();
