@@ -774,7 +774,7 @@ function generateFactoryButtons(uiData, isDisabled = false) {
   }
   if (ip_d.gte(eternityUnlockIP_d)) {
     const potentialEP_d = calculateGainedEP(idleGame);
-    const buttonLabel = `エターネート ${formatNumberDynamic_Decimal(potentialEP_d)} EP(全ての所持チップと工場を捧げる)`;
+    const buttonLabel = `エターネート ${formatNumberDynamic_Decimal(potentialEP_d)} EP`;
     infinityRow.addComponents(
       new ButtonBuilder()
         .setCustomId("idle_eternity")
