@@ -115,13 +115,17 @@ export async function handleSettings(interaction) {
               .setValue("reset")
               .setDefault(skippedConfirmations.has("reset")),
             new StringSelectMenuOptionBuilder()
-              .setLabel("インフィニティ")
+              .setLabel("インフィニット")
               .setValue("infinity")
               .setDefault(skippedConfirmations.has("infinity")),
             new StringSelectMenuOptionBuilder()
               .setLabel("チャレンジ")
               .setValue("challenge") // challengeという値を設定
               .setDefault(skippedConfirmations.has("challenge")),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("エターネート")
+              .setValue("eternity")
+              .setDefault(skippedConfirmations.has("eternity")),
             new StringSelectMenuOptionBuilder()
               .setLabel("CPリセット")
               .setValue("chronoreset")
@@ -931,10 +935,10 @@ export async function handlePrestige(interaction, collector) {
       await confirmationInteraction.deferUpdate();
       const result = await executePrestigeTransaction(userId, client);
 
-     // 表示用にデータを整形
+      // 表示用にデータを整形
       const messageData = {
         population: formatNumberJapanese_Decimal(result.population_d),
-        tp: result.gainedTP.toFixed(2)
+        tp: result.gainedTP.toFixed(2),
       };
 
       // 結果に応じたストーリー付きの成功メッセージを送信
@@ -1904,7 +1908,7 @@ async function postInfinityTasks(
   const messageData = {
     population: formatNumberJapanese_Decimal(infinityPopulation_d),
     ip: formatNumberDynamic_Decimal(gainedIP, 0), // または gainedIP.toString()
-    infinities: infinitiesGained.toLocaleString()
+    infinities: infinitiesGained.toLocaleString(),
   };
 
   // --- メインの成功メッセージ作成 ---
@@ -2778,208 +2782,270 @@ export async function handleGalaxyPurchase(interaction, purchaseType) {
 }
 
 /**
+ * 【新規】エタニティのDB更新処理を実行する内部関数
+ * @param {string} userId
+ * @param {import("discord.js").Client} client
+ * @returns {Promise<object>} 結果データ (メッセージ生成用)
+ */
+async function executeEternityTransaction(userId, client) {
+  const eternityTimestamp = new Date();
+  
+  // 結果を格納する変数
+  let resultData = {
+    isFirstEternity: false,
+    formattedGainedEP: "0",
+    gameTime: "",
+    realTime: "",
+    bestRealTime: "",
+    ep: "0",
+    sigma: "0"
+  };
+
+  await sequelize.transaction(async (t) => {
+    const idleGame = await IdleGame.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    const gainedEP_d = calculateGainedEP(idleGame);
+    resultData.formattedGainedEP = formatNumberDynamic_Decimal(gainedEP_d);
+
+    // 既存の統計情報を calamity に加算
+    const calamityTime = (idleGame.calamityTime || 0) + (idleGame.eternityTime || 0);
+    const calamityChips =
+      BigInt(idleGame.chipsSpentThisCalamity || "0") +
+      BigInt(idleGame.chipsSpentThisEternity || "0");
+
+    // 次のエタニティ回数
+    const newEternityCount = (idleGame.eternityCount || 0) + 1;
+    if (newEternityCount === 1) {
+      resultData.isFirstEternity = true;
+    }
+
+    // ipUpgrades初期化
+    const newIpUpgrades = {
+      generators: Array(8).fill({ amount: "0", bought: 0 }),
+      upgrades: [],
+    };
+    if (newEternityCount >= 2) {
+      newIpUpgrades.upgrades.push("IU11", "IU12", "IU44", "IU54");
+      newIpUpgrades.ghostChipLevel = 1;
+    }
+    if (newEternityCount >= 5) {
+      newIpUpgrades.ghostChipLevel = 999;
+    }
+
+    // チャレンジ初期化
+    const newChallenges = {};
+    if (newEternityCount >= 3 && idleGame.challenges?.bestInfinityRealTime) {
+      newChallenges.bestInfinityRealTime = idleGame.challenges.bestInfinityRealTime;
+    }
+
+    // epUpgrades (タイム記録) 更新
+    const newEpUpgrades = { ...(idleGame.epUpgrades || {}) };
+    let durationInSeconds;
+    
+    if (idleGame.epUpgrades?.lastEternityDate) {
+      const startTime = new Date(idleGame.epUpgrades.lastEternityDate);
+      durationInSeconds = (eternityTimestamp.getTime() - startTime.getTime()) / 1000;
+    } else {
+      durationInSeconds = 365 * 24 * 60 * 60;
+    }
+
+    const currentBestTime = newEpUpgrades.bestEternityRealTime || Infinity;
+    if (durationInSeconds < currentBestTime) {
+      newEpUpgrades.bestEternityRealTime = durationInSeconds;
+    }
+    newEpUpgrades.lastEternityDate = eternityTimestamp.toISOString();
+
+    // 実績#148 (24時間以内)
+    const SECONDS_IN_24H = 24 * 60 * 60;
+    if (durationInSeconds <= SECONDS_IN_24H) {
+      await unlockAchievements(client, userId, 148);
+    }
+
+    // DB更新
+    await idleGame.update(
+      {
+        population: "0",
+        highestPopulation: "0",
+        pizzaOvenLevel: 0,
+        cheeseFactoryLevel: 0,
+        tomatoFarmLevel: 0,
+        mushroomFarmLevel: 0,
+        anchovyFactoryLevel: 0,
+        oliveFarmLevel: 0,
+        wheatFarmLevel: 0,
+        pineappleFarmLevel: 0,
+        prestigeCount: 0,
+        prestigePower: 0,
+        skillPoints: 0,
+        transcendencePoints: 0,
+        skillLevel1: 0,
+        skillLevel2: 0,
+        skillLevel3: 0,
+        skillLevel4: 0,
+        skillLevel5: 0,
+        skillLevel6: 0,
+        skillLevel7: 0,
+        skillLevel8: 0,
+        ascensionCount: 0,
+        infinityTime: 0,
+        eternityTime: 0,
+        infinityPoints: "0",
+        infinityCount: 0,
+        generatorPower: "1",
+        ipUpgrades: newIpUpgrades,
+        chipsSpentThisInfinity: "0",
+        chipsSpentThisEternity: "0",
+        challenges: newChallenges,
+        buffMultiplier: 1.0,
+        buffExpiresAt: null,
+        pizzaBonusPercentage: 0,
+        lastUpdatedAt: new Date(),
+        // エタニティ更新
+        eternityCount: newEternityCount,
+        eternityPoints: new Decimal(idleGame.eternityPoints || "0").add(gainedEP_d).toString(),
+        epUpgrades: newEpUpgrades,
+        // カラミティ更新
+        calamityTime: calamityTime,
+        chipsSpentThisCalamity: calamityChips.toString(),
+      },
+      { transaction: t }
+    );
+
+    // チップリセット
+    await Point.update(
+      { legacy_pizza: 100 },
+      { where: { userId }, transaction: t }
+    );
+
+    // メッセージ用のデータを詰める
+    resultData.ep = resultData.formattedGainedEP;
+    resultData.sigma = "1";
+    resultData.gameTime = formatInfinityTime(idleGame.eternityTime || 0);
+    resultData.realTime = formatInfinityTime(durationInSeconds);
+    resultData.bestRealTime = formatInfinityTime(newEpUpgrades.bestEternityRealTime);
+  });
+
+  // 実績#139
+  await unlockAchievements(client, userId, 139);
+
+  return resultData;
+}
+
+/**
  * 【実装版】エタニティを実行し、ゲームを完全にリセットする
  * @param {import("discord.js").ButtonInteraction} interaction
  * @param {import("discord.js").InteractionCollector} collector
  */
 export async function handleEternity(interaction, collector) {
-  const eternityTimestamp = new Date();
   const userId = interaction.user.id;
   const client = interaction.client;
-  collector.stop(); // 他のボタン操作を無効化
 
-  try {
-    const idleGame = await IdleGame.findOne({ where: { userId } });
-    const ip_d = new Decimal(idleGame.infinityPoints);
-    const unlockIP_d = new Decimal(config.idle.eternity.unlockIP);
-    const gainedEP_d = calculateGainedEP(idleGame);
+  // 事前チェック (DB負荷軽減のためトランザクション前にチェック)
+  const idleGame = await IdleGame.findOne({ where: { userId } });
+  const ip_d = new Decimal(idleGame.infinityPoints);
+  const unlockIP_d = new Decimal(config.idle.eternity.unlockIP);
 
-    if (ip_d.lt(unlockIP_d)) {
+  if (ip_d.lt(unlockIP_d)) {
+    await interaction.followUp({
+      content: `エタニティには ${formatNumberDynamic_Decimal(unlockIP_d)} IP が必要です。`,
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  // 設定確認
+  const settings = idleGame.settings || {};
+  const skipConfirmation = settings.skipConfirmations?.includes("eternity") || false;
+
+  // --- メッセージ生成ヘルパー ---
+  const sendSuccessMessage = async (result, targetInteraction, isEditing) => {
+    let replyMessage;
+    if (result.isFirstEternity) {
+      replyMessage = config.idle.eternity.messages.firstEnding(result);
+    } else {
+      replyMessage = config.idle.eternity.messages.normalEnding(result);
+    }
+
+    const options = { content: replyMessage, components: [], flags: 64 }; // 自分だけに見える
+    if (isEditing) {
+      await targetInteraction.editReply(options);
+    } else {
+      await targetInteraction.followUp(options);
+    }
+  };
+
+  if (skipConfirmation) {
+    // --- 【A】 即時実行ルート ---
+    try {
+      const result = await executeEternityTransaction(userId, client);
+      await sendSuccessMessage(result, interaction, false);
+      return true;
+    } catch (error) {
+      console.error("Eternity (skip) Error:", error);
       await interaction.followUp({
-        content: `エタニティには ${formatNumberDynamic_Decimal(unlockIP_d)} IP が必要です。`,
+        content: "❌ エタニティの実行中にエラーが発生しました。",
         ephemeral: true,
       });
       return false;
     }
+  } else {
+    // --- 【B】 確認ルート ---
+    collector.stop();
 
-    let isFirstEternity = false;
-    let newEpUpgradesForMessage = {}; // メッセージ表示用のデータを格納
+    const confirmationRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("eternity_confirm_yes")
+        .setLabel("はい、世界をリセットします")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("eternity_confirm_no")
+        .setLabel("いいえ、まだここにいます")
+        .setStyle(ButtonStyle.Secondary)
+    );
 
-    // トランザクションでリセット処理を実行
-    await sequelize.transaction(async (t) => {
-      // 既存の統計情報を calamity に加算
-      const calamityTime =
-        (idleGame.calamityTime || 0) + (idleGame.eternityTime || 0);
-      const calamityChips =
-        BigInt(idleGame.chipsSpentThisCalamity || "0") +
-        BigInt(idleGame.chipsSpentThisEternity || "0");
+    const confirmationMessage = await interaction.followUp({
+      content:
+        "### ⚠️ **エターネートを実行しますか？**\n所持している全てのニョボチップ、工場、アップグレード、IP、∞などを失い、**EP** と **1 Σ** を獲得します。",
+      components: [confirmationRow],
+      flags: 64,
+      fetchReply: true,
+    });
 
-      // 1. 次のエタニティ回数を計算
-      const newEternityCount = (idleGame.eternityCount || 0) + 1;
-      if (newEternityCount === 1) {
-        isFirstEternity = true; //1回目ならメッセージ用フラグをON
+    try {
+      const confirmationInteraction =
+        await confirmationMessage.awaitMessageComponent({
+          filter: (i) => i.user.id === userId,
+          time: 60_000,
+        });
+
+      if (confirmationInteraction.customId === "eternity_confirm_no") {
+        await confirmationInteraction.update({
+          content: "エタニティをキャンセルしました。",
+          components: [],
+        });
+        return false;
       }
 
-      // 2. 更新後のipUpgradesオブジェクトを準備
-      const newIpUpgrades = {
-        generators: Array(8).fill({ amount: "0", bought: 0 }),
-        upgrades: [],
-      };
+      await confirmationInteraction.deferUpdate();
+      const result = await executeEternityTransaction(userId, client);
+      
+      // 結果表示
+      await sendSuccessMessage(result, confirmationInteraction, true);
+      return false; // コレクター停止済みなのでfalse
 
-      // Σ2達成ボーナス: 自動化アップグレードの初期取得
-      if (newEternityCount >= 2) {
-        newIpUpgrades.upgrades.push("IU11", "IU12", "IU44", "IU54");
-        newIpUpgrades.ghostChipLevel = 1; // ゴーストチップはLv1からスタート
-      }
-
-      // Σ5達成ボーナス: ゴーストチップLvのブースト
-      //   (Σ2のLv1設定を、より強力なLv999設定で「上書き」する形になります)
-      if (newEternityCount >= 5) {
-        newIpUpgrades.ghostChipLevel = 999;
-      }
-
-      //4. Σ3達成で新しいオブジェクトに最短インフィニティを受け継ぐ
-      const newChallenges = {}; // まず空のオブジェクトとして定義
-      if (newEternityCount >= 3 && idleGame.challenges?.bestInfinityRealTime) {
-        // Σ3達成済み、かつ記録が存在すれば、新しいオブジェクトに記録を引き継ぐ
-        newChallenges.bestInfinityRealTime =
-          idleGame.challenges.bestInfinityRealTime;
-      }
-
-      //5.更新後のepUpgradesオブジェクトを準備 (タイム記録)
-      // まず既存のデータを安全にコピー
-      const newEpUpgrades = { ...(idleGame.epUpgrades || {}) };
-
-      // a. 今回のエタニティにかかった時間を計算
-      let durationInSeconds;
-      if (idleGame.epUpgrades?.lastEternityDate) {
-        // 2回目以降のエタニティ(Σが2以上になる時): 前回の日時から計算
-        const startTime = new Date(idleGame.epUpgrades.lastEternityDate);
-        durationInSeconds =
-          (eternityTimestamp.getTime() - startTime.getTime()) / 1000;
+    } catch (error) {
+      if (error.code === 'InteractionCollectorError') {
+         await interaction.editReply({content: "タイムアウトしました。", components: []});
       } else {
-        // 初回のエタニティ(Σが1になる時): 記録がないため、365日として記録
-        durationInSeconds = 365 * 24 * 60 * 60; // 365 days in seconds
+         console.error("Eternity Error:", error);
+         await interaction.followUp({content: "❌ エラーが発生しました。", ephemeral: true});
       }
-
-      // b. 自己ベストを更新していれば記録
-      const currentBestTime = newEpUpgrades.bestEternityRealTime || Infinity;
-      if (durationInSeconds < currentBestTime) {
-        newEpUpgrades.bestEternityRealTime = durationInSeconds;
-      }
-
-      // c. 「前回のエタニティ日時」として今回のタイムスタンプを記録
-      newEpUpgrades.lastEternityDate = eternityTimestamp.toISOString();
-
-      // d.メッセージで使うために、計算結果を外側の変数にコピーしておく
-      newEpUpgradesForMessage = { ...newEpUpgrades, durationInSeconds };
-
-      // e. 24時間以内エタニティの実績#148をチェック
-      const SECONDS_IN_24H = 24 * 60 * 60;
-      if (durationInSeconds <= SECONDS_IN_24H) {
-        await unlockAchievements(client, userId, 148);
-      }
-
-      // IdleGameテーブルのデータをほぼ全て初期値に戻す
-      await IdleGame.update(
-        {
-          population: "0",
-          highestPopulation: "0",
-          pizzaOvenLevel: 0,
-          cheeseFactoryLevel: 0,
-          tomatoFarmLevel: 0,
-          mushroomFarmLevel: 0,
-          anchovyFactoryLevel: 0,
-          oliveFarmLevel: 0,
-          wheatFarmLevel: 0,
-          pineappleFarmLevel: 0,
-          prestigeCount: 0,
-          prestigePower: 0,
-          skillPoints: 0,
-          transcendencePoints: 0,
-          skillLevel1: 0,
-          skillLevel2: 0,
-          skillLevel3: 0,
-          skillLevel4: 0,
-          skillLevel5: 0,
-          skillLevel6: 0,
-          skillLevel7: 0,
-          skillLevel8: 0,
-          ascensionCount: 0,
-          infinityTime: 0,
-          eternityTime: 0, // Eternity内の時間はリセット
-          infinityPoints: "0",
-          infinityCount: 0,
-          generatorPower: "1",
-          ipUpgrades: newIpUpgrades,
-          chipsSpentThisInfinity: "0",
-          chipsSpentThisEternity: "0", // Eternity内の消費チップはリセット
-          challenges: newChallenges,
-          buffMultiplier: 1.0,
-          buffExpiresAt: null,
-          pizzaBonusPercentage: 0,
-          lastUpdatedAt: new Date(),
-
-          // エタニティ関連の更新
-          eternityCount: newEternityCount,
-          eternityPoints: new Decimal(idleGame.eternityPoints || "0")
-            .add(gainedEP_d)
-            .toString(),
-          epUpgrades: newEpUpgrades,
-
-          // カラミティ（累計）データの更新
-          calamityTime: calamityTime,
-          chipsSpentThisCalamity: calamityChips.toString(),
-        },
-        { where: { userId }, transaction: t }
-      );
-
-      // ポイントテーブルのチップもリセット
-      await Point.update(
-        {
-          legacy_pizza: 100,
-        },
-        { where: { userId }, transaction: t }
-      );
-    });
-
-    const formattedGainedEP = formatNumberDynamic_Decimal(gainedEP_d);
-    // 表示用にデータをまとめる
-    const messageData = {
-      ep: formattedGainedEP,
-      sigma: "1", // あるいは計算したΣ
-      gameTime: formatInfinityTime(idleGame.eternityTime || 0),
-      realTime: formatInfinityTime(newEpUpgradesForMessage.durationInSeconds),
-      bestRealTime: formatInfinityTime(
-        newEpUpgradesForMessage.bestEternityRealTime
-      ),
-    };
-
-    // エンディングメッセージを送信
-    let replyMessage;
-    if (isFirstEternity) {
-      // 設定ファイルから関数を呼び出す
-      replyMessage = config.idle.eternity.messages.firstEnding(messageData);
-    } else {
-      replyMessage = config.idle.eternity.messages.normalEnding(messageData);
+      return false;
     }
-
-    await interaction.followUp({
-      content: replyMessage,
-      ephemeral: true,
-    });
-
-    // 実績#139: きっと全ては夢だった
-    await unlockAchievements(client, userId, 139);
-
-    return true;
-  } catch (error) {
-    console.error("Eternity Error:", error);
-    await interaction.followUp({
-      content: "❌ エタニティの実行中にエラーが発生しました。",
-      ephemeral: true,
-    });
-    return false;
   }
 }
 
@@ -3261,15 +3327,50 @@ export async function handleStoryReplay(interaction) {
           .setMaxValues(1)
           .addOptions(
             // プレステージ
-            { label: "プレステージ (通常)", value: "prestige_normal", description: "人口更新時のプレステージ", emoji: "🍍" },
-            { label: "プレステージ (TPのみ)", value: "prestige_tp", description: "TP返還時のプレステージ", emoji: "🍤" },
+            {
+              label: "プレステージ (通常)",
+              value: "prestige_normal",
+              description: "人口更新時のプレステージ",
+              emoji: "🍍",
+            },
+            {
+              label: "プレステージ (TPのみ)",
+              value: "prestige_tp",
+              description: "TP返還時のプレステージ",
+              emoji: "🍤",
+            },
             // インフィニティ
-            { label: "インフィニティ (初回)", value: "inf_first", description: "初めて星を作った時", emoji: "🌌" },
-            { label: "インフィニティ (通常)", value: "inf_normal", description: "2回目以降のインフィニティ", emoji: "🔄" },
-            { label: "インフィニティ (Break)", value: "inf_break", description: "ブレイクインフィニティ", emoji: "💥" },
+            {
+              label: "インフィニティ (初回)",
+              value: "inf_first",
+              description: "初めて星を作った時",
+              emoji: "🌌",
+            },
+            {
+              label: "インフィニティ (通常)",
+              value: "inf_normal",
+              description: "2回目以降のインフィニティ",
+              emoji: "🔄",
+            },
+            {
+              label: "インフィニティ (Break)",
+              value: "inf_break",
+              description: "ブレイクインフィニティ",
+              emoji: "💥",
+            },
             // エタニティ
-            { label: "エタニティ (初回)", value: "eternity_first", description: "宇宙の終わりと始まり", emoji: "🌠" },
-            { label: "エタニティ (通常)", value: "eternity_normal", description: "繰り返される創世", emoji: "💤" }
+            {
+              label: "エタニティ (初回)",
+              value: "eternity_first",
+              description: "宇宙の終わりと始まり",
+              emoji: "🌠",
+            },
+            {
+              label: "エタニティ (通常)",
+              value: "eternity_normal",
+              description: "繰り返される創世",
+              emoji: "💤",
+            }
           )
       )
   );
@@ -3281,13 +3382,15 @@ export async function handleStoryReplay(interaction) {
   const submitted = await interaction
     .awaitModalSubmit({
       time: 60_000,
-      filter: (i) => i.user.id === interaction.user.id && i.customId === "idle_story_modal",
+      filter: (i) =>
+        i.user.id === interaction.user.id && i.customId === "idle_story_modal",
     })
     .catch(() => null);
 
   if (submitted) {
-    const selectedStory = submitted.fields.getStringSelectValues("story_select")[0];
-    
+    const selectedStory =
+      submitted.fields.getStringSelectValues("story_select")[0];
+
     // 回想用のダミーデータ (実際の数値の代わりに表示するもの)
     const dummyData = {
       population: "---",
@@ -3298,7 +3401,7 @@ export async function handleStoryReplay(interaction) {
       sigma: "---",
       gameTime: "---",
       realTime: "---",
-      bestRealTime: "---"
+      bestRealTime: "---",
     };
 
     let storyText = "";
@@ -3333,7 +3436,7 @@ export async function handleStoryReplay(interaction) {
     // エフェメラルで表示
     await submitted.reply({
       content: `## 📚️ 記憶の再生\n\n${storyText}`,
-      ephemeral: true
+      ephemeral: true,
     });
   }
 }
