@@ -1901,44 +1901,20 @@ async function postInfinityTasks(
   }
 
   // --- メインの成功メッセージ作成 ---
+  const messageData = {
+    population: formatNumberJapanese_Decimal(infinityPopulation_d),
+    ip: formatNumberDynamic_Decimal(gainedIP, 0), // または gainedIP.toString()
+    infinities: infinitiesGained.toLocaleString()
+  };
+
+  // --- メインの成功メッセージ作成 ---
   let successMessage;
   if (infinityPopulation_d.gt("1.8e+308")) {
-    successMessage = `# ●${formatNumberJapanese_Decimal(infinityPopulation_d)} Break Infinity
-## ――ニョワミヤはどこまで増えるのだろう。
-数え切れぬチップと時間を注ぎ込み、あなたはついに果てであるべき"無限"すら打ち倒した。
-どうやら、宇宙一美味しいピザを作るこの旅はまだまだ終わりそうに無いようだ。
-ならば、無限に広がるこの宇宙すら無限で埋め尽くしてしまおう。
-**${formatNumberDynamic_Decimal(gainedIP, 0)} IP** と **${infinitiesGained.toLocaleString()} ∞** を手に入れた。`;
+    successMessage = config.idle.infinityMessages.breakInfinity(messageData);
   } else if (isFirstInfinity) {
-    successMessage = `# ●1.79e+308 Infinity
-## ――あなたは果てにたどり着いた。
-終わりは意外とあっけないものだった。
-ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
-それは一塊に集まると、凄まじい光を放ち膨張し……そして新たな星が誕生した。
-## ニョワミヤは、青かった。
-……。
-おめでとう、あなたの努力はついに報われた。
-キミは満足しただろうか、或いは途方もない徒労感と緊張の糸が切れた感覚があるだろうか。
-いずれにせよ……ここが終点だ。さあ、君たちの星、君たちの世界の戦場に帰するときが来た。
-……君達が満足していなければ、あるいはまたここに戻ってくるのだろうか。
-
-あなたは全ての工場に関する能力を失った。
-しかし、あなたは強くなった。
-**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。
-ピザ生産ジェネレーターが解禁された。`;
+    successMessage = config.idle.infinityMessages.firstInfinity(messageData);
   } else {
-    successMessage = `# ●1.79e+308 Infinity
-## ――あなたは果てにたどり着いた。
-終わりは意外とあっけないものだった。
-ピザを求めてどこからか増え続けたニョワミヤ達はついに宇宙に存在する全ての分子よりも多く集まり、
-それは一塊に集まると、凄まじい光を放ち膨張し……そして新たな星が誕生した。
-## ニョワミヤは、青かった。
-……。
-たとえ一度見た光景であろうと、あなたの努力と活動は称賛されるべきである。
-然るべき達成感と褒章を得るべきで……え？　早くIPと∞よこせって？
-
-インフィニット（インフィニティリセット）を行った。
-**${gainedIP.toString()} IP** と **1 ∞** を手に入れた。`;
+    successMessage = config.idle.infinityMessages.normalInfinity(messageData);
   }
 
   // --- メッセージ送信 ---
