@@ -10,16 +10,20 @@ import { getSupabaseClient } from "./supabaseClient.mjs";
  */
 async function getCharacterDetail(characterId) {
   const url = "https://rev2.reversion.jp/graphql?opname=GetCharacterDetail";
+  
+  // cURLコマンドを参考にヘッダーを更新・追加
   const headers = {
     "content-type": "application/json",
     accept: "*/*",
-    // User-Agentを最新のcurlに合わせて更新
+    "accept-language": "ja", // 追加
+    origin: "https://rev2.reversion.jp", // 追加
+    referer: `https://rev2.reversion.jp/character/detail/${characterId}`,
+    // ユーザーエージェントはcURLのものと完全に一致させます
     "user-agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-    referer: `https://rev2.reversion.jp/character/detail/${characterId}`,
   };
 
-  // クエリ文字列を最新のものに更新
+  // ★★★ cURLコマンドのGraphQLクエリに完全に差し替え ★★★
   const data = {
     operationName: "GetCharacterDetail",
     variables: { character_id: characterId },
@@ -183,6 +187,7 @@ async function getCharacterDetail(characterId) {
         exp
         exp_to_next
         state
+        state_remain
         p
         m
         t
@@ -211,22 +216,7 @@ async function getCharacterDetail(characterId) {
           __typename
         }
         allows_two_weapon
-        items {
-          ...Rev2EquipmentItem
-          __typename
-        }
-        item_attachments {
-          ...Rev2EquipmentItem
-          __typename
-        }
-        display_items {
-          ...Rev2DisplayItem
-          __typename
-        }
-        sub_status {
-          ...Rev2SubStatus
-          __typename
-        }
+        ...EquipmentSectionCharacter
         build_tendency
         nexts {
           ...Rev2CharacterNext
@@ -246,7 +236,11 @@ async function getCharacterDetail(characterId) {
           __typename
         }
         location_fame_display_setting {
-          location_fame_id
+          settings {
+            location_fame_id
+            display_order
+            __typename
+          }
           __typename
         }
         communities {
@@ -400,13 +394,38 @@ async function getCharacterDetail(characterId) {
       fragment Rev2EquipmentActiveSkill on Rev2CharacterSpecField {
         ...Rev2EquipmentSkill
         active {
-          category
-          ap_cost
-          ticks
-          power
-          hit
-          critical
-          fumble
+          ...Rev2ActiveSkillSpecs
+          __typename
+        }
+        __typename
+      }
+
+      fragment Rev2ActiveSkillSpecs on Rev2ActiveSkillField {
+        category
+        ap_cost
+        ticks
+        power
+        hit
+        critical
+        fumble
+        __typename
+      }
+
+      fragment EquipmentSectionCharacter on Rev2CharacterDataDetail {
+        items {
+          ...Rev2EquipmentItem
+          __typename
+        }
+        item_attachments {
+          ...Rev2EquipmentItem
+          __typename
+        }
+        display_items {
+          ...Rev2DisplayItem
+          __typename
+        }
+        sub_status {
+          ...Rev2SubStatus
           __typename
         }
         __typename
@@ -467,6 +486,9 @@ async function getCharacterDetail(characterId) {
         is_marked
         is_collected
         transfer_type
+        use_type
+        use_param
+        use_param_info
         sender {
           ...Rev2CharacterTinyAndIcon
           __typename
@@ -695,9 +717,16 @@ async function getCharacterDetail(characterId) {
 
   try {
     const response = await axios.post(url, data, { headers });
-    return response.data.data;
+    // レスポンスの構造が変わっている可能性も考慮
+    if (response.data && response.data.data) {
+      return response.data.data;
+    } else {
+      // APIからエラーメッセージが返ってきた場合など
+      console.error("[エラー] APIからのレスポンス形式が不正です:", response.data);
+      return null;
+    }
   } catch (error) {
-    console.error(`[エラー] APIリクエストに失敗しました: ${error.message}`);
+    console.error(`[エラー] APIリクエストに失敗しました:`, error.response?.data || error.message);
     return null;
   }
 }
