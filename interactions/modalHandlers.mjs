@@ -451,7 +451,8 @@ async function handleRoleplayPostModal(interaction) {
     const rewardResult = await updatePoints(
       interaction.user.id,
       interaction.client,
-      slot
+      slot,
+      creditChoice
     );
     const deleteRequestButtonRow = createRpDeleteRequestButton(
       postedMessage.id,

@@ -445,7 +445,7 @@ export async function execute(interaction) {
         // タスク2: ユーザー設定（最後に使ったスロット）
         Point.findOne({
           where: { userId },
-          attributes: ["lastRoleplaySlot"], // 必要なカラムだけ指定すると更に高速
+          attributes: ["lastRoleplaySlot", "lastCreditChoice"], // 必要なカラムだけ指定すると更に高速
         }),
       ]);
       // 取得結果を展開
@@ -453,6 +453,8 @@ export async function execute(interaction) {
         existingCharacters.map((char) => [char.userId, char])
       );
       const lastUsedSlot = userPointData ? userPointData.lastRoleplaySlot : 0;
+      //取得した設定を変数に入れる（なければ'display'）
+      const lastCreditChoice = userPointData?.lastCreditChoice || "display";
 
       const slotOptions = [];
       // defaultFoundフラグを用意して、「最後に使ったキャラ」がいなくなっていた場合の保険をかける
@@ -491,7 +493,6 @@ export async function execute(interaction) {
           ephemeral: true,
         });
       }
-
 
       // --- 3. モーダルを構築 ---
       const modal = new ModalBuilder()
@@ -543,21 +544,20 @@ export async function execute(interaction) {
           )
       );
       modal.addLabelComponents(
-        new LabelBuilder()
-          .setLabel("権利表記")
-          .setStringSelectMenuComponent(
-            new StringSelectMenuBuilder()
-              .setCustomId("post-credit-select")
-              .addOptions(
-                new StringSelectMenuOptionBuilder()
-                  .setLabel("権利表記をする")
-                  .setValue("display")
-                  .setDefault(true),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel("権利表記をしない (非推奨)")
-                  .setValue("hide")
-              )
-          )
+        new LabelBuilder().setLabel("権利表記").setStringSelectMenuComponent(
+          new StringSelectMenuBuilder()
+            .setCustomId("post-credit-select")
+            .addOptions(
+              new StringSelectMenuOptionBuilder()
+                .setLabel("権利表記をする")
+                .setValue("display")
+                .setDefault(lastCreditChoice === "display"),
+              new StringSelectMenuOptionBuilder()
+                .setLabel("権利表記をしない (非推奨)")
+                .setValue("hide")
+                .setDefault(lastCreditChoice === "hide")
+            )
+        )
       );
 
       await interaction.showModal(modal);
@@ -871,30 +871,38 @@ function dataslot(id, slot) {
 }
 
 //発言するたびにポイント+1、最終発言キャラを更新
-export async function updatePoints(userId, client, currentSlot = null) {
+export async function updatePoints(
+  userId,
+  client,
+  currentSlot = null,
+  creditChoice = null
+) {
   try {
     const now = new Date();
     const cooldownSeconds = 60;
     const basePizzaAmount = 600;
     const [pointEntry, created] = await Point.findOrCreate({
       where: { userId: userId },
-      defaults: { point: 0, totalpoint: 0, lastRoleplaySlot: currentSlot ?? 0 },
+      defaults: {
+        point: 0,
+        totalpoint: 0,
+        lastRoleplaySlot: currentSlot ?? 0,
+        lastCreditChoice: creditChoice ?? "display",
+      },
     });
 
-    // 追加: スロット番号の更新 ▼▼▼
-    // スロット指定があり、かつ前回と違う場合のみ更新（無駄な書き込み防止）
-    // ※Sequelizeのupdateは変更がないとSQLを発行しないので、単に渡すだけでもOK
+    // ▼▼▼【変更点③】更新用データをオブジェクトにまとめる ▼▼▼
+    const updateData = {};
     if (currentSlot !== null) {
-      // pointEntry.updateは後続の処理で行われるので、
-      // ここではメモリ上のインスタンスの値を書き換えておき、後でまとめてsaveするか、
-      // あるいは個別にupdateするかですが、今回はincrement等の兼ね合いもあるので
-      // シンプルにここでupdateをかけてしまうのが安全です。
-
-      // ただし、incrementは数値を増やすメソッドなので、
-      // "その他のカラム"を同時に更新したい場合は、save()メソッドを使うか、
-      // 先にupdateしてからincrementするのが定石です。
-
-      await pointEntry.update({ lastRoleplaySlot: currentSlot });
+      updateData.lastRoleplaySlot = currentSlot;
+    }
+    if (creditChoice !== null) {
+      updateData.lastCreditChoice = creditChoice;
+    }
+    
+    // 更新すべきデータがある場合のみDBに書き込む
+    if (Object.keys(updateData).length > 0) {
+      await pointEntry.update(updateData);
     }
     //スロ番号更新ここまで
 

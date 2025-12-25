@@ -167,6 +167,10 @@ const Point = sequelize.define(
       defaultValue: 0, // 初回は0番
       allowNull: false,
     },
+    lastCreditChoice: {
+      type: DataTypes.STRING, // "display" or "hide" を保存
+      defaultValue: "display", // 安全のため、デフォルトは「表示する」
+    },
     //明示的に定義
     updatedAt: {
       type: DataTypes.DATE,
