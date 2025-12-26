@@ -1,0 +1,70 @@
+query OpeningList($input: Rev2ScenarioSearchInput!) {
+  rev2OpeningList(input: $input) {
+    ...ScenarioSummary
+    __typename
+  }
+  rev2ScenarioResources {
+    type
+    value
+    __typename
+  }
+  rev2ScenarioResourceMultipliers {
+    to
+    exp_ratio
+    cr_ratio
+    __typename
+  }
+}
+
+fragment ScenarioSummary on Rev2ScenarioSummary {
+  id
+  icon_url
+  source_name
+  title
+  catchphrase
+  creator {
+    id
+    penname
+    image_icon_url
+    type
+    __typename
+  }
+  state
+  type
+  is_light
+  time
+  time_type
+  discussion_days
+  current_chapter
+  difficulty
+  current_member_count
+  rally_member_count
+  max_member_count
+  action_type
+  can_use_ex_playing
+  can_use_ticket
+  can_support
+  max_reserver_count_by_player
+  join_conditions
+  reserve_category {
+    ...ScenarioReserveCategory
+    __typename
+  }
+  joining_type
+  join_cost
+  join_cost_type
+  my_priority
+  rally_playing_start
+  rally_playing_end
+  __typename
+}
+
+fragment ScenarioReserveCategory on Rev2ScenarioReserveCategory {
+  id
+  name
+  description
+  max_joinable
+  rp_penalty
+  penalty_start
+  __typename
+}

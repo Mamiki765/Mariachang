@@ -6,6 +6,18 @@ import { EmbedBuilder } from "discord.js";
 import config from "../config.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const atelierCardsQuery = fs.readFileSync(
+  path.join(__dirname, "graphql", "getAtelierCards.graphql"),
+  "utf8"
+);
+
 /**
  * ロスアカのアトリエカードを簡易チェックし、「予約期間中」のカードがあれば通知します。
  * この関数は、APIアクセスからメッセージ作成、送信までを一貫して行います。
@@ -73,9 +85,8 @@ export async function checkAtelierCards(client) {
       };
       const payload = {
         operationName: "GetOnSellingIllustExtraCardList",
-        variables: { page: 1 }, // 1ページ目だけを取得
-        query:
-          "query GetOnSellingIllustExtraCardList($page: Int, $penname: String, $product_size_ids: [ID!], $list_sort: String, $sort_key: Int, $include_unused: Boolean, $my_unused: Boolean) { rev2IllustExtraCardsOnSale(page: $page, penname: $penname, product_size_ids: $product_size_ids, list_sort: $list_sort, sort_key: $sort_key, include_unused: $include_unused, my_unused: $my_unused, first: 50) { paginatorInfo { total perPage __typename } data { ...ShopIllustExcardListItem __typename } __typename } } fragment ShopIllustExcardListItem on ReversionIllustExtraCard { id reserve_start sell_start sell_end_at total_price status_name is_reserved maximum_size { normal_image_url __typename } creator { id penname image_icon_url __typename } __typename }",
+        variables: { page: 1 },
+        query: atelierCardsQuery, // ← 長い文字列の代わりにこの変数を指定
       };
 
       const response = await axios.post(url, payload, {

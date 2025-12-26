@@ -78,7 +78,7 @@ export default {
   },
   timesignalch: isProduction ? "1025416223724404766" : debugConfig.channel, //8,22時報を流すチャンネル
   arenatimech: isProduction ? "1201103311428923452" : debugConfig.channel, //闘技大会時報チャンネル
-  rev2ch: "1103362273004769350", //ロスアカのシナリオ一覧を流すチャンネル（デバッグでは動かない）
+  rev2ch: isProduction ? "1103362273004769350" : debugConfig.channel, //ロスアカのシナリオ一覧を流すチャンネル（デバッグでは動かない）
   moderator: isProduction ? "1038083096618209301" : debugConfig.role, //モデレーターのロールID
   forumNotification: {
     //フォーラムスレッドがたった時に通知するスレッド

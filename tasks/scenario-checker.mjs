@@ -6,6 +6,18 @@ import config from "../config.mjs";
 // 250809【変更点】Sequelizeの代わりに、新しいSupabaseクライアントをインポート
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const openingListQuery = fs.readFileSync(
+  path.join(__dirname, "graphql", "getOpeningScenarios.graphql"),
+  "utf8"
+);
+
 // 通知を送るチャンネルIDを環境変数から取得
 const ANNOUNCE_CHANNEL_ID = config.rev2ch; // ここはconfig.mjsから取得するように変更
 
@@ -58,8 +70,7 @@ export async function checkNewScenarios(client) {
           allow_ex_playing: null,
         },
       },
-      query:
-        "query OpeningList($input: Rev2ScenarioSearchInput!) {\n  rev2OpeningList(input: $input) {\n    ...ScenarioSummary\n    __typename\n  }\n  rev2ScenarioResources {\n    type\n    value\n    __typename\n  }\n  rev2ScenarioResourceMultipliers {\n    to\n    exp_ratio\n    cr_ratio\n    __typename\n  }\n}\n\nfragment ScenarioSummary on Rev2ScenarioSummary {\n  id\n  icon_url\n  source_name\n  title\n  catchphrase\n  creator {\n    id\n    penname\n    image_icon_url\n    type\n    __typename\n  }\n  state\n  type\n  is_light\n  time\n  time_type\n  discussion_days\n  current_chapter\n  difficulty\n  current_member_count\n  rally_member_count\n  max_member_count\n  action_type\n  can_use_ex_playing\n  can_use_ticket\n  can_support\n  max_reserver_count_by_player\n  join_conditions\n  reserve_category {\n    ...ScenarioReserveCategory\n    __typename\n  }\n  joining_type\n  join_cost\n  join_cost_type\n  my_priority\n  rally_playing_start\n  rally_playing_end\n  __typename\n}\n\nfragment ScenarioReserveCategory on Rev2ScenarioReserveCategory {\n  id\n  name\n  description\n  max_joinable\n  rp_penalty\n  penalty_start\n  __typename\n}",
+      query: openingListQuery, // ← 長い文字列の代わりにこの変数を指定
     };
 
     // curlの -H に相当するヘッダー
