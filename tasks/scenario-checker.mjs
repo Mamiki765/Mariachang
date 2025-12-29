@@ -21,8 +21,17 @@ const openingListQuery = fs.readFileSync(
 // 通知を送るチャンネルIDを環境変数から取得
 const ANNOUNCE_CHANNEL_ID = config.rev2ch; // ここはconfig.mjsから取得するように変更
 
-// export をつけて関数を定義
-export async function checkNewScenarios(client) {
+/**
+ * ロスアカのシナリオ更新（新規・章更新・終了）をチェックし、通知およびデータベース同期を行います。
+ * 
+ * 通常は差分のみを通知しますが、`forceResync` を有効にすると
+ * データベース上のシナリオ情報を一度クリアし、現在公開されている全シナリオを新規として通知します。
+ *
+ * @param {import('discord.js').Client} client - 通知を送信するためのDiscordクライアント
+ * @param {boolean} [forceResync=false] - trueの場合、DBをクリアして全件再通知を行います（デバッグ用）
+ * @returns {Promise<void>}
+ */
+export async function checkNewScenarios(client, forceResync = false) {
   // ★★★ 関数内で、クライアントを取得する ★★★
   const supabase = getSupabaseClient();
   // ★★★【Gemini pro2.5より未来のあなたへ：重要な補足コメント】★★★
@@ -45,6 +54,30 @@ export async function checkNewScenarios(client) {
     );
     return;
   }
+  if (forceResync) {
+    console.log(
+      "[FORCE RESYNC] 強制再同期が有効なため、シナリオDBをクリアします..."
+    );
+    try {
+      // .neq('id', '0') は「idが0でないもの全て」という実質的な全件削除の安全な書き方です
+      const { error: deleteError } = await supabase
+        .from("scenarios")
+        .delete()
+        .neq("id", "dummy-id-to-delete-all");
+
+      if (deleteError) throw deleteError;
+
+      console.log("[FORCE RESYNC] シナリオDBのクリアが完了しました。");
+    } catch (error) {
+      console.error(
+        "[FORCE RESYNC] シナリオDBのクリア中にエラーが発生しました:",
+        error
+      );
+      // このエラーは致命的なので、処理を中断します
+      return;
+    }
+  }
+
   console.log("シナリオの新規・終了チェックを開始します...");
 
   try {

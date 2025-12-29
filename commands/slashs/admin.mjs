@@ -178,6 +178,15 @@ export const data = new SlashCommandBuilder()
       })
       .setDescription("シナリオの新規・終了チェックを強制的に実行します。")
   )
+  .addBooleanOption((option) =>
+    option
+      .setName("force_resync")
+      .setNameLocalizations({ ja: "強制再同期" })
+      .setDescription(
+        "DBをクリアし全シナリオを再通知/アトリエの時間制限を無視 (デバッグ用)"
+      )
+      .setRequired(false)
+  )
   //通貨配布
   .addSubcommand((subcommand) =>
     subcommand
@@ -195,7 +204,7 @@ export const data = new SlashCommandBuilder()
             { name: "RP", value: "point" },
             { name: "あまやどんぐり", value: "acorn" },
             { name: "ニョボチップ", value: "legacy_pizza" },
-             { name: "ニョボバンク", value: "nyobo_bank" } 
+            { name: "ニョボバンク", value: "nyobo_bank" }
           )
       )
       .addIntegerOption((option) =>
@@ -290,7 +299,8 @@ export async function execute(interaction) {
       await submitted.deferReply({ flags: 64 }); // Ephemeral
 
       // 入力値の取得 (ChannelSelectMenuの戻り値はCollection)
-      const selectedChannels = submitted.fields.getSelectedChannels("target_channel");
+      const selectedChannels =
+        submitted.fields.getSelectedChannels("target_channel");
       const contentRaw = submitted.fields.getTextInputValue("message_content");
 
       // チャンネル決定: 選択されていればそれ、なければ実行したチャンネル
@@ -716,14 +726,18 @@ export async function execute(interaction) {
       flags: 64, //ephemeral
     });
 
+    //オプションの値を取得し、関数に渡します ▼▼▼
+    // オプションが指定されていなければ false になります
+    const forceResync = interaction.options.getBoolean("force_resync") || false;
+
     // 別のファイルからインポートしたチェック関数を呼び出す
     // clientオブジェクトを渡すのを忘れずに！
     try {
-      await checkNewScenarios(interaction.client);
-      await checkAtelierCards(interaction.client); // エクストラカードのチェックも同時に実行
+      await checkNewScenarios(interaction.client, forceResync);
+      await checkAtelierCards(interaction.client, forceResync); // エクストラカードのチェックも同時に実行
       // 成功したことを伝える
       await interaction.followUp({
-        content: "✅ 手動チェックが完了しました。",
+        content: `✅ 手動チェックが完了しました。(強制再同期: ${forceResync ? "有効" : "無効"})`,
         flags: 64, //ephemeral
       });
     } catch (error) {

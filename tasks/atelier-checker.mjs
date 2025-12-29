@@ -19,56 +19,67 @@ const atelierCardsQuery = fs.readFileSync(
 );
 
 /**
- * ロスアカのアトリエカードを簡易チェックし、「予約期間中」のカードがあれば通知します。
- * この関数は、APIアクセスからメッセージ作成、送信までを一貫して行います。
- * @param {import('discord.js').Client} client Discordクライアント
+ * ロスアカのアトリエカード（エクストラカード）をチェックし、「予約期間中」のものがあれば通知します。
+ * 
+ * 通常は「1日1回（朝8:05以降）」という制限の元で実行されますが、
+ * `forceCheck` を有効にすると、その時間制限を無視して即座にAPIチェックを行います。
+ *
+ * @param {import('discord.js').Client} client - 通知を送信するためのDiscordクライアント
+ * @param {boolean} [forceCheck=false] - trueの場合、前回の実行時刻チェックをスキップします（デバッグ用）
+ * @returns {Promise<void>}
  */
-export async function checkAtelierCards(client) {
+export async function checkAtelierCards(client, forceCheck = false) {
   const supabase = getSupabaseClient();
   try {
     // ★ 全体をtry...catchで囲むと、より安全になります
+    if (!forceCheck) {
+      // --- 1. 最終チェック時刻を取得し、実行するか判断する ---
+      const { data: taskLog, error: logError } = await supabase
+        .from("task_logs")
+        .select("last_successful_run")
+        .eq("task_name", "atelier-checker") // ★ "atelier-checker" という新しい名前で記録
+        .single();
 
-    // --- 1. 最終チェック時刻を取得し、実行するか判断する ---
-    const { data: taskLog, error: logError } = await supabase
-      .from("task_logs")
-      .select("last_successful_run")
-      .eq("task_name", "atelier-checker") // ★ "atelier-checker" という新しい名前で記録
-      .single();
+      if (logError && logError.code !== "PGRST116") {
+        // 'PGRST116'は「行が見つからない」エラーなので、初回実行時は無視
+        throw logError;
+      }
 
-    if (logError && logError.code !== "PGRST116") {
-      // 'PGRST116'は「行が見つからない」エラーなので、初回実行時は無視
-      throw logError;
-    }
+      const lastRun = taskLog
+        ? new Date(taskLog.last_successful_run)
+        : new Date(0); // 前回実行時刻
+      const now = new Date(); // 今回の実行時刻
 
-    const lastRun = taskLog
-      ? new Date(taskLog.last_successful_run)
-      : new Date(0); // 前回実行時刻
-    const now = new Date(); // 今回の実行時刻
-
-    // 1. 「今日のロスアカの始まり」である「朝8時」を定義します。
-    let lossAcadiaTodayStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      8,
-      5, //ロスアカ側のサーバーの処理時間を考慮し、8:05に設定
-      0
-    );
-
-    // 2. もし、今の時刻が朝8時5分より前（例: 7:59）なら、
-    //    「今日のロスアカ」はまだ始まっていないので、判定基準となる「壁」は「昨日の朝8時」になります。
-    if (now < lossAcadiaTodayStart) {
-      lossAcadiaTodayStart.setDate(lossAcadiaTodayStart.getDate() - 1);
-    }
-
-    // 3. 【判定】前回の実行時刻が、この「今日のロスアカの始まり」よりも後であれば、
-    //    それは「今日のチェックは、もう誰かが済ませた」ということなので、処理を終了します。
-    if (lastRun > lossAcadiaTodayStart) {
-      console.log(
-        `[rev2エクストラカード] 本日（エクストラカード更新 ${lossAcadiaTodayStart.toLocaleDateString("ja-JP")} 8:05以降）のチェックは既に完了済みのため、スキップします。`
+      // 1. 「今日のロスアカの始まり」である「朝8時」を定義します。
+      let lossAcadiaTodayStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        8,
+        5, //ロスアカ側のサーバーの処理時間を考慮し、8:05に設定
+        0
       );
-      return;
+
+      // 2. もし、今の時刻が朝8時5分より前（例: 7:59）なら、
+      //    「今日のロスアカ」はまだ始まっていないので、判定基準となる「壁」は「昨日の朝8時」になります。
+      if (now < lossAcadiaTodayStart) {
+        lossAcadiaTodayStart.setDate(lossAcadiaTodayStart.getDate() - 1);
+      }
+
+      // 3. 【判定】前回の実行時刻が、この「今日のロスアカの始まり」よりも後であれば、
+      //    それは「今日のチェックは、もう誰かが済ませた」ということなので、処理を終了します。
+      if (lastRun > lossAcadiaTodayStart) {
+        console.log(
+          `[rev2エクストラカード] 本日（エクストラカード更新 ${lossAcadiaTodayStart.toLocaleDateString("ja-JP")} 8:05以降）のチェックは既に完了済みのため、スキップします。`
+        );
+        return;
+      }
+    } else {
+      console.log(
+        "[FORCE CHECK] 強制チェックが有効なため、アトリエカードの時間制限を無視します。"
+      );
     }
+
     console.log("[rev2エクストラカード]簡易チェックを開始します...");
 
     // --- 1. APIから1ページ目のカード情報を取得 ---

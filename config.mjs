@@ -157,6 +157,7 @@ export default {
       HARD: "<:Hard:1403581355534717019>",
       VERYHARD: "<:VeryHard:1403581830661406862>",
       NIGHTMARE: "<:Nightmare:1403581930426859522>",
+      リクエスト: "👍️",
       DEFAULT: "📖", // デフォルトの絵文字
     },
   },
