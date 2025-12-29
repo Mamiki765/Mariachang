@@ -177,15 +177,16 @@ export const data = new SlashCommandBuilder()
         ja: "シナリオ手動チェック",
       })
       .setDescription("シナリオの新規・終了チェックを強制的に実行します。")
-  )
-  .addBooleanOption((option) =>
-    option
-      .setName("force_resync")
-      .setNameLocalizations({ ja: "強制再同期" })
-      .setDescription(
-        "DBをクリアし全シナリオを再通知/アトリエの時間制限を無視 (デバッグ用)"
+      // ▼▼▼ この中でオプションを追加します ▼▼▼
+      .addBooleanOption((option) =>
+        option
+          .setName("force_resync")
+          .setNameLocalizations({ ja: "強制再同期" })
+          .setDescription(
+            "DBをクリアし全シナリオを再通知/アトリエの時間制限を無視 (デバッグ用)"
+          )
+          .setRequired(false)
       )
-      .setRequired(false)
   )
   //通貨配布
   .addSubcommand((subcommand) =>
