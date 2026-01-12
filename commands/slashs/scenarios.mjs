@@ -176,12 +176,20 @@ export async function execute(interaction) {
         // DBには rally_member_count カラムが追加されている前提
         memberText = `${s.current_members}/${s.rally_member_count || 0}人`;
 
-        // プレイング期間を整形して追加
-        // DBには rally_playing_start と rally_playing_end カラムが追加されている前提
+       // プレイング期間を整形して追加
         const formatDateTime = (isoString) => {
           if (!isoString) return "未設定";
           const date = new Date(isoString);
-          return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+          
+          // タイムゾーンを 'Asia/Tokyo' に強制指定して文字列化します
+          return date.toLocaleString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
         };
         playingPeriodText = `-# > **プレイング期間:** ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
       } else {

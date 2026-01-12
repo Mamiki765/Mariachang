@@ -184,6 +184,12 @@ export default async (message) => {
       content:
         "https://cdn.discordapp.com/attachments/1261485824378142760/1272199248297070632/megamoji_4.gif?ex=66ba1b61&is=66b8c9e1&hm=981808c1aa6e48d88ec48712ca268fc5b772fba5440454f144075267e84e7edf&",
     });
+    } else if (message.content.match(/^(紫崎 天子|紫崎天子|しざきてんし)$/)) {
+    await message.reply({
+      flags: [4096], //@silentになる
+      content:
+        "https://rev2.reversion.jp/character/detail/r2p001137",
+    });
   } else if (message.content.match(/^(ゆ.さや)$/)) {
     await message.reply({
       flags: [4096], //@silentになる
@@ -195,6 +201,13 @@ export default async (message) => {
       flags: [4096], //@silentになる
       content:
         "これはそう、全て終わり\nオールノービス **2.9%**\nオールノービスorカースド **3.64%**(AFまで実装時)",
+    });
+  } else if (message.content.match(/^(地図)$/)) {
+    await message.channel.send({
+      flags: [4096], //@silentになる
+      content:
+        `https://cdn.discordapp.com/attachments/1094295984600793190/1458437600388972638/IMG_9466.png?ex=69663adc&is=6964e95c&hm=846b110453f4fed0629606dbae5f6401d75f0b6d7c2b59b35c48218b48e2ceed&
+         https://cdn.discordapp.com/attachments/1094295984600793190/1458437601005539429/image1.jpg?ex=69663adc&is=6964e95c&hm=b228d7dddc7ade0eab7be3d90bacc0f4d17c25295d7f7ca49881d0f15e868471&`,
     });
   }
 

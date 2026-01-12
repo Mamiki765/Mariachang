@@ -553,7 +553,7 @@ export async function execute(interaction) {
                 .setValue("display")
                 .setDefault(lastCreditChoice === "display"),
               new StringSelectMenuOptionBuilder()
-                .setLabel("権利表記をしない (非推奨)")
+                .setLabel("権利表記をしない")
                 .setValue("hide")
                 .setDefault(lastCreditChoice === "hide")
             )
