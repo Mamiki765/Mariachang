@@ -79,6 +79,12 @@ export const chatHelpData = [
   },
   {
     category: "chat",
+    name: "地図見せて",
+    description: "地図　と書き込めばマリアがロスアカの地図を教えてくれます",
+    notes: "日本地図と世界地図の両方が貼られます",
+  },
+  {
+    category: "chat",
     name: "ドミノ機能",
     description:
       "ドミノ、どみどみ、などを入力すると1d100枚のドミノを並べます。ただし100を出してしまうと…",
