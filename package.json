@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "4.26.0",
+  "version": "4.26.1",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -17,16 +17,16 @@
     "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json,project-structure.txt\" -l 3 -o project-structure.txt"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.89.0",
+    "@supabase/supabase-js": "^2.91.0",
     "axios": "^1.13.2",
     "break_infinity.js": "^2.2.0",
-    "cron-parser": "^5.4.0",
+    "cron-parser": "^5.5.0",
     "discord.js": "^14.25.1",
     "express": "^5.2.1",
     "image-size": "^2.0.2",
     "mee6-levels-api": "^1.3.1",
     "node-cron": "^4.2.1",
-    "pg": "^8.16.3",
+    "pg": "^8.17.1",
     "rss-parser": "^3.13.0",
     "sequelize": "^6.37.7",
     "simple-git": "^3.30.0"
@@ -52,7 +52,7 @@
   "devDependencies": {
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.0",
     "tree-cli": "^0.6.7"
   }
 }
