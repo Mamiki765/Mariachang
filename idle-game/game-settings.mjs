@@ -49,7 +49,7 @@ export default {
 然るべき達成感と褒章を得るべきで……え？　早くIPと∞よこせって？
 
 インフィニット（インフィニティリセット）を行った。
-**${data.ip} IP** と **${data.infinities} ∞** を手に入れた。`
+**${data.ip} IP** と **${data.infinities} ∞** を手に入れた。`,
   },
   eternity: {
     unlockIP: "1.79769e308", // エタニティ実行に必要なIP
@@ -78,7 +78,19 @@ export default {
         count: 10,
         description: "エタニティブレイク(IPの上限解除)",
       },
-      //{ count: 100, description: "IPボーナス" },
+      {
+        count: 12,
+        description:
+          "インフィニティチャレンジの自動クリア(IC9は最短∞時間を適用)",
+      },
+      {
+        count: 32,
+        description: "エタニティ直後、1億チップを所持してスタート",
+      },
+      {
+        count: 100,
+        description: "IPボーナス x1.05(Sc 1000Σ)",
+      },
     ],
     chronoUpgrades: {
       ipMultiplier: {
@@ -295,9 +307,7 @@ export default {
     spBaseDeduction: 7, // 初回SP計算時の基礎控除値
     messages: {
       // 通常のプレステージ (PP/SP獲得)
-      normal: (
-        data
-      ) => `●プレステージ
+      normal: (data) => `●プレステージ
 # なんと言うことでしょう！あなたはパイナップル工場を稼働してしまいました！
 凄まじい地響きと共に${data.population}匹のニョワミヤ達が押し寄せてきます！
 彼女（？）たちは怒っているのでしょうか……いえ、違います！ 逆です！ 彼女たちはパイナップルの乗ったピザが大好きなのでした！

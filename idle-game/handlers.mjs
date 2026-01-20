@@ -2842,6 +2842,21 @@ async function executeEternityTransaction(userId, client) {
       newChallenges.bestInfinityRealTime = idleGame.challenges.bestInfinityRealTime;
     }
 
+    //マイルストーン12
+    if (newEternityCount >= 12) {
+      // 1. configから全てのICのIDを取得 (将来IC10が増えても自動対応できるように)
+      const allChallengeIds = config.idle.infinityChallenges.map(c => c.id);
+      newChallenges.completedChallenges = allChallengeIds;
+
+      // 2. IC9の記録を最短Infinity時間に同期
+      // bestInfinityRealTimeが無い場合(初回など)は、念のため60秒を入れておく安全策をとる
+      const bestTime = newChallenges.bestInfinityRealTime || 60;
+      
+      newChallenges.IC9 = {
+        bestTime: bestTime
+      };
+    }
+
     // epUpgrades (タイム記録) 更新
     const newEpUpgrades = { ...(idleGame.epUpgrades || {}) };
     let durationInSeconds;
@@ -2916,8 +2931,9 @@ async function executeEternityTransaction(userId, client) {
     );
 
     // チップリセット
+    const startingChips = newEternityCount >= 32 ? 100_000_000 : 100;
     await Point.update(
-      { legacy_pizza: 100 },
+      { legacy_pizza: startingChips },
       { where: { userId }, transaction: t }
     );
 

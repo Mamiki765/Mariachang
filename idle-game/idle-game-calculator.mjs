@@ -1227,6 +1227,13 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
     baseIP = baseIP.times(multiplier);
   }
 
+  //追加: エタニティボーナス(IP)を適用
+  // 常に計算されていますが、Σ100未満なら1倍なので影響ありません
+  const eternityBonuses = calculateEternityBonuses(eternityCount);
+  if (eternityBonuses.ip > 1) {
+    baseIP = baseIP.times(eternityBonuses.ip);
+  }
+
   // CPアップグレード: IP Multiplier
   const ipMultLevel = idleGame.epUpgrades?.chronoUpgrades?.ipMultiplier || 0;
   if (ipMultLevel > 0) {
@@ -1966,6 +1973,7 @@ export function calculateEternityBonuses(eternityCount = 0) {
     infinity: 1.0,
     gp: 1.0,
     gravity: 1.0, // 将来のグラビティボーナス用
+     ip: 1.0,
   };
 
   if (Σ === 0) return bonuses;
@@ -1997,6 +2005,20 @@ export function calculateEternityBonuses(eternityCount = 0) {
 
   //Σグラビティ
   bonuses.gravity = Σ < 10 ? Math.pow(10, Σ) : Math.pow(Σ, 10);
+
+  //IP
+  // Σ100未満では効果なし
+  if (Σ >= 100) {
+    if (Σ < 1000) {
+      // 1000未満: 1.05^Σ
+      bonuses.ip = Math.pow(1.05, Σ);
+    } else {
+      // 1000以上: ソフトキャップ適用
+      // 1.05 ^ ((Σ / 1000)^0.1 * 1000)
+      const exponent = Math.pow(Σ / 1000, 0.1) * 1000;
+      bonuses.ip = Math.pow(1.05, exponent);
+    }
+  }
 
   return bonuses;
 }

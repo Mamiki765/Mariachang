@@ -1862,7 +1862,7 @@ function generateEternityEmbed(uiData) {
     // ここに各ボーナスの現在値を表示するロジックを追加します
     // （次のステップで作成する計算関数を呼び出す想定）
     const bonuses = calculateEternityBonuses(eternityCount);
-    const bonusText = `
+    let bonusText = `
 - **Σ工場倍率:** x${formatNumberDynamic(bonuses.factory, 2)}
 - **Σチップ獲得量:** x${formatNumberDynamic(bonuses.chips, 2)}
 - **Σアセンションパワー:** x${formatNumberDynamic(bonuses.ascension, 3)}
@@ -1870,6 +1870,9 @@ function generateEternityEmbed(uiData) {
 - **Σジェネレーターパワー:** x${formatNumberDynamic(bonuses.gp, 2)}
 - **Σグラビティ獲得量:** x${formatNumberDynamic(bonuses.gravity, 2)}
 `;
+    if (eternityCount >= 100) {
+      bonusText += `- **ΣIP獲得量:** x${formatNumberDynamic(bonuses.ip, 2)}`;
+    }
     embed.addFields({ name: "🌠 現在のエタニティボーナス", value: bonusText });
   }
 
