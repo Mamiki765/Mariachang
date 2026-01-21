@@ -20,7 +20,7 @@ const atelierCardsQuery = fs.readFileSync(
 
 /**
  * ロスアカのアトリエカード（エクストラカード）をチェックし、「予約期間中」のものがあれば通知します。
- * 
+ *
  * 通常は「1日1回（朝8:05以降）」という制限の元で実行されますが、
  * `forceCheck` を有効にすると、その時間制限を無視して即座にAPIチェックを行います。
  *
@@ -138,49 +138,63 @@ export async function checkAtelierCards(client, forceCheck = false) {
       `[rev2エクストラカード] 状況: 予約期間中(${reservedCount}件), 販売中(${onSaleCount}件)`
     );
 
-    // 予約中のカードが1枚もなければ、通知する必要はないので、ここで終了します。
-    if (reservedCount === 0) {
-      // 0枚でもログを残してから終了する
-      await supabase.from("task_logs").upsert({
-        task_name: "atelier-checker",
-        last_successful_run: new Date().toISOString(),
-      });
-      console.log(
-        "[rev2エクストラカード]現在、予約期間中のアトリエカードはありませんでした。"
+    // --- 3. 通知メッセージと埋め込み(Embed)の作成 ---
+
+    // ★ここで「チャンネル取得」を先に行います（0件でも通知するため）
+    let channel;
+    try {
+      channel = await client.channels.fetch(config.rev2ch);
+    } catch (error) {
+      console.error(
+        "[rev2エクストラカード] チャンネルの取得に失敗しました:",
+        error
       );
       return;
     }
 
-    // --- 3. 通知メッセージを作成 ---
-    let message = `**${reservedCount}枚**のエクストラカードが登録されたようですにゃ！`;
+    const embed = new EmbedBuilder()
+      .setURL("https://rev2.reversion.jp/shop/illust/excard/search")
+      .setTimestamp()
+      .setFooter({
+        text: "権利上画像取得やログ保存はしてないのでご了承くださいにゃ。",
+      });
 
-    // 【あなたの名案】もし取得した50件すべてが予約中なら、もっと多い可能性があることを示唆する。
-    if (cards.length === 50 && reservedCount === 50) {
-      message = `**50枚以上**のエクストラカードが登録されたようですにゃ！！！`;
+    // ★ 件数によって色とメッセージを分岐させます
+    if (reservedCount === 0) {
+      // 0件の場合：落ち着いた色（グレーや青）で報告
+      embed
+        .setColor("Grey")
+        .setTitle("🎨本日のEXカード")
+        .setDescription("本日の新着アトリエカードはありませんでしたにゃ。");
+    } else {
+      // 1件以上の場合：目立つ色（Fuchsia）で報告
+      let message = `**${reservedCount}枚**のエクストラカードが登録されたようですにゃ！`;
+
+      if (cards.length === 50 && reservedCount === 50) {
+        message = `**50枚以上**のエクストラカードが登録されたようですにゃ！！！`;
+      }
+
+      embed
+        .setColor("Fuchsia")
+        .setTitle("🎨本日のEXカード")
+        .setDescription(message);
     }
 
     // --- 4. Discordに通知を送信 ---
     // このtry...catchブロックは、Discordへの通知が失敗してもBot全体が落ちないようにします。
     try {
-      const channel = await client.channels.fetch(config.rev2ch); // config.mjsに通知先チャンネルIDを追加してください
-
-      const embed = new EmbedBuilder()
-        .setColor("Fuchsia") // 予約期間中なので、華やかな色に
-        .setTitle("🎨本日のEXカード")
-        .setDescription(message)
-        .setURL("https://rev2.reversion.jp/shop/illust/excard/search")
-        .setTimestamp()
-        .setFooter({
-          text: "権利上画像取得やログ保存はしてないのでご了承くださいにゃ。",
-        });
-
+      // ここで再定義せず、上で作った channel と embed をそのまま使います
       await channel.send({ embeds: [embed] });
-      console.log(`[rev2エクストラカード]予約情報を通知しました: ${message}`);
+      console.log(
+        `[rev2エクストラカード]通知を送信しました。件数: ${reservedCount}`
+      );
     } catch (error) {
       console.error(
         "[rev2エクストラカード]通知送信中にエラーが発生しました:",
         error
       );
+      // 通知に失敗しても、DBログは更新しないほうがいいかもしれません（再試行させるため）
+      // ですが、無限ループ防止の観点から記録してしまうのも手です。今回は記録する方針のままにします。
     }
     await supabase.from("task_logs").upsert({
       task_name: "atelier-checker", // このタスクの名前で
