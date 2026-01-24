@@ -17,7 +17,7 @@
     "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json,project-structure.txt\" -l 3 -o project-structure.txt"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.91.0",
+    "@supabase/supabase-js": "^2.91.1",
     "axios": "^1.13.2",
     "break_infinity.js": "^2.2.0",
     "cron-parser": "^5.5.0",

@@ -17,6 +17,10 @@ import {
   calculateRewards,
 } from "../utils/loginBonusSystem.mjs";
 
+const allowedGuildIds = (process.env.GUILD_IDS || "")
+  .split(",")
+  .map(id => id.trim());
+
 /**
  * 定期的にピザを配布するタスクを開始する
  * @param {import("discord.js").Client} client - DM送信に必要
