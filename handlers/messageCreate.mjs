@@ -21,8 +21,8 @@ import {
   getCharacterSummaryCompact,
 } from "../utils/characterApi.mjs";
 // 250904発言によるピザ(チップ)トークン獲得
-const activeUsersForPizza = new Set();
-export { activeUsersForPizza }; // 他のモジュールで使用するためにエクスポート
+const activeUsersForPizza = new Map(); // Key: userId, Value: memberオブジェクト
+export { activeUsersForPizza };
 import {
   unlockHiddenAchievements,
   updateAchievementProgress,
@@ -46,8 +46,8 @@ const rev2urlPatterns = {
 };
 
 export default async (message) => {
-  // 250904ピザ(チップ)トークンのために、発言者を記録
-  activeUsersForPizza.add(message.author.id);
+  // DMなどの場合は member が取れないので null になることを許容
+  activeUsersForPizza.set(message.author.id, message.member || null); 
   //定義系
   //ロスアカステシ詳細表示用正規表現
   const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!(\d+)?$/);

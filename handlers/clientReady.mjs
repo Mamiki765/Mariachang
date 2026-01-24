@@ -21,6 +21,7 @@ import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import { readFileSync } from "node:fs";
 //RSSチェッカー
 import { initializeRssWatcher } from "../tasks/rss-watcher.mjs";
+import { resetLoginBonusCache } from "../utils/loginBonusSystem.mjs";
 // package.json を同期で読み込む (起動時のみ)
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8")
@@ -45,6 +46,7 @@ export default async (client) => {
         content: `朝の8時をお知らせしますにゃ[。](${morningImageUrl})`,
         components: [acornLoginButton],
       });
+      resetLoginBonusCache();
       /*SUPABASEに移行したのでコメントアウト　
     sendDatabaseBackup(client).catch((error) => {
       console.error("バックアップの送信に失敗しました:", error);

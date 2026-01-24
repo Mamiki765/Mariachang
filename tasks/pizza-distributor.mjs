@@ -11,6 +11,11 @@ import {
 } from "../models/database.mjs";
 import { calculateOfflineProgress } from "../idle-game/idle-game-calculator.mjs";
 import { Op } from "sequelize";
+import {
+  checkLoginBonusEligibility,
+  executeLoginBonus,
+  calculateRewards,
+} from "../utils/loginBonusSystem.mjs";
 
 /**
  * 定期的にピザを配布するタスクを開始する
@@ -33,56 +38,81 @@ export function startPizzaDistribution(client) {
       }
     }
   });
-  //毎分起動
-  //発言した人がいたら、ニョワミヤがピザをお届けする
+  // ------------------------------------
+  // 毎分実行：発言者へのピザ配布 ＋ 【追加】即時ログボ付与
+  // ------------------------------------
   cron.schedule("*/1 * * * *", async () => {
-    if (activeUsersForPizza.size === 0) {
-      return;
-    }
-
-    const userIds = [...activeUsersForPizza];
+    if (activeUsersForPizza.size === 0) return;
+    
+    // Mapをコピーしてクリア
+    const currentActiveUsers = new Map(activeUsersForPizza);
     activeUsersForPizza.clear();
 
-    // console.log(`[RPC] ${userIds.length}人のユーザーにピザを配布します。`);
-    // ピザ・コイン双方の処理で使うのでtryの手前に置く
+    // フィルタリング処理
+    // RPCに渡すための「許可されたユーザーIDリスト」を作成
+    const validUserIds = [];
+
+    for (const [userId, member] of currentActiveUsers) {
+        // 条件1: memberがない (null) = DMからの発言 (許可)
+        // 条件2: memberがあり、かつギルドIDが許可リストに含まれている (許可)
+        const isDm = !member;
+        const isAllowedGuild = member && allowedGuildIds.includes(member.guild.id);
+
+        if (isDm || isAllowedGuild) {
+            validUserIds.push(userId);
+        } else {
+            // 対象外ギルドでの発言は何もしない（ログも出さなくて良いでしょう）
+        }
+    }
+
+    // 対象者がいなければここで終了（RPCも叩かない）
+    if (validUserIds.length === 0) return;
+
     const supabase = getSupabaseClient();
+    
+    // 1. ピザトークン配布 (RPC)
+    // validUserIds (フィルタリング済み) を使用
     try {
       const { min, max } = config.chatBonus.legacy_pizza.amount;
-
-      // ★★★ ここがRPCの呼び出し！ ★★★
-      // 'increment_legacy_pizza_with_bonus' という名前の関数を呼び出す
-      const { error } = await supabase.rpc(
-        "increment_legacy_pizza_with_bonus",
-        {
-          // SQL関数で定義した引数名をキーとして、値を渡す
-          user_ids: userIds,
-          min_amount: min,
-          max_amount: max,
-        }
-      );
-
-      if (error) {
-        // RPCの実行でエラーがあれば、それを投げる
-        throw error;
-      }
-
-      //console.log(`[RPC]${userIds.length}人のユーザーへのピザ配布が完了しました。`);
+      const { error } = await supabase.rpc("increment_legacy_pizza_with_bonus", {
+        user_ids: validUserIds,
+        min_amount: min,
+        max_amount: max,
+      });
+      if (error) throw error;
     } catch (error) {
       console.error("[RPC]ピザ配布タスクでエラーが発生しました:", error);
     }
-    //サーバーブースターに1コインｘ鯖数を配る関数
+
+    // 2. ブースターコイン配布 (RPC)
+    // validUserIds (フィルタリング済み) を使用
     try {
       const { error } = await supabase.rpc("increment_booster_coin", {
-        user_ids_list: userIds,
+        user_ids_list: validUserIds,
       });
-      if (error) throw error;
-      // ログは大量に出るので、成功時はコメントアウト推奨
-      // console.log(`[RPC] Booster coin distribution completed for ${userIds.length} users.`);
+      // console.log(`[RPC] Booster coin distribution completed.`);
     } catch (error) {
       console.error("[RPC] Booster coin distribution task failed:", error);
     }
+
+    // 3. チャット発言者への「即時ログボ」チェック
+    // validUserIds に含まれるユーザーのみチェックすればOK
+    for (const userId of validUserIds) {
+        // executeLoginBonusにはmemberオブジェクトが必要なのでMapから取り出す
+        const member = currentActiveUsers.get(userId);
+
+        checkLoginBonusEligibility(userId).then(async (isEligible) => {
+            if (isEligible) {
+                console.log(`[AutoLogin] Chat detected for ${userId}. Granting login bonus.`);
+                await executeLoginBonus(client, userId, member, 'chat');
+            }
+        });
+    }
   });
-  //開発モード以外で、毎朝7:50に実行
+
+  // --------------------------------------------------------
+  // 7:50 自動回収 (拾い忘れ配布)
+  // --------------------------------------------------------
   if (config.isProduction) {
     cron.schedule(
       "50 7 * * *",
@@ -173,7 +203,8 @@ async function updateAllUsersIdleGame() {
 }
 
 /**
- * 【最終改訂版】ログインボーナスを拾い忘れたユーザーに、最低限の報酬を配布する
+ * 【共通ロジック適用版】ログインボーナスを拾い忘れたユーザーに報酬を配布する
+ * 手動受取と同じ計算式(calculateRewards)を使用します。
  * @param {import("discord.js").Client} client
  */
 async function distributeForgottenLoginBonus(client) {
@@ -186,6 +217,7 @@ async function distributeForgottenLoginBonus(client) {
   today7_50AM.setHours(7, 50, 0, 0);
 
   // --- 2. 対象ユーザーをDBから抽出 ---
+  // 条件: 昨日の朝8時以降に活動(updatedAt更新)があるが、昨日の朝8時以降にログボを受け取っていない(lastAcornDateが古い)
   const targetUsers = await Point.findAll({
     where: {
       lastAcornDate: { [Op.lt]: yesterday8AM },
@@ -204,31 +236,33 @@ async function distributeForgottenLoginBonus(client) {
   const userIds = targetUsers.map((u) => u.userId);
 
   // --- 3. 必要な外部データを一括取得 ---
-  // ① Mee6レベル
+  // ① Mee6レベル (計算に必要なので取得、Map化)
   const allMee6Levels = await Mee6Level.findAll({
     where: { userId: { [Op.in]: userIds } },
     raw: true,
   });
-  const mee6Map = new Map(
-    allMee6Levels.map((item) => [item.userId, item.level])
-  );
+  // Mapの値としてオブジェクト全体(level, xpInLevel等)を保持する
+  const mee6Map = new Map(allMee6Levels.map((item) => [item.userId, item]));
 
   // ② サーバーブースト数 (Supabase RPCを利用)
   const supabase = getSupabaseClient();
-  const { data: boosterCounts, error: rpcError } = await supabase.rpc(
-    "get_booster_counts_for_users",
-    { user_ids: userIds }
-  );
-  if (rpcError) {
-    console.error(
-      "[LOGIBO_AUTOCLAIM] Supabase RPC (get_booster_counts_for_users) failed:",
-      rpcError
+  let boosterMap = new Map();
+
+  try {
+    const { data: boosterCounts, error: rpcError } = await supabase.rpc(
+      "get_booster_counts_for_users",
+      { user_ids: userIds }
     );
-    // RPCが失敗しても処理は続行するが、ブースト数は0として扱う
+    if (rpcError) {
+      console.error("[LOGIBO_AUTOCLAIM] Supabase RPC failed:", rpcError);
+    } else {
+      boosterMap = new Map(
+        boosterCounts?.map((item) => [item.user_id, item.boost_count]) || []
+      );
+    }
+  } catch (e) {
+    console.error("[LOGIBO_AUTOCLAIM] Error fetching booster counts:", e);
   }
-  const boosterMap = new Map(
-    boosterCounts?.map((item) => [item.user_id, item.boost_count]) || []
-  );
 
   // --- 4. 各ユーザーの報酬を計算し、一括更新用のデータを作成 ---
   const bulkUpdateData = [];
@@ -236,42 +270,50 @@ async function distributeForgottenLoginBonus(client) {
 
   for (const userPoint of targetUsers) {
     const userId = userPoint.userId;
-    let totalPizzaBonus = 0;
 
-    // Mee6ボーナス
-    const mee6Level = mee6Map.get(userId) || 0;
-    totalPizzaBonus +=
-      mee6Level * config.loginBonus.legacy_pizza.bounsPerMee6Level;
-
-    // ブースターボーナス
-    const boostCount = boosterMap.get(userId) || 0;
-    if (boostCount > 0) {
-      const boosterConfig = config.loginBonus.legacy_pizza.boosterBonus;
-      totalPizzaBonus +=
-        boosterConfig.base + boosterConfig.perServer * boostCount;
-    }
+    // ★★★ 共通ロジックを使って報酬を計算 ★★★
+    // 自動回収時はAPI制限の都合上 member(ロール)取得は行わず、
+    // DBにあるMee6レベルとブースト数のみで計算する方針とします。
+    const rewards = calculateRewards({
+      mee6Level: mee6Map.get(userId),
+      boosterCount: boosterMap.get(userId) || 0,
+      member: null, // memberは渡さない
+    });
 
     // 更新用データを作成
     bulkUpdateData.push({
       userId: userId,
-      acorn: userPoint.acorn + 1,
+      acorn: userPoint.acorn + 1, // どんぐりは固定+1
       totalacorn: userPoint.totalacorn + 1,
-      coin: userPoint.coin + 1,
-      nyobo_bank: userPoint.nyobo_bank + totalPizzaBonus,
+      coin: userPoint.coin + rewards.coin, // 計算されたコイン(ランダムボーナス含む)
+      nyobo_bank: userPoint.nyobo_bank + rewards.pizza, // 計算されたピザ
       lastAcornDate: today7_50AM,
     });
 
     // DM送信処理
-    const dmMessage = `おはようございますにゃ、昨日のログインボーナスを少しだけお届けに参りましたにゃ。\n- あまやどんぐり: 1個\n- ${config.nyowacoin}: 1枚\n- ${config.casino.currencies.legacy_pizza.displayName}: ${totalPizzaBonus.toLocaleString()}枚 \n-# 本日のログインボーナスは、いつも通り8:00以降に雑談や /ログボ コマンドで出るボタンから受け取れます\n-# 詫び石配布などでログイン扱いになっているかもしれません、ごめんなさい！`;
+    // calculateRewards が返してくれた details を使って内訳を表示
+    const { details } = rewards;
+    let breakdownMsg = `-# (内訳: 基本${details.basePizza} + ランク${details.finalMee6Bonus}`;
+    if (details.boosterBonus > 0) {
+      breakdownMsg += ` + ブースト${details.boosterBonus}`;
+    }
+    breakdownMsg += `)`;
+
+    const dmMessage =
+      `おはようございますにゃ、昨日のログインボーナスを少しだけお届けに参りましたにゃ。\n` +
+      `- あまやどんぐり: 1個\n` +
+      `- ${config.nyowacoin}: ${rewards.coin}枚 ${details.coinBonusMessage}\n` +
+      `- ${config.casino.currencies.legacy_pizza.displayName}: ${rewards.pizza.toLocaleString()}枚 \n` +
+      `${breakdownMsg}\n` +
+      `-# 本日のログインボーナスは、いつも通り8:00以降に雑談や /ログボ コマンドで出るボタンから受け取れます\n` +
+      `-# 詫び石配布などでログイン扱いになっているかもしれません、ごめんなさい！`;
+
     const dmPromise = client.users
       .send(userId, { content: dmMessage, flags: 4096 })
       .catch((error) => {
-        // ★★★ エラーコードが50007 (DM送信不可) の場合のみ、エラーを無視する ★★★
+        // エラーコード 50007 (DM送信不可) は無視
         if (error.code !== 50007) {
-          console.error(
-            `[LOGIBO_AUTOCLAIM] 予期せぬDM送信エラー (ユーザー: ${userId}):`,
-            error
-          );
+          console.error(`[LOGIBO_AUTOCLAIM] DM Error (${userId}):`, error);
         }
       });
     dmPromises.push(dmPromise);

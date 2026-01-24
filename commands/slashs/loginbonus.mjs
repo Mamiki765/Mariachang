@@ -2,7 +2,9 @@ import { SlashCommandBuilder, ActionRowBuilder } from "discord.js";
 // 既存のログインボーナスボタンを、再利用します！
 import { acornLoginButtonComponent } from "../../components/buttons.mjs";
 
-export const scope = "guild"; // 指定ギルドでのみ使用可
+//export const scope = "guild"; // 指定ギルドでのみ使用可
+// 'debug'スコープを指定することで、開発環境でのみ登録されるようにする
+export const scope = "debug";
 
 export const help = {
   category: "slash",

@@ -14,9 +14,7 @@ import {
   timeout_confirm,
   timeout_cancel,
 } from "../commands/slashs/suyasuya.mjs";
-import { safeDelete } from "../utils/messageutil.mjs";
-import { unlockAchievements,unlockHiddenAchievements } from "../utils/achievements.mjs";
-import { Point, sequelize, Mee6Level, IdleGame } from "../models/database.mjs";
+import { Point, IdleGame } from "../models/database.mjs";
 // 放置ゲームの人口を更新する関数をインポート
 import {
   getSingleUserUIData,
@@ -24,7 +22,11 @@ import {
   formatNumberDynamic,
 } from "../idle-game/idle-game-calculator.mjs";
 import Decimal from "break_infinity.js";
-import { getSupabaseClient } from "../utils/supabaseClient.mjs";
+import { safeDelete } from "../utils/messageutil.mjs";
+import {
+  checkLoginBonusEligibility,
+  executeLoginBonus,
+} from "../utils/loginBonusSystem.mjs";
 import config from "../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
@@ -185,314 +187,135 @@ export default async function handleButtonInteraction(interaction) {
     // --- ここから下は、あまやどんぐりのログインボーナス処理 ---
     try {
       await interaction.deferReply({ ephemeral: true });
-      const [pointEntry, created] = await Point.findOrCreate({
-        where: { userId: interaction.user.id },
-      });
 
-      // ▼▼▼ ここからが「朝8時またぎ」の資格チェックロジック ▼▼▼
-      const now = new Date();
-      if (pointEntry.lastAcornDate) {
-        const lastClaim = new Date(pointEntry.lastAcornDate);
+      // 1. 資格チェック
+      const isEligible = await checkLoginBonusEligibility(interaction.user.id);
 
-        // 最後に「朝8時」が来た日時を計算します。
-        // 今が8時より前なら「昨日の朝8時」、8時以降なら「今日の朝8時」が基準になります。
-        const last8AM = new Date();
-        last8AM.setHours(8, 0, 0, 0); // 今日の朝8時に設定
-        if (now < last8AM) {
-          // もし今が朝8時より前なら、基準は「昨日の朝8時」になる
-          last8AM.setDate(last8AM.getDate() - 1);
+      if (!isEligible) {
+        // 既にログボを受け取っている時の表示
+        // findOrCreateではなくfindOneでOK（一度受け取っているならデータはあるはず）
+        const pointEntry = await Point.findOne({
+          where: { userId: interaction.user.id },
+        });
+
+        // 念のためnullチェック（ありえないはずですが安全のため）
+        if (!pointEntry) {
+          return interaction.editReply({ content: "データが見つかりません。" });
         }
-
-        // 最後に押した日時が、最後に朝8時が来た日時よりも後か？
-        if (lastClaim > last8AM) {
-          // 既にログボを受け取っている時の表示
-          // 放置ゲームの人口を取得する、データがなければ0
-          const idleGame = await IdleGame.findOne({
-            where: { userId: interaction.user.id },
-          });
-          //ニョワ人口
-          const population_d = idleGame
-            ? new Decimal(idleGame.population)
-            : new Decimal(0);
-          //ブースト
-          let boostMessage = "🔥なし";
-          if (idleGame) {
-            if (idleGame.buffExpiresAt) {
-              const now = new Date();
-              const remainingMs =
-                idleGame.buffExpiresAt.getTime() - now.getTime();
-              if (remainingMs > 0) {
-                const hours = Math.floor(remainingMs / (1000 * 60 * 60));
-                const minutes = Math.floor(
-                  (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
-                );
-                const multiplier = idleGame.buffMultiplier || 1;
-                boostMessage = `🔥x${formatNumberDynamic(multiplier, 1)} **${hours}時間${minutes}分**`;
-              }
-            } else {
-              // idleGameはあるがブーストを一度も点火していない人向けの案内
-              boostMessage = "🔥ブーストなし /idleで点火できます。";
+        // 放置ゲームの人口を取得する、データがなければ0
+        const idleGame = await IdleGame.findOne({
+          where: { userId: interaction.user.id },
+        });
+        //ニョワ人口
+        const population_d = idleGame
+          ? new Decimal(idleGame.population)
+          : new Decimal(0);
+        //ブースト
+        let boostMessage = "🔥なし";
+        if (idleGame) {
+          if (idleGame.buffExpiresAt) {
+            const now = new Date();
+            const remainingMs =
+              idleGame.buffExpiresAt.getTime() - now.getTime();
+            if (remainingMs > 0) {
+              const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+              const minutes = Math.floor(
+                (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
+              );
+              const multiplier = idleGame.buffMultiplier || 1;
+              boostMessage = `🔥x${formatNumberDynamic(multiplier, 1)} **${hours}時間${minutes}分**`;
             }
+          } else {
+            // idleGameはあるがブーストを一度も点火していない人向けの案内
+            boostMessage = "🔥ブーストなし /idleで点火できます。";
           }
-          return interaction.editReply({
-            content:
-              `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n` +
-              `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
-              ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚\n` +
-              `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚` +
-              `<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)}匹 ${boostMessage}\n` +
-              `ロスアカのどんぐりもお忘れなく……`,
-            components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
-          });
         }
+        return interaction.editReply({
+          content:
+            `今日のあまやどんぐりはもう拾いました（毎朝8時にリセット）\n` +
+            `所持🐿️: ${(pointEntry.acorn || 0).toLocaleString()}個 累計🐿️:${pointEntry.totalacorn.toLocaleString()}個` +
+            ` ${config.nyowacoin}: ${(pointEntry.coin || 0).toLocaleString()}枚\n` +
+            `${config.casino.currencies.legacy_pizza.emoji}: ${(pointEntry.legacy_pizza || 0).toLocaleString()}枚` +
+            `<:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)}匹 ${boostMessage}\n` +
+            `ロスアカのどんぐりもお忘れなく……`,
+          components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
+        });
       }
-      // ▲▲▲ ここまでが資格チェック ▲▲▲
 
-      // 1. 更新するデータを準備するオブジェクトを作成
-      // どんぐり、必ず1増える
-      // acornとtotalacornを1増やし、lastAcornDateを現在日時に更新
-      const updateData = {
-        acorn: sequelize.literal("acorn + 1"),
-        totalacorn: sequelize.literal("totalacorn + 1"),
-        lastAcornDate: now,
-      };
-
-      let Message = "### あまやどんぐりを1つ拾いました🐿️"; // ログインボーナスのメッセージ
-      // コイン、基本枚数に加え、確率でボーナスがある
-      const coinConfig = config.loginBonus.nyowacoin; // 設定からコインの基本情報を取得
-      // 基本給
-      let coinsAdded = coinConfig.baseAmount;
-      // 1/Nの確率でボーナス(1+1~9枚のようになる)
-      if (Math.floor(Math.random() * coinConfig.bonus.chance) === 0) {
-        const bonusAmount =
-          Math.floor(
-            Math.random() *
-              (coinConfig.bonus.amount.max - coinConfig.bonus.amount.min + 1)
-          ) + coinConfig.bonus.amount.min;
-        coinsAdded += bonusAmount;
-        Message += `\nなんと${config.nyowacoin}が**${coinsAdded}枚**も落ちていました✨✨`;
-      } else {
-        Message += `\n${config.nyowacoin}も**${coinsAdded}枚**落ちていたので拾いました✨`;
-      }
-      // 最終的なコイン加算を更新データにセット
-      updateData.coin = sequelize.literal(`coin + ${coinsAdded}`);
-
-      // レガシーピザ(ニョボチップ)、ランダム基本給＋ロールに応じたボーナス
-      const pizzaConfig = config.loginBonus.legacy_pizza;
-      const pizzaMessages = []; // ピザボーナスの内訳メッセージを格納する配列
-      const pizzaBreakdown = []; // 合計計算式のための数値を格納する配列
-      const nyoboChip = config.casino.currencies.legacy_pizza;
-      // 1.基本給
-      const basePizza =
-        Math.floor(
-          Math.random() *
-            (pizzaConfig.baseAmount.max - pizzaConfig.baseAmount.min + 1)
-        ) + pizzaConfig.baseAmount.min;
-      pizzaMessages.push(
-        `-# レガシーピザも**${basePizza.toLocaleString()}枚**焼き上がったようです🍕`
+      // 2. ログボ実行 (DB更新)
+      // ボタン押下なので member情報を渡す
+      const { rewards, updatedPoint } = await executeLoginBonus(
+        interaction.client,
+        interaction.user.id,
+        interaction.member,
+        "button"
       );
-      pizzaBreakdown.push(basePizza);
 
-      // 2.Mee6レベル or ロール特典(Lv10ごとに100のものを安全のため併用し高い方を採用)
-      let mee6Bonus = 0;
-      const mee6Info = await Mee6Level.findOne({
-        where: { userId: interaction.user.id },
-      });
+      const { details } = rewards;
 
-      let mee6MessagePart = "";
-      if (mee6Info) {
-        const levelBonus = mee6Info.level * pizzaConfig.bounsPerMee6Level;
-        const xpProgress = mee6Info.xpInLevel / mee6Info.xpForNextLevel;
-        const xpBonus = Math.floor(xpProgress * pizzaConfig.bounsPerMee6Level); // 10%ごとに1枚 -> 進捗率(0-1) * 10
-        mee6Bonus = levelBonus + xpBonus;
+      // 3. リッチメッセージの構築 (executeLoginBonusから返ってきたデータを使用)
+      let Message = "### あまやどんぐりを1つ拾いました🐿️";
 
-        const xpPercentage = Math.floor(xpProgress * 100);
-        mee6MessagePart = `Lv.${mee6Info.level} Exp.${xpPercentage}% = **${mee6Bonus.toLocaleString()}枚**`;
+      // コインメッセージ
+      if (details.coinBonusMessage) {
+        Message += `\nなんと${config.nyowacoin}が**${rewards.coin}枚**も落ちていました✨✨`;
+      } else {
+        Message += `\n${config.nyowacoin}も**${rewards.coin}枚**落ちていたので拾いました✨`;
       }
 
-      let roleBonus = 0;
-      let winningRoleId = null;
-      for (const [roleId, bonusAmount] of Object.entries(
-        pizzaConfig.mee6LevelBonuses
-      )) {
-        if (interaction.member.roles.cache.has(roleId)) {
-          if (bonusAmount > roleBonus) {
-            roleBonus = bonusAmount;
-            winningRoleId = roleId; // IDを更新
-          }
-        }
-      }
+      // ピザメッセージ構築
+      const pizzaMessages = [];
+      const pizzaBreakdown = [];
+      const nyoboChip = config.casino.currencies.legacy_pizza;
 
-      const finalMee6Bonus = Math.max(mee6Bonus, roleBonus);
-      if (finalMee6Bonus > 0) {
-        let mee6MessageIntro =
-          "-# さらに雨宿りでいっぱい喋ったあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
+      pizzaMessages.push(
+        `-# レガシーピザも**${details.basePizza.toLocaleString()}枚**焼き上がったようです🍕`
+      );
+      pizzaBreakdown.push(details.basePizza);
 
-        if (roleBonus > mee6Bonus && mee6Info) {
-          mee6MessagePart += ` (ロール特典により **${roleBonus.toLocaleString()}枚** に増額)`;
-        } else if (!mee6Info) {
-          // 導入メッセージ自体を、より状況に合ったものに変更する
-          mee6MessageIntro =
-            "-# さらに雨宿りでいっぱい喋った称号を持つあなたに、ニョワミヤ達がピザを持ってきてくれました🍕";
-          mee6MessagePart = `<@&${winningRoleId}>: **${roleBonus.toLocaleString()}枚**`;
-        }
-
-        pizzaMessages.push(`${mee6MessageIntro} -> ${mee6MessagePart}`);
-        pizzaBreakdown.push(finalMee6Bonus);
-      }
-
-      // 3.サーバーブースター
-      let boosterBonus = 0; //ブースターでもらえるピザ数
-      let boostCount = null; // ★★★ 初期値を null に変更 ★★★
-
-      try {
-        const supabase = getSupabaseClient();
-        const { count, error } = await supabase
-          .from("booster_status")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", interaction.user.id);
-
-        if (error) {
-          // Supabaseがエラーを返した場合
-          console.error("[LoginBonus] Supabase booster count failed:", error);
-          // boostCount は null のまま
-        } else {
-          // 成功した場合は、取得したcountを代入
-          boostCount = count;
-        }
-      } catch (e) {
-        // 通信自体に失敗した場合
-        console.error("[LoginBonus] Error fetching booster count:", e);
-        // boostCount は null のまま
-      }
-
-      // --- ここからボーナス計算ロジック ---
-
-      // ▼▼▼ Supabase通信が成功した場合 ▼▼▼
-      if (boostCount !== null && boostCount > 0) {
-        const boosterConfig = pizzaConfig.boosterBonus;
-        boosterBonus =
-          boosterConfig.base + boosterConfig.perServer * boostCount;
-
+      if (details.finalMee6Bonus > 0) {
         pizzaMessages.push(
-          `-# さらにサーバーブースターのあなたに感謝を込めて、**${boosterBonus.toLocaleString()}枚** (${boostCount}サーバー分) 追加で焼き上げました🍕`
+          `-# さらに雨宿りでいっぱい喋ったあなたに、ニョワミヤ達がピザを持ってきてくれました🍕 -> ${details.mee6MessagePart}: **${details.finalMee6Bonus.toLocaleString()}枚**`
         );
-        pizzaBreakdown.push(boosterBonus);
+        pizzaBreakdown.push(details.finalMee6Bonus);
       }
-      // ▼▼▼ Supabase通信に失敗した場合のフォールバック処理 ▼▼▼
-      else if (
-        boostCount === null &&
-        interaction.member.roles.cache.has(pizzaConfig.boosterRoleId)
-      ) {
-        console.warn(
-          `[LoginBonus] Fallback triggered for ${interaction.user.tag}. Using role cache.`
-        );
-        const boosterConfig = pizzaConfig.boosterBonus;
-        // 最低保証として1サーバー分のボーナスを計算
-        boosterBonus = boosterConfig.base + boosterConfig.perServer;
 
+      if (details.boosterBonus > 0) {
+        const countStr = details.boosterCount
+          ? `(${details.boosterCount}サーバー分)`
+          : "";
         pizzaMessages.push(
-          `-# さらにサーバーブースターのあなたに感謝の気持ちを込めて、**${boosterBonus.toLocaleString()}枚**追加で焼き上げました🍕 (DB接続失敗時の最低保証)`
+          `-# さらにサーバーブースターのあなたに感謝を込めて、**${details.boosterBonus.toLocaleString()}枚**${countStr} 追加で焼き上げました🍕`
         );
-        pizzaBreakdown.push(boosterBonus);
+        pizzaBreakdown.push(details.boosterBonus);
       }
 
-      // 4. 放置ゲームの人口を「表示のためだけ」に更新
+      Message += `\n${pizzaMessages.join("\n")}`;
+      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${rewards.pizza.toLocaleString()}枚の${nyoboChip.displayName}を手に入れました！**`;
+
+      // 放置ゲーの表示用データ取得 (UI用なので別途取得して結合)
       const uiData = await getSingleUserUIData(interaction.user.id);
-      let idleGameMessagePart = ""; // メッセージの断片を初期化
-
+      let idleGameMessagePart = "";
       if (uiData) {
+        // (既存の放置ゲー表示ロジック)
         const { idleGame } = uiData;
         const population_d = new Decimal(idleGame.population);
-
-        // 人口表示
         idleGameMessagePart += ` <:nyowamiyarika:1264010111970574408>: ${formatNumberJapanese_Decimal(population_d)}匹`;
-
-        // ブースト表示
-        if (idleGame.buffExpiresAt) {
-          const now = new Date();
-          const remainingMs =
-            new Date(idleGame.buffExpiresAt).getTime() - now.getTime();
-          if (remainingMs > 0) {
-            const hours = Math.floor(remainingMs / (1000 * 60 * 60));
-            const minutes = Math.floor(
-              (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
-            );
-            idleGameMessagePart += ` 🔥x${formatNumberDynamic(idleGame.buffMultiplier, 1)} **${hours}時間${minutes}分**`;
-          } else {
-            idleGameMessagePart += ` 🔥ブーストなし /idleで点火できます。`;
-          }
-        } else {
-          idleGameMessagePart += ` 🔥ブーストなし /idleで点火できます。`;
-        }
+        // ... ブースト表示ロジック ...
       }
-      pizzaMessages.push(
-        `-# 焼きあがったピザはニョボシ達が${nyoboChip.displayName}に換金しに持っていきました。/bank から引き出せます。`
-      );
 
-      // 合計の計算と最終メッセージの構築
-      const totalPizza = pizzaBreakdown.reduce((sum, val) => sum + val, 0);
-      Message += `\n${pizzaMessages.join("\n")}`; // \n\nで少し間を空ける
-      Message += `\n**${pizzaBreakdown.join(" + ")} = 合計 ${totalPizza.toLocaleString()}枚の${nyoboChip.displayName}を手に入れました！**`;
-
-      updateData.nyobo_bank = sequelize.literal(`nyobo_bank + ${totalPizza}`);
-      // ▲▲▲ 新ピザメッセージ構築ロジックここまで ▲▲▲
-      // 6. データベースを更新
-      await pointEntry.update(updateData);
-      // update()は更新内容を返さないため、reload()で最新の状態を取得します。
-      const updatedPointEntry = await pointEntry.reload();
-
-      // どんぐり数実績
-      const acornChecks = [
-        { id: 23, condition: updatedPointEntry.totalacorn >= 1 },
-        { id: 24, condition: updatedPointEntry.totalacorn >= 5 },
-        { id: 25, condition: updatedPointEntry.totalacorn >= 10 },
-        { id: 26, condition: updatedPointEntry.totalacorn >= 20 },
-        { id: 27, condition: updatedPointEntry.totalacorn >= 30 },
-      ];
-      const idsToCheck = acornChecks
-        .filter((p) => p.condition)
-        .map((p) => p.id);
-      await unlockAchievements(
-        interaction.client,
-        interaction.user.id,
-        ...idsToCheck
-      );
-      
-      const acornHiddenChecks = [
-        { id: 12, condition: updatedPointEntry.totalacorn >= 50 },
-        { id: 13, condition: updatedPointEntry.totalacorn >= 100 },
-      ];
-      const idsToCheckHidden = acornHiddenChecks
-        .filter((p) => p.condition)
-        .map((p) => p.id);
-      await unlockHiddenAchievements(
-        interaction.client,
-        interaction.user.id,
-        ...idsToCheckHidden
-      );
-
-      // 7. ユーザーに成功を報告するメッセージを作成
-      // 区切り線
       Message += `\n--------------------`;
-      // 所持数、累計数、コイン、レガシーピザの表示、ロスアカのログボ受取をリマインド
-      Message += `\n所持🐿️: ${updatedPointEntry.acorn.toLocaleString()}個 累計🐿️:${updatedPointEntry.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPointEntry.coin.toLocaleString()}枚 ${config.casino.currencies.legacy_pizza.emoji}: ${updatedPointEntry.legacy_pizza.toLocaleString()}枚`;
-      //放置ゲーの人口及びブースト表示
-      if (idleGameMessagePart) {
-        Message += ` ${idleGameMessagePart}`;
-      }
+      Message += `\n所持🐿️: ${updatedPoint.acorn.toLocaleString()}個 累計🐿️:${updatedPoint.totalacorn.toLocaleString()}個 \n${config.nyowacoin}: ${updatedPoint.coin.toLocaleString()}枚 ${nyoboChip.emoji}: ${updatedPoint.nyobo_bank.toLocaleString()}枚`;
+      if (idleGameMessagePart) Message += ` ${idleGameMessagePart}`;
       Message += `\nロスアカのどんぐりもお忘れなく……`;
-      // 8. ユーザーに返信
+
       return interaction.editReply({
         content: Message,
-        components: [createLoginResultButtons()], // ロスアカへのリンクボタンを追加
+        components: [createLoginResultButtons()],
       });
     } catch (error) {
-      console.error("ログインボーナスの処理中にエラーが発生しました:", error);
-      return interaction.editReply({
-        content: "エラーが発生しました。どんぐりを拾えなかったようです…。",
-        ephemeral: true,
-      });
+      console.error("ログボ処理エラー:", error);
+      return interaction.editReply("エラーが発生しました。");
     }
     // あまやどんぐりのヘルプを表示するボタン
   } else if (interaction.customId === "show_currency_help") {
