@@ -52,6 +52,7 @@ export async function execute(interaction) {
           `### あなたの資産状況\n` +
             `💎 RoleplayPoint: **${user.point.toLocaleString()}**\n` +
             `🐿️ あまやどんぐり: **${user.acorn.toLocaleString()}**\n` +
+            `🌻 ひまわり: **${(user.sunflower || 0).toLocaleString()}**\n` +
             `${config.nyowacoin} ニョワコイン: **${user.coin.toLocaleString()}**\n` +
             `${config.casino.currencies.legacy_pizza.emoji} ニョボチップ: **${user.legacy_pizza.toLocaleString()}**\n` +
             `🏦 ニョボバンク: **${user.nyobo_bank.toLocaleString()}**`
@@ -73,6 +74,12 @@ export async function execute(interaction) {
                   .setLabel(`どんぐりをコインに両替 (1 -> 100)`)
                   //.setEmoji("🐿️")
                   .setValue("exchange_acorn"),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel(`ひまわりを両替 (1 -> 1coin + 5bank)`)
+                  .setDescription(
+                    "1ひまわりにつき、1コインと5バンク(預金)になります"
+                  )
+                  .setValue("exchange_sunflower"),
                 new StringSelectMenuOptionBuilder()
                   .setLabel(
                     `コインをチップに両替 (1 -> ${finalRate.toFixed(2)})`
@@ -201,6 +208,22 @@ export async function execute(interaction) {
               user.acorn -= amount;
               user.coin += coinsGained;
               resultMessage = `🐿️ どんぐり **${amount.toLocaleString()}** 個を ${config.nyowacoin} コイン **${coinsGained.toLocaleString()}** 枚に両替しました！`;
+              break;
+            }
+            case "exchange_sunflower": {
+              const amount = parseAmount(amountRaw, user.sunflower || 0);
+
+              const coinsGained = amount * 1;
+              const bankGained = amount * 5;
+
+              user.sunflower -= amount;
+              user.coin += coinsGained;
+              user.nyobo_bank += bankGained;
+
+              resultMessage =
+                `🌻 ひまわり **${amount.toLocaleString()}** 本を両替しました！\n` +
+                `➡ ${config.nyowacoin} コイン: **+${coinsGained.toLocaleString()}**\n` +
+                `➡ 🏦 ニョボバンク: **+${bankGained.toLocaleString()}**`;
               break;
             }
             case "exchange_coin_to_pizza": {
@@ -407,7 +430,17 @@ export async function execute(interaction) {
                 );
                 user.acorn = 0;
               }
-              // 3. ニョワコイン (1 -> 30)
+              // 3. ひまわり (1 -> 1コイン[30チップ] + 5バンク[5チップ] = 35チップ)
+              if (user.sunflower > 0) {
+                // コイン分(1*30) + バンク分(5*1) = 35
+                const gained = user.sunflower * (1 * basePizzaRate + 5);
+                totalGainedPizza += gained;
+                details.push(
+                  `ひまわり:${(user.sunflower || 0).toLocaleString()}→${gained.toLocaleString()}`
+                );
+                user.sunflower = 0;
+              }
+              // 4. ニョワコイン (1 -> 30)
               if (user.coin > 0) {
                 const gained = user.coin * basePizzaRate;
                 totalGainedPizza += gained;
@@ -416,7 +449,7 @@ export async function execute(interaction) {
                 );
                 user.coin = 0;
               }
-              // 4. バンク (引き出し 1 -> 1)
+              // 5. バンク (引き出し 1 -> 1)
               if (user.nyobo_bank > 0) {
                 const gained = user.nyobo_bank;
                 totalGainedPizza += gained;

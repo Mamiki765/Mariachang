@@ -2,7 +2,23 @@
 import { EmbedBuilder } from "discord.js";
 import { safeDelete } from "../utils/messageutil.mjs";
 
+// 260125ひまわり配布用のMapを定義してエクスポート
+// Key: userId, Value: { guildId: string | null }
+// メッセージ作成時と違い、memberオブジェクトそのものではなく
+// 必要な情報(今回は判定に使うguildId)だけを持つ軽量なオブジェクトにします
+export const activeUsersForSunflower = new Map();
+
 export default async (reaction, user) => {
+  //ひまわり
+  // Botは無視
+  if (!user.bot) {
+    // 既存のエントリがなければセット（1分間における最初の1回だけ記録されればOK）
+    if (!activeUsersForSunflower.has(user.id)) {
+      activeUsersForSunflower.set(user.id, {
+        guildId: reaction.message.guildId, // DMならnullになります
+      });
+    }
+  }
   //削除リアクション（旧式)
   if (
     reaction.emoji.id === "1267692767489036390" ||

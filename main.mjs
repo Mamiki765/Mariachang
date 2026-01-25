@@ -40,7 +40,7 @@ app.post("/", function (req, res) {
   if (postCount == 10) {
     postCount = 0;
   }
-  res.send("POST response by koyeb");
+  res.send("POST response by OCI");
 });
 
 app.get("/", function (req, res) {

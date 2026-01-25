@@ -1,6 +1,7 @@
 // tasks/pizza-distributor.mjs (RPCバージョン)
 import cron from "node-cron";
 import { activeUsersForPizza } from "../handlers/messageCreate.mjs";
+import { activeUsersForSunflower } from "../handlers/messageReactionAdd.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
 import config from "../config.mjs";
 import {
@@ -19,7 +20,7 @@ import {
 
 const allowedGuildIds = (process.env.GUILD_IDS || "")
   .split(",")
-  .map(id => id.trim());
+  .map((id) => id.trim());
 
 /**
  * 定期的にピザを配布するタスクを開始する
@@ -43,11 +44,11 @@ export function startPizzaDistribution(client) {
     }
   });
   // ------------------------------------
-  // 毎分実行：発言者へのピザ配布 ＋ 【追加】即時ログボ付与
+  // 毎分実行：発言者へのピザ配布 ＋ 【追加】即時ログボ付与　＋　ひまわり配布
   // ------------------------------------
   cron.schedule("*/1 * * * *", async () => {
     if (activeUsersForPizza.size === 0) return;
-    
+
     // Mapをコピーしてクリア
     const currentActiveUsers = new Map(activeUsersForPizza);
     activeUsersForPizza.clear();
@@ -57,32 +58,36 @@ export function startPizzaDistribution(client) {
     const validUserIds = [];
 
     for (const [userId, member] of currentActiveUsers) {
-        // 条件1: memberがない (null) = DMからの発言 (許可)
-        // 条件2: memberがあり、かつギルドIDが許可リストに含まれている (許可)
-        const isDm = !member;
-        const isAllowedGuild = member && allowedGuildIds.includes(member.guild.id);
+      // 条件1: memberがない (null) = DMからの発言 (許可)
+      // 条件2: memberがあり、かつギルドIDが許可リストに含まれている (許可)
+      const isDm = !member;
+      const isAllowedGuild =
+        member && allowedGuildIds.includes(member.guild.id);
 
-        if (isDm || isAllowedGuild) {
-            validUserIds.push(userId);
-        } else {
-            // 対象外ギルドでの発言は何もしない（ログも出さなくて良いでしょう）
-        }
+      if (isDm || isAllowedGuild) {
+        validUserIds.push(userId);
+      } else {
+        // 対象外ギルドでの発言は何もしない（ログも出さなくて良いでしょう）
+      }
     }
 
     // 対象者がいなければここで終了（RPCも叩かない）
     if (validUserIds.length === 0) return;
 
     const supabase = getSupabaseClient();
-    
+
     // 1. ピザトークン配布 (RPC)
     // validUserIds (フィルタリング済み) を使用
     try {
       const { min, max } = config.chatBonus.legacy_pizza.amount;
-      const { error } = await supabase.rpc("increment_legacy_pizza_with_bonus", {
-        user_ids: validUserIds,
-        min_amount: min,
-        max_amount: max,
-      });
+      const { error } = await supabase.rpc(
+        "increment_legacy_pizza_with_bonus",
+        {
+          user_ids: validUserIds,
+          min_amount: min,
+          max_amount: max,
+        }
+      );
       if (error) throw error;
     } catch (error) {
       console.error("[RPC]ピザ配布タスクでエラーが発生しました:", error);
@@ -99,18 +104,57 @@ export function startPizzaDistribution(client) {
       console.error("[RPC] Booster coin distribution task failed:", error);
     }
 
+    // 260125追加: ひまわり報酬配布処理 ▼▼▼ ===
+    if (activeUsersForSunflower.size > 0) {
+      // 1. Mapをコピーしてクリア
+      const currentReactors = new Map(activeUsersForSunflower);
+      activeUsersForSunflower.clear();
+
+      // 2. 配布対象IDリストの作成
+      // ★★★ 変数名を変更 (validUserIds -> validSunflowerUserIds) ★★★
+      const validSunflowerUserIds = [];
+      
+      for (const [userId, data] of currentReactors) {
+        const isDm = !data.guildId;
+        const isAllowedGuild =
+          data.guildId && allowedGuildIds.includes(data.guildId);
+
+        if (isDm || isAllowedGuild) {
+          validSunflowerUserIds.push(userId); // ★ここも変更
+        }
+      }
+
+      // 3. 対象者がいればRPC実行
+      if (validSunflowerUserIds.length > 0) { // ★ここも変更
+        const supabase = getSupabaseClient();
+        try {
+          const { error } = await supabase.rpc("increment_sunflower_rewards", {
+            user_ids: validSunflowerUserIds, // ★ここも変更
+          });
+
+          if (error) {
+            console.error("[RPC] ひまわり配布処理でエラーが発生しました:", error);
+          }
+        } catch (error) {
+          console.error("[RPC] ひまわり配布タスク呼び出し失敗:", error);
+        }
+      }
+    }
+
     // 3. チャット発言者への「即時ログボ」チェック
     // validUserIds に含まれるユーザーのみチェックすればOK
     for (const userId of validUserIds) {
-        // executeLoginBonusにはmemberオブジェクトが必要なのでMapから取り出す
-        const member = currentActiveUsers.get(userId);
+      // executeLoginBonusにはmemberオブジェクトが必要なのでMapから取り出す
+      const member = currentActiveUsers.get(userId);
 
-        checkLoginBonusEligibility(userId).then(async (isEligible) => {
-            if (isEligible) {
-                console.log(`[AutoLogin] Chat detected for ${userId}. Granting login bonus.`);
-                await executeLoginBonus(client, userId, member, 'chat');
-            }
-        });
+      checkLoginBonusEligibility(userId).then(async (isEligible) => {
+        if (isEligible) {
+          console.log(
+            `[AutoLogin] Chat detected for ${userId}. Granting login bonus.`
+          );
+          await executeLoginBonus(client, userId, member, "chat");
+        }
+      });
     }
   });
 

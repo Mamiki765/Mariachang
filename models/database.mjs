@@ -141,6 +141,15 @@ const Point = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true, // まだ一度も拾ったことがないユーザーはnullになる
     },
+    // ひまわり
+    sunflower: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    totalsunflower: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     // コイン
     coin: {
       type: DataTypes.INTEGER,
