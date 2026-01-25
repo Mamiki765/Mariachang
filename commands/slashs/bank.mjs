@@ -110,7 +110,7 @@ export async function execute(interaction) {
                   .setLabel("【一括】全てニョボチップにする")
                   .setValue("consolidate_to_pizza")
                   .setDescription(
-                    "RP・どんぐり・コイン・バンクを全てチップに変換 (要:数量欄に'all')"
+                    "RP・どんぐり・コイン・ひまわり・バンクを全てチップに変換 (要:数量欄に'all')"
                   ),
                 new StringSelectMenuOptionBuilder()
                   .setLabel("チップを他人に送金する(ニョボバンクのみ)")
