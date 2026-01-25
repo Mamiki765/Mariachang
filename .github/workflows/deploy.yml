@@ -1,0 +1,27 @@
+name: Deploy to OCI
+
+on:
+  push:
+    branches:
+      - main   # or master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            cd ~/apps/Mariachang
+            git pull
+            npm ci
+            pm2 reload mariachang
