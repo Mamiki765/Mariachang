@@ -3,8 +3,8 @@ name: Deploy to OCI
 on:
   push:
     branches:
-      - main   # or master
-  workflow_dispatch:
+      - main
+  workflow_dispatch: # 手動実行ボタンを出す設定
 
 jobs:
   deploy:
@@ -18,10 +18,40 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.OCI_HOST }}
-          username: ubuntu
+          username: ${{ secrets.OCI_USER }} # ubuntu
           key: ${{ secrets.OCI_SSH_KEY }}
+          # ここに debug: true を入れると詳細なログが出ます
+          debug: true
           script: |
+            set -e  # エラーが発生したら即座に中断する（重要！）
             cd ~/apps/Mariachang
+            echo "--- Git Pulling ---"
             git pull
+            echo "--- Installing Dependencies ---"
             npm ci
+            echo "--- Reloading PM2 ---"
             pm2 reload mariachang
+            echo "--- Current Status ---"
+            pm2 status mariachang
+
+      # 失敗時のみ通知（discord_webhookというシークレットが必要）
+      - name: Discord Notification on Failure
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.OCI_DISCORD_WEBHOOK_URL }}
+          status: ${{ job.status }}
+          content: "⚠️ マリア様のデプロイに失敗しましたわ！ログを確認してください。"
+          title: "Deploy Failed"
+          color: 0xff0000
+
+      # 成功時も一応知りたい場合（不要なら消してOK）
+      - name: Discord Notification on Success
+        if: success()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.OCI_DISCORD_WEBHOOK_URL }}
+          status: ${{ job.status }}
+          content: "✅ マリア様の更新が正常に完了しました。"
+          title: "Deploy Success"
+          color: 0x00ff00
