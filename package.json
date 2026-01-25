@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "start": "node --trace-warnings main.mjs",
+    "startenv": "node --env-file=.env --trace-warnings main.mjs",
     "local_start": "node --env-file=.env.local --trace-warnings main.mjs",
     "local_debug": "node --env-file=.env.development --trace-warnings main.mjs",
     "_comment_format": "npm run format:check で整形が必要なファイルを確認し、npm run format で自動整形する",
@@ -46,7 +47,7 @@
     "lost-arcadia",
     "ロストアーカディア",
     "pbw",
-    "koyeb",
+    "oci",
     "node"
   ],
   "devDependencies": {
