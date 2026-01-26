@@ -50,7 +50,7 @@ jobs:
           # ファイル名を YYYYMMDD_HHMM 形式で生成
           FILENAME="backup_$(date +'%Y%m%d_%H%M').sql"
           # secretsからデータベースURLを読み込んでバックアップを実行
-          pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > "backups/$FILENAME"
+          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > "backups/$FILENAME"
 
       # 4. ファイルサイズをチェックし、結果に応じてDiscordに通知する
       - name: Check Size and Send to Discord
