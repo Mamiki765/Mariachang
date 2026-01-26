@@ -7,7 +7,7 @@ on:
   schedule:
     - cron: "0 19 * * *"
 
-  # GitHubのActionsタブから手動で実行できるようにする（テストに非常に便利！）
+  # GitHubのActionsタブから手動で実行できるようにする
   workflow_dispatch:
 
 # 実行される一連の処理
@@ -22,9 +22,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. pg_dumpコマンドを使えるように、PostgreSQLクライアントをインストールする
-      - name: Install PostgreSQL Client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      # 2. PostgreSQL 17クライアントをインストールする (★ここを差し替えました)
+      - name: Install PostgreSQL Client 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget ca-certificates gnupg lsb-release
+
+          # PostgreSQLの署名キーをダウンロードして保存（新しい推奨手順）
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/postgresql.asc
+
+          # リポジトリリストに追加
+          echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+
+          # 更新してインストール
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          
+          # 確認用（ログにバージョンが出ます）
+          pg_dump --version
 
       # 3. 実際にバックアップファイルを作成する
       - name: Create Backup
@@ -42,7 +59,7 @@ jobs:
           FILE_PATH=$(ls backups/*.sql)
           # ファイルサイズをバイト単位で取得
           FILE_SIZE=$(stat -c%s "$FILE_PATH")
-          # 8MBの上限をバイト単位で設定 (Discordの制限は実際には8,388,608バイト)
+          # 8MBの上限をバイト単位で設定
           MAX_SIZE=8000000
 
           # ワークフローのトリガー（実行理由）によってメッセージを分岐させる
@@ -51,7 +68,6 @@ jobs:
           else
            TRIGGER_MESSAGE="データベースの手動バックアップが完了しました。"
           fi
-
 
           # ファイルサイズが上限を超えているか判定
           if [ $FILE_SIZE -gt $MAX_SIZE ]; then
