@@ -45,10 +45,7 @@ app.post("/", function (req, res) {
 
 app.get("/", function (req, res) {
   console.log(
-    `[${new Date().toLocaleString("ja-JP", {
-      timeZone: "Asia/Tokyo",
-      hour12: false,
-    })}] Received ${req.method} request.`
+    `Received ${req.method} request.`
   );
   res.send(statusPageHtml);
 });
