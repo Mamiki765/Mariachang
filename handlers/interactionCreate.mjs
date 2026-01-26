@@ -22,36 +22,54 @@ export default async (interaction) => {
     return; // オートコンプリートの処理はここで終わり
   }
   // オートコンプリートここまで
-  //ログとり
-  const comname = interaction.commandName
-    ? interaction.commandName
-    : interaction.customId;
-  const user = interaction.member ? interaction.member : interaction.user; //DMならuser
-  const log = new EmbedBuilder()
-    .setTitle("コマンド実行ログ")
-    .setDescription(`${user.displayName} がコマンドを実行しました。`)
-    .setTimestamp()
-    .setThumbnail(
-      interaction.user.displayAvatarURL({
-        dynamic: true,
-      })
-    )
-    .addFields(
-      {
-        name: "コマンド",
-        value: "```\n" + interaction.toString() + " (" + comname + ")\n```",
-      },
-      {
-        name: "実行ユーザー",
-        value:
-          "```\n" + `${interaction.user.tag}(${interaction.user.id})` + "\n```",
-        inline: true,
+  // ログ送信処理 (スラッシュコマンドのみ記録、特定のコマンドは除外)
+  if (interaction.isChatInputCommand()) {
+    // 除外したいコマンド判定 (/roleplay post_old)
+    const isExcluded =
+      interaction.commandName === "roleplay" &&
+      interaction.options.getSubcommand(false) === "post_old";
+
+    if (!isExcluded) {
+      const user = interaction.member ? interaction.member : interaction.user;
+      const log = new EmbedBuilder()
+        .setTitle("コマンド実行ログ")
+        .setDescription(`${user.displayName} がコマンドを実行しました。`)
+        .setTimestamp()
+        .setThumbnail(
+          interaction.user.displayAvatarURL({
+            dynamic: true,
+          })
+        )
+        .addFields(
+          {
+            name: "コマンド",
+            value:
+              "```\n" +
+              interaction.toString() +
+              " (" +
+              interaction.commandName +
+              ")\n```",
+          },
+          {
+            name: "実行ユーザー",
+            value:
+              "```\n" +
+              `${interaction.user.tag}(${interaction.user.id})` +
+              "\n```",
+            inline: true,
+          }
+        );
+
+      // 送信処理 (エラーハンドリング付き)
+      try {
+        await interaction.client.channels.cache
+          .get(config.logch.command)
+          .send({ embeds: [log] });
+      } catch (error) {
+        console.error("コマンドログの送信に失敗しました:", error);
       }
-    );
-  interaction.client.channels.cache.get(config.logch.command).send({
-    embeds: [log],
-  });
-  //ログ取りここまで
+    }
+  }
   //ボタン
   if (interaction.isButton()) {
     await handleButtonInteraction(interaction);
