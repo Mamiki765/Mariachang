@@ -153,3 +153,9 @@ export function createLoginResultButtons() {
     currencyInfoButton
   );
 }
+
+export const toggleLogiboNotificationButton = new ButtonBuilder()
+  .setCustomId("toggle_logibo_notification")
+  .setLabel("通知設定を切り替える")
+  .setStyle(ButtonStyle.Secondary)
+  .setEmoji("🔕"); 

@@ -180,6 +180,12 @@ const Point = sequelize.define(
       type: DataTypes.STRING, // "display" or "hide" を保存
       defaultValue: "display", // 安全のため、デフォルトは「表示する」
     },
+    //ログボのDM通知
+    loginBonusNotification: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true, // デフォルトは通知ON
+      allowNull: false,
+    },
     //明示的に定義
     updatedAt: {
       type: DataTypes.DATE,

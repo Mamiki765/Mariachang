@@ -113,7 +113,7 @@ export function startPizzaDistribution(client) {
       // 2. 配布対象IDリストの作成
       // ★★★ 変数名を変更 (validUserIds -> validSunflowerUserIds) ★★★
       const validSunflowerUserIds = [];
-      
+
       for (const [userId, data] of currentReactors) {
         const isDm = !data.guildId;
         const isAllowedGuild =
@@ -125,7 +125,8 @@ export function startPizzaDistribution(client) {
       }
 
       // 3. 対象者がいればRPC実行
-      if (validSunflowerUserIds.length > 0) { // ★ここも変更
+      if (validSunflowerUserIds.length > 0) {
+        // ★ここも変更
         const supabase = getSupabaseClient();
         try {
           const { error } = await supabase.rpc("increment_sunflower_rewards", {
@@ -133,7 +134,10 @@ export function startPizzaDistribution(client) {
           });
 
           if (error) {
-            console.error("[RPC] ひまわり配布処理でエラーが発生しました:", error);
+            console.error(
+              "[RPC] ひまわり配布処理でエラーが発生しました:",
+              error
+            );
           }
         } catch (error) {
           console.error("[RPC] ひまわり配布タスク呼び出し失敗:", error);
@@ -339,32 +343,35 @@ async function distributeForgottenLoginBonus(client) {
     });
 
     // DM送信処理
-    // calculateRewards が返してくれた details を使って内訳を表示
-    const { details } = rewards;
-    let breakdownMsg = `-# (内訳: 基本${details.basePizza} + ランク${details.finalMee6Bonus}`;
-    if (details.boosterBonus > 0) {
-      breakdownMsg += ` + ブースト${details.boosterBonus}`;
+    if (userPoint.loginBonusNotification) {
+      // calculateRewards が返してくれた details を使って内訳を表示
+      const { details } = rewards;
+      let breakdownMsg = `-# (内訳: 基本${details.basePizza} + ランク${details.finalMee6Bonus}`;
+      if (details.boosterBonus > 0) {
+        breakdownMsg += ` + ブースト${details.boosterBonus}`;
+      }
+      breakdownMsg += `)`;
+
+      const dmMessage =
+        `おはようございますにゃ、昨日のログインボーナスを少しだけお届けに参りましたにゃ。\n` +
+        `- あまやどんぐり: 1個\n` +
+        `- ${config.nyowacoin}: ${rewards.coin}枚 ${details.coinBonusMessage}\n` +
+        `- ${config.casino.currencies.legacy_pizza.displayName}: ${rewards.pizza.toLocaleString()}枚 \n` +
+        `${breakdownMsg}\n` +
+        `-# 本日のログインボーナスは、8:00の時報ボタン、発言、リアクションなどで受け取れます\n` +
+        `-# 詫び石配布などでログイン扱いになっているかもしれません、ごめんなさい！\n` +
+        `-# (/ログボ通知変更 コマンドでDM通知をOFFにできます。)`;
+
+      const dmPromise = client.users
+        .send(userId, { content: dmMessage, flags: 4096 })
+        .catch((error) => {
+          // エラーコード 50007 (DM送信不可) は無視
+          if (error.code !== 50007) {
+            console.error(`[LOGIBO_AUTOCLAIM] DM Error (${userId}):`, error);
+          }
+        });
+      dmPromises.push(dmPromise);
     }
-    breakdownMsg += `)`;
-
-    const dmMessage =
-      `おはようございますにゃ、昨日のログインボーナスを少しだけお届けに参りましたにゃ。\n` +
-      `- あまやどんぐり: 1個\n` +
-      `- ${config.nyowacoin}: ${rewards.coin}枚 ${details.coinBonusMessage}\n` +
-      `- ${config.casino.currencies.legacy_pizza.displayName}: ${rewards.pizza.toLocaleString()}枚 \n` +
-      `${breakdownMsg}\n` +
-      `-# 本日のログインボーナスは、いつも通り8:00以降に雑談や /ログボ コマンドで出るボタンから受け取れます\n` +
-      `-# 詫び石配布などでログイン扱いになっているかもしれません、ごめんなさい！`;
-
-    const dmPromise = client.users
-      .send(userId, { content: dmMessage, flags: 4096 })
-      .catch((error) => {
-        // エラーコード 50007 (DM送信不可) は無視
-        if (error.code !== 50007) {
-          console.error(`[LOGIBO_AUTOCLAIM] DM Error (${userId}):`, error);
-        }
-      });
-    dmPromises.push(dmPromise);
   }
 
   // --- 5. DBを一括更新 & DMを一斉送信 ---

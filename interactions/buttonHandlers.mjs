@@ -343,6 +343,44 @@ export default async function handleButtonInteraction(interaction) {
       ephemeral: true,
     });
     // --- ここまでが、あまやどんぐりのログインボーナス処理 ---
+    //ログボのDM通知変更
+  } else if (interaction.customId === "toggle_logibo_notification") {
+    // ユーザーデータを取得
+    const pointEntry = await Point.findOne({
+      where: { userId: interaction.user.id },
+    });
+
+    if (!pointEntry) {
+      // 万が一データがない場合（ほぼありえませんが）
+      return interaction.reply({
+        content: "データが見つかりませんでした。",
+        ephemeral: true,
+      });
+    }
+
+    // 設定を反転させる
+    const newValue = !pointEntry.loginBonusNotification;
+
+    // DB更新
+    await pointEntry.update({ loginBonusNotification: newValue });
+
+    // UI用のテキスト更新
+    const statusText = newValue ? "✅ ON (通知する)" : "🔕 OFF (通知しない)";
+
+    // インタラクションへの返信（メッセージ内容を書き換えて、今の状態を反映させる）
+    // updateを使うと、押したボタンのあるメッセージ自体を書き換えられます
+    await interaction.update({
+      content:
+        `### ログインボーナス設定\n` +
+        `現在の自動受取時のDM通知設定: **${statusText}**\n` +
+        `-# 設定を変更しました。\n` +
+        `-# OFFでもログインボーナス自体は受け取ります。\n` +
+        `-# 規定回数でもらえる実績通知は止まりません。`,
+      // componentsはそのまま維持（再送信しないと消える場合があるので念の為）
+      components: interaction.message.components,
+    });
+    return;
+
     // --- ここから下は、ロールプレイ機能の削除ボタン処理 ---
     //RP 機能　Cancelボタン処理
   } else if (rpDeleteRequestMatch) {
