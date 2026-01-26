@@ -193,7 +193,7 @@ export async function executeLoginBonus(client, userId, member, source) {
         `雨宿りで発言したため、今日のログインボーナスを自動で受け取りましたにゃ！\n` +
         `- あまやどんぐり: 1個\n` +
         `- ${config.nyowacoin}: ${rewards.coin}枚 ${rewards.details.coinBonusMessage}\n` +
-        `- ${config.casino.currencies.legacy_pizza.displayName}: ${rewards.pizza.toLocaleString()}枚` +
+        `- ${config.casino.currencies.legacy_pizza.displayName}: ${rewards.pizza.toLocaleString()}枚\n` +
         `-# /ログボ通知変更 コマンドでDM通知をOFFにできます。`;
 
       try {
