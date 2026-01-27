@@ -1,4 +1,5 @@
 // commands/slashs/ping.mjs
+import pkg from "../../package.json" with { type: "json" };
 
 import {
   SlashCommandBuilder,
@@ -99,6 +100,7 @@ export async function execute(interaction) {
           value: `\`${cpuPercentage} %\``,
           inline: true,
         },
+        { name: "Bot", value: `\`v${pkg.version}\``, inline: true },
         { name: "Node.js", value: `\`${process.version}\``, inline: true },
         { name: "Discord.js", value: `\`v${djsVersion}\``, inline: true },
         { name: "OS", value: `\`${os.platform()}\``, inline: true }
