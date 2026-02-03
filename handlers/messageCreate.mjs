@@ -342,6 +342,11 @@ export default async (message) => {
       flags: [4096],
       content: "それは、わくわく taşıy",
     });
+   } else if (message.content.match(/^(めも|メモ|pbwlove|pbwlovememo)$/i)) {
+    await message.reply({
+      flags: [4096],
+      content: "https://pbwlove.com",
+    });
   } else if (message.content.match(/^それは、わくわく taşıy$/)) {
     await message.reply({
       flags: [4096],
