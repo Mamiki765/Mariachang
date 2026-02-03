@@ -19,6 +19,7 @@ export default async (oldState, newState) => {
         iconURL: newState.member.displayAvatarURL(),
       })
       .setTitle(`<#${newState.channel.id}> で通話を開始しました！`)
+      .setDescription(`-# 読み上げが止まった時はvoicecordの/config listで文字数を確認してください。有料で誰でも文字数を追加することもできます。`)
       .setTimestamp();
 
     await Promise.all(

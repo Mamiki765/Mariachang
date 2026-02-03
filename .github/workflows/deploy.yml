@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-  workflow_dispatch: # 手動実行ボタンを出す設定
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -18,23 +18,29 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USER }} # ubuntu
+          username: ${{ secrets.OCI_USER }}
           key: ${{ secrets.OCI_SSH_KEY }}
-          # ここに debug: true を入れると詳細なログが出ます
           debug: true
           script: |
-            set -e  # エラーが発生したら即座に中断する（重要！）
-            cd ~/apps/Mariachang
-            echo "--- Git Pulling ---"
-            git pull
-            echo "--- Installing Dependencies ---"
-            npm ci
-            echo "--- Reloading PM2 ---"
-            pm2 reload mariachang
-            echo "--- Current Status ---"
-            pm2 status mariachang
+            set -e  # エラーが出たら止まる設定
 
-      # 失敗時のみ通知（discord_webhookというシークレットが必要）
+            # 1. ソースコードを最新にする
+            echo "--- 📂 Moving to Repo Dir ---"
+            cd ~/apps/Mariachang
+            echo "--- ⬇️ Git Pulling ---"
+            git pull
+
+            # 2. Dockerコンテナを再構築して起動（マリアだけ）
+            echo "--- 🐳 Docker Rebuild & Restart ---"
+            cd ~/apps  # docker-compose.yml がある場所に移動
+            # --build: 変更を検知して作り直す
+            # mariachang: テラリアは巻き込まず、マリアだけ更新する
+            sudo docker compose up -d --build mariachang
+            
+            # 3. 古いイメージのお掃除（ディスク容量節約）
+            sudo docker image prune -f
+
+      # 失敗時の通知
       - name: Discord Notification on Failure
         if: failure()
         uses: sarisia/actions-status-discord@v1
@@ -45,7 +51,7 @@ jobs:
           title: "Deploy Failed"
           color: 0xff0000
 
-      # 成功時も一応知りたい場合（不要なら消してOK）
+      # 成功時の通知
       - name: Discord Notification on Success
         if: success()
         uses: sarisia/actions-status-discord@v1
