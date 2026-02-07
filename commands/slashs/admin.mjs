@@ -214,7 +214,6 @@ export const data = new SlashCommandBuilder()
           .setNameLocalizations({ ja: "配布枚数" })
           .setDescription("配布する枚数を入力してください。")
           .setRequired(true)
-          .setMinValue(1)
       )
       .addStringOption((option) =>
         option
@@ -779,10 +778,12 @@ export async function execute(interaction) {
     const transaction = await sequelize.transaction();
 
     try {
-      // --- 単体ユーザーへの配布 ---
+// --- 単体ユーザーへの配布 ---
       if (targetUser) {
         const fieldsToUpdate = {};
         fieldsToUpdate[currencyType] = amount;
+        
+        // ポイントやドングリの場合は累計(total)も変動させる（没収なら累計も減る仕様）
         if (currencyType === "point" || currencyType === "acorn") {
           fieldsToUpdate[`total${currencyType}`] = amount;
         }
@@ -794,29 +795,35 @@ export async function execute(interaction) {
           transaction: transaction,
         });
 
-        // incrementを使用して値を追加
+        // incrementを使用して値を追加（負の数なら減少）
         await userPoint.increment(fieldsToUpdate, { transaction: transaction });
+
+        // ★追加: 更新後の値を再取得（int4で管理されている値をロード）
+        await userPoint.reload({ transaction: transaction });
+        const newBalance = userPoint[currencyType];
 
         // DM通知
         try {
           await targetUser.send(
-            `**${interaction.guild.name}**からのお知らせ\n管理者より、アイテムが配布されました。\n\n` +
+            `**${interaction.guild.name}**からのお知らせ\n管理者による通貨操作が行われました。\n\n` +
               `**理由:** ${reason}\n` +
-              `**アイテム:** ${currencyInfo.displayName} ×${amount}`
+              `**内容:** ${currencyInfo.displayName} ${amount > 0 ? "+" : ""}${amount}枚\n` + 
+              `**現在の所持数:** ${newBalance}枚`
           );
         } catch (dmError) {
+          // DM失敗時は通知チャンネルへ
           await interaction.client.channels.cache
             .get(config.logch.notification)
             .send(
               `<@${targetUser.id}> さんへのDM送信に失敗したため、こちらへ通知します。\n` +
-                `**配布内容:** ${reason}により、${currencyInfo.displayName}を${amount}個配布しました。`
+                `**操作内容:** ${reason}により、${currencyInfo.displayName}を ${amount} 枚操作しました。`
             );
         }
 
         // ログ記録
         const logEmbed = new EmbedBuilder()
-          .setTitle("通貨配布ログ (個別)")
-          .setColor("#00FF00")
+          .setTitle("通貨管理ログ (個別)")
+          .setColor(amount >= 0 ? "#00FF00" : "#FF0000") // 減算時は赤色にするなどの工夫
           .setDescription(`**理由:** ${reason}`)
           .addFields(
             {
@@ -828,16 +835,20 @@ export async function execute(interaction) {
               value: `${targetUser.tag} (${targetUser.id})`,
             },
             { name: "通貨", value: currencyInfo.displayName, inline: true },
-            { name: "枚数", value: `${amount}枚`, inline: true }
+            { name: "変動額", value: `${amount}枚`, inline: true },
+            { name: "操作後残高", value: `${newBalance}枚`, inline: true } // ★結果を表示
           )
           .setTimestamp();
+          
         await interaction.client.channels.cache
           .get(config.logch.admin)
           .send({ embeds: [logEmbed] });
 
         await transaction.commit();
+        
+        // 実行者へのレスポンスにも結果を表示
         await interaction.editReply({
-          content: `${targetUser.username} に ${currencyInfo.displayName} を ${amount} 枚配布しました。`,
+          content: `${targetUser.username} の ${currencyInfo.displayName} を ${amount} 枚操作しました。\n**現在の残高: ${newBalance} 枚**`,
         });
 
         // --- 全員への配布 ---
