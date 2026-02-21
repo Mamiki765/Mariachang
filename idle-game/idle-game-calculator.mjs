@@ -412,11 +412,12 @@ function calculateProductionRate(
       ascensionBaseEffect *= eternityBonuses.ascension;
     }
     // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
-    const ascensionFactor = Math.pow(ascensionBaseEffect, ascensionCount);
+// ★ 修正: Math.pow ではなく Decimal の pow を使う ★
+    const ascensionFactor_d = new Decimal(ascensionBaseEffect).pow(ascensionCount);
     // 8つの工場すべてに適用されるため、その効果を8乗したものを baseProduction に乗算する
     const ascensionPower = activeChallenge === "IC9" ? 5 : 8; //IC9は５乗
     baseProduction = baseProduction.times(
-      new Decimal(ascensionFactor).pow(ascensionPower)
+      ascensionFactor_d.pow(ascensionPower)
     );
   }
   // IC9挑戦中は上位3施設が無効になるため、効果は5乗。それ以外は8乗。
@@ -578,13 +579,14 @@ export function calculateOfflineProgress(idleGameData, externalData) {
           continue;
         }
 
-        // 平均所持数での生産計算
+// 平均所持数での生産計算
         const averageAmount_d = initialAmount_d.add(
           amountProducedByParent_d.div(2)
         );
-        const baseMultiplier = Math.pow(2, bought - 1);
+        // ★ 修正: Math.pow ではなく Decimal の pow を使う ★
+        const baseMultiplier_d = new Decimal(2).pow(bought - 1);
         let productionPerSecond_d = averageAmount_d
-          .times(baseMultiplier)
+          .times(baseMultiplier_d)
           .div(60);
 
         // ★共通関数で倍率を取得して掛ける★
@@ -1547,10 +1549,10 @@ export function calculateGeneratorProductionRates(
       continue;
     }
 
-    const currentAmount_d = new Decimal(genData.amount);
+const currentAmount_d = new Decimal(genData.amount);
 
-    // 基本生産量 = 所持数 * (2 ^ (購入数 - 1))
-    let productionPerMinute_d = currentAmount_d.times(Math.pow(2, bought - 1));
+    // ★ 修正: Math.pow ではなく Decimal の pow を使う ★
+    let productionPerMinute_d = currentAmount_d.times(new Decimal(2).pow(bought - 1));
 
     // ★共通関数で倍率を取得して掛ける
     const multiplier_d = calculateGeneratorMultiplier(
@@ -1998,10 +2000,11 @@ export function calculateEternityBonuses(eternityCount = 0) {
         );
 
   // Σジェネレーターパワー
+  // ★ 修正: (Σ + 1, 1.1) を Math.pow(Σ + 1, 1.1) に修正 ★
   bonuses.gp =
     Σ < 20
       ? Math.pow(Σ + 1, 1.1)
-      : Math.pow((Σ + 1, 1.1) / Math.pow(21, 1.3), 0.1) * Math.pow(21, 1.3);
+      : Math.pow(Math.pow(Σ + 1, 1.1) / Math.pow(21, 1.3), 0.1) * Math.pow(21, 1.3);
 
   //Σグラビティ
   bonuses.gravity = Σ < 10 ? Math.pow(10, Σ) : Math.pow(Σ, 10);

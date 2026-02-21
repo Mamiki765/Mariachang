@@ -200,12 +200,13 @@ function generateFactoryEmbed(uiData, isFinal = false) {
       ascensionBaseEffect *= multiplier;
     }
   }
-  const bonuses = calculateEternityBonuses(idleGame.eternityCount);
+const bonuses = calculateEternityBonuses(idleGame.eternityCount);
   if (bonuses.ascension > 1) {
     ascensionBaseEffect *= bonuses.ascension;
   }
-  const ascensionEffect = // この名前の変数に最終的な「1工場あたりの倍率」を入れる
-    ascensionCount > 0 ? Math.pow(ascensionBaseEffect, ascensionCount) : 1;
+  // ★ 修正: Math.pow ではなく Decimal の pow を使う ★
+  const ascensionEffect_d = 
+    ascensionCount > 0 ? new Decimal(ascensionBaseEffect).pow(ascensionCount) : new Decimal(1);
   //GP効果をDecimalで取得
   const gpEffect_d = singleFactoryMult_d;
 
@@ -245,7 +246,7 @@ function generateFactoryEmbed(uiData, isFinal = false) {
     const baseEffect_d = new Decimal(factoryEffects[factoryName] || 1.0);
 
     // 8施設共通で適用される倍率を先にまとめておく (Decimalで計算)
-    let multiplier_d = new Decimal(ascensionEffect)
+    let multiplier_d = ascensionEffect_d
       .times(gpEffect_d)
       .times(iu24Effect)
       .times(bonuses.factory);
@@ -393,7 +394,7 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
     },
     {
       name: "人口ボーナス(チップ獲得量)",
-      value: `${config.casino.currencies.legacy_pizza.emoji}+${idleGame.pizzaBonusPercentage.toFixed(3)} %`,
+      value: `${config.casino.currencies.legacy_pizza.emoji}+${formatNumberDynamic(idleGame.pizzaBonusPercentage)} %`,
     }
   );
 
