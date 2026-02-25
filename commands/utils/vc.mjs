@@ -17,6 +17,7 @@ import {
 import Sequelize from "sequelize";
 import { Notification } from "../../models/database.mjs";
 import { Readable } from "stream";
+import * as googleTTS from 'google-tts-api'; 
 
 export const voiceSessions = new Map();
 
@@ -305,24 +306,16 @@ export async function playNextAudio(guildId, botId) {
     const text = session.queue.shift();
 
     try {
-        const baseUrl = process.env.VOICEVOX_URL || "http://127.0.0.1:50021";
-        const speakerId = 3;
-
-        const queryRes = await fetch(`${baseUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { method: 'POST' });
-        if (!queryRes.ok) throw new Error(`Query API Error: ${queryRes.status}`);
-        const queryJson = await queryRes.json();
-
-        const synthRes = await fetch(`${baseUrl}/synthesis?speaker=${speakerId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(queryJson),
+        // Google TTSから音声URLを取得（200文字以内推奨）
+        const url = googleTTS.getAudioUrl(text, {
+            lang: 'ja',
+            slow: false,
+            host: 'https://translate.google.com',
         });
-        if (!synthRes.ok) throw new Error(`Synthesis API Error: ${synthRes.status}`);
 
-        const arrayBuffer = await synthRes.arrayBuffer();
-        const resource = createAudioResource(Readable.from(Buffer.from(arrayBuffer)));
-        
+        const resource = createAudioResource(url);
         session.player.play(resource);
+
     } catch (err) {
         console.error("[Reading Error]", err.message);
         playNextAudio(guildId, botId);
