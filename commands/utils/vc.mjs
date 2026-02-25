@@ -158,7 +158,7 @@ async function handleLeave(interaction, guildId) {
 
 async function handleDebug(interaction, guildId) {
     // 1. 本番環境以外（ローカル・デバッグ）では動作させないガード処理
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV?.trim() !== "production") {
         return interaction.reply({
             content: "今の私は開発モード（おやすみ中）だから、おしゃべりできないにゃ！本番環境で試してにゃ。",
             flags: 64, // ephemeral
