@@ -10,7 +10,6 @@ import {
 } from "@discordjs/voice";
 import { Notification } from "../../models/database.mjs";
 import axios from "axios";
-import { createAudioResource } from "@discordjs/voice";
 import { Readable } from "stream"; // Node.js標準モジュール
 
 export const voiceSessions = new Map();
