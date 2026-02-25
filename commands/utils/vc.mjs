@@ -1,5 +1,6 @@
 //commands\utils\vc.mjs
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { Readable } from "stream"; // ★これを追加
 import {
     joinVoiceChannel,
     getVoiceConnection,
@@ -9,7 +10,6 @@ import {
     StreamType,
     NoSubscriberBehavior
 } from "@discordjs/voice";
-
 // =========================================================================
 // ▼ 状態管理（重要）▼
 // 各サーバー（Guild）ごとの「音声再生プレイヤー」を管理するMap
@@ -157,7 +157,6 @@ async function handleLeave(interaction, guildId) {
 }
 
 async function handleDebug(interaction, guildId) {
-    // 1. 本番環境以外（ローカル・デバッグ）では動作させないガード処理
     if (process.env.NODE_ENV?.trim() !== "production") {
         return interaction.reply({
             content: "今の私は開発モード（おやすみ中）だから、おしゃべりできないにゃ！本番環境で試してにゃ。",
@@ -165,7 +164,6 @@ async function handleDebug(interaction, guildId) {
         });
     }
 
-    // BotがVCにいるか確認
     const player = voicePlayers.get(guildId);
     if (!player) {
         return interaction.reply({
@@ -178,32 +176,32 @@ async function handleDebug(interaction, guildId) {
     await interaction.deferReply(); 
 
     try {
-        // 2. .envからURLを読み込む（設定されていなければローカルホストをフォールバックに）
         const baseUrl = process.env.VOICEVOX_URL || "http://127.0.0.1:50021";
         const speakerId = 3; 
 
-        // URLを環境変数ベースに変更
+        // 1. audio_query
         const queryRes = await fetch(`${baseUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, {
             method: 'POST',
         });
-        
         if (!queryRes.ok) throw new Error("audio_query failed");
         const queryJson = await queryRes.json();
 
+        // 2. synthesis (WAVデータ取得)
         const synthRes = await fetch(`${baseUrl}/synthesis?speaker=${speakerId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(queryJson),
         });
-
         if (!synthRes.ok) throw new Error("synthesis failed");
         
         const arrayBuffer = await synthRes.arrayBuffer();
         const audioBuffer = Buffer.from(arrayBuffer);
 
-        const resource = createAudioResource(audioBuffer, {
-            inputType: StreamType.Arbitrary,
-        });
+        // ★修正ポイント: BufferをReadable Streamに変換してから渡す
+        const stream = Readable.from(audioBuffer);
+
+        // inputType を Arbitrary ではなく、自動推論させる
+        const resource = createAudioResource(stream); 
         
         player.play(resource);
         await interaction.editReply(`🎤 テスト再生: 「${text}」`);
