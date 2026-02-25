@@ -268,10 +268,22 @@ export async function enqueueAudio(guildId, botId, text) {
         .trim();
 
     if (cleanText.length === 0) return;
-    if (cleanText.length > 60) cleanText = cleanText.substring(0, 60) + "、以下略";
+    
+    // 全体で60文字を超えたら「以下略」にする
+    if (cleanText.length > 60) {
+        cleanText = cleanText.substring(0, 60) + "、以下略";
+    }
 
-    session.queue.push(cleanText);
+    // 👨‍🏫 【工夫】文章を「改行」や「句読点（。！？、）」で細かく区切る！
+    // 例：「寿限無、寿限無」→「寿限無、」と「寿限無」に分割される
+    const parts = cleanText.split(/(?<=[。！？、\n])/g).filter(p => p.trim().length > 0);
 
+    // 短くなったパーツを順番にキューに入れる
+    for (const part of parts) {
+        session.queue.push(part.trim());
+    }
+
+    // 再生開始
     if (!session.isPlaying) {
         playNextAudio(guildId, botId);
     }

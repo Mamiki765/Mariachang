@@ -10,6 +10,18 @@ export default async (oldState, newState) => {
   const botId = newState.client.user.id;
   const session = voiceSessions.get(guildId)?.[botId];
 
+   // 👨‍🏫 【追加】マリア自身がVCから切断された（通信エラーやキック）場合のお掃除
+  if (newState.id === botId && oldState.channelId && !newState.channelId) {
+      console.log(`[Voice] マリアがVCから切断されたのを検知しました。セッションをリセットします。`);
+      const guildSessions = voiceSessions.get(guildId);
+      if (guildSessions) {
+          if (guildSessions[botId]?.player) guildSessions[botId].player.stop();
+          delete guildSessions[botId];
+          if (Object.keys(guildSessions).length === 0) voiceSessions.delete(guildId);
+      }
+      return; // ここで処理終了
+  }
+
   // --- 1. 移動先への参加・移動判定 ---
   // 誰かがVCに入った、または移動してきた 
   // かつ、そのVCに（Botを除いて）1人しかいない
