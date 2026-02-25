@@ -6,8 +6,7 @@ import {
     createAudioPlayer,
     NoSubscriberBehavior,
     AudioPlayerStatus,
-    createAudioResource,
-    AudioPlayerStatus
+    createAudioResource
 } from "@discordjs/voice";
 import { Notification } from "../../models/database.mjs";
 import axios from "axios";
