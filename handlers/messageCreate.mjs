@@ -31,6 +31,7 @@ import { sequelize, CountingGame, Point } from "../models/database.mjs";
 //読み上げ
 import { voiceSessions } from "../commands/utils/vc.mjs"; // Mapをインポート
 import { Readable } from "stream"; // 音声ストリーム用
+import {createAudioResource} from "@discordjs/voice";
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
