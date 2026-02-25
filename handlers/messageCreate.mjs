@@ -29,9 +29,7 @@ import {
 //counting
 import { sequelize, CountingGame, Point } from "../models/database.mjs";
 //読み上げ
-import { voiceSessions } from "../commands/utils/vc.mjs"; // Mapをインポート
-import { Readable } from "stream"; // 音声ストリーム用
-import {createAudioResource} from "@discordjs/voice";
+import { voiceSessions, enqueueAudio } from "../commands/utils/vc.mjs"; // Mapをインポート
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
@@ -48,36 +46,10 @@ const rev2urlPatterns = {
   com: "https://rev2.reversion.jp/community/detail/com",
 };
 
-// --- 読み上げ用ヘルパー関数（APIを叩く処理） ---
-async function playVoice(session, text) {
-  try {
-    const baseUrl = process.env.VOICEVOX_URL || "http://127.0.0.1:50021";
-    const speakerId = 3; // ずんだもん
-
-    // 1. AudioQuery
-    const queryRes = await fetch(`${baseUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { method: 'POST' });
-    if (!queryRes.ok) return;
-    const queryJson = await queryRes.json();
-
-    // 2. Synthesis
-    const synthRes = await fetch(`${baseUrl}/synthesis?speaker=${speakerId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(queryJson),
-    });
-    if (!synthRes.ok) return;
-
-    const arrayBuffer = await synthRes.arrayBuffer();
-    const resource = createAudioResource(Readable.from(Buffer.from(arrayBuffer)));
-    session.player.play(resource);
-  } catch (err) {
-    console.error("[Reading Error]", err);
-  }
-}
 
 //実際のメッセージ処理
 export default async (message) => {
-  // --- A. 読み上げ処理 (ここに追加) ---
+  // --- A. 読み上げ処理 ---
   const guildId = message.guildId;
   const botId = message.client.user.id;
   const sessions = voiceSessions.get(guildId);
@@ -86,14 +58,10 @@ export default async (message) => {
     const session = sessions[botId];
     // 発言チャンネルが読み上げ対象か確認
     if (session.targetTextChannels.includes(message.channelId)) {
-      // メッセージからURLなどを除外した純粋なテキストを生成（お好みで調整）
-      let cleanText = message.content.replace(/https?:\/\/\S+/g, "URL省略");
-      if (cleanText.length > 0 && cleanText.length < 100) {
-        await playVoice(session, cleanText);
-      }
+      // 👨‍🏫 窓口（enqueueAudio）にテキストを投げるだけ！面倒な処理はvc.mjsがやってくれる！
+      await enqueueAudio(guildId, botId, message.content);
     }
   }
-
   // --- B. 既存のBot除外ガード (ここから下は人間の操作のみ) ---
   // 他のBotの発言は読み上げるが、以下のダイスやピザ等の機能は実行させない
   if (message.author.bot) return;
