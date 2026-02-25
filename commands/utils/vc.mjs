@@ -1,3 +1,4 @@
+//commands\utils\vc.mjs
 import { SlashCommandBuilder } from "discord.js";
 import {
     joinVoiceChannel,

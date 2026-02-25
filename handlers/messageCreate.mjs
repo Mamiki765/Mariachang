@@ -1,7 +1,6 @@
 //handlers/messageCreate.mjs
 import { EmbedBuilder } from "discord.js";
 import fs from "fs";
-
 import config from "../config.mjs";
 //ダイス
 import { ndnDice } from "../commands/utils/dice.mjs";
@@ -29,6 +28,9 @@ import {
 } from "../utils/achievements.mjs";
 //counting
 import { sequelize, CountingGame, Point } from "../models/database.mjs";
+//読み上げ
+import { voiceSessions } from "../commands/utils/vc.mjs"; // Mapをインポート
+import { Readable } from "stream"; // 音声ストリーム用
 
 //ロスアカのアトリエURL検知用
 //250706 スケッチブックにも対応
@@ -45,9 +47,58 @@ const rev2urlPatterns = {
   com: "https://rev2.reversion.jp/community/detail/com",
 };
 
+// --- 読み上げ用ヘルパー関数（APIを叩く処理） ---
+async function playVoice(session, text) {
+  try {
+    const baseUrl = process.env.VOICEVOX_URL || "http://127.0.0.1:50021";
+    const speakerId = 3; // ずんだもん
+
+    // 1. AudioQuery
+    const queryRes = await fetch(`${baseUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { method: 'POST' });
+    if (!queryRes.ok) return;
+    const queryJson = await queryRes.json();
+
+    // 2. Synthesis
+    const synthRes = await fetch(`${baseUrl}/synthesis?speaker=${speakerId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryJson),
+    });
+    if (!synthRes.ok) return;
+
+    const arrayBuffer = await synthRes.arrayBuffer();
+    const resource = createAudioResource(Readable.from(Buffer.from(arrayBuffer)));
+    session.player.play(resource);
+  } catch (err) {
+    console.error("[Reading Error]", err);
+  }
+}
+
+//実際のメッセージ処理
 export default async (message) => {
+  // --- A. 読み上げ処理 (ここに追加) ---
+  const guildId = message.guildId;
+  const botId = message.client.user.id;
+  const sessions = voiceSessions.get(guildId);
+
+  if (sessions && sessions[botId]) {
+    const session = sessions[botId];
+    // 発言チャンネルが読み上げ対象か確認
+    if (session.targetTextChannels.includes(message.channelId)) {
+      // メッセージからURLなどを除外した純粋なテキストを生成（お好みで調整）
+      let cleanText = message.content.replace(/https?:\/\/\S+/g, "URL省略");
+      if (cleanText.length > 0 && cleanText.length < 100) {
+        await playVoice(session, cleanText);
+      }
+    }
+  }
+
+  // --- B. 既存のBot除外ガード (ここから下は人間の操作のみ) ---
+  // 他のBotの発言は読み上げるが、以下のダイスやピザ等の機能は実行させない
+  if (message.author.bot) return;
+
   // DMなどの場合は member が取れないので null になることを許容
-  activeUsersForPizza.set(message.author.id, message.member || null); 
+  activeUsersForPizza.set(message.author.id, message.member || null);
   //定義系
   //ロスアカステシ詳細表示用正規表現
   const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!(\d+)?$/);
@@ -184,7 +235,7 @@ export default async (message) => {
       content:
         "https://cdn.discordapp.com/attachments/1261485824378142760/1272199248297070632/megamoji_4.gif?ex=66ba1b61&is=66b8c9e1&hm=981808c1aa6e48d88ec48712ca268fc5b772fba5440454f144075267e84e7edf&",
     });
-    } else if (message.content.match(/^(紫崎 天子|紫崎天子|しざきてんし)$/)) {
+  } else if (message.content.match(/^(紫崎 天子|紫崎天子|しざきてんし)$/)) {
     await message.reply({
       flags: [4096], //@silentになる
       content:
@@ -342,7 +393,7 @@ export default async (message) => {
       flags: [4096],
       content: "それは、わくわく taşıy",
     });
-   } else if (message.content.match(/^(めも|メモ|pbwlove|pbwlovememo)$/i)) {
+  } else if (message.content.match(/^(めも|メモ|pbwlove|pbwlovememo)$/i)) {
     await message.reply({
       flags: [4096],
       content: "https://pbwlove.com",
@@ -445,18 +496,15 @@ export default async (message) => {
   } else if (message.content.match(/^(チンチロリン)$/)) {
     await message.reply({
       flags: [4096], //silent
-      content: `### うみみゃあ！\n### ${Math.floor(Math.random() * 6) + 1}、${
-        Math.floor(Math.random() * 6) + 1
-      }、${Math.floor(Math.random() * 6) + 1}`,
+      content: `### うみみゃあ！\n### ${Math.floor(Math.random() * 6) + 1}、${Math.floor(Math.random() * 6) + 1
+        }、${Math.floor(Math.random() * 6) + 1}`,
     });
   } else if (message.content.match(/^(チンチ口リン)$/)) {
     await message.reply({
       flags: [4096], //silent
-      content: `### うみみゃあ！(シゴロ賽)\n### ${
-        Math.floor(Math.random() * 3) + 4
-      }、${Math.floor(Math.random() * 3) + 4}、${
-        Math.floor(Math.random() * 3) + 4
-      }`,
+      content: `### うみみゃあ！(シゴロ賽)\n### ${Math.floor(Math.random() * 3) + 4
+        }、${Math.floor(Math.random() * 3) + 4}、${Math.floor(Math.random() * 3) + 4
+        }`,
     });
   } else if (ccmatch) {
     // 抽選コマンド処理 cc choice
@@ -779,10 +827,10 @@ export default async (message) => {
               .map((attachment) => attachment.url)
               .join("\n")
               ? refMessage.content +
-                `\n` +
-                refMessage.attachments
-                  .map((attachment) => attachment.url)
-                  .join("\n")
+              `\n` +
+              refMessage.attachments
+                .map((attachment) => attachment.url)
+                .join("\n")
               : refMessage.content;
             if (refMessage.stickers && refMessage.stickers.size > 0) {
               const refFirstSticker = refMessage.stickers.first();

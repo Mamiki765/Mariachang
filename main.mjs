@@ -151,10 +151,12 @@ async function startBot() {
   client.on("threadCreate", (thread) =>
     handlers.get("threadCreate").default(thread)
   );
-  client.on("messageCreate", (message) => {
-    if (message.author.id == client.user.id || message.author.bot) return;
+client.on("messageCreate", (message) => {
+    // 自分自身の発言だけは無限ループになるので絶対に弾く
+    if (message.author.id === client.user.id) return;
+    // 他のBotやユーザーの発言はすべて handler に渡す
     handlers.get("messageCreate").default(message);
-  });
+});
   client.on("messageReactionAdd", (reaction, user) => {
     if (user.id == client.user.id || user.bot) return;
     handlers.get("messageReactionAdd").default(reaction, user);
