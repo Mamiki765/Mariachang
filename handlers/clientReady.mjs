@@ -221,6 +221,25 @@ export default async (client) => {
   );
   // -----------------------------------------------------------------
 
+    // 【追加】再起動時のゴーストVC退治
+    let ghostCount = 0;
+    // Botが参加しているすべてのサーバー（Guild）をチェック
+    client.guilds.cache.forEach(guild => {
+        // 自分自身（Bot）のメンバー情報を取得
+        const botMember = guild.members.me;
+        
+        // もし自分がどこかのVCに入っていたら
+        if (botMember && botMember.voice.channel) {
+            // Discord.js の機能を使って、強制的にVCから切断する（nullをセットすると退出になる）
+            botMember.voice.setChannel(null).catch(console.error);
+            ghostCount++;
+        }
+    });
+
+    if (ghostCount > 0) {
+        console.log(`[Voice] 再起動に伴い、${ghostCount}個のサーバーでVCから退出しました。`);
+    }
+
   await client.user.setActivity("🍙", {
     type: ActivityType.Custom,
     state: "今日も雨宿り中",

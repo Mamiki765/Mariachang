@@ -48,6 +48,10 @@ const Notification = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    sendNotifyMessage: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
+    }
   },
   {
     // ▼▼▼ ここにオプションを追加します ▼▼▼

@@ -1,8 +1,9 @@
 // handlers/voiceStateUpdate.mjs
 import { EmbedBuilder } from "discord.js";
-import { joinVoiceChannel, getVoiceConnection, createAudioPlayer, NoSubscriberBehavior } from "@discordjs/voice";
+import { joinVoiceChannel, getVoiceConnection, createAudioPlayer, NoSubscriberBehavior, AudioPlayerStatus } from "@discordjs/voice"; // 👨‍🏫 AudioPlayerStatus 追加
 import { Notification } from "../models/database.mjs";
-import { voiceSessions } from "../commands/utils/vc.mjs";
+// 👨‍🏫 playNextAudio をインポート
+import { voiceSessions, playNextAudio } from "../commands/utils/vc.mjs"; 
 
 export default async (oldState, newState) => {
   const guildId = newState.guild.id;
@@ -13,6 +14,12 @@ export default async (oldState, newState) => {
   // 誰かがVCに入った、または移動してきた 
   // かつ、そのVCに（Botを除いて）1人しかいない
   if (newState.channelId && newState.channel.members.filter(m => !m.user.bot).size === 1) {
+
+    // 👨‍🏫 【寝取られ防止！】 マリアがすでに別のVCでお仕事中なら、何もしないで帰る
+    if (session && session.voiceChannelId !== newState.channelId) {
+      console.log(`[Voice] ${newState.channel.name} に人が来ましたが、マリアは別VCで稼働中のため無視します。`);
+      return; 
+    }
 
     // マリアがまだそのVCにいない場合のみ実行
     if (!session || session.voiceChannelId !== newState.channelId) {
@@ -29,7 +36,7 @@ export default async (oldState, newState) => {
         const embed = new EmbedBuilder()
           .setColor(0x5cb85c)
           .setAuthor({ name: newState.member.displayName, iconURL: newState.member.displayAvatarURL() })
-          .setTitle(`<#${newState.channelId}> で通話を開始したにゃ！`)
+          .setTitle(`<#${newState.channelId}> で通話を開始したにゃ！`);
 
         await Promise.all(combinedTargetChannels.map(async (id) => {
           const ch = await newState.guild.channels.fetch(id).catch(() => null);
@@ -47,6 +54,15 @@ export default async (oldState, newState) => {
         let player = session?.player;
         if (!player) {
           player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
+          
+          // 👨‍🏫 【重要】自動で作ったプレイヤーにも「次を再生する」監視をつける
+          player.on(AudioPlayerStatus.Idle, () => {
+            playNextAudio(guildId, botId);
+          });
+          player.on('error', (error) => {
+            console.error('[VoiceVox Player Error]', error.message);
+            playNextAudio(guildId, botId);
+          });
         }
         connection.subscribe(player);
 
@@ -55,7 +71,9 @@ export default async (oldState, newState) => {
         voiceSessions.get(guildId)[botId] = {
           player,
           voiceChannelId: newState.channelId,
-          targetTextChannels: combinedTargetChannels
+          targetTextChannels: combinedTargetChannels,
+          queue:[],        // 👨‍🏫 追加: キューの初期化
+          isPlaying: false  // 👨‍🏫 追加: 再生フラグの初期化
         };
       }
     }
@@ -73,7 +91,10 @@ export default async (oldState, newState) => {
         const connection = getVoiceConnection(guildId);
         if (connection) connection.destroy();
 
-        // セッションを削除（この書き方なら確実です）
+        // 👨‍🏫 (おまけ) 念のためプレイヤーを止めておく
+        if (session.player) session.player.stop();
+
+        // セッションを削除
         const guildSessions = voiceSessions.get(guildId);
         if (guildSessions) {
           delete guildSessions[botId];
