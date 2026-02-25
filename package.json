@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "4.29.6",
+  "version": "4.30.0",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -18,6 +18,7 @@
     "tree": "tree --ignore \"node_modules,.git,.env,package-lock.json,project-structure.txt\" -l 3 -o project-structure.txt"
   },
   "dependencies": {
+    "@discordjs/voice": "^0.19.0",
     "@supabase/supabase-js": "^2.91.1",
     "axios": "^1.13.2",
     "break_infinity.js": "^2.2.0",
@@ -25,6 +26,7 @@
     "discord.js": "^14.25.1",
     "express": "^5.2.1",
     "image-size": "^2.0.2",
+    "libsodium-wrappers": "^0.8.2",
     "mee6-levels-api": "^1.3.1",
     "node-cron": "^4.2.1",
     "pg": "^8.17.1",

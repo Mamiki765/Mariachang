@@ -1,10 +1,12 @@
 # Dockerfile (軽量版)
 FROM node:24-slim
 
-# git 本体と、サーバー証明書を検証するための ca-certificates をインストールする
+# git本体と、サーバー証明書を検証するためのca-certificates、
+# そしてDiscordの音声ストリーミングに必要なffmpegをインストールする
 RUN apt-get update && apt-get install -y \
     git \
     ca-certificates \
+    ffmpeg \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
