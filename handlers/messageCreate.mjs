@@ -18,6 +18,8 @@ import { deletebuttonunique } from "../components/buttons.mjs";
 import {
   getCharacterSummary,
   getCharacterSummaryCompact,
+  getCharacterBasicInfo,
+  getCharacterBudgetInfo
 } from "../utils/characterApi.mjs";
 // 250904発言によるピザ(チップ)トークン獲得
 const activeUsersForPizza = new Map(); // Key: userId, Value: memberオブジェクト
@@ -284,11 +286,33 @@ export default async (message) => {
       allowedMentions: { repliedUser: false },
     });
   }
-  //ロスアカ
-  else if (message.content.match(/^r2[pn][0-9][0-9][0-9][0-9][0-9][0-9]$/)) {
+  // 予算計算 (例: r2p000001予算 または r2p000001$30)
+  else if (message.content.match(/^r2[pn][0-9]{6}(?:\$|予算)(\d+)?$/)) {
+    const match = message.content.match(/^r2[pn][0-9]{6}(?:\$|予算)(\d+)?$/);
+    const characterId = message.content.substring(0, 9); // 先頭の r2p000001 部分を取得
+    const targetLevel = match[1] ? parseInt(match[1], 10) : null;
+    
+    await message.channel.sendTyping();
+    const replyMessage = await getCharacterBudgetInfo(characterId, targetLevel);
+    
     await message.reply({
       flags: [4096], //@silent
-      content: "https://rev2.reversion.jp/character/detail/" + message.content,
+      content: replyMessage,
+    });
+  }
+  //ロスアカ (URL + 簡易情報)
+  else if (message.content.match(/^r2[pn][0-9]{6}$/)) {
+    const characterId = message.content;
+
+    // API叩くのでタイピング状態にする
+    await message.channel.sendTyping();
+
+    // 新しく作った関数を呼び出して結果を受け取る
+    const replyMessage = await getCharacterBasicInfo(characterId);
+
+    await message.reply({
+      flags: [4096], //@silent
+      content: replyMessage,
     });
   }
   //PPP

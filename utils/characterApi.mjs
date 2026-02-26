@@ -161,7 +161,6 @@ async function getGameParameters() {
  * @returns {string} "(Lv.XXまで ...)" or "(実レベル:XX)" etc.
  */
 function createLevelInfoString(character, gameParams, targetLevel = null) {
-  // ★ 1. 引数を追加
   const { maxLevel, baseExp, multipliers } = gameParams;
   const totalCumulativeXp = getTotalXpForLevel(character.level) + character.exp;
 
@@ -169,8 +168,10 @@ function createLevelInfoString(character, gameParams, targetLevel = null) {
     return "";
   }
 
-  // ■ カンスト済みの判定 (これは従来通り)
-  if (character.level >= maxLevel) {
+  // ■ カンスト済みの判定
+  // 目標レベルが指定されていない、または目標レベルが現在レベル以下の場合で、
+  // かつ現在のレベルがゲームの最大レベル以上の場合は実レベル表示などを優先
+  if ((!targetLevel || targetLevel <= character.level) && character.level >= maxLevel) {
     const realLevel = calculateRealLevelFromTotalXp(
       totalCumulativeXp,
       character.level
@@ -178,8 +179,6 @@ function createLevelInfoString(character, gameParams, targetLevel = null) {
     if (realLevel > character.level) {
       return `(実レベル:${realLevel})`;
     }
-    // カンストしていて、特に実レベル表示も不要なら何も表示しない
-    // もし目標レベルが指定されていても、既にカンスト済なら無視する
     return "";
   }
 
@@ -187,13 +186,16 @@ function createLevelInfoString(character, gameParams, targetLevel = null) {
   let goalLevel;
   let goalText;
 
-  // ★ 2. 目標レベルが「有効な値」であるかチェック
-  // - targetLevelが指定されている
-  // - 現在レベルより高い
-  // - ゲームの最大レベル（カンストレベル）以下
-  if (targetLevel && targetLevel > character.level && targetLevel <= maxLevel) {
+  // ★ 上限を「100 または maxLevel の高い方」に設定
+  const levelLimit = Math.max(100, maxLevel || 100);
+
+  if (targetLevel && targetLevel > character.level && targetLevel <= levelLimit) {
     goalLevel = targetLevel;
     goalText = `Lv.${targetLevel}まで`;
+  } else if (targetLevel && targetLevel > levelLimit) {
+    // 指定レベルが上限を超えている場合は上限に丸める
+    goalLevel = levelLimit;
+    goalText = `Lv.${levelLimit}まで`;
   } else {
     // 有効でない、または指定がない場合は、カンストを目標にする
     goalLevel = maxLevel;
@@ -212,10 +214,8 @@ function createLevelInfoString(character, gameParams, targetLevel = null) {
       return `(${goalText}${xpNeeded.toLocaleString()} EXP)`;
     }
 
-    // 1. 「傾斜なし」の計算は従来通り
     const normalScenarioCount = ((xpNeeded / baseExp) * 100).toFixed(1);
 
-    // 2. 「傾斜あり」の計算を新しい関数に任せる
     const slopedScenarioCountValue = calculateScenariosWithSlope(
       character,
       goalLevel,
@@ -224,12 +224,73 @@ function createLevelInfoString(character, gameParams, targetLevel = null) {
     );
     const slopedScenarioCount = slopedScenarioCountValue.toFixed(1);
 
-    // 3. 表示の組み立て (ここは変更なし)
     if (slopedScenarioCount === normalScenarioCount) {
       return `(${goalText} 基礎EXPの${normalScenarioCount}%)`;
     } else {
       return `(${goalText} 傾斜有:${slopedScenarioCount}% / 無:${normalScenarioCount}%)`;
     }
+  }
+}
+
+/**
+ * 【NEW】基本情報のみ（ステシURL＋名前＋レベル等）を生成する関数
+ * @param {string} characterId 
+ * @returns {Promise<string>}
+ */
+export async function getCharacterBasicInfo(characterId) {
+  try {
+    const apiData = await getCharacterDetail(characterId);
+
+    // キャラクター情報が取れなかった場合は、エラーを出さずにURLだけを返す
+    if (!apiData || !apiData.character) {
+      return `https://rev2.reversion.jp/character/detail/${characterId}`;
+    }
+    
+    const { character } = apiData;
+
+    // 1行目: ステータスシートのURL
+    let reply = `https://rev2.reversion.jp/character/detail/${characterId}\n`;
+
+    // --- NPCの場合 ---
+    if (character.character_id.startsWith("r2n")) {
+      reply += `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **NPC** です。\n`;
+      if (character.handler_creator) {
+        reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})`;
+      }
+      return reply;
+
+    // --- EXPCの場合 ---
+    } else if (character.owner) {
+      const licenseDisplay = formatLicenseDisplay(character.licenses);
+      reply += `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}`;
+      return reply;
+
+    // --- PCの場合 ---
+    } else {
+      const licenseDisplay = formatLicenseDisplay(character.licenses);
+      // 2行目: 名前、ルーツ、世代、ライセンス
+      reply += `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
+      
+      const gameParams = await getGameParameters();
+      // 目標レベルは未指定(null)でカンストを目標として文字列を生成
+      const levelplus = createLevelInfoString(character, gameParams, null);
+      
+      const testa =
+        character.testament < 50 || character.testament >= 100
+          ? `${character.testament}`
+          : character.testament < 80
+            ? `⚠️${character.testament}`
+            : `⚠️${character.testament}⚠️`;
+            
+      // 3行目: レベル、経験値、必要経験値、Testament
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}`;
+      
+      return reply;
+    }
+  } catch (error) {
+    // 内部的にエラーログは残しつつ、DiscordにはURLだけを返す
+    console.error(`[エラー] ${characterId} の基本情報作成処理でエラーが発生しました:`, error);
+    return `https://rev2.reversion.jp/character/detail/${characterId}`;
   }
 }
 
@@ -835,6 +896,109 @@ function createEquipmentSection(character) {
   }
 
   return lines.length > 0 ? lines.join("\n") : "";
+}
+
+/**
+ * 【NEW】予算計算用の情報を生成する関数
+ * @param {string} characterId 
+ * @param {number|null} targetLevel 
+ * @returns {Promise<string>}
+ */
+export async function getCharacterBudgetInfo(characterId, targetLevel = null) {
+  try {
+    const apiData = await getCharacterDetail(characterId);
+    if (!apiData || !apiData.character) {
+      return `https://rev2.reversion.jp/character/detail/${characterId}`;
+    }
+    const { character } = apiData;
+
+    let reply = `https://rev2.reversion.jp/character/detail/${characterId}\n`;
+    
+    // NPCやEXPCの場合はそのまま返す（予算計算不要）
+    if (character.character_id.startsWith("r2n") || character.owner) {
+      return reply + `NPCやEXPCの予算計算は非対応です。`;
+    }
+
+    const licenseDisplay = formatLicenseDisplay(character.licenses);
+    reply += `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
+
+    const gameParams = await getGameParameters();
+    const levelLimit = Math.max(100, gameParams.maxLevel || 100);
+    
+    // 目標レベルの設定
+    let goalLevel = gameParams.maxLevel || levelLimit;
+    if (targetLevel) {
+      goalLevel = Math.min(Math.max(character.level + 1, targetLevel), levelLimit);
+    }
+
+    const totalCumulativeXp = getTotalXpForLevel(character.level) + character.exp;
+    const xpForGoalLevel = getTotalXpForLevel(goalLevel);
+    const xpNeeded = xpForGoalLevel - totalCumulativeXp;
+
+    // 既に目標レベルに到達している場合
+    if (xpNeeded <= 0) {
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next} Testament.${character.testament}\n`;
+      reply += `\nあなたは目標レベル（Lv.${goalLevel}）に到達しています。`;
+      return reply;
+    }
+
+    const baseExp = gameParams.baseExp || 500;
+    const multipliers = gameParams.multipliers;
+
+    // 基礎経験値での％と、傾斜込みでの％を算出
+    const unslopedPercent = (xpNeeded / baseExp) * 100;
+    const slopedPercent = calculateScenariosWithSlope(character, goalLevel, baseExp, multipliers);
+
+    // levelplusの取得（既存の関数を利用してカッコ内の表示を作る）
+    const levelplus = createLevelInfoString(character, gameParams, targetLevel);
+    reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${character.testament}\n`;
+
+    /* --- 予算の計算ロジック --- */
+    
+    // 1. 整数にせず小数点2回まで表記するもの（比例でRC計算）
+    const iraiNormalCount = slopedPercent / 100;
+    const iraiNormalRc = Math.ceil(iraiNormalCount * 150);
+    
+    const iraiHardCount = slopedPercent / 150;
+    const iraiHardRc = Math.ceil(iraiHardCount * 150);
+
+    // 2. 整数にせず表記しないもの（比例でRC計算）
+    const ssRc = Math.ceil((slopedPercent / 100) * 500);
+    const atelierRc = Math.ceil((unslopedPercent / 100) * 1500);
+    const studioRc = Math.ceil((unslopedPercent / 100) * 750);
+
+    // 3. 整数にして表記するもの（回数を切り上げてからRC計算）
+    const questCount = Math.ceil(unslopedPercent / 20);
+    const questRc = questCount * 30;
+    
+    const limitQuestCount = Math.ceil(unslopedPercent / 25);
+    const limitQuestRc = limitQuestCount * 30;
+    
+    const arenaCount = Math.ceil(unslopedPercent / 50);
+    const arenaRc = arenaCount * 50;
+
+    // 出力用テキストの組み立て
+    reply += `\n\`\`\`\n【目標レベルへの必要予算(Lv.${goalLevel}まで)】\n`;
+    
+    // 小数点第2位までのフォーマット用ヘルパー（ゼロ埋めなし）
+    const fNum = (num) => Number(num.toFixed(2)).toLocaleString();
+
+    reply += `依頼(NORMAL/成功) : ${iraiNormalRc.toLocaleString().padStart(6, ' ')} RC (${fNum(iraiNormalCount)}回)\n`;
+    reply += `依頼(HARD/成功)   : ${iraiHardRc.toLocaleString().padStart(6, ' ')} RC (${fNum(iraiHardCount)}回)\n`;
+    reply += `SS                : ${ssRc.toLocaleString().padStart(6, ' ')} RC\n`;
+    reply += `アリーナ          : ${arenaRc.toLocaleString().padStart(6, ' ')} RC (${arenaCount.toLocaleString()}週)\n`;
+    reply += `クエスト          : ${questRc.toLocaleString().padStart(6, ' ')} RC (${questCount.toLocaleString()}回)\n`;
+    reply += `リミテッドクエスト: ${limitQuestRc.toLocaleString().padStart(6, ' ')} RC (${limitQuestCount.toLocaleString()}回)\n`;
+    reply += `アトリエ(エクカ外): ${atelierRc.toLocaleString().padStart(6, ' ')} RC\n`;
+    reply += `スタジオ          : ${studioRc.toLocaleString().padStart(6, ' ')} RC\n`;
+    
+    reply += `\`\`\``;
+
+    return reply;
+  } catch (error) {
+    console.error(`[エラー] ${characterId} の予算計算処理でエラー:`, error);
+    return `https://rev2.reversion.jp/character/detail/${characterId}`;
+  }
 }
 
 /**
