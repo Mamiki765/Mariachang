@@ -20,6 +20,14 @@ export const chatHelpData = [
   },
   {
     category: "chat",
+    name: "補正予算案",
+    description:
+      "Rev2のみ、キャラIDの末尾に$か予算を付けると必要な予算を調べます。",
+    notes:
+      "r2p000001$30 r2p000001予算 のようにつかいます",
+  },
+  {
+    category: "chat",
     name: "自由雑談新スレ通知",
     description:
       "「自由雑談」「地下自由雑談」の新規スレを「雑談」「地下雑談」チャンネルでお知らせします。",

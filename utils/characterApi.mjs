@@ -978,7 +978,7 @@ export async function getCharacterBudgetInfo(characterId, targetLevel = null) {
     const arenaRc = arenaCount * 50;
 
     // 出力用テキストの組み立て
-    reply += `\n\`\`\`\n【目標レベルへの必要予算(Lv.${goalLevel}まで)】\n`;
+    reply += `-# 倍率は2026年2月27日現在\n\`\`\`\n【目標レベルへの必要予算(Lv.${goalLevel}まで)】\n`;
     
     // 小数点第2位までのフォーマット用ヘルパー（ゼロ埋めなし）
     const fNum = (num) => Number(num.toFixed(2)).toLocaleString();
