@@ -912,11 +912,11 @@ export async function getCharacterBudgetInfo(characterId, targetLevel = null) {
     }
     const { character } = apiData;
 
-    let reply = `https://rev2.reversion.jp/character/detail/${characterId}\n`;
+    let reply = ``;
     
     // NPCやEXPCの場合はそのまま返す（予算計算不要）
     if (character.character_id.startsWith("r2n") || character.owner) {
-      return reply + `NPCやEXPCの予算計算は非対応です。`;
+      return reply + `https://rev2.reversion.jp/character/detail/${characterId}\nNPCやEXPCの予算計算は非対応です。`;
     }
 
     const licenseDisplay = formatLicenseDisplay(character.licenses);
