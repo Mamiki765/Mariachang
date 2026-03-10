@@ -16,7 +16,7 @@ import {
 import { Op } from "sequelize";
 import { createRpDeleteRequestButton } from "../../components/buttons.mjs";
 import { Character, Icon, Point } from "../../models/database.mjs";
-import { deleteFile } from "../../utils/supabaseStorage.mjs";
+import { deleteFile } from "../../utils/localStorage.mjs";
 import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 import { unlockAchievements } from "../../utils/achievements.mjs";
 import config from "../../config.mjs";

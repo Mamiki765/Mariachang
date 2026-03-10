@@ -15,7 +15,7 @@ import {
 import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
 import { Character, Icon, Point, sequelize } from "../models/database.mjs";
 import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
-import { uploadFile, deleteFile } from "../utils/supabaseStorage.mjs";
+import { uploadFile, deleteFile } from "../utils/localStorage.mjs";
 //RP周りここまで
 
 export default async function handleModalInteraction(interaction) {
@@ -273,6 +273,7 @@ async function handleRoleplayRegisterModal(interaction) {
     // --- 3. アイコンファイルの処理 ---
     let iconUrl = null;
     let deleteHash = null;
+    let uploadedFileSize = 0;
 
     const existingIcon = await Icon.findOne({ where: { userId: charaslot } });
     if (existingIcon?.deleteHash) {
@@ -284,14 +285,16 @@ async function handleRoleplayRegisterModal(interaction) {
       const fetched = await fetch(icon.url);
       const buffer = Buffer.from(await fetched.arrayBuffer());
 
-      if (buffer.length > 1024 * 1024)
+      if (buffer.length > 1024 * 1024) {
         throw new Error("アイコンファイルのサイズが1MBを超えています。");
+      }
 
       const fileExt = icon.name.split(".").pop()?.toLowerCase();
-      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt))
+      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt)) {
         throw new Error(
           "対応していないファイル形式です。PNG, WebP, JPG のいずれかでアップロードしてください。"
         );
+      }
 
       const result = await uploadFile(
         buffer,
@@ -300,12 +303,14 @@ async function handleRoleplayRegisterModal(interaction) {
         fileExt,
         "icons"
       );
-      if (result) {
-        iconUrl = result.url;
-        deleteHash = result.path;
-      } else {
+
+      if (!result) {
         throw new Error("アイコンのアップロードに失敗しました。");
       }
+
+      iconUrl = result.url;
+      deleteHash = result.path;
+      uploadedFileSize = buffer.length;
     }
 
     // --- 4. データベースにトランザクションで保存 ---
@@ -325,10 +330,10 @@ async function handleRoleplayRegisterModal(interaction) {
         {
           userId: charaslot,
           iconUrl,
-          // illustratorとcopyrightのどちらを使うかはpbwの値による
           illustrator: pbw !== "other" ? illustrator : copyright,
           pbw,
           deleteHash,
+          fileSize: uploadedFileSize,
         },
         { transaction: t }
       );
@@ -415,9 +420,9 @@ async function handleRoleplayPostModal(interaction) {
             userId: charaslot,
             iconUrl: result.url,
             deleteHash: result.path,
-            // IL名も同時指定があればそれ、なければ既存のものを維持
             illustrator: illustratorInput || loadicon?.illustrator || "絵師様",
-            pbw: loadicon?.pbw, // PBW設定は引き継ぐ
+            pbw: loadicon?.pbw,
+            fileSize: buffer.length,
           },
           { transaction: t }
         );
