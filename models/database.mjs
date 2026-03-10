@@ -107,6 +107,11 @@ const Icon = sequelize.define(
     pbw: {
       type: DataTypes.STRING,
     },
+    fileSize: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
   },
   {
     tableName: "icons",
@@ -411,6 +416,11 @@ const Sticker = sequelize.define(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false, // デフォルトは非公開
+    },
+    fileSize: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

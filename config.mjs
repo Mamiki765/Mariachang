@@ -164,9 +164,9 @@ export default {
   //スタンプ機能の設定
   sticker: {
     // ユーザー一人あたりの、スタンプ登録上限数
-    limitPerUser: 5,
+    limitPerUser: 50,
     // スタンプのディレクトリサイズ上限
-    directorySizeLimit: 300 * 1024 * 1024, // 300MB
+    directorySizeLimit: 5 * 1024 * 1024 * 1024, // 5GB
     // スタンプ登録上限数を引き上げるVIPロール
     vipRoles: isProduction
       ? [
@@ -174,7 +174,7 @@ export default {
           "1025453404362903622", // イラストレーターロールのID
         ]
       : [], //debugは空
-    vipLimit: 50, // VIPの最大登録数
+    vipLimit: 255, // VIPの最大登録数
   },
   nyowacoin: isProduction
     ? "<:nyowacoin:1407422205624844288>"

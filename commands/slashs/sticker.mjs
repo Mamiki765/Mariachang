@@ -7,16 +7,13 @@ import {
   ButtonStyle,
 } from "discord.js";
 import { Sticker } from "../../models/database.mjs"; // あなたのデータベース設定からStickerモデルをインポート
-import {
-  uploadFile,
-  deleteFile,
-  getDirectorySize,
-} from "../../utils/supabaseStorage.mjs"; // 汎用化したストレージ管理モジュール
+import { uploadFile, deleteFile } from "../../utils/localStorage.mjs";
 import { deployStickerListPage } from "../../utils/gitHubDeployer.mjs";
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
 import sizeOf from "image-size";
 import config from "../../config.mjs";
 // スタンプの登録、投稿、削除を行うスラッシュコマンド
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export const scope = "guild"; // 指定ギルドでのみ使用可
 export const help = {
@@ -26,7 +23,7 @@ export const help = {
       name: "register", // サブコマンド名
       description: "疑似スタンプの登録",
       notes:
-        "マリアで使える擬似的なスタンプを登録できます。\n画像サイズは320x320 512KBまで、一人5枚まで登録可です\n他人が使用不可のスタンプもつくれます",
+        "マリアで使える擬似的なスタンプを登録できます。\n画像サイズは800x800まで、ファイルサイズは10MBまでです。\n他人が使用不可のスタンプもつくれます",
     },
     {
       name: "post",
@@ -67,7 +64,7 @@ export const data = new SlashCommandBuilder()
       .addAttachmentOption((option) =>
         option
           .setName("image")
-          .setDescription("スタンプにする画像 (320x320、512KBまで)")
+          .setDescription("スタンプにする画像 (800x800、10MBまで)")
           .setRequired(true)
       )
       .addStringOption((option) =>
@@ -189,35 +186,33 @@ export async function execute(interaction) {
   const userId = interaction.user.id;
 
   if (subcommand === "register") {
-    await interaction.deferReply({ flags: 64 }); // ephemeral reply
+    await interaction.deferReply({ flags: 64 });
+
     const image = interaction.options.getAttachment("image");
     const name = interaction.options.getString("name");
     const isPublic = interaction.options.getBoolean("public") || false;
 
-    // 登録数制限のチェック
-    // VIPロールを持っているかどうかを確認
     const isVip = config.sticker.vipRoles.some((roleId) =>
       interaction.member.roles.cache.has(roleId)
     );
-    // ユーザーごとのスタンプ登録上限数を取得
-    // VIPなら上限を引き上げる 5 -> 50
+
     const STICKER_LIMIT = isVip
       ? config.sticker.vipLimit
       : config.sticker.limitPerUser;
+
     const currentStickerCount = await Sticker.count({
       where: { ownerId: userId },
     });
+
     if (
       currentStickerCount >= STICKER_LIMIT &&
       userId != config.administrator
     ) {
-      //管理人は無限
       return interaction.editReply({
         content: `登録できるスタンプの上限（${STICKER_LIMIT}個）に達しています。\n通常ユーザー：${config.sticker.limitPerUser}個、IL/モデレーター：${config.sticker.vipLimit}個`,
       });
     }
 
-    // 1.ファイル形式とサイズのチェック
     const fileExt = image.name.split(".").pop().toLowerCase();
     if (!["png", "webp", "jpg", "jpeg", "gif"].includes(fileExt)) {
       return interaction.editReply({
@@ -225,21 +220,19 @@ export async function execute(interaction) {
           "対応していないファイル形式です。PNG, WebP, JPG, GIF のいずれかでアップロードしてください。",
       });
     }
-    if (image.size > 512 * 1024) {
-      // 512KB
+
+    if (image.size > MAX_FILE_SIZE) {
       return interaction.editReply({
-        content: "画像ファイルのサイズが512KBを超えています。",
+        content: "ファイルサイズが10MBを超えています。",
       });
     }
-    // 2. ファイルをダウンロードして、バッファに変換
+
     const fetched = await fetch(image.url);
     const buffer = Buffer.from(await fetched.arrayBuffer());
 
-    // 3. 画素数チェック！
     try {
       const dimensions = sizeOf(buffer);
       if (dimensions.width > 800 || dimensions.height > 800) {
-        //管理人は無視
         return interaction.editReply({
           content: `画像のサイズが大きすぎます。幅と高さは、それぞれ800ピクセル以下にしてください。\n(現在のサイズ: ${dimensions.width}x${dimensions.height})`,
         });
@@ -251,39 +244,31 @@ export async function execute(interaction) {
           "画像のメタデータを読み取れませんでした。ファイルが破損している可能性があります。",
       });
     }
-    // 同じ名前のスタンプがすでにないかチェック
+
     const existingSticker = await Sticker.findOne({
       where: { ownerId: userId, name: name },
     });
+
     if (existingSticker) {
       return interaction.editReply({
         content: `あなたはすでに「${name}」という名前のスタンプを登録しています。`,
       });
     }
 
-    // ディレクトリサイズ制限のチェック
-    const currentStickersSize = await getDirectorySize("stickers");
     const newFileSize = image.size;
     const sizeLimit = config.sticker.directorySizeLimit;
-
-    if (currentStickersSize === -1) {
-      return interaction.editReply({
-        content: "ストレージの容量を確認中にエラーが発生しました。",
-      });
-    }
+    const currentStickersSize = (await Sticker.sum("fileSize")) || 0;
 
     if (currentStickersSize + newFileSize > sizeLimit) {
       const currentSizeMB = (currentStickersSize / 1024 / 1024).toFixed(2);
+      const limitMB = (sizeLimit / 1024 / 1024).toFixed(0);
+
       return interaction.editReply({
-        content: `ストレージの上限に達するため、アップロードできません。\n(現在の使用量: ${currentSizeMB}MB / 300MB)`,
+        content: `ストレージの上限に達するため、アップロードできません。\n(現在の使用量: ${currentSizeMB}MB / ${limitMB}MB)`,
       });
     }
 
     try {
-      //const fetched = await fetch(image.url);
-      //const buffer = Buffer.from(await fetched.arrayBuffer());
-
-      // 汎用化したストレージ関数を呼び出す！
       const result = await uploadFile(buffer, userId, 0, fileExt, "stickers");
 
       if (!result) {
@@ -298,6 +283,7 @@ export async function execute(interaction) {
         filePath: result.path,
         ownerId: userId,
         isPublic: isPublic,
+        fileSize: newFileSize,
       });
 
       const embed = new EmbedBuilder()
@@ -306,11 +292,11 @@ export async function execute(interaction) {
         .setThumbnail(result.url)
         .setColor("Green")
         .setFooter({
-          text: `使用容量${(
+          text: `使用容量 ${(
             (currentStickersSize + newFileSize) /
             1024 /
             1024
-          ).toFixed(2)}MB / 300MB`,
+          ).toFixed(2)}MB / ${(sizeLimit / 1024 / 1024).toFixed(0)}MB`,
         })
         .addFields({
           name: "公開設定",
@@ -320,10 +306,9 @@ export async function execute(interaction) {
         });
 
       await interaction.editReply({ embeds: [embed] });
-      // register サブコマンドの成功処理の後
-      // こっそーりWebサイトを作ります
+
       if (isPublic) {
-        deployStickerListPage(); // Fire and Forget!
+        deployStickerListPage();
       }
     } catch (error) {
       console.error("スタンプ登録エラー:", error);
