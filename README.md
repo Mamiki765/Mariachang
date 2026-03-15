@@ -4,6 +4,15 @@
 このBotは、[EOi(@exteoi)様](https://note.com/exteoi/n/n0ea64e258797)が作成された `minipotato-bot` の雛形を元に、Rika Amamiya(@tw_e35140)が大幅な改修を加えて開発したものです。
 素晴らしい雛形を公開してくださったEOi様に、心から感謝いたします。
 
+### スラッシュコマンドの登録
+
+本番環境では bot 起動時に自動でスラッシュコマンド登録を行いません。
+必要な場合は手動で以下を実行してください。
+
+```bash
+docker exec -it mariachang npm run register:commands
+```
+
 ## アセット保存について
 
 画像アセット（ロールプレイ用アイコン、スタンプ）は Supabase Storage ではなく、OCI サーバー上のローカルディレクトリに保存されます。

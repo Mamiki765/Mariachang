@@ -1,6 +1,6 @@
 {
   "name": "mariachang",
-  "version": "4.32.0",
+  "version": "4.32.1",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
@@ -11,6 +11,7 @@
     "startenv": "node --env-file=.env --trace-warnings main.mjs",
     "local_start": "node --env-file=.env.local --trace-warnings main.mjs",
     "local_debug": "node --env-file=.env.development --trace-warnings main.mjs",
+    "register:commands": "node --env-file=.env regist-commands.mjs",
     "_comment_format": "npm run format:check で整形が必要なファイルを確認し、npm run format で自動整形する",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

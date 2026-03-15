@@ -28,13 +28,17 @@ async function getCharacterDetail(characterId) {
   const headers = {
     "content-type": "application/json",
     accept: "*/*",
-    "accept-language": "ja", // 追加
-    origin: "https://rev2.reversion.jp", // 追加
+    "accept-language": "ja",
+    origin: "https://rev2.reversion.jp",
     referer: `https://rev2.reversion.jp/character/detail/${characterId}`,
-    // ユーザーエージェントはcURLのものと完全に一致させます
     "user-agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
   };
+
+  const sessionCookie = getSessionCookie();
+  if (sessionCookie) {
+    headers.cookie = sessionCookie;
+  }
 
   // ★★★ cURLコマンドのGraphQLクエリに完全に差し替え ★★★
   const data = {
@@ -45,12 +49,25 @@ async function getCharacterDetail(characterId) {
   };
 
   try {
-    const response = await axios.post(url, data, { headers });
-    // レスポンスの構造が変わっている可能性も考慮
+    const response = await axios.post(url, data, {
+      headers,
+      timeout: 15000,
+      validateStatus: () => true,
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      console.error(`[エラー] API HTTP ${response.status}:`, response.data || response.statusText);
+      return null;
+    }
+
+    if (response.data?.errors?.length) {
+      console.error("[エラー] GraphQLエラー:", response.data.errors);
+      return null;
+    }
+
     if (response.data && response.data.data) {
       return response.data.data;
     } else {
-      // APIからエラーメッセージが返ってきた場合など
       console.error("[エラー] APIからのレスポンス形式が不正です:", response.data);
       return null;
     }
@@ -111,6 +128,60 @@ function getVisualWidth(str) {
     width += 1;
   }
   return width;
+}
+
+/**
+ * ルーツ表示用。旧仕様の object / 新仕様の array の両方に対応する。
+ * @param {any} roots
+ * @returns {string}
+ */
+function getRootsDisplay(roots) {
+  if (!roots) return "-";
+  if (Array.isArray(roots)) {
+    const names = roots.map((root) => root?.name).filter(Boolean);
+    return names.length > 0 ? names.join("/") : "-";
+  }
+  return roots.name || "-";
+}
+
+/**
+ * state / states の両対応で表示用接頭辞を作る。
+ * @param {object} character
+ * @returns {string}
+ */
+function getStatePrefix(character) {
+  if (!character) return "";
+
+  if (typeof character.state === "string" && character.state.trim()) {
+    return `**【${character.state}】**`;
+  }
+
+  if (Array.isArray(character.states) && character.states.length > 0) {
+    const text = character.states
+      .map((state) => {
+        if (!state?.name) return null;
+        if (state.remain !== undefined && state.remain !== null) return `${state.name}:${state.remain}`;
+        if (state.counter !== undefined && state.counter !== null) return `${state.name}:${state.counter}`;
+        return state.name;
+      })
+      .filter(Boolean)
+      .join(" / ");
+
+    return text ? `**【${text}】**` : "";
+  }
+
+  return "";
+}
+
+/**
+ * セッション必須化に備えて環境変数からcookieを送れるようにする。
+ * 未設定なら送らない。
+ * @returns {string|undefined}
+ */
+function getSessionCookie() {
+  const session = process.env.REVERSION_SESSION;
+  if (!session) return undefined;
+  return `reversion_session=${session}`;
 }
 
 /**
@@ -247,13 +318,15 @@ export async function getCharacterBasicInfo(characterId) {
     }
 
     const { character } = apiData;
+    const statePrefix = getStatePrefix(character);
+    const rootsDisplay = getRootsDisplay(character.roots);
 
     // 1行目: ステータスシートのURL
     let reply = `https://rev2.reversion.jp/character/detail/${characterId}\n`;
 
     // --- NPCの場合 ---
     if (character.character_id.startsWith("r2n")) {
-      reply += `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **NPC** です。\n`;
+      reply += `${statePrefix}キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})`;
       }
@@ -262,14 +335,14 @@ export async function getCharacterBasicInfo(characterId) {
       // --- EXPCの場合 ---
     } else if (character.owner) {
       const licenseDisplay = formatLicenseDisplay(character.licenses);
-      reply += `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}`;
+      reply += `${statePrefix}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}`;
       return reply;
 
       // --- PCの場合 ---
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses);
       // 2行目: 名前、ルーツ、世代、ライセンス
-      reply += `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
+      reply += `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
 
       const gameParams = await getGameParameters();
       // 目標レベルは未指定(null)でカンストを目標として文字列を生成
@@ -309,20 +382,22 @@ export async function getCharacterSummary(characterId, targetLevel = null) {
       return `キャラクター「${characterId}」の情報取得に失敗しました。IDが正しいか確認してください。`;
     }
     const { character, status_range } = apiData;
+    const statePrefix = getStatePrefix(character);
+    const rootsDisplay = getRootsDisplay(character.roots);
 
     if (character.character_id.startsWith("r2n")) {
-      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **NPC** です。\n`;
+      let reply = `${statePrefix}キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
       }
       return reply;
     } else if (character.owner) {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
-      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
+      let reply = `${statePrefix}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
       return reply;
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
-      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
+      let reply = `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
       const levelplus = createLevelInfoString(
@@ -564,10 +639,12 @@ export async function getCharacterSummaryCompact(
       return `キャラクター「${characterId}」の情報取得に失敗しました。IDが正しいか確認してください。`;
     }
     const { character } = apiData; // status_rangeは今回不要
+    const statePrefix = getStatePrefix(character);
+    const rootsDisplay = getRootsDisplay(character.roots);
 
     // --- NPCの場合 ---
     if (character.character_id.startsWith("r2n")) {
-      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **NPC** です。\n`;
+      let reply = `${statePrefix}キャラクター「${character.name}」は **NPC** です。\n`;
       if (character.handler_creator) {
         reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
       }
@@ -596,7 +673,7 @@ export async function getCharacterSummaryCompact(
       // --- EXPCの場合 ---
     } else if (character.owner) {
       const licenseDisplay = formatLicenseDisplay(character.licenses);
-      let reply = `${character.state ? `**【${character.state}】**` : ""}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
+      let reply = `${statePrefix}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
 
       // ★★★ EXPC用のスキル・装備セクションを追加 ★★★
       const skillsSection = createSkillsAndClassesSection(character);
@@ -622,7 +699,7 @@ export async function getCharacterSummaryCompact(
       // --- PCの場合 ---
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
-      let reply = `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
+      let reply = `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
       const levelplus = createLevelInfoString(
@@ -911,6 +988,8 @@ export async function getCharacterBudgetInfo(characterId, targetLevel = null) {
       return `https://rev2.reversion.jp/character/detail/${characterId}`;
     }
     const { character } = apiData;
+    const statePrefix = getStatePrefix(character);
+    const rootsDisplay = getRootsDisplay(character.roots);
 
     let reply = ``;
 
@@ -920,7 +999,7 @@ export async function getCharacterBudgetInfo(characterId, targetLevel = null) {
     }
 
     const licenseDisplay = formatLicenseDisplay(character.licenses);
-    reply += `${character.state ? `**【${character.state}】**` : ""}「${character.name}」${character.roots.name}×${character.generation.name}${licenseDisplay}\n`;
+    reply += `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
 
     const gameParams = await getGameParameters();
     const levelLimit = Math.max(100, gameParams.maxLevel || 100);

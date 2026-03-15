@@ -20,7 +20,6 @@ query GetCharacterDetail($character_id: String!) {
   }
 }
 
-# ここから下は fragment の定義なので、すべてそのまま貼り付けます
 fragment CharacterDetailPageContent on Rev2CharacterDataDetail {
   name
   name_ruby
@@ -157,12 +156,20 @@ fragment CharacterDetailPageContent on Rev2CharacterDataDetail {
   level
   exp
   exp_to_next
-  state
-  state_remain
+  states {
+    name
+    remain
+    counter
+    __typename
+  }
   p
   m
   t
   c
+  specialization_p
+  specialization_m
+  specialization_t
+  specialization_c
   classes {
     ...Rev2EquipmentSkill
     __typename
@@ -409,6 +416,7 @@ fragment Rev2EquipmentItem on Rev2CharacterItemField {
   description
   display_effects
   icon_url
+  owned_by_current_character
   element
   attachment_ids
   sender {
@@ -461,7 +469,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
   use_param
   use_param_info
   sender {
-    ...Rev2CharacterTinyAndIcon
+    ...Rev2Character
     __typename
   }
   specialization_base {
@@ -500,7 +508,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
     is_collected
     transfer_type
     sender {
-      ...Rev2CharacterTinyAndIcon
+      ...Rev2Character
       __typename
     }
     specialization_base {
@@ -531,7 +539,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
     is_collected
     transfer_type
     sender {
-      ...Rev2CharacterTinyAndIcon
+      ...Rev2Character
       __typename
     }
     specialization_base {
@@ -563,7 +571,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
     is_collected
     transfer_type
     sender {
-      ...Rev2CharacterTinyAndIcon
+      ...Rev2Character
       __typename
     }
     specialization_base {
@@ -574,12 +582,6 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
     level
     __typename
   }
-  __typename
-}
-
-fragment Rev2CharacterTinyAndIcon on Rev2CharacterView {
-  ...Rev2CharacterTiny
-  icon_url
   __typename
 }
 
