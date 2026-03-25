@@ -5,17 +5,17 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
-import config from "../config.mjs";
+import config from "../../config.mjs";
 import {
   replytoDM,
   replyfromDM,
   createRpDeleteRequestButton,
-} from "../components/buttons.mjs";
+} from "../../components/buttons.mjs";
 //RP機能周りimport
-import { sendWebhookAsCharacter } from "../utils/webhook.mjs";
-import { Character, Icon, Point, sequelize } from "../models/database.mjs";
-import { updatePoints } from "../commands/slashs/roleplay.mjs"; // updatePointsをインポート
-import { uploadFile, deleteFile } from "../utils/localStorage.mjs";
+import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
+import { Character, Icon, Point, sequelize } from "../../models/database.mjs";
+import { updatePoints } from "../../commands/slashs/roleplay.mjs"; // updatePointsをインポート
+import { uploadFile, deleteFile } from "../../utils/localStorage.mjs";
 //RP周りここまで
 
 export default async function handleModalInteraction(interaction) {
