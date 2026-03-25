@@ -72,6 +72,7 @@ export default async (message) => {
   }
   // リアクション～ショートカット応答は handlers/messageCreate/reactionAndShortcutBlock.mjs に分離
   const shouldAbortMessageCreate = await handleReactionAndShortcutBlock(message);
+  // true の場合はショートカット側が後続中断を要求している
   if (shouldAbortMessageCreate) return;
 
   //ロスアカアトリエURL＋250706スケッチブックURLが貼られた時、画像を取得する機能

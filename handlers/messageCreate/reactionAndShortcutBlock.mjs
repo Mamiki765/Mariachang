@@ -24,6 +24,10 @@ const rev2urlPatterns = {
  * messageCreate のリアクション～各種ショートカット応答をまとめた処理。
  * 仕様追加時はまずこのファイルを確認してください。
  */
+/**
+ * リアクションやショートカット応答を処理する。
+ * true を返した場合、呼び出し元は messageCreate の後続処理を中断する。
+ */
 export async function handleReactionAndShortcutBlock(message) {
 const rev2detailMatch = message.content.match(/^(r2[pn][0-9]{6})!(\d+)?$/);
 const rev2detailCompactWithEquipmentMatch = message.content.match(
