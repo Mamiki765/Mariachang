@@ -1,7 +1,7 @@
 // handlers/interactionCreate.mjs
 import { EmbedBuilder } from "discord.js";
-import handleButtonInteraction from "../interactions/buttonHandlers.mjs";
-import handleModalInteraction from "../interactions/modalHandlers.mjs";
+import handleButtonInteraction from "./interactionCreate/buttonHandlers.mjs";
+import handleModalInteraction from "./interactionCreate/modalHandlers.mjs";
 import config from "../config.mjs";
 
 export default async (interaction) => {

@@ -3,7 +3,7 @@ import {
   deleteconfirm,
   createRpDeleteConfirmButtons,
   createLoginResultButtons,
-} from "../components/buttons.mjs";
+} from "../../components/buttons.mjs";
 import {
   ModalBuilder,
   TextInputBuilder,
@@ -13,21 +13,21 @@ import {
 import {
   timeout_confirm,
   timeout_cancel,
-} from "../commands/slashs/suyasuya.mjs";
-import { Point, IdleGame } from "../models/database.mjs";
+} from "../../commands/slashs/suyasuya.mjs";
+import { Point, IdleGame } from "../../models/database.mjs";
 // 放置ゲームの人口を更新する関数をインポート
 import {
   getSingleUserUIData,
   formatNumberJapanese_Decimal,
   formatNumberDynamic,
-} from "../idle-game/idle-game-calculator.mjs";
+} from "../../idle-game/idle-game-calculator.mjs";
 import Decimal from "break_infinity.js";
-import { safeDelete } from "../utils/messageutil.mjs";
+import { safeDelete } from "../../utils/messageutil.mjs";
 import {
   checkLoginBonusEligibility,
   executeLoginBonus,
-} from "../utils/loginBonusSystem.mjs";
-import config from "../config.mjs";
+} from "../../utils/loginBonusSystem.mjs";
+import config from "../../config.mjs";
 
 export default async function handleButtonInteraction(interaction) {
   //以下変数定義
