@@ -93,6 +93,12 @@ fragment CharacterDetailPageContent on Rev2CharacterDataDetail {
     popup
     __typename
   }
+  career_specialization {
+    name
+    is_specializing
+    __typename
+  }
+  career_specializable
   sin {
     name
     popup
@@ -154,12 +160,12 @@ fragment CharacterDetailPageContent on Rev2CharacterDataDetail {
   nsp
   stp
   level
+  npc_level
+  npc_level_label
   exp
   exp_to_next
   states {
-    name
-    remain
-    counter
+    ...CharacterState
     __typename
   }
   p
@@ -188,6 +194,14 @@ fragment CharacterDetailPageContent on Rev2CharacterDataDetail {
       __typename
     }
     n {
+      ...Rev2EquipmentSkill
+      __typename
+    }
+    ex_a {
+      ...Rev2EquipmentActiveSkill
+      __typename
+    }
+    ex_n {
       ...Rev2EquipmentSkill
       __typename
     }
@@ -234,6 +248,13 @@ fragment CharacterDetailPageContent on Rev2CharacterDataDetail {
     penname
     image_icon_url
     type
+    __typename
+  }
+  npc_skill_label {
+    character_id
+    class_name
+    class_ruby
+    updated_at
     __typename
   }
   __typename
@@ -315,6 +336,13 @@ fragment CharacterVisualView on Rev2CharacterVisual {
     url
     __typename
   }
+  __typename
+}
+
+fragment CharacterState on Rev2CharacterState {
+  name
+  remain
+  counter
   __typename
 }
 
@@ -431,6 +459,7 @@ fragment Rev2EquipmentItem on Rev2CharacterItemField {
   slot_type
   ex_slot_type
   rarity
+  original_rarity
   price_type
   buy_price
   sell_price
@@ -462,6 +491,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
   buy_price
   sell_price
   rarity
+  original_rarity
   is_marked
   is_collected
   transfer_type
@@ -483,6 +513,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
   can_modify
   is_specializing
   can_enhance
+  can_evolve
   enhancement {
     ...ItemEnhancement
     __typename
@@ -504,6 +535,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
     desire_slot_count
     sell_price
     rarity
+    original_rarity
     is_marked
     is_collected
     transfer_type
@@ -535,6 +567,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
     desire_slot_count
     sell_price
     rarity
+    original_rarity
     is_marked
     is_collected
     transfer_type
@@ -567,6 +600,7 @@ fragment Rev2DisplayItem on Rev2CharacterDisplayItemField {
     desire_slot_count
     sell_price
     rarity
+    original_rarity
     is_marked
     is_collected
     transfer_type
@@ -590,11 +624,16 @@ fragment ItemEnhancement on Rev2ItemEnhancement {
   level
   synced_level
   points_by_level
+  points_by_rarity
   points_per_level
   exp
   spent_points_by_level
   spent_points
+  negative_points
+  max_negative_points_per_status
+  gained_negative_points
   merge_rank_with_surplus
+  merge_rank_with_surplus_of_next_rarity
   __typename
 }
 

@@ -173,6 +173,69 @@ function getStatePrefix(character) {
   return "";
 }
 
+function isNpcCharacter(character) {
+  return typeof character?.character_id === "string" &&
+    character.character_id.startsWith("r2n");
+}
+
+function createNpcExpcFlavorText(character) {
+  const parts = [];
+
+  const hasNpcLevel =
+    character?.npc_level !== null && character?.npc_level !== undefined;
+
+  const npcLevelLabel =
+    typeof character?.npc_level_label === "string"
+      ? character.npc_level_label.trim()
+      : "";
+
+  if (hasNpcLevel && npcLevelLabel && npcLevelLabel !== "Unknown") {
+    parts.push(`Lv.${character.npc_level}（${npcLevelLabel}）`);
+  } else if (hasNpcLevel) {
+    parts.push(`Lv.${character.npc_level}`);
+  } else if (npcLevelLabel) {
+    parts.push(npcLevelLabel === "Unknown" ? "Lv.Unknown" : `Lv.${npcLevelLabel}`);
+  }
+
+  if (character?.npc_skill_label?.class_name) {
+    const classText = character.npc_skill_label.class_ruby
+      ? `${character.npc_skill_label.class_name}（${character.npc_skill_label.class_ruby}）`
+      : character.npc_skill_label.class_name;
+
+    parts.push(`クラス:${classText}`);
+  }
+
+  return parts.join(" / ");
+}
+
+function createNonPcSummaryHeader(character, statePrefix = "") {
+  const licenseDisplay = formatLicenseDisplay(character.licenses);
+  const lines = [];
+
+  if (isNpcCharacter(character)) {
+    lines.push(
+      `${statePrefix}キャラクター「${character.name}」は **NPC** です。${licenseDisplay}`
+    );
+  } else {
+    lines.push(
+      `${statePrefix}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}`
+    );
+  }
+
+  const flavorText = createNpcExpcFlavorText(character);
+  if (flavorText) {
+    lines.push(`> ${flavorText}`);
+  }
+
+  if (character.handler_creator) {
+    lines.push(
+      `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})`
+    );
+  }
+
+  return lines.join("\n");
+}
+
 /**
  * セッション必須化に備えて環境変数からcookieを送れるようにする。
  * 未設定なら送らない。
@@ -324,18 +387,9 @@ export async function getCharacterBasicInfo(characterId) {
     // 1行目: ステータスシートのURL
     let reply = `https://rev2.reversion.jp/character/detail/${characterId}\n`;
 
-    // --- NPCの場合 ---
-    if (character.character_id.startsWith("r2n")) {
-      reply += `${statePrefix}キャラクター「${character.name}」は **NPC** です。\n`;
-      if (character.handler_creator) {
-        reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})`;
-      }
-      return reply;
-
-      // --- EXPCの場合 ---
-    } else if (character.owner) {
-      const licenseDisplay = formatLicenseDisplay(character.licenses);
-      reply += `${statePrefix}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}`;
+    // --- NPC / EXPC の場合 ---
+    if (isNpcCharacter(character) || character.owner) {
+      reply += createNonPcSummaryHeader(character, statePrefix);
       return reply;
 
       // --- PCの場合 ---
@@ -385,15 +439,15 @@ export async function getCharacterSummary(characterId, targetLevel = null) {
     const statePrefix = getStatePrefix(character);
     const rootsDisplay = getRootsDisplay(character.roots);
 
-    if (character.character_id.startsWith("r2n")) {
-      let reply = `${statePrefix}キャラクター「${character.name}」は **NPC** です。\n`;
-      if (character.handler_creator) {
-        reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
+    // --- NPC / EXPC の場合 ---
+    if (isNpcCharacter(character) || character.owner) {
+      let reply = createNonPcSummaryHeader(character, statePrefix);
+
+      const skillsSection = createSkillsAndClassesSection(character);
+      if (skillsSection) {
+        reply += `\n\`\`\`\n${skillsSection}\n\`\`\``;
       }
-      return reply;
-    } else if (character.owner) {
-      const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
-      let reply = `${statePrefix}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
+
       return reply;
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses); //ライセンス確認
@@ -643,13 +697,9 @@ export async function getCharacterSummaryCompact(
     const rootsDisplay = getRootsDisplay(character.roots);
 
     // --- NPCの場合 ---
-    if (character.character_id.startsWith("r2n")) {
-      let reply = `${statePrefix}キャラクター「${character.name}」は **NPC** です。\n`;
-      if (character.handler_creator) {
-        reply += `> 担当: **${character.handler_creator.penname}** (${character.handler_creator.type})\n`;
-      }
+    if (isNpcCharacter(character) || character.owner) {
+      let reply = `${createNonPcSummaryHeader(character, statePrefix)}\n`;
 
-      // ★★★ NPC用のスキル・装備セクションを追加 ★★★
       const skillsSection = createSkillsAndClassesSection(character);
       const equipmentSection = showEquipment
         ? createEquipmentSection(character)
@@ -661,7 +711,7 @@ export async function getCharacterSummaryCompact(
           detailBlock += skillsSection;
         }
         if (skillsSection && equipmentSection) {
-          detailBlock += "\n---\n"; // 区切り線
+          detailBlock += "\n---\n";
         }
         if (equipmentSection) {
           detailBlock += equipmentSection;
@@ -669,32 +719,7 @@ export async function getCharacterSummaryCompact(
         detailBlock += "```";
         reply += detailBlock;
       }
-      return reply;
-      // --- EXPCの場合 ---
-    } else if (character.owner) {
-      const licenseDisplay = formatLicenseDisplay(character.licenses);
-      let reply = `${statePrefix}キャラクター「${character.name}」は **${character.owner.name}**([${character.owner.character_id}](https://rev2.reversion.jp/character/detail/${character.owner.character_id}))のEXPCです。${licenseDisplay}\n`;
 
-      // ★★★ EXPC用のスキル・装備セクションを追加 ★★★
-      const skillsSection = createSkillsAndClassesSection(character);
-      const equipmentSection = showEquipment
-        ? createEquipmentSection(character)
-        : "";
-
-      if (skillsSection || equipmentSection) {
-        let detailBlock = "```\n";
-        if (skillsSection) {
-          detailBlock += skillsSection;
-        }
-        if (skillsSection && equipmentSection) {
-          detailBlock += "\n---\n"; // 区切り線
-        }
-        if (equipmentSection) {
-          detailBlock += equipmentSection;
-        }
-        detailBlock += "```";
-        reply += detailBlock;
-      }
       return reply;
       // --- PCの場合 ---
     } else {
@@ -799,7 +824,6 @@ export async function getCharacterSummaryCompact(
  * @returns {string} 整形されたスキル情報の文字列。表示すべき情報がなければ空文字列を返す。
  */
 function createSkillsAndClassesSection(character) {
-  // 表示する行を、この配列にどんどん追加していく
   const lines = [];
 
   // --- 1. クラスとエスプリのセクション ---
@@ -822,12 +846,11 @@ function createSkillsAndClassesSection(character) {
       finalClass1Part = `${class1Name}(${espritName})`;
     }
 
-    let classLine = "・クラス　　：" + finalClass1Part; // 位置を揃えるため全角スペース
+    let classLine = "・クラス　　：" + finalClass1Part;
     if (class2Name !== "なし") {
       classLine += ` / ${class2Name}`;
     }
 
-    // どちらかが「なし」でなければ、行を追加
     if (class1Name !== "なし" || class2Name !== "なし") {
       lines.push(classLine);
     }
@@ -838,17 +861,25 @@ function createSkillsAndClassesSection(character) {
     const activeSkills = formatSkillNames(character.skills.a);
     const passiveSkills = formatSkillNames(character.skills.p);
     const nonCombatSkills = formatSkillNames(character.skills.n);
+    const exActiveSkills = formatSkillNames(character.skills.ex_a);
+    const exNonCombatSkills = formatSkillNames(character.skills.ex_n);
 
-    // 何か一つでもスキルがあれば、ヘッダーを追加
-    if (activeSkills || passiveSkills || nonCombatSkills) {
+    if (
+      activeSkills ||
+      passiveSkills ||
+      nonCombatSkills ||
+      exActiveSkills ||
+      exNonCombatSkills
+    ) {
       lines.push("・活性化スキル");
       if (activeSkills) lines.push(`アクティブ：${activeSkills}`);
+      if (exActiveSkills) lines.push(`EXアクティブ：${exActiveSkills}`);
       if (passiveSkills) lines.push(`パッシブ　：${passiveSkills}`);
       if (nonCombatSkills) lines.push(`非戦　　　：${nonCombatSkills}`);
+      if (exNonCombatSkills) lines.push(`EX非戦　　　：${exNonCombatSkills}`);
     }
   }
 
-  // 配列に何も追加されていなければ空文字列を、そうでなければ改行で連結して返す
   return lines.length > 0 ? lines.join("\n") : "";
 }
 
