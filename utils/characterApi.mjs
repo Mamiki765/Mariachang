@@ -421,6 +421,93 @@ export async function getCharacterBasicInfo(characterId) {
   }
 }
 
+function createNextAbilitySection(character) {
+  if (!Array.isArray(character?.nexts) || character.nexts.length === 0) {
+    return "";
+  }
+
+  const typePriority = new Map([
+    ["ネクスト", 0],
+    ["アセンション", 1],
+  ]);
+
+  const visibleNexts = character.nexts
+    .filter((next) => next?.is_visible && next?.accepted)
+    .sort((a, b) => {
+      const pa = typePriority.has(a.type) ? typePriority.get(a.type) : 99;
+      const pb = typePriority.has(b.type) ? typePriority.get(b.type) : 99;
+      return pa - pb;
+    });
+
+  if (visibleNexts.length === 0) {
+    return "";
+  }
+
+  return visibleNexts
+    .map((next) => {
+      const rubyText = next.ruby ? `（${next.ruby}）` : "";
+      const rankText = next.rank ? `ランク${next.rank}` : "ランク-";
+      const descriptionText = (next.description || "説明なし").replace(/\r\n/g, "\n");
+      const annotationText = next.annotation
+        ? `\n（${next.annotation.replace(/\r\n/g, "\n")}）`
+        : "";
+
+      return `${next.type}：${next.name}${rubyText}　${rankText}\n${descriptionText}${annotationText}`;
+    })
+    .join("\n\n");
+}
+
+/**
+ * ネクスト・アセンション情報付き表示を生成する関数
+ * @param {string} characterId
+ * @param {number|null} [targetLevel=null] - 目標レベル（PC時のみ表示に反映）
+ * @returns {Promise<string>}
+ */
+export async function getCharacterNextInfo(characterId, targetLevel = null) {
+  try {
+    const apiData = await getCharacterDetail(characterId);
+
+    if (!apiData || !apiData.character) {
+      return `キャラクター「${characterId}」の情報取得に失敗しました。IDが正しいか確認してください。`;
+    }
+
+    const { character } = apiData;
+    const statePrefix = getStatePrefix(character);
+    const rootsDisplay = getRootsDisplay(character.roots);
+
+    let reply = "";
+    if (isNpcCharacter(character) || character.owner) {
+      reply = createNonPcSummaryHeader(character, statePrefix);
+    } else {
+      const licenseDisplay = formatLicenseDisplay(character.licenses);
+      const gameParams = await getGameParameters();
+      const levelplus = createLevelInfoString(character, gameParams, targetLevel);
+      const testa =
+        character.testament < 50 || character.testament >= 100
+          ? `${character.testament}`
+          : character.testament < 80
+            ? `⚠️${character.testament}`
+            : `⚠️${character.testament}⚠️`;
+
+      reply = `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
+      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}`;
+    }
+
+    const nextSection = createNextAbilitySection(character);
+    if (!nextSection) {
+      return `${reply}\nネクスト・アセンションがありません。`;
+    }
+
+    return `${reply}\n\`\`\`\n${nextSection}\n\`\`\``;
+  } catch (error) {
+    console.error(
+      `[エラー] ${characterId} のネクスト情報作成処理でエラーが発生しました:`,
+      error
+    );
+    return `情報取得中にエラーが発生しました。しばらくしてからもう一度お試しください。`;
+  }
+}
+
 /**
  * 【高レベル関数】（PC/EXPC判別ロジックを追加）
  * キャラクター情報を取得し、PCかEXPCかによって整形されたサマリ文字列を返します。

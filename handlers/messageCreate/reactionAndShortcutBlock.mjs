@@ -6,9 +6,11 @@ import {
   getCharacterSummaryCompact,
   getCharacterBasicInfo,
   getCharacterBudgetInfo,
+  getCharacterNextInfo,
 } from "../../utils/characterApi.mjs";
 import { unlockHiddenAchievements } from "../../utils/achievements.mjs";
 import config from "../../config.mjs";
+import { createCharacterNotationHelpButton } from "../../components/buttons.mjs";
 
 // ロスアカ短縮形
 const rev2urlPatterns = {
@@ -36,6 +38,7 @@ const rev2detailCompactWithEquipmentMatch = message.content.match(
 const rev2detailCompactMatch = message.content.match(
   /^(r2[pn][0-9]{6})\?(\d+)?$/
 );
+const rev2nextInfoMatch = message.content.match(/^(r2[pn][0-9]{6})n(\d+)?$/);
 const rev2urlmatch = message.content.match(
   /^(ils|snd|sce|nvl|not|com)(\d{8})$/
 );
@@ -233,6 +236,21 @@ else if (message.content.match(/^r2[pn][0-9]{6}(?:\$|予算)(\d+)?$/)) {
     content: replyMessage,
   });
 }
+// ネクスト・アセンション表示
+else if (rev2nextInfoMatch) {
+  const characterId = rev2nextInfoMatch[1];
+  const targetLevel = rev2nextInfoMatch[2]
+    ? parseInt(rev2nextInfoMatch[2], 10)
+    : null;
+
+  await message.channel.sendTyping();
+  const replyMessage = await getCharacterNextInfo(characterId, targetLevel);
+
+  await message.reply({
+    content: replyMessage,
+    allowedMentions: { repliedUser: false },
+  });
+}
 //ロスアカ (URL + 簡易情報)
 else if (message.content.match(/^r2[pn][0-9]{6}$/)) {
   const characterId = message.content;
@@ -246,6 +264,7 @@ else if (message.content.match(/^r2[pn][0-9]{6}$/)) {
   await message.reply({
     flags: [4096], //@silent
     content: replyMessage,
+    components: [createCharacterNotationHelpButton()],
   });
 }
 //PPP
