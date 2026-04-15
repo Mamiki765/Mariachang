@@ -154,6 +154,20 @@ export function createLoginResultButtons() {
   );
 }
 
+/**
+ * ロスアカのステシ呼び出し記法チュートリアル表示ボタン
+ * @returns {import('discord.js').ActionRowBuilder}
+ */
+export function createCharacterNotationHelpButton() {
+  const notationHelpButton = new ButtonBuilder()
+    .setCustomId("show_character_notation_help")
+    .setLabel("ロスアカ記法ヘルプ")
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji("📘");
+
+  return new ActionRowBuilder().addComponents(notationHelpButton);
+}
+
 export const toggleLogiboNotificationButton = new ButtonBuilder()
   .setCustomId("toggle_logibo_notification")
   .setLabel("通知設定を切り替える")

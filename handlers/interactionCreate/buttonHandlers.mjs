@@ -3,6 +3,7 @@ import {
   deleteconfirm,
   createRpDeleteConfirmButtons,
   createLoginResultButtons,
+  createCharacterNotationHelpButton,
 } from "../../components/buttons.mjs";
 import {
   ModalBuilder,
@@ -342,6 +343,35 @@ export default async function handleButtonInteraction(interaction) {
       content: helpText,
       ephemeral: true,
     });
+  } else if (interaction.customId === "show_character_notation_help") {
+    const helpText = `### ロスアカ ステシ呼び出し記法（閲覧チュートリアル）
+以下の記法は、基本的に \`r2p000001\` のようなID部分を対象キャラクターIDに置き換えて使います。
+
+- \`r2p000001\` : ステータスシートURL付き基本表示
+- \`r2p000001!\` : ステータス・スキル表示（ゲージあり）
+- \`r2p000001?\` : ステータスcompact・スキル表示
+- \`r2p000001??\` : ステータスcompact・スキル表示＋装備
+- \`r2p000001$\` : 育成予算目安一覧
+- \`r2p000001n\` : ネクスト・アセンション表示
+
+---
+### 目標Lv指定（将来値シミュレート）
+\`r2p000001\`（生の基本表示）以外は、末尾に目標Lvを続けるとそのLv時点の目安で表示できます。
+
+- \`r2p000001!30\` : ゲージあり表示を目標Lv30で確認
+- \`r2p000001?45\` : compact表示を目標Lv45で確認
+- \`r2p000001??60\` : compact＋装備を目標Lv60で確認
+- \`r2p000001$50\` : 目標Lv50までの育成予算目安
+- \`r2p000001n\` : ネクスト・アセンション表示（現在値）
+- \`r2p000001n30\` : ネクスト・アセンション表示（目標Lv30の必要経験値表示）
+
+-# この案内はあなたにだけ表示されています。`;
+    await interaction.reply({
+      content: helpText,
+      ephemeral: true,
+      components: [createCharacterNotationHelpButton()],
+    });
+    return;
     // --- ここまでが、あまやどんぐりのログインボーナス処理 ---
     //ログボのDM通知変更
   } else if (interaction.customId === "toggle_logibo_notification") {
