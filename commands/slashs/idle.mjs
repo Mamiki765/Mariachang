@@ -48,6 +48,29 @@ import {
   buildEternityView,
 } from "../../idle-game/ui-builder.mjs";
 
+// 初回表示と操作後の再表示は同じ描画経路を使う。
+const viewBuilders = new Map([
+  ["factory", buildFactoryView],
+  ["skill", buildSkillView],
+  ["infinity", buildInfinityView],
+  ["infinity_upgrades", buildInfinityUpgradesView],
+  ["challenges", buildChallengeView],
+  ["eternity", buildEternityView],
+]);
+const navigationViews = new Map([
+  ["idle_show_factory", "factory"],
+  ["idle_show_skills", "skill"],
+  ["idle_show_infinity", "infinity"],
+  ["idle_show_iu_upgrades", "infinity_upgrades"],
+  ["idle_show_challenges", "challenges"],
+  ["idle_show_eternity", "eternity"],
+]);
+
+function buildIdleView(view, uiData) {
+  const buildView = viewBuilders.get(view) || buildFactoryView;
+  return buildView(uiData);
+}
+
 export const help = {
   category: "slash",
   description:
@@ -129,7 +152,7 @@ export async function execute(interaction) {
     });
 
     const userId = interaction.user.id;
-    const [point, createdPoint] = await Point.findOrCreate({
+    const [point] = await Point.findOrCreate({
       where: { userId },
     });
 
@@ -198,11 +221,11 @@ export async function execute(interaction) {
     uiData.point = point;
     // 取得したデータを分かりやすい変数に展開
     const { userAchievement } = uiData;
-    let { idleGame } = uiData; // ← これらはcollectorで再代入するので let
+    const { idleGame } = uiData;
 
     // ★★★ これが最重要！計算用のDecimalオブジェクトをここで作る ★★★
-    let population_d = new Decimal(idleGame.population); // ← let に変更
-    let highestPopulation_d = new Decimal(idleGame.highestPopulation); // ← let に変更
+    const population_d = new Decimal(idleGame.population);
+    const highestPopulation_d = new Decimal(idleGame.highestPopulation);
 
     //--------------
     //人口系実績など、起動時に取れるもの
@@ -544,38 +567,10 @@ export async function execute(interaction) {
       }
     }
 
-    // --- 2. 決定した画面を描画する ---
-    let replyOptions = {}; // このオブジェクトにembedsやcomponentsを設定する
-
-    switch (currentView) {
-      case "skill":
-        replyOptions = buildSkillView(uiData);
-        break;
-
-      case "infinity":
-        replyOptions = buildInfinityView(uiData);
-        break;
-
-      case "infinity_upgrades":
-        replyOptions = buildInfinityUpgradesView(uiData);
-        break;
-
-      case "challenges":
-        replyOptions = buildChallengeView(uiData);
-        break;
-
-      case "eternity":
-        replyOptions = buildEternityView(uiData);
-        break;
-
-      case "factory":
-      default:
-        replyOptions = buildFactoryView(uiData);
-        break;
-    }
-
-    // --- 3. 組み立てたオプションでメッセージを送信/編集 ---
-    await interaction.editReply(replyOptions);
+    // 初回表示にも、操作後の再表示と同じ描画経路を使う。
+    await interaction.editReply(buildIdleView(currentView, uiData));
+    // 終了時に初回の状態へ表示を巻き戻さないよう、最後の表示データを保持する。
+    let lastDisplayedUiData = uiData;
 
     // --- 4. コレクターのセットアップ ---
     const filter = (i) =>
@@ -599,31 +594,15 @@ export async function execute(interaction) {
       }
       await i.deferUpdate();
       let success = false; // 処理が成功したかを記録するフラグ
-      let viewChanged = false; // ★画面切り替えかどうかのフラグ
+      const nextView = navigationViews.get(i.customId);
+      let viewChanged = nextView !== undefined;
+      if (viewChanged) currentView = nextView;
 
-      // ★★★ どのボタンが押されても、まず最新のDB情報を取得する ★★★
-      const latestIdleGame = await IdleGame.findOne({ where: { userId } });
-      if (!latestIdleGame) return; // 万が一データがなかったら終了
-
-      // --- 画面切り替えの処理
-      if (i.customId === "idle_show_skills") {
-        currentView = "skill";
-        viewChanged = true;
-      } else if (i.customId === "idle_show_factory") {
-        currentView = "factory";
-        viewChanged = true;
-      } else if (i.customId === "idle_show_infinity") {
-        currentView = "infinity";
-        viewChanged = true;
-      } else if (i.customId === "idle_show_iu_upgrades") {
-        currentView = "infinity_upgrades";
-        viewChanged = true;
-      } else if (i.customId === "idle_show_challenges") {
-        currentView = "challenges";
-        viewChanged = true;
-      } else if (i.customId === "idle_show_eternity") {
-        currentView = "eternity";
-        viewChanged = true;
+      // 画面切替は下の共通更新で最新データを読む。説明表示にはDB参照が不要。
+      // 購入・リセット等の既存の存在確認と、各ハンドラの更新処理は維持する。
+      if (!viewChanged && i.customId !== "idle_info") {
+        const latestIdleGame = await IdleGame.findOne({ where: { userId } });
+        if (!latestIdleGame) return;
       }
 
       // --- 3. スキル強化の処理 ---
@@ -743,11 +722,12 @@ export async function execute(interaction) {
       if (success || viewChanged) {
         // ▼▼▼ ここが「成功後の共通処理」の場所 ▼▼▼
 
-        // DB更新が成功したので、もう一度UIデータを"全て"取得し直す！
-        const newUiData = await getSingleUserUIData(userId);
-
-        // Point情報も取得して、newUiDataに統合する
-        const newPoint = await Point.findOne({ where: { userId } });
+        // 操作の完了後に、独立したUIデータとPointの取得を並行して行う。
+        // getSingleUserUIDataの進行計算・保存は省略しない（表示用キャッシュではない）。
+        const [newUiData, newPoint] = await Promise.all([
+          getSingleUserUIData(userId),
+          Point.findOne({ where: { userId } }),
+        ]);
 
         // 万が一データ取得に失敗した場合のエラーハンドリング
         if (!newUiData || !newPoint) {
@@ -759,34 +739,9 @@ export async function execute(interaction) {
           return;
         }
         newUiData.point = newPoint; // 取得したpointオブジェクトをuiDataに追加
-        // ★★★★★★★★★★★★★★★★★★★★★★★★
 
-        // 最新のデータでEmbedとボタンを再描描画する
-        // currentView の値に応じて描画する内容を決定
-        let replyOptions = {};
-        switch (currentView) {
-          case "skill":
-            replyOptions = buildSkillView(newUiData);
-            break;
-          case "infinity":
-            replyOptions = buildInfinityView(newUiData);
-            break;
-          case "infinity_upgrades":
-            replyOptions = buildInfinityUpgradesView(newUiData);
-            break;
-          case "challenges":
-            replyOptions = buildChallengeView(newUiData);
-            break;
-          case "eternity":
-            replyOptions = buildEternityView(newUiData);
-            break;
-          case "factory":
-          default:
-            replyOptions = buildFactoryView(newUiData);
-            break;
-        }
-
-        await interaction.editReply(replyOptions);
+        await interaction.editReply(buildIdleView(currentView, newUiData));
+        lastDisplayedUiData = newUiData;
       }
       // ▲▲▲ UI更新処理は、このifブロックの中だけになる ▲▲▲
     });
@@ -794,7 +749,7 @@ export async function execute(interaction) {
     collector.on("end", async (collected) => {
       // asyncを追加
       try {
-        await interaction.editReply(buildFactoryView(uiData, true));
+        await interaction.editReply(buildFactoryView(lastDisplayedUiData, true));
       } catch (error) {
         // 編集に失敗した場合 (メッセージ削除済みなど) はエラーをコンソールに警告として表示し、
         // ボットはクラッシュさせずに安全に終了させる。
