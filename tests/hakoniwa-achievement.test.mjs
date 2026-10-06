@@ -6,8 +6,9 @@ import { readFile } from "node:fs/promises";
 import { createContext, SourceTextModule, SyntheticModule } from "node:vm";
 import { timingSafeEqual } from "node:crypto";
 
-async function harness(failMemberFetch = false) {
+async function harness(failMemberFetch = false, pauseLoads = false) {
   const rows = new Map();
+  const loadWaiters = [];
   const members = new Map([["111111111111111111", {}]]);
   const state = { sends: 0, fetches: 0, reads: 0 };
   const client = {
@@ -62,6 +63,7 @@ async function harness(failMemberFetch = false) {
         },
         idle: {
           achievements: [
+            { id: 150, name: "ordinary" },
             { id: 151, name: "fixture" },
             { id: 152, name: "other" },
           ],
@@ -79,7 +81,10 @@ async function harness(failMemberFetch = false) {
               progress: {},
               hidden_unlocked: [],
             });
-          return [{ achievements: structuredClone(rows.get(where.userId)) }];
+          const snapshot = structuredClone(rows.get(where.userId));
+          if (pauseLoads)
+            await new Promise((resolve) => loadWaiters.push(resolve));
+          return [{ achievements: snapshot }];
         },
         update: async ({ achievements }, { where }) =>
           rows.set(where.userId, structuredClone(achievements)),
@@ -135,8 +140,31 @@ async function harness(failMemberFetch = false) {
     );
     return res;
   }
-  return { rows, members, state, client, achievements, request };
+  function releaseLoads() {
+    loadWaiters.splice(0).forEach((resolve) => resolve());
+  }
+  return { rows, members, state, client, achievements, request, releaseLoads };
 }
+
+test("HTTP and ordinary grants share the initial read and retain both achievements", async () => {
+  const h = await harness(false, true);
+  const ordinary = h.achievements.unlockAchievements(
+    h.client,
+    "111111111111111111",
+    150
+  );
+  const reception = h.request();
+  await new Promise(setImmediate); // 両経路が初回DB読込へ到達してから応答させる。
+  h.releaseLoads();
+  await ordinary;
+  assert.equal((await reception).status, 200);
+  await h.achievements.shutdownAchievementSystem();
+  assert.deepEqual(
+    h.rows.get("111111111111111111").unlocked.sort(),
+    [150, 151]
+  );
+  assert.equal(h.state.reads, 1);
+});
 
 test("authenticated concurrent triggers use the existing grant once; departure suppresses later notices", async () => {
   const h = await harness();

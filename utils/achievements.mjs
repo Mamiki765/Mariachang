@@ -24,6 +24,7 @@ import { EmbedBuilder } from "discord.js";
 
 // --- モジュール内変数 ---
 const achievementCache = new Map();
+const loadingUsers = new Map();
 const dirtyUsers = new Set();
 let saveIntervalId = null;
 let notificationGuild = null;
@@ -33,26 +34,36 @@ let notificationMembersReady = false;
 
 async function loadUserAchievements(userId) {
   if (achievementCache.has(userId)) return achievementCache.get(userId);
-  const [userAchievement, created] = await UserAchievement.findOrCreate({
-    where: { userId },
-  });
-  if (!userAchievement) return null;
+  // 初回の同時付与も同じ読込結果を使う。別JSONによるcache上書きを防ぐ。
+  if (loadingUsers.has(userId)) return loadingUsers.get(userId);
+  const loading = (async () => {
+    const [userAchievement] = await UserAchievement.findOrCreate({
+      where: { userId },
+    });
+    if (!userAchievement) return null;
 
-  const achievements = userAchievement.achievements;
+    const achievements = userAchievement.achievements;
 
-  // 互換性確保のために念の為なければ作る
-  if (!achievements.unlocked) {
-    achievements.unlocked = [];
+    // 互換性確保のために念の為なければ作る
+    if (!achievements.unlocked) {
+      achievements.unlocked = [];
+    }
+    if (!achievements.progress) {
+      achievements.progress = {};
+    }
+    // hidden_unlockedはあとから増えたからなおさら
+    if (!achievements.hidden_unlocked) {
+      achievements.hidden_unlocked = [];
+    }
+    achievementCache.set(userId, achievements);
+    return achievements;
+  })();
+  loadingUsers.set(userId, loading);
+  try {
+    return await loading;
+  } finally {
+    loadingUsers.delete(userId);
   }
-  if (!achievements.progress) {
-    achievements.progress = {};
-  }
-  // hidden_unlockedはあとから増えたからなおさら
-  if (!achievements.hidden_unlocked) {
-    achievements.hidden_unlocked = [];
-  }
-  achievementCache.set(userId, achievements);
-  return achievements;
 }
 
 async function saveDirtyUsers() {
