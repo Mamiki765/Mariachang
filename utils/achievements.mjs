@@ -26,6 +26,8 @@ import { EmbedBuilder } from "discord.js";
 const achievementCache = new Map();
 const dirtyUsers = new Set();
 let saveIntervalId = null;
+let notificationGuild = null;
+let notificationMembersReady = false;
 
 // --- 内部関数 ---
 
@@ -108,6 +110,34 @@ export function initializeAchievementSystem() {
   console.log("[AchievementCache] 実績キャッシュシステムが初期化されました。");
 }
 
+// 起動時に一度だけ取得。以後の加入・退出はDiscord.jsがmembers.cacheへ反映する。
+export async function initializeAchievementMemberCache(client) {
+  const guildId = config.achievementNotification.guildId;
+  if (!guildId) return;
+  notificationMembersReady = false;
+  try {
+    notificationGuild = await client.guilds.fetch(guildId);
+    await notificationGuild.members.fetch();
+    notificationMembersReady = true;
+    console.log("[Achievement] 雨宿りの通知用メンバーcacheを取得しました。");
+  } catch {
+    console.warn("[Achievement] メンバーcacheを取得できません。実績を保存し、通知は省略します。");
+  }
+}
+
+function canNotifyAchievement(userId) {
+  if (!config.achievementNotification.guildId) return true;
+  if (!notificationMembersReady) {
+    console.warn("[Achievement] メンバーcache未準備のため通知を省略します。");
+    return false;
+  }
+  if (!notificationGuild.members.cache.has(userId)) {
+    console.log("[Achievement] 雨宿りの非所属者への通知を省略します。");
+    return false;
+  }
+  return true;
+}
+
 export async function shutdownAchievementSystem() {
   console.log("[AchievementCache] シャットダウン処理を開始します...");
   clearInterval(saveIntervalId);
@@ -135,6 +165,7 @@ export async function unlockAchievements(client, userId, ...achievementIds) {
   // --- 通知処理 ---
   const { mode, channelId } = config.achievementNotification;
   if (mode === "none") return;
+  if (!canNotifyAchievement(userId)) return;
 
   // 1. 解除した実績を、25個ずつのグループに分割する
   const achievementChunks = [];
@@ -305,6 +336,7 @@ export async function unlockHiddenAchievements(
 
   // --- 通知処理 ---
   // 隠し実績はネタバレ防止のため、本人にのみDMで通知するのが望ましいです。
+  if (!canNotifyAchievement(userId)) return;
 
   let embed;
   if (newlyUnlocked.length === 1) {

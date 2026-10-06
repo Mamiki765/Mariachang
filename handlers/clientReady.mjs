@@ -9,7 +9,10 @@ import { checkAtelierCards } from "../tasks/atelier-checker.mjs"; // エクス�
 // データベースの同期
 import { syncModels } from "../models/database.mjs";
 //実績
-import { initializeAchievementSystem } from "../utils/achievements.mjs";
+import {
+  initializeAchievementSystem,
+  initializeAchievementMemberCache,
+} from "../utils/achievements.mjs";
 //ログボボタン
 import { acornLoginButton } from "../components/buttons.mjs";
 //発言チップ
@@ -129,6 +132,8 @@ export default async (client) => {
     );
     //実績の初期化
     initializeAchievementSystem();
+    // 取得中でもBotの起動を進める。cache準備前の実績は保存だけ行う。
+    void initializeAchievementMemberCache(client);
   } catch (error) {
     console.error(
       "[FATAL ERROR][DB]CRITICAL: Database sync failed on startup. Halting scheduled tasks.",

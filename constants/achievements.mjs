@@ -972,6 +972,12 @@ export const achievements = [
     description: "箱庭諸島2S+への案内を確認した。",
     reward: {},
   },
+  {
+    id: 151,
+    name: "島の秘書",
+    description: "箱庭で秘書に名前をつける。",
+    reward: {},
+  },
   // 今後、ここに実績をどんどん追加していきます
   // { id: 1, name: "次の実績", description: "実績の説明", effect: "実績の特殊能力説明（あれば）",goal:999(回数が必要なprogress形式、あれば), reward: {(特殊能力があれば XX:YYみたいに指定できるように)} },
 ];

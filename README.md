@@ -13,6 +13,18 @@
 docker exec -it mariachang npm run register:commands
 ```
 
+## 箱庭実績の取得連携（Draft）
+
+箱庭から `POST /internal/hakoniwa/achievement` で受信し、既存の実績付与・cache・毎分DB保存を使います。「島の秘書」は151、既存の `/hakoniwa` の「島主」は150です。Mariaに肩書きは追加しません。
+
+導入時はOwnerが専用の共有secretを用意し、Mariaの実行envに `HAKONIWA_LINK_SECRET`、箱庭に同じ値を `MARIA_ACHIEVEMENTS_TOKEN` として設定します。箱庭の `MARIA_ACHIEVEMENTS_URL` は同じDocker network内の `http://mariachang:3000/internal/hakoniwa/achievement` が候補です。既存Bot TOKEN・DB資格情報は使い回しません。今回、設定・deploy・実付与・実通知はしていません。
+
+実績は雨宿りの非所属者・退会者にも保存し、通知だけを抑止します。起動時に雨宿りのメンバーを一回取得し、以降はDiscord.jsがjoin/removeで更新するcacheを使います。初期取得未完了・失敗でも付与は続き、通知を抑止します。この判定は雨宿り向けの通常・隠し実績にも適用します。実績ごとのmember fetchやpollingはありません。
+
+`accepted:true` は既存のcache/dirty保存経路での受付完了です。毎分DB保存前の強制終了で未保存分を失う既存の窓は変えていません。同じ実績の再送では、取得済み判定で通知を繰り返しません。
+
+模擬検証: `node --experimental-vm-modules --test tests/idle-command.test.mjs tests/hakoniwa-achievement.test.mjs`。DB・Discordはstubで、実付与・送信しません。
+
 ## アセット保存について
 
 画像アセット（ロールプレイ用アイコン、スタンプ）は Supabase Storage ではなく、OCI サーバー上のローカルディレクトリに保存されます。
