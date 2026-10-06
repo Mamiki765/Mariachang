@@ -316,6 +316,8 @@ export default {
   //実績関連はconstants\achievements.mjsに
   idle: idleGameConfig,
   achievementNotification: {
+    // 雨宿りの所属者だけに通知する。他サーバーの通知設定には流用しない。
+    guildId: isProduction ? "1025416221757276242" : null,
     // 'public', 'dm', 'none' から選択
     mode: "public",
     // modeが 'public' の場合に通知を送るチャンネルID

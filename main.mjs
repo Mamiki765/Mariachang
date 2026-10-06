@@ -14,6 +14,7 @@ import CommandsRegister from "./regist-commands.mjs";
 import config from "./config.mjs";
 import { closeDatabase } from "./models/database.mjs";
 import { shutdownAchievementSystem } from "./utils/achievements.mjs";
+import { hakoniwaAchievementHandler } from "./utils/hakoniwaAchievements.mjs";
 
 // クラッシュ時にログを残す
 process.on("uncaughtException", (error, origin) => {
@@ -73,6 +74,12 @@ const client = new Client({
     Partials.ThreadMember,
   ],
 });
+
+app.post(
+  "/internal/hakoniwa/achievement",
+  express.json({ limit: "2kb" }),
+  hakoniwaAchievementHandler(client)
+);
 
 async function startBot() {
   console.log("[Loader] Loading commands and handlers...");
