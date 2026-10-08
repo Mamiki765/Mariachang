@@ -2059,18 +2059,17 @@ export async function handleGeneratorBuyAll(interaction) {
     let availableIp = new Decimal(idleGame.infinityPoints);
     const MAX_ITERATIONS = 1000; // 無限ループ防止
 
+    const userGenerators = idleGame.ipUpgrades.generators || [];
+    const costs = config.idle.infinityGenerators.map((genConfig) => ({
+      id: genConfig.id,
+      cost: calculateGeneratorCost(
+        genConfig.id,
+        userGenerators[genConfig.id - 1]?.bought || 0
+      ),
+      bought: userGenerators[genConfig.id - 1]?.bought || 0,
+    }));
+
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const userGenerators = idleGame.ipUpgrades.generators || [];
-
-      const costs = config.idle.infinityGenerators.map((genConfig) => ({
-        id: genConfig.id,
-        cost: calculateGeneratorCost(
-          genConfig.id,
-          userGenerators[genConfig.id - 1]?.bought || 0
-        ),
-        bought: userGenerators[genConfig.id - 1]?.bought || 0,
-      }));
-
       const affordable = costs.filter((c) => availableIp.gte(c.cost));
 
       // 0個のものを優先
@@ -2096,6 +2095,10 @@ export async function handleGeneratorBuyAll(interaction) {
       )
         .add(1)
         .toString();
+
+      // 他のジェネレーターの価格・購入数は変わらない。
+      bestToBuy.bought = userGenerators[genIndex].bought || 0;
+      bestToBuy.cost = calculateGeneratorCost(bestToBuy.id, bestToBuy.bought);
 
       purchases.set(bestToBuy.id, (purchases.get(bestToBuy.id) || 0) + 1);
     }
@@ -3539,10 +3542,14 @@ function simulatePurchases(
     let availableChips = budget;
 
     const MAX_ITERATIONS = 1000; // 無限ループ防止
+    const skillLevel6 = tempIdleGame.skillLevel6 || 0;
+    const purchasedIUs = new Set(tempIdleGame.ipUpgrades?.upgrades || []);
+    const realityDiscountLevel =
+      tempIdleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
+    const activeChallenge = tempIdleGame.challenges?.activeChallenge;
+    const costs = calculateAllCosts(tempIdleGame);
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const costs = calculateAllCosts(tempIdleGame);
-
       // 購入可能な施設をフィルタリングし、コストの安い順にソート
       const affordableFacilities = Object.entries(costs)
         .filter(([name, cost]) => {
@@ -3582,6 +3589,15 @@ function simulatePurchases(
       // シミュレーション用の施設レベルを上げる
       const levelKey = config.idle.factories[cheapestFacilityName].key;
       tempIdleGame[levelKey]++;
+      // この購入で価格が変わる施設だけ再計算する。
+      costs[cheapestFacilityName] = calculateFacilityCost(
+        cheapestFacilityName,
+        tempIdleGame[levelKey] || 0,
+        skillLevel6,
+        purchasedIUs,
+        activeChallenge,
+        realityDiscountLevel
+      );
     }
   }
   return { purchases, totalCost, purchasedCount };
@@ -3863,17 +3879,16 @@ function autoBuyInfinityContent(idleGame) {
   let totalPurchases = 0;
 
   const MAX_ITERATIONS = 500; // 無限ループ防止
+  const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
+  const allUpgrades = config.idle.infinityUpgrades.tiers.flatMap((tier) =>
+    Object.entries(tier.upgrades).map(([id, config]) => ({ id, ...config }))
+  );
+  const generatorCosts = new Map();
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     let somethingWasBought = false;
 
     // --- 優先度1: インフィニティアップグレード ---
     if (eternityCount >= 4) {
-      const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
-      // configから全てのアップグレードを平坦なリストにする
-      const allUpgrades = config.idle.infinityUpgrades.tiers.flatMap((tier) =>
-        Object.entries(tier.upgrades).map(([id, config]) => ({ id, ...config }))
-      );
-
       for (const upgrade of allUpgrades) {
         if (
           !purchasedUpgrades.has(upgrade.id) &&
@@ -3881,6 +3896,7 @@ function autoBuyInfinityContent(idleGame) {
         ) {
           availableIp_d = availableIp_d.minus(upgrade.cost);
           idleGame.ipUpgrades.upgrades.push(upgrade.id);
+          purchasedUpgrades.add(upgrade.id);
           summary.upgrades.push(upgrade.name);
           totalPurchases++;
           somethingWasBought = true;
@@ -3972,7 +3988,13 @@ function autoBuyInfinityContent(idleGame) {
         if (index > 0 && !(userGenerators[index - 1]?.bought > 0)) break;
 
         const bought = userGenerators[index]?.bought || 0;
-        const cost = calculateGeneratorCost(genConfig.id, bought);
+        if (!generatorCosts.has(genConfig.id)) {
+          generatorCosts.set(
+            genConfig.id,
+            calculateGeneratorCost(genConfig.id, bought)
+          );
+        }
+        const cost = generatorCosts.get(genConfig.id);
 
         if (cost.lt(cheapestGen.cost)) {
           cheapestGen = { cost, id: genConfig.id };
@@ -3998,6 +4020,7 @@ function autoBuyInfinityContent(idleGame) {
         // ▲▲▲ 修正ここまで ▲▲▲
 
         idleGame.ipUpgrades.generators[genIndex].bought++;
+        generatorCosts.delete(cheapestGen.id);
         idleGame.ipUpgrades.generators[genIndex].amount = new Decimal(
           idleGame.ipUpgrades.generators[genIndex].amount
         )
@@ -4039,6 +4062,7 @@ function autoBuyGravityUpgrades(idleGame) {
   let totalPurchases = 0;
 
   const MAX_ITERATIONS = 100;
+  const costs = new Map();
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     let cheapestAffordable = { cost: new Decimal(Infinity), id: null };
@@ -4050,7 +4074,10 @@ function autoBuyGravityUpgrades(idleGame) {
     for (const [id, Gconfig] of Object.entries(config.idle.gravityUpgrades)) {
       const currentLevel = idleGame.ipUpgrades.gravityUpgrades[id] || 0;
       if (currentLevel >= Gconfig.maxLevel) continue;
-      const cost = calculateGravityUpgradeCost(id, currentLevel);
+      if (!costs.has(id)) {
+        costs.set(id, calculateGravityUpgradeCost(id, currentLevel));
+      }
+      const cost = costs.get(id);
       if (availableGravity_d.gte(cost) && cost.lt(cheapestAffordable.cost)) {
         cheapestAffordable = { cost, id };
       }
@@ -4066,6 +4093,7 @@ function autoBuyGravityUpgrades(idleGame) {
       idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] || 0;
     idleGame.ipUpgrades.gravityUpgrades[cheapestAffordable.id] =
       currentLevel + 1;
+    costs.delete(cheapestAffordable.id);
     // ▲▲▲ 修正完了 ▲▲▲
 
     summary.upgrades.set(

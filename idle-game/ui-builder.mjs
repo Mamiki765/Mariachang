@@ -25,6 +25,7 @@ import {
   calculateGainedIP,
   calculateIPBonusMultiplier,
   calculateInfinityCountBonus,
+  calculateGeneratorCost,
   calculateGeneratorProductionRates,
   calculateIC9TimeBasedBonus,
   calculateGalaxyCost,
@@ -91,11 +92,18 @@ export function buildSkillView(uiData) {
  * @returns {object}
  */
 export function buildInfinityView(uiData) {
+  const costs = new Map();
+  const getCost = (id, bought) => {
+    if (!costs.has(id)) {
+      costs.set(id, calculateGeneratorCost(id, bought));
+    }
+    return costs.get(id);
+  };
   return {
     content:
       "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPはMultを強化する。",
-    embeds: [generateInfinityEmbed(uiData)], //実績も渡す様にuiDataに変更
-    components: generateInfinityButtons(uiData),
+    embeds: [generateInfinityEmbed(uiData, getCost)],
+    components: generateInfinityButtons(uiData, getCost),
   };
 }
 
@@ -105,11 +113,34 @@ export function buildInfinityView(uiData) {
  * @returns {object}
  */
 export function buildInfinityUpgradesView(uiData) {
+  const purchasedUpgrades = new Set(uiData.idleGame.ipUpgrades.upgrades || []);
+  const displayTier = getInfinityUpgradeDisplayTier(purchasedUpgrades);
   return {
     content: " ",
-    embeds: [generateInfinityUpgradesEmbed(uiData.idleGame, uiData.point)],
-    components: generateInfinityUpgradesButtons(uiData.idleGame, uiData.point),
+    embeds: [
+      generateInfinityUpgradesEmbed(
+        uiData.idleGame,
+        uiData.point,
+        purchasedUpgrades,
+        displayTier
+      ),
+    ],
+    components: generateInfinityUpgradesButtons(
+      uiData.idleGame,
+      uiData.point,
+      purchasedUpgrades,
+      displayTier
+    ),
   };
+}
+
+function getInfinityUpgradeDisplayTier(purchasedUpgrades) {
+  for (const tier of config.idle.infinityUpgrades.tiers) {
+    if (!Object.keys(tier.upgrades).every((id) => purchasedUpgrades.has(id))) {
+      return tier;
+    }
+  }
+  return config.idle.infinityUpgrades.tiers.at(-1);
 }
 
 /**
@@ -1070,7 +1101,7 @@ function generateSkillButtons(idleGame) {
  * @param {object} uiData - getSingleUserUIDataから取得したUI描画用データ
  * @returns {EmbedBuilder}
  */
-function generateInfinityEmbed(uiData) {
+function generateInfinityEmbed(uiData, getCost) {
   //データを取り出す
   const { idleGame, userAchievement, displayData } = uiData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
@@ -1168,10 +1199,7 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
     const generatorData = userGenerators[index] || { amount: "0", bought: 0 };
     const amount_d = new Decimal(generatorData.amount);
     const bought = generatorData.bought;
-    // 仮のコスト計算 (将来的にはcalculator.mjsに)
-    const cost = new Decimal(generatorConfig.baseCost).times(
-      new Decimal(generatorConfig.costMultiplier).pow(bought)
-    );
+    const cost = getCost(generatorConfig.id, bought);
 
     //レートを取得
     // productionRatesは[G1レート, G2レート,...]の順なので、(id-1)でアクセス
@@ -1257,7 +1285,7 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
  * @param {object} uiData - getSingleUserUIDataから取得したUI描画用データ
  * @returns {ActionRowBuilder[]}
  */
-function generateInfinityButtons(uiData) {
+function generateInfinityButtons(uiData, getCost) {
   const { idleGame, point } = uiData;
   const components = [];
   let currentRow = new ActionRowBuilder();
@@ -1276,10 +1304,7 @@ function generateInfinityButtons(uiData) {
 
     // --- ボタンのデータを準備 ---
     const generatorData = userGenerators[index] || { amount: "0", bought: 0 };
-    // 仮のコスト計算
-    const cost = new Decimal(generatorConfig.baseCost).times(
-      new Decimal(generatorConfig.costMultiplier).pow(generatorData.bought)
-    );
+    const cost = getCost(generatorConfig.id, generatorData.bought);
 
     currentRow.addComponents(
       new ButtonBuilder()
@@ -1422,9 +1447,13 @@ function generateInfinityButtons(uiData) {
  * @param {object} idleGame - IdleGameモデルのインスタンス
  * @returns {EmbedBuilder}
  */
-function generateInfinityUpgradesEmbed(idleGame, point) {
+function generateInfinityUpgradesEmbed(
+  idleGame,
+  point,
+  purchasedUpgrades,
+  displayTier
+) {
   const ip_d = new Decimal(idleGame.infinityPoints);
-  const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
   const currentLevel = idleGame.ipUpgrades?.ghostChipLevel || 0; //IU11のLVをあらかじめ取る
   // 【取得済み】リストの作成 (変更なし)
   const purchasedList =
@@ -1552,23 +1581,6 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
     });
   }
 
-  // --- 表示すべきTierを決定するロジック ---
-  let displayTier = null;
-  for (const tier of config.idle.infinityUpgrades.tiers) {
-    const tierUpgradeIds = Object.keys(tier.upgrades);
-    const isTierComplete = tierUpgradeIds.every((id) =>
-      purchasedUpgrades.has(id)
-    );
-    if (!isTierComplete) {
-      displayTier = tier;
-      break; // 未完了のTierが見つかったら、それを表示対象とする
-    }
-  }
-  // 全て完了していたら、最後のTierを表示する
-  if (!displayTier) {
-    displayTier = config.idle.infinityUpgrades.tiers.at(-1);
-  }
-
   // --- 購入可能なアップグレードをFieldとして追加 ---
   embed.addFields({
     name: `\n--- Tier ${displayTier.id} ---`,
@@ -1595,27 +1607,14 @@ function generateInfinityUpgradesEmbed(idleGame, point) {
  * @param {object} idleGame - IdleGameモデルのインスタンス
  * @returns {ActionRowBuilder[]}
  */
-function generateInfinityUpgradesButtons(idleGame, point) {
+function generateInfinityUpgradesButtons(
+  idleGame,
+  point,
+  purchasedUpgrades,
+  displayTier
+) {
   const components = [];
   const ip_d = new Decimal(idleGame.infinityPoints);
-  const purchasedUpgrades = new Set(idleGame.ipUpgrades.upgrades || []);
-
-  // Embed生成時と同じロジックで表示Tierを決定
-  let displayTier = null;
-  // ... (generateInfinityUpgradesEmbedと同じTier決定ロジックをここにコピー) ...
-  for (const tier of config.idle.infinityUpgrades.tiers) {
-    const tierUpgradeIds = Object.keys(tier.upgrades);
-    const isTierComplete = tierUpgradeIds.every((id) =>
-      purchasedUpgrades.has(id)
-    );
-    if (!isTierComplete) {
-      displayTier = tier;
-      break;
-    }
-  }
-  if (!displayTier) {
-    displayTier = config.idle.infinityUpgrades.tiers.at(-1);
-  }
 
   // --- 購入ボタンの行を作成 ---
   // ゴーストチップ

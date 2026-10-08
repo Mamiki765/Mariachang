@@ -1,5 +1,5 @@
 // Run: node --experimental-vm-modules --test tests/idle-calculator.test.mjs
-// Real formulas/config, Decimal and Discord builders; only the DB and clock are mocked.
+// Real formulas/config, Decimal and Discord builders; DB, clock and achievement delivery are mocked.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -64,7 +64,7 @@ const fixture = (overrides = {}) => ({
   ...overrides,
 });
 
-async function harness(input = fixture(), unlocked = []) {
+async function harness(input = fixture(), unlocked = [], models = {}) {
   const context = createContext({ console, Date: FixedDate });
   const state = { reads: 0, writes: [] };
   function synthetic(values) {
@@ -103,6 +103,7 @@ async function harness(input = fixture(), unlocked = []) {
           return { achievements: { unlocked } };
         },
       },
+      ...models,
     }),
   };
   async function load(path) {
@@ -120,7 +121,59 @@ async function harness(input = fixture(), unlocked = []) {
   const calc = await load("../idle-game/idle-game-calculator.mjs");
   deps["./idle-game-calculator.mjs"] = calc;
   const ui = await load("../idle-game/ui-builder.mjs");
-  return { calc: calc.namespace, ui: ui.namespace, state };
+  return {
+    calc: calc.namespace,
+    ui: ui.namespace,
+    state,
+    loadHandlers: async () => {
+      deps["../utils/achievements.mjs"] = synthetic({
+        unlockAchievements: async () => {},
+        unlockHiddenAchievements: async () => {},
+      });
+      return (await load("../idle-game/handlers.mjs")).namespace;
+    },
+  };
+}
+
+async function purchaseHarness(input, budget, unlocked = []) {
+  const state = { saves: 0, commits: 0, rollbacks: 0, replies: [] };
+  const model = {
+    ...structuredClone(input),
+    get: () => structuredClone(input),
+    changed: () => {},
+    save: async () => {
+      state.saves++;
+    },
+  };
+  const point = {
+    legacy_pizza: budget,
+    decrement: async (field, { by }) => {
+      point[field] -= by;
+    },
+  };
+  const transaction = {
+    LOCK: { UPDATE: "UPDATE" },
+    commit: async () => {
+      state.commits++;
+    },
+    rollback: async () => {
+      state.rollbacks++;
+    },
+  };
+  const h = await harness(input, unlocked, {
+    IdleGame: { findOne: async () => model },
+    Point: { findOne: async () => point },
+    sequelize: {
+      transaction: async (callback) =>
+        callback ? callback(transaction) : transaction,
+    },
+  });
+  const interaction = {
+    user: { id: input.userId },
+    client: {},
+    followUp: async (reply) => state.replies.push(reply),
+  };
+  return { handlers: await h.loadHandlers(), model, point, state, interaction };
 }
 
 test("offline income, buff expiry and game time retain the master results", async () => {
@@ -226,6 +279,19 @@ test("IC9 saves averaged-GP income and displays production at current GP", async
     "rendering must not read DB or advance progress"
   );
   assert.equal(h.state.writes.length, 1);
+  const generators = plain(h.ui.buildInfinityView(data));
+  assert.deepEqual(
+    generators.components
+      .flatMap((row) => row.components)
+      .filter(
+        (button) =>
+          button.custom_id.startsWith("idle_generator_buy_") &&
+          button.custom_id !== "idle_generator_buy_all"
+      )
+      .map((button) => button.custom_id),
+    ["idle_generator_buy_1", "idle_generator_buy_2", "idle_generator_buy_3"]
+  );
+  assert.equal(h.state.writes.length, 1);
 });
 
 test("a fresh display reflects a facility upgrade without mutating or saving state", async () => {
@@ -274,4 +340,95 @@ test("a fresh display reflects a facility upgrade without mutating or saving sta
   assert.deepEqual(plain(input), before);
   assert.equal(h.state.reads, 0);
   assert.equal(h.state.writes.length, 0);
+});
+
+test("bulk facility allocation preserves discounted costs, locks and chip accounting", async () => {
+  const input = fixture({
+    ...Object.fromEntries(
+      Object.values(config.idle.factories).map((f) => [f.key, 0])
+    ),
+    prestigePower: 8,
+    skillLevel6: 10,
+    ipUpgrades: { upgrades: ["IU14"] },
+    epUpgrades: { chronoUpgrades: { realityDiscount: 3 } },
+  });
+  const before = plain(input);
+  const h = await purchaseHarness(input, 1000000, [65, 66, 78]);
+  assert.equal(await h.handlers.handleAutoAllocate(h.interaction), true);
+  assert.deepEqual(
+    Object.values(config.idle.factories).map((f) => h.model[f.key]),
+    [73, 47, 39, 34, 31, 0, 0, 24]
+  );
+  assert.equal(h.point.legacy_pizza, 3976);
+  assert.equal(h.model.chipsSpentThisInfinity, "996024");
+  assert.equal(h.model.chipsSpentThisEternity, "996024");
+  assert.equal(h.state.saves, 1);
+  assert.equal(h.state.rollbacks, 0);
+  assert.deepEqual(plain(input), before);
+});
+
+test("bulk generators preserve unbought priority, Decimal balances and the 1000-purchase limit", async () => {
+  for (const [budget, counts, remainder] of [
+    ["1e12", [12, 5, 3, 2, 1, 0, 0, 0], "668767868789"],
+    ["1e6000", [373, 186, 123, 92, 73, 60, 50, 43], "1e+6000"],
+  ]) {
+    const input = fixture({
+      infinityPoints: budget,
+      ipUpgrades: {
+        upgrades: [],
+        generators: Array.from({ length: 8 }, (_, i) => ({
+          amount: String(i + 1),
+          bought: 0,
+        })),
+      },
+    });
+    const h = await purchaseHarness(input, 0);
+    assert.equal(await h.handlers.handleGeneratorBuyAll(h.interaction), true);
+    assert.deepEqual(
+      h.model.ipUpgrades.generators.map((g) => g.bought),
+      counts
+    );
+    assert.deepEqual(
+      h.model.ipUpgrades.generators.map((g) => g.amount),
+      counts.map((count, i) => String(count + i + 1))
+    );
+    assert.equal(h.model.infinityPoints, remainder);
+    assert.equal(h.state.saves, 1);
+    assert.equal(h.state.commits, 1);
+    assert.equal(h.state.rollbacks, 0);
+  }
+});
+
+test("IU embed and buttons agree at the first unfinished tier and after all purchases", async () => {
+  const h = await harness();
+  for (const [upgrades, expectedButtons, expectedTier] of [
+    [["IU11", "IU12", "IU13", "IU14"], ["IU21", "IU22", "IU23", "IU24"], 2],
+    [
+      config.idle.infinityUpgrades.tiers.flatMap((tier) =>
+        Object.keys(tier.upgrades)
+      ),
+      ["IU91"],
+      9,
+    ],
+  ]) {
+    const rendered = plain(
+      h.ui.buildInfinityUpgradesView({
+        idleGame: fixture({ infinityCount: 1, ipUpgrades: { upgrades } }),
+        point: { legacy_pizza: 0 },
+      })
+    );
+    const buttons = rendered.components
+      .flatMap((row) => row.components)
+      .filter((button) => button.custom_id.startsWith("idle_iu_purchase_"));
+    assert.deepEqual(
+      buttons.map((button) => button.custom_id),
+      expectedButtons.map((id) => `idle_iu_purchase_${id}`)
+    );
+    assert.ok(buttons.every((button) => button.disabled));
+    assert.ok(
+      rendered.embeds[0].fields.some((field) =>
+        field.name.includes(`Tier ${expectedTier}`)
+      )
+    );
+  }
 });
