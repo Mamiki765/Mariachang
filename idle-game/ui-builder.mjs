@@ -27,7 +27,6 @@ import {
   calculateInfinityCountBonus,
   calculateGeneratorProductionRates,
   calculateIC9TimeBasedBonus,
-  calculateRadianceMultiplier,
   calculateGalaxyCost,
   calculateGalaxyUpgradeCost,
   calculateEternityBonuses,
@@ -46,6 +45,7 @@ import {
  * @returns {object} interaction.replyに渡せるオプションオブジェクト
  */
 export function buildFactoryView(uiData, isFinal = false) {
+  const costs = calculateAllCosts(uiData.idleGame);
   // contentを組み立てるロジックを idle.mjs から持ってくる
   let content = "";
   if (uiData.uiContext?.messages?.length > 0) {
@@ -65,8 +65,8 @@ export function buildFactoryView(uiData, isFinal = false) {
 
   return {
     content: content,
-    embeds: [generateFactoryEmbed(uiData, isFinal)],
-    components: generateFactoryButtons(uiData, isFinal),
+    embeds: [generateFactoryEmbed(uiData, costs, isFinal)],
+    components: generateFactoryButtons(uiData, costs, isFinal),
   };
 }
 
@@ -78,7 +78,9 @@ export function buildFactoryView(uiData, isFinal = false) {
 export function buildSkillView(uiData) {
   return {
     content: " ", // スキル画面に固有のメッセージがあればここに書く
-    embeds: [generateSkillEmbed(uiData.idleGame)],
+    embeds: [
+      generateSkillEmbed(uiData.idleGame, uiData.displayData.radianceMultiplier),
+    ],
     components: generateSkillButtons(uiData.idleGame),
   };
 }
@@ -142,10 +144,11 @@ export function buildEternityView(uiData) {
 /**
  * 工場画面のメインEmbedを生成する
  * @param {object} uiData - getSingleUserUIDataから返された、UI描画に必要な全てのデータを含むオブジェクト
+ * @param {object} costs - 埋め込みとボタンで共有する施設コスト
  * @param {boolean} [isFinal=false] - コレクターが終了した最終表示かどうか。trueの場合、色などを変更する
  * @returns {EmbedBuilder}
  */
-function generateFactoryEmbed(uiData, isFinal = false) {
+function generateFactoryEmbed(uiData, costs, isFinal = false) {
   // ★★★ 受け取ったuiDataから、必要な変数を取り出す ★★★
   const {
     idleGame,
@@ -163,6 +166,8 @@ function generateFactoryEmbed(uiData, isFinal = false) {
     skill1Effect,
     meatEffect,
     singleFactoryMult_d,
+    radianceMultiplier,
+    eternityBonuses: bonuses,
   } = displayData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
@@ -176,7 +181,6 @@ function generateFactoryEmbed(uiData, isFinal = false) {
     s3: idleGame.skillLevel3,
     s4: idleGame.skillLevel4,
   };
-  const radianceMultiplier = calculateRadianceMultiplier(idleGame);
   //アセンション回数
   const ascensionCount = idleGame.ascensionCount || 0;
   let ascensionBaseEffect = config.idle.ascension.effect; // 1.125
@@ -200,7 +204,6 @@ function generateFactoryEmbed(uiData, isFinal = false) {
       ascensionBaseEffect *= multiplier;
     }
   }
-const bonuses = calculateEternityBonuses(idleGame.eternityCount);
   if (bonuses.ascension > 1) {
     ascensionBaseEffect *= bonuses.ascension;
   }
@@ -298,8 +301,6 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
     descriptionText = `ニョワミヤ人口: **${formatNumberJapanese_Decimal(population_d)} 匹**
 🌿${achievementCount}/${config.idle.achievements.length} 基本5施設${skill1Effect.toFixed(2)}倍`;
   }
-
-  const costs = calculateAllCosts(idleGame);
 
   const embed = new EmbedBuilder()
     .setTitle("ピザ工場ステータス")
@@ -407,16 +408,15 @@ PP: **${(idleGame.prestigePower || 0).toFixed(2)}** | SP: **${idleGame.skillPoin
 /**
  * 工場画面のボタンコンポーネント一式を生成する
  * @param {object} uiData - getSingleUserUIDataから返された、UI描画に必要な全てのデータを含むオブジェクト
+ * @param {object} costs - 埋め込みとボタンで共有する施設コスト
  * @param {boolean} [isDisabled=false] - 全てのボタンを無効化するかどうか
  * @returns {ActionRowBuilder[]}
  */
-function generateFactoryButtons(uiData, isDisabled = false) {
+function generateFactoryButtons(uiData, costs, isDisabled = false) {
   // ★★★ 必要な変数を取り出す ★★★
   const { idleGame, point, userAchievement } = uiData;
   const population_d = new Decimal(idleGame.population);
   const highestPopulation_d = new Decimal(idleGame.highestPopulation);
-  // ボタンを描画するたびに、コストを再計算する
-  const costs = calculateAllCosts(idleGame);
   const components = [];
   //工場強化非表示設定
   const hideFactoryButtons = idleGame.settings?.hideFactoryButtons === true;
@@ -807,9 +807,10 @@ function generateFactoryButtons(uiData, isDisabled = false) {
 /**
  * スキル強化画面のEmbedを生成する
  * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @param {number} radianceMultiplier - 計算済みの光輝倍率
  * @returns {EmbedBuilder}
  */
-function generateSkillEmbed(idleGame) {
+function generateSkillEmbed(idleGame, radianceMultiplier) {
   const skillLevels = {
     s1: idleGame.skillLevel1 || 0,
     s2: idleGame.skillLevel2 || 0,
@@ -825,8 +826,7 @@ function generateSkillEmbed(idleGame) {
   };
 
   const effects = {
-    // 光輝の効果を先に計算
-    radianceMultiplier: calculateRadianceMultiplier(idleGame),
+    radianceMultiplier,
   };
 
   // --- TPスキル計算 (新規) ---
@@ -1076,7 +1076,7 @@ function generateInfinityEmbed(uiData) {
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
-  const bonuses = calculateEternityBonuses(idleGame.eternityCount);
+  const bonuses = displayData.eternityBonuses;
   //GPとその効果を計算するロジックを追加
   const gp_d = new Decimal(idleGame.generatorPower || "1");
   // GPの効果をuiDataから取り出す
@@ -1088,7 +1088,7 @@ function generateInfinityEmbed(uiData) {
     : "";
 
   // #2スキル効果を計算
-  const radianceMultiplier = calculateRadianceMultiplier(idleGame);
+  const radianceMultiplier = displayData.radianceMultiplier;
   const skill2Level = idleGame.skillLevel2 || 0;
   const skill2Effect = Math.pow((1 + skill2Level) * radianceMultiplier, 2);
   // 説明文を組み立て

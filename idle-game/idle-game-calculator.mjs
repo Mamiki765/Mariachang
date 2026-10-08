@@ -301,46 +301,43 @@ export function formatProductionRate(n) {
 // ★★★ ここからが新しいリファクタリングの核心部です ★★★
 // =========================================================================
 /**
- * 1. 生産量の計算エンジン
- * 毎分のニョワミヤ増加量を "Decimal" オブジェクトとして計算して返す。
- * GP効果など、べき乗の前に適用すべき乗算効果を外部から注入できる。
- *
- * @param {object} idleGameData - IdleGameの生データ
- * @param {object} externalData - Mee6レベルなど外部から与えるデータ
- * @param {Decimal | null} [gpEffect_d=null] - (オプション) GPなど、べき乗計算の前に乗算する効果。指定しない場合は効果なし。
- * @returns {Decimal} - 毎分の生産量
+ * 同じ状態の生産量と表示で使う効果をまとめて計算する。
+ * オフライン進行後は状態が変わるため、進行前の結果は再利用しない。
  */
-function calculateProductionRate(
+function calculateProductionFactors(
   idleGameData,
   externalData,
-  gpEffect_d = null
+  radianceMultiplier = calculateRadianceMultiplier(idleGameData),
+  eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount)
 ) {
   const pp = idleGameData.prestigePower || 0;
   const achievementCount = externalData.achievementCount || 0;
+  const unlockedSet = externalData.unlockedSet || new Set();
+  return {
+    meatEffect: calculateFinalMeatEffect(idleGameData, externalData),
+    factoryEffects: calculateFactoryEffects(idleGameData, pp, unlockedSet),
+    skill1Effect:
+      (1 + (idleGameData.skillLevel1 || 0)) *
+      radianceMultiplier *
+      (1.0 + achievementCount * 0.01),
+    skill2Effect: (1 + (idleGameData.skillLevel2 || 0)) * radianceMultiplier,
+    radianceMultiplier,
+    eternityBonuses,
+  };
+}
+
+/**
+ * 毎分の生産量をDecimalで返す。GP効果はべき乗の前に適用する。
+ * オフライン進行では平均GP、表示では現在のGPを渡す。
+ */
+function calculateProductionRate(idleGameData, factors, gpEffect_d = null) {
   const ascensionCount = idleGameData.ascensionCount || 0;
   const activeChallenge = idleGameData.challenges?.activeChallenge;
   const completedChallenges =
     idleGameData.challenges?.completedChallenges || [];
   const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
-  // 1. externalDataからunlockedSetを取り出す
-  const unlockedSet = externalData.unlockedSet || new Set();
-  // 2. 肉効果を計算する
-  const meatEffect = calculateFinalMeatEffect(idleGameData, externalData);
-
-  // --- これ以降の計算は、修正済みのmeatEffectが使われるので変更不要 ---
-  const achievementMultiplier = 1.0 + achievementCount * 0.01;
-
-  // スキル効果 (これらは通常のNumberでOK)
-  const skillLevels = {
-    s1: idleGameData.skillLevel1,
-    s2: idleGameData.skillLevel2,
-    s3: idleGameData.skillLevel3,
-    s4: idleGameData.skillLevel4,
-  };
-  const radianceMultiplier = calculateRadianceMultiplier(idleGameData);
-  const skill1Effect =
-    (1 + (skillLevels.s1 || 0)) * radianceMultiplier * achievementMultiplier;
-  const skill2Effect = (1 + (skillLevels.s2 || 0)) * radianceMultiplier;
+  const { meatEffect, factoryEffects, skill1Effect, skill2Effect, eternityBonuses } =
+    factors;
   const finalSkill2Effect = Math.pow(skill2Effect, 2); // 時間加速
 
   //IC2報酬
@@ -357,9 +354,6 @@ function calculateProductionRate(
     }
   }
 
-  // 工場効果 (これもNumberでOK)
-  const factoryEffects = calculateFactoryEffects(idleGameData, pp, unlockedSet);
-
   // バフ (これもNumberでOK)
   let buffMultiplier = 1.0;
   if (
@@ -368,8 +362,6 @@ function calculateProductionRate(
   ) {
     buffMultiplier = idleGameData.buffMultiplier;
   }
-  const eternityBonuses = calculateEternityBonuses(idleGameData.eternityCount);
-
   // --- ここからDecimal計算 ---
   let baseProduction = new Decimal(factoryEffects.oven)
     .times(factoryEffects.cheese)
@@ -632,7 +624,12 @@ export function calculateOfflineProgress(idleGameData, externalData) {
     //  calculateProductionRate に averageGpEffect_d を渡す
     const finalProductionPerMinute_d = calculateProductionRate(
       idleGameData,
-      externalData,
+      calculateProductionFactors(
+        idleGameData,
+        externalData,
+        radianceMultiplier,
+        eternityBonuses
+      ),
       averageGpEffect_d // 3番目の引数として渡す
     );
 
@@ -947,51 +944,8 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
 
   await IdleGame.update(updateData, { where: { userId } });
 
-  // --- 5. UI表示に必要なデータを "全て" 計算してまとめる ---
-  const pp = updatedIdleGame.prestigePower || 0;
-  const meatEffect = calculateFinalMeatEffect(updatedIdleGame, externalData); //ここで最初に計算
-  //const achievementExponentBonus = externalData.achievementCount;
-  const gp_d = new Decimal(updatedIdleGame.generatorPower || "1");
-
-  // a. 最終的な指数を取得
-  const finalGpExponent = getFinalGpExponent(updatedIdleGame);
-  // b. 「1工場あたり」の倍率を計算
-  let singleFactoryMult_d = gp_d.pow(finalGpExponent);
-  // c. ソフトキャップを適用
-  singleFactoryMult_d = applyGpMultSoftcaps(singleFactoryMult_d);
-  // d. キャップ後の値を、工場数分だけ累乗して、最終的なGP効果を算出
-  const factoryCount = activeChallenge === "IC9" ? 5 : 8;
-  const gpEffect_d = singleFactoryMult_d.pow(factoryCount).max(1);
-
-  const factoryEffects = calculateFactoryEffects(
-    updatedIdleGame,
-    pp,
-    unlockedSet
-  );
-  const skillLevels = {
-    s1: updatedIdleGame.skillLevel1,
-    s2: updatedIdleGame.skillLevel2,
-    s3: updatedIdleGame.skillLevel3,
-    s4: updatedIdleGame.skillLevel4,
-  };
-  const radianceMultiplier = calculateRadianceMultiplier(updatedIdleGame);
-
-  // ★表示に必要なデータを displayData オブジェクトに格納する
-  const displayData = {
-    productionRate_d: calculateProductionRate(
-      updatedIdleGame,
-      externalData,
-      gpEffect_d
-    ),
-    factoryEffects: factoryEffects,
-    skill1Effect:
-      (1 + (skillLevels.s1 || 0)) *
-      radianceMultiplier *
-      (1.0 + externalData.achievementCount * 0.01),
-    meatEffect: meatEffect,
-    baseGpExponent: finalGpExponent,
-    singleFactoryMult_d: singleFactoryMult_d,
-  };
+  // --- 5. 保存した最新状態から表示用の計算結果を作る ---
+  const displayData = calculateDisplayData(updatedIdleGame, externalData);
 
   // --- 6. 最終的なデータを返す ---
   return {
@@ -999,8 +953,45 @@ export async function getSingleUserUIData(userId, isInitialLoad = false) {
     mee6Level: externalData.mee6Level,
     achievementCount: externalData.achievementCount,
     userAchievement: userAchievement,
-    displayData: displayData, // ★計算済みの表示用データも一緒に返す！
+    displayData: displayData,
     uiContext: uiContext,
+  };
+}
+
+/**
+ * 指定された状態から表示用の効果と生産量を計算する。DB取得・進行・保存は行わない。
+ * @param {object} idleGameData - オフライン進行後のIdleGameデータ
+ * @param {object} externalData - Mee6レベル・実績情報
+ * @returns {object} 描画に使う計算済みデータ
+ */
+export function calculateDisplayData(idleGameData, externalData) {
+  const factors = calculateProductionFactors(idleGameData, externalData);
+  const gp_d = new Decimal(idleGameData.generatorPower || "1");
+
+  // a. 最終的な指数を取得
+  const finalGpExponent = getFinalGpExponent(idleGameData);
+  // b. 「1工場あたり」の倍率を計算
+  let singleFactoryMult_d = gp_d.pow(finalGpExponent);
+  // c. ソフトキャップを適用
+  singleFactoryMult_d = applyGpMultSoftcaps(singleFactoryMult_d);
+  // d. キャップ後の値を、工場数分だけ累乗して、最終的なGP効果を算出
+  const factoryCount = idleGameData.challenges?.activeChallenge === "IC9" ? 5 : 8;
+  const gpEffect_d = singleFactoryMult_d.pow(factoryCount).max(1);
+
+  // ★表示に必要なデータを displayData オブジェクトに格納する
+  return {
+    productionRate_d: calculateProductionRate(
+      idleGameData,
+      factors,
+      gpEffect_d
+    ),
+    factoryEffects: factors.factoryEffects,
+    skill1Effect: factors.skill1Effect,
+    meatEffect: factors.meatEffect,
+    radianceMultiplier: factors.radianceMultiplier,
+    eternityBonuses: factors.eternityBonuses,
+    baseGpExponent: finalGpExponent,
+    singleFactoryMult_d: singleFactoryMult_d,
   };
 }
 
