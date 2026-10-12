@@ -20,6 +20,7 @@ import {
   formatNumberJapanese_Decimal,
   calculateAscensionRequirements,
   calculateGeneratorCost,
+  calculateSPSkillCost,
   calculateTPSkillCost,
   calculateGhostChipBudget,
   calculateGhostChipUpgradeCost,
@@ -1160,7 +1161,7 @@ export async function handleSkillUpgrade(interaction, skillNum) {
   try {
     if (skillNum >= 1 && skillNum <= 4) {
       // SPスキル
-      const cost = Math.pow(2, currentLevel);
+      const cost = calculateSPSkillCost(currentLevel);
       if (latestIdleGame.skillPoints < cost) {
         await interaction.followUp({
           content: "SPが足りません！",
@@ -1172,10 +1173,7 @@ export async function handleSkillUpgrade(interaction, skillNum) {
       latestIdleGame[skillLevelKey] += 1;
     } else if (skillNum >= 5 && skillNum <= 8) {
       // TPスキル
-      const skillConfig = config.idle.tp_skills[`skill${skillNum}`];
-      const cost =
-        skillConfig.baseCost *
-        Math.pow(skillConfig.costMultiplier, currentLevel);
+      const cost = calculateTPSkillCost(skillNum, currentLevel);
       if (latestIdleGame.transcendencePoints < cost) {
         await interaction.followUp({
           content: "TPが足りません！",

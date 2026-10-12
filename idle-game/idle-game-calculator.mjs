@@ -1269,6 +1269,15 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
 }
 
 /**
+ * SPスキルの次のレベルのコストを計算する
+ * @param {number} currentLevel - そのスキルの現在のレベル
+ * @returns {number} 次のレベルのコスト
+ */
+export function calculateSPSkillCost(currentLevel) {
+  return Math.pow(2, currentLevel);
+}
+
+/**
  * 【新規】指定されたTPスキルの次のレベルのコストを計算する
  * @param {number} skillNum - スキルの番号 (5-8)
  * @param {number} currentLevel - そのスキルの現在のレベル

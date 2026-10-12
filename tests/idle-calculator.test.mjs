@@ -176,6 +176,132 @@ async function purchaseHarness(input, budget, unlocked = []) {
   return { handlers: await h.loadHandlers(), model, point, state, interaction };
 }
 
+test("skill view preserves affordability, TP unlock, IC5 and SP reset gates", async () => {
+  const { ui, state } = await harness();
+  const render = (input) =>
+    plain(
+      ui.buildSkillView({
+        idleGame: input,
+        displayData: { radianceMultiplier: 1 },
+      })
+    );
+  const buttons = (view) => view.components.flatMap((row) => row.components);
+  const levelCosts = [
+    [1, 1, 1, 1, 1, 10, 10, 40],
+    [2, 2, 2, 2, 1.5, 20, 18, 120],
+  ];
+  for (const [level, costs] of levelCosts.entries()) {
+    for (const [index, cost] of costs.entries()) {
+      const skillNum = index + 1;
+      const balanceKey = skillNum <= 4 ? "skillPoints" : "transcendencePoints";
+      for (const delta of [-0.25, 0, 0.25]) {
+        const input = fixture({
+          prestigePower: 16,
+          [`skillLevel${skillNum}`]: level,
+          [balanceKey]: cost + delta,
+        });
+        const before = plain(input);
+        const button = buttons(render(input)).find(
+          (b) => b.custom_id === `idle_upgrade_skill_${skillNum}`
+        );
+        assert.equal(button.disabled, delta < 0);
+        assert.deepEqual(plain(input), before);
+      }
+    }
+  }
+  for (const prestigePower of [15, 16]) {
+    const view = render(fixture({ prestigePower }));
+    assert.equal(
+      buttons(view).some((b) => b.custom_id === "idle_upgrade_skill_5"),
+      prestigePower === 16
+    );
+    assert.equal(view.embeds[0].fields.length, prestigePower === 16 ? 9 : 4);
+  }
+  const ic5 = buttons(
+    render(
+      fixture({ skillPoints: 100, challenges: { activeChallenge: "IC5" } })
+    )
+  );
+  assert.equal(
+    ic5.find((b) => b.custom_id === "idle_upgrade_skill_4").disabled,
+    true
+  );
+  assert.equal(
+    ic5.find((b) => b.custom_id === "idle_upgrade_skill_3").disabled,
+    false
+  );
+  for (const [overrides, disabled] of [
+    [{ skillPoints: 0 }, true],
+    [{ skillPoints: 1 }, false],
+    [{ skillPoints: 0, skillLevel3: 1 }, false],
+  ]) {
+    assert.equal(
+      buttons(render(fixture(overrides))).find(
+        (b) => b.custom_id === "idle_skill_reset"
+      ).disabled,
+      disabled
+    );
+  }
+  assert.equal(state.reads, 0);
+  assert.equal(state.writes.length, 0);
+});
+
+test("skill purchases recalculate from the latest level and preserve balances", async () => {
+  const { ui } = await harness();
+  const levelCosts = [
+    [1, 2],
+    [1, 2],
+    [1, 2],
+    [1, 2],
+    [1, 1.5],
+    [10, 20],
+    [10, 18],
+    [40, 120],
+  ];
+  for (const [index, [oldCost, latestCost]] of levelCosts.entries()) {
+    const skillNum = index + 1;
+    const levelKey = `skillLevel${skillNum}`;
+    const balanceKey = skillNum <= 4 ? "skillPoints" : "transcendencePoints";
+    const input = fixture({ prestigePower: 16, [balanceKey]: oldCost });
+    const view = plain(
+      ui.buildSkillView({
+        idleGame: input,
+        displayData: { radianceMultiplier: 1 },
+      })
+    );
+    assert.equal(
+      view.components
+        .flatMap((row) => row.components)
+        .find((b) => b.custom_id === `idle_upgrade_skill_${skillNum}`).disabled,
+      false
+    );
+    const h = await purchaseHarness(input, 0);
+    h.model[levelKey] = 1;
+    const before = plain(h.model);
+    assert.equal(
+      await h.handlers.handleSkillUpgrade(h.interaction, skillNum),
+      false
+    );
+    assert.deepEqual(plain(h.model), before);
+    assert.equal(h.state.saves, 0);
+    assert.equal(
+      h.state.replies.at(-1).content,
+      skillNum <= 4 ? "SPが足りません！" : "TPが足りません！"
+    );
+    for (const surplus of [0, 0.25]) {
+      h.model[levelKey] = 1;
+      h.model[balanceKey] = latestCost + surplus;
+      assert.equal(
+        await h.handlers.handleSkillUpgrade(h.interaction, skillNum),
+        true
+      );
+      assert.equal(h.model[levelKey], 2);
+      assert.equal(h.model[balanceKey], surplus);
+    }
+    assert.equal(h.state.saves, 2);
+  }
+});
+
 test("offline income, buff expiry and game time retain the master results", async () => {
   const { calc } = await harness();
   const external = {

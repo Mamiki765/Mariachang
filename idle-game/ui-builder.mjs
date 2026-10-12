@@ -17,6 +17,8 @@ import {
   calculatePotentialTP,
   calculateAllCosts,
   calculateDiscountMultiplier,
+  calculateSPSkillCost,
+  calculateTPSkillCost,
   formatNumberDynamic,
   formatInfinityTime,
   calculateAscensionRequirements,
@@ -77,12 +79,28 @@ export function buildFactoryView(uiData, isFinal = false) {
  * @returns {object}
  */
 export function buildSkillView(uiData) {
+  const skillLevels = {};
+  const costs = {};
+  for (let skillNum = 1; skillNum <= 8; skillNum++) {
+    const key = `s${skillNum}`;
+    const level = uiData.idleGame[`skillLevel${skillNum}`] || 0;
+    skillLevels[key] = level;
+    costs[key] =
+      skillNum <= 4
+        ? calculateSPSkillCost(level)
+        : calculateTPSkillCost(skillNum, level);
+  }
   return {
     content: " ", // スキル画面に固有のメッセージがあればここに書く
     embeds: [
-      generateSkillEmbed(uiData.idleGame, uiData.displayData.radianceMultiplier),
+      generateSkillEmbed(
+        uiData.idleGame,
+        uiData.displayData.radianceMultiplier,
+        skillLevels,
+        costs
+      ),
     ],
-    components: generateSkillButtons(uiData.idleGame),
+    components: generateSkillButtons(uiData.idleGame, costs),
   };
 }
 
@@ -839,49 +857,16 @@ function generateFactoryButtons(uiData, costs, isDisabled = false) {
  * スキル強化画面のEmbedを生成する
  * @param {object} idleGame - IdleGameモデルのインスタンス
  * @param {number} radianceMultiplier - 計算済みの光輝倍率
+ * @param {object} skillLevels - 描画内で共有するスキルレベル
+ * @param {object} costs - 描画内で共有する次レベルのコスト
  * @returns {EmbedBuilder}
  */
-function generateSkillEmbed(idleGame, radianceMultiplier) {
-  const skillLevels = {
-    s1: idleGame.skillLevel1 || 0,
-    s2: idleGame.skillLevel2 || 0,
-    s3: idleGame.skillLevel3 || 0,
-    s4: idleGame.skillLevel4 || 0,
-  };
-
-  const costs = {
-    s1: Math.pow(2, skillLevels.s1),
-    s2: Math.pow(2, skillLevels.s2),
-    s3: Math.pow(2, skillLevels.s3),
-    s4: Math.pow(2, skillLevels.s4),
-  };
-
+function generateSkillEmbed(idleGame, radianceMultiplier, skillLevels, costs) {
   const effects = {
     radianceMultiplier,
   };
 
-  // --- TPスキル計算 (新規) ---
-  const tp_levels = {
-    s5: idleGame.skillLevel5 || 0,
-    s6: idleGame.skillLevel6 || 0,
-    s7: idleGame.skillLevel7 || 0,
-    s8: idleGame.skillLevel8 || 0,
-  };
   const tp_configs = config.idle.tp_skills;
-  const tp_costs = {
-    s5:
-      tp_configs.skill5.baseCost *
-      Math.pow(tp_configs.skill5.costMultiplier, tp_levels.s5),
-    s6:
-      tp_configs.skill6.baseCost *
-      Math.pow(tp_configs.skill6.costMultiplier, tp_levels.s6),
-    s7:
-      tp_configs.skill7.baseCost *
-      Math.pow(tp_configs.skill7.costMultiplier, tp_levels.s7),
-    s8:
-      tp_configs.skill8.baseCost *
-      Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
-  };
 
   let descriptionText = `SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${formatNumberDynamic(idleGame.transcendencePoints)}**`;
 
@@ -928,8 +913,8 @@ function generateSkillEmbed(idleGame, radianceMultiplier) {
       }
     );
   if (idleGame.prestigePower >= 16) {
-    const currentDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6);
-    const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
+    const currentDiscount = 1 - calculateDiscountMultiplier(skillLevels.s6);
+    const nextDiscount = 1 - calculateDiscountMultiplier(skillLevels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
     // BigInt を Decimal に変換し、新しいフォーマッターを使い、更にIC1のクリアでeternity依存になる
     const completedChallenges = new Set(
@@ -947,25 +932,25 @@ function generateSkillEmbed(idleGame, radianceMultiplier) {
     const spentChipsFormatted = formatNumberJapanese_Decimal(
       spentChipsForDisplay_d
     );
-    const skill7power = 0.1 * tp_levels.s7;
+    const skill7power = 0.1 * skillLevels.s7;
 
     embed.addFields(
       { name: "---TPスキル---", value: "\u200B" },
       {
-        name: `#5 熱々ポテト x${tp_levels.s5}`,
-        value: `${tp_configs.skill5.description} コスト: ${formatNumberDynamic(tp_costs.s5, 1)} TP`,
+        name: `#5 熱々ポテト x${skillLevels.s5}`,
+        value: `${tp_configs.skill5.description} コスト: ${formatNumberDynamic(costs.s5, 1)} TP`,
       },
       {
-        name: `#6 スパイシーコーラ x${tp_levels.s6}`,
-        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(tp_costs.s6, 1)} TP`,
+        name: `#6 スパイシーコーラ x${skillLevels.s6}`,
+        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(costs.s6, 1)} TP`,
       },
       {
-        name: `#7 山盛りのチキンナゲット x${tp_levels.s7}`,
-        value: `${descriptionForSkill7}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(tp_costs.s7, 1)} TP`,
+        name: `#7 山盛りのチキンナゲット x${skillLevels.s7}`,
+        value: `${descriptionForSkill7}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(costs.s7, 1)} TP`,
       },
       {
-        name: `#8 至高の天ぷら x${tp_levels.s8}`, // TenPura
-        value: `${tp_configs.skill8.description} コスト: ${formatNumberDynamic(tp_costs.s8, 1)} TP`,
+        name: `#8 至高の天ぷら x${skillLevels.s8}`, // TenPura
+        value: `${tp_configs.skill8.description} コスト: ${formatNumberDynamic(costs.s8, 1)} TP`,
       }
     );
   }
@@ -976,44 +961,10 @@ function generateSkillEmbed(idleGame, radianceMultiplier) {
 /**
  * スキル強化画面のボタンを生成する
  * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @param {object} costs - 描画内で共有する次レベルのコスト
  * @returns {ActionRowBuilder[]}
  */
-function generateSkillButtons(idleGame) {
-  // スキルレベルとコストをここで一括計算
-  const skillLevels = {
-    s1: idleGame.skillLevel1 || 0,
-    s2: idleGame.skillLevel2 || 0,
-    s3: idleGame.skillLevel3 || 0,
-    s4: idleGame.skillLevel4 || 0,
-  };
-  const costs = {
-    s1: Math.pow(2, skillLevels.s1),
-    s2: Math.pow(2, skillLevels.s2),
-    s3: Math.pow(2, skillLevels.s3),
-    s4: Math.pow(2, skillLevels.s4),
-  };
-  const tp_levels = {
-    s5: idleGame.skillLevel5 || 0,
-    s6: idleGame.skillLevel6 || 0,
-    s7: idleGame.skillLevel7 || 0,
-    s8: idleGame.skillLevel8 || 0,
-  };
-  const tp_configs = config.idle.tp_skills;
-  const tp_costs = {
-    s5:
-      tp_configs.skill5.baseCost *
-      Math.pow(tp_configs.skill5.costMultiplier, tp_levels.s5),
-    s6:
-      tp_configs.skill6.baseCost *
-      Math.pow(tp_configs.skill6.costMultiplier, tp_levels.s6),
-    s7:
-      tp_configs.skill7.baseCost *
-      Math.pow(tp_configs.skill7.costMultiplier, tp_levels.s7),
-    s8:
-      tp_configs.skill8.baseCost *
-      Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
-  };
-
+function generateSkillButtons(idleGame, costs) {
   const activeChallenge = idleGame.challenges?.activeChallenge;
 
   const skillRow = new ActionRowBuilder().addComponents(
@@ -1061,22 +1012,22 @@ function generateSkillButtons(idleGame) {
         .setCustomId("idle_upgrade_skill_5")
         .setLabel("#5強化(TP)")
         .setStyle(ButtonStyle.Success) // TPスキルは緑色に
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s5),
+        .setDisabled(idleGame.transcendencePoints < costs.s5),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_6")
         .setLabel("#6強化(TP)")
         .setStyle(ButtonStyle.Success)
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s6),
+        .setDisabled(idleGame.transcendencePoints < costs.s6),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_7")
         .setLabel("#7強化(TP)")
         .setStyle(ButtonStyle.Success)
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s7),
+        .setDisabled(idleGame.transcendencePoints < costs.s7),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_8")
         .setLabel("#8強化(TP)")
         .setStyle(ButtonStyle.Success)
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s8)
+        .setDisabled(idleGame.transcendencePoints < costs.s8)
     );
     components.push(tpSkillRow);
   }
