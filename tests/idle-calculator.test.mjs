@@ -136,13 +136,23 @@ async function harness(input = fixture(), unlocked = [], models = {}) {
 }
 
 async function purchaseHarness(input, budget, unlocked = []) {
-  const state = { saves: 0, commits: 0, rollbacks: 0, replies: [] };
+  const state = {
+    saves: 0,
+    commits: 0,
+    rollbacks: 0,
+    replies: [],
+    updates: [],
+  };
   const model = {
     ...structuredClone(input),
     get: () => structuredClone(input),
     changed: () => {},
     save: async () => {
       state.saves++;
+    },
+    update: async (data) => {
+      state.updates.push(plain(data));
+      Object.assign(model, data);
     },
   };
   const point = {
@@ -430,5 +440,66 @@ test("IU embed and buttons agree at the first unfinished tier and after all purc
         field.name.includes(`Tier ${expectedTier}`)
       )
     );
+  }
+});
+
+test("prestige automatic skill allocation preserves SP priority and the iteration limit", async () => {
+  for (const [priority, budget] of [
+    ["1234", 3.25],
+    ["4321", 3.25],
+    ["3412", 1e300],
+  ]) {
+    const input = fixture({
+      population: "1e20",
+      highestPopulation: "1e19",
+      prestigeCount: 1,
+      prestigePower: 20,
+      skillPoints: budget,
+      ipUpgrades: { upgrades: ["IU12"], generators: [] },
+      settings: {
+        skipPrestigeConfirmation: true,
+        autoAssignSpPriority: priority,
+        autoAssignTpEnabled: false,
+      },
+    });
+    const before = plain(input);
+    const h = await purchaseHarness(input, 0);
+    const order = [];
+    let allocating = true;
+    for (let skillNum = 1; skillNum <= 4; skillNum++) {
+      let level = h.model[`skillLevel${skillNum}`];
+      Object.defineProperty(h.model, `skillLevel${skillNum}`, {
+        enumerable: true,
+        get: () => level,
+        set: (next) => {
+          if (allocating) order.push(String(skillNum));
+          level = next;
+        },
+      });
+    }
+    const update = h.model.update;
+    h.model.update = async (...args) => {
+      allocating = false;
+      return update(...args);
+    };
+    assert.equal(await h.handlers.handlePrestige(h.interaction), true);
+    assert.equal(h.state.updates.length, 1);
+    const saved = h.state.updates[0];
+    for (let skillNum = 1; skillNum <= 4; skillNum++) {
+      assert.equal(
+        saved[`skillLevel${skillNum}`],
+        h.model[`skillLevel${skillNum}`]
+      );
+    }
+    if (budget < 4) {
+      assert.deepEqual(order, priority.slice(0, 3).split(""));
+      assert.equal(saved.skillPoints, budget - order.length);
+    } else {
+      assert.equal(order.length, 500);
+      const levels = [1, 2, 3, 4].map((n) => saved[`skillLevel${n}`]);
+      assert.ok(Math.max(...levels) - Math.min(...levels) <= 1);
+    }
+    assert.deepEqual(plain(input), before);
+    assert.equal(h.state.rollbacks, 0);
   }
 });

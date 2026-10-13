@@ -3612,19 +3612,18 @@ function autoAssignTP(idleGame) {
   let availableTP = idleGame.transcendencePoints;
 
   // 1. #8のコストを基準に、#5~#7に使える予算を決める
-  const skill8Cost = calculateTPSkillCost(8, idleGame.skillLevel8);
+  let skill8Cost = calculateTPSkillCost(8, idleGame.skillLevel8);
   let budget = skill8Cost * 0.5;
+  const costs = [
+    { id: 5, cost: calculateTPSkillCost(5, idleGame.skillLevel5) },
+    { id: 6, cost: calculateTPSkillCost(6, idleGame.skillLevel6) },
+    { id: 7, cost: calculateTPSkillCost(7, idleGame.skillLevel7) },
+  ];
 
   // 2. 予算内で、#5~#7の最も安いものを買い続ける
   while (true) {
-    const costs = [
-      { id: 5, cost: calculateTPSkillCost(5, idleGame.skillLevel5) },
-      { id: 6, cost: calculateTPSkillCost(6, idleGame.skillLevel6) },
-      { id: 7, cost: calculateTPSkillCost(7, idleGame.skillLevel7) },
-    ];
-    // コストで昇順ソートして、一番安いものを取得
-    costs.sort((a, b) => a.cost - b.cost);
-    const cheapest = costs[0];
+    // 同額時の#5→#6→#7の順序を維持するため、元の配列順は変えない。
+    const cheapest = [...costs].sort((a, b) => a.cost - b.cost)[0];
 
     if (cheapest.cost > budget || cheapest.cost > availableTP) {
       break; // 予算オーバー or TP不足ならループ終了
@@ -3633,15 +3632,19 @@ function autoAssignTP(idleGame) {
     availableTP -= cheapest.cost;
     budget -= cheapest.cost;
     idleGame[`skillLevel${cheapest.id}`]++;
+    cheapest.cost = calculateTPSkillCost(
+      cheapest.id,
+      idleGame[`skillLevel${cheapest.id}`]
+    );
   }
 
   // 3. 最後に、#8が買えるだけ買う
   while (true) {
-    const finalSkill8Cost = calculateTPSkillCost(8, idleGame.skillLevel8);
-    if (availableTP < finalSkill8Cost) break;
+    if (availableTP < skill8Cost) break;
 
-    availableTP -= finalSkill8Cost;
+    availableTP -= skill8Cost;
     idleGame.skillLevel8++;
+    skill8Cost = calculateTPSkillCost(8, idleGame.skillLevel8);
   }
 
   idleGame.transcendencePoints = availableTP;
@@ -3660,19 +3663,19 @@ function autoAssignSP(idleGame, spPriority) {
   // 無限ループ防止のためのカウンター
   const MAX_ITERATIONS = 500;
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    // 1. 現在の全SPスキルの状態をリスト化する
-    const skillList = [1, 2, 3, 4].map((skillNum) => {
-      const level = idleGame[`skillLevel${skillNum}`] || 0;
-      return {
-        id: skillNum,
-        level: level,
-        cost: Math.pow(2, level),
-        // spPriority文字列内での登場順（インデックス）を優先度とする
-        priority: spPriority.indexOf(String(skillNum)),
-      };
-    });
+  // 1. コストと優先順位を共有し、購入したスキルのレベルとコストだけ更新する。
+  const skillList = [1, 2, 3, 4].map((skillNum) => {
+    const level = idleGame[`skillLevel${skillNum}`] || 0;
+    return {
+      id: skillNum,
+      level: level,
+      cost: Math.pow(2, level),
+      // spPriority文字列内での登場順（インデックス）を優先度とする
+      priority: spPriority.indexOf(String(skillNum)),
+    };
+  });
 
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
     // 2. 購入可能なスキルのみをフィルタリングする
     const affordableSkills = skillList.filter(
       (skill) => availableSP >= skill.cost
@@ -3695,6 +3698,8 @@ function autoAssignSP(idleGame, spPriority) {
     // 5. 最適なスキルを購入する
     availableSP -= bestSkillToBuy.cost;
     idleGame[`skillLevel${bestSkillToBuy.id}`]++;
+    bestSkillToBuy.level = idleGame[`skillLevel${bestSkillToBuy.id}`] || 0;
+    bestSkillToBuy.cost = Math.pow(2, bestSkillToBuy.level);
   }
 
   // 6. 残ったSPを反映して返す
