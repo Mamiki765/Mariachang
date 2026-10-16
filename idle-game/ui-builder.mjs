@@ -149,10 +149,18 @@ function getInfinityUpgradeDisplayTier(purchasedUpgrades) {
  * @returns {object}
  */
 export function buildChallengeView(uiData) {
+  const completed = new Set(uiData.idleGame.challenges?.completedChallenges || []);
+  const challengeState = {
+    completed,
+    active: uiData.idleGame.challenges?.activeChallenge || null,
+    challengesToShow: config.idle.infinityChallenges.filter(
+      (challenge) => challenge.id !== "IC9" || completed.size >= 8
+    ),
+  };
   return {
     content: " ",
-    embeds: [generateChallengeEmbed(uiData.idleGame)],
-    components: generateChallengeButtons(uiData.idleGame),
+    embeds: [generateChallengeEmbed(uiData.idleGame, challengeState)],
+    components: generateChallengeButtons(challengeState),
   };
 }
 
@@ -162,10 +170,11 @@ export function buildChallengeView(uiData) {
  * @returns {object}
  */
 export function buildEternityView(uiData) {
+  const costs = getEternityViewCosts(uiData.idleGame);
   return {
     content: " ",
-    embeds: [generateEternityEmbed(uiData)],
-    components: generateEternityButtons(uiData),
+    embeds: [generateEternityEmbed(uiData, costs)],
+    components: generateEternityButtons(uiData, costs),
   };
 }
 
@@ -1679,9 +1688,8 @@ function generateInfinityUpgradesButtons(
  * @param {object} idleGame - ユーザーの放置ゲームデータ (`IdleGame` モデルのインスタンス)
  * @returns {EmbedBuilder}
  */
-function generateChallengeEmbed(idleGame) {
-  const completed = new Set(idleGame.challenges?.completedChallenges || []);
-  const active = idleGame.challenges?.activeChallenge || null;
+function generateChallengeEmbed(idleGame, challengeState) {
+  const { completed, active, challengesToShow } = challengeState;
 
   const embed = new EmbedBuilder()
     .setTitle("⚔️ インフィニティチャレンジ ⚔️")
@@ -1689,16 +1697,6 @@ function generateChallengeEmbed(idleGame) {
     .setDescription(
       "呪い(縛り)を受けながらインフィニティを目指す試練です。\nチャレンジを開始すると、強制的にインフィニティリセットが行われます。\n【注意】現在ICは難易度調整期間です。クリアは保障されていません"
     );
-
-  const completedCount = completed.size;
-  const challengesToShow = config.idle.infinityChallenges.filter((chal) => {
-    // もしチャレンジがIC9なら、クリア数が8以上の時だけ表示する
-    if (chal.id === "IC9") {
-      return completedCount >= 8;
-    }
-    // それ以外のチャレンジは常に表示
-    return true;
-  });
 
   for (const chal of challengesToShow) {
     let status = "未挑戦";
@@ -1724,24 +1722,13 @@ function generateChallengeEmbed(idleGame) {
 
 /**
  * インフィニティチャレンジ画面のボタンを生成する
- * @param {object} idleGame - ユーザーの放置ゲームデータ (`IdleGame` モデルのインスタンス)
+ * @param {object} challengeState - この描画で共有する達成状況と表示対象
  * @returns {ActionRowBuilder[]}
  */
-function generateChallengeButtons(idleGame) {
-  const completed = new Set(idleGame.challenges?.completedChallenges || []);
-  const active = idleGame.challenges?.activeChallenge || null;
+function generateChallengeButtons(challengeState) {
+  const { completed, active, challengesToShow } = challengeState;
   const components = [];
 
-  // ▼▼▼ 1. 表示するチャレンジを動的にフィルタリング ▼▼▼
-  const completedCount = completed.size;
-  const challengesToShow = config.idle.infinityChallenges.filter((chal) => {
-    if (chal.id === "IC9") {
-      return completedCount >= 8;
-    }
-    return true;
-  });
-
-  // ▼▼▼ 2. フィルタリングされたリストでボタンを生成 ▼▼▼
   for (let i = 0; i < challengesToShow.length; i += 4) {
     const row = new ActionRowBuilder();
     const chunk = challengesToShow.slice(i, i + 4);
@@ -1790,12 +1777,39 @@ function generateChallengeButtons(idleGame) {
 //--------------------------
 //エタニティ
 //--------------------------
+// Build prices once per render; never retain them across a purchase or refresh.
+function getEternityViewCosts(idleGame) {
+  const epUpgrades = idleGame.epUpgrades || {};
+  const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
+  return {
+    cp: Object.fromEntries(
+      ["nyowamiya", "ip", "ep"].map((type) => [
+        type,
+        calculateCpGainCost(type, epUpgrades.cpGainedFrom?.[type] || 0),
+      ])
+    ),
+    chrono: Object.entries(config.idle.eternity.chronoUpgrades).map(
+      ([id, upgrade]) => {
+        const level = currentChronoUpgrades[id] || 0;
+        return {
+          id,
+          upgrade,
+          level,
+          cost: upgrade.cost(level),
+          isMaxLevel: level >= upgrade.maxLevel,
+        };
+      }
+    ),
+    hasPurchasedAny: Object.values(currentChronoUpgrades).some((level) => level > 0),
+  };
+}
+
 /**
  * エタニティ画面のEmbedを生成する
  * @param {object} uiData
  * @returns {EmbedBuilder}
  */
-function generateEternityEmbed(uiData) {
+function generateEternityEmbed(uiData, costs) {
   const { idleGame } = uiData;
   const eternityCount = idleGame.eternityCount || 0;
   const eternityPoints = new Decimal(idleGame.eternityPoints || "0");
@@ -1810,13 +1824,7 @@ function generateEternityEmbed(uiData) {
         `**${formatNumberDynamic_Decimal(chronoPoints)} CP** を所持しています。`
     );
   //CP
-  const timesNyo = epUpgrades.cpGainedFrom?.nyowamiya || 0;
-  const timesIp = epUpgrades.cpGainedFrom?.ip || 0;
-  const timesEp = epUpgrades.cpGainedFrom?.ep || 0;
-
-  const costNyo = calculateCpGainCost("nyowamiya", timesNyo);
-  const costIp = calculateCpGainCost("ip", timesIp);
-  const costEp = calculateCpGainCost("ep", timesEp);
+  const { nyowamiya: costNyo, ip: costIp, ep: costEp } = costs.cp;
 
   embed.addFields({
     name: "🕰️ クロノポイント獲得",
@@ -1840,14 +1848,9 @@ function generateEternityEmbed(uiData) {
   });
 
   // CPアップグレードの表示を追加
-  const chronoUpgradesConfig = config.idle.eternity.chronoUpgrades;
-  const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
   let chronoFieldsText = "";
 
-  for (const [id, upgrade] of Object.entries(chronoUpgradesConfig)) {
-    const level = currentChronoUpgrades[id] || 0;
-    const cost = upgrade.cost(level);
-    const isMaxLevel = level >= upgrade.maxLevel;
+  for (const { upgrade, level, cost, isMaxLevel } of costs.chrono) {
     const costText = isMaxLevel ? "✅" : `${cost} CP`;
 
     chronoFieldsText += `**${upgrade.name}** [Lv.${level}] (${costText})\n${upgrade.description(level)}\n`;
@@ -1884,7 +1887,10 @@ function generateEternityEmbed(uiData) {
  * @param {object} uiData
  * @returns {ActionRowBuilder[]}
  */
-export function generateEternityButtons(uiData) {
+export function generateEternityButtons(
+  uiData,
+  costs = getEternityViewCosts(uiData.idleGame)
+) {
   const components = [];
   const { idleGame } = uiData;
 
@@ -1897,8 +1903,7 @@ export function generateEternityButtons(uiData) {
   const cpGainRow = new ActionRowBuilder();
 
   // --- CP購入ボタン (ニョワミヤ) ---
-  const nyoTimes = epUpgrades.cpGainedFrom?.nyowamiya || 0;
-  const nyoCost = calculateCpGainCost("nyowamiya", nyoTimes);
+  const nyoCost = costs.cp.nyowamiya;
   cpGainRow.addComponents(
     new ButtonBuilder()
       .setCustomId("idle_gain_max_cp_nyowamiya")
@@ -1909,8 +1914,7 @@ export function generateEternityButtons(uiData) {
   );
 
   // --- CP購入ボタン (IP) ---
-  const ipTimes = epUpgrades.cpGainedFrom?.ip || 0;
-  const ipCost = calculateCpGainCost("ip", ipTimes);
+  const ipCost = costs.cp.ip;
   cpGainRow.addComponents(
     new ButtonBuilder()
       .setCustomId("idle_gain_max_cp_ip")
@@ -1921,8 +1925,7 @@ export function generateEternityButtons(uiData) {
   );
 
   // --- CP購入ボタン (EP) ---
-  const epTimes = epUpgrades.cpGainedFrom?.ep || 0;
-  const epCost = calculateCpGainCost("ep", epTimes);
+  const epCost = costs.cp.ep;
   cpGainRow.addComponents(
     new ButtonBuilder()
       .setCustomId("idle_gain_max_cp_ep")
@@ -1935,16 +1938,10 @@ export function generateEternityButtons(uiData) {
   components.push(cpGainRow);
 
   // ★★★ CPアップグレードボタンを追加 ★★★
-  const chronoUpgradesConfig = config.idle.eternity.chronoUpgrades;
-  if (Object.keys(chronoUpgradesConfig).length > 0) {
+  if (costs.chrono.length > 0) {
     const chronoUpgradeRow = new ActionRowBuilder();
-    const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
 
-    for (const [id, upgrade] of Object.entries(chronoUpgradesConfig)) {
-      const level = currentChronoUpgrades[id] || 0;
-      const cost = upgrade.cost(level);
-      const isMaxLevel = level >= upgrade.maxLevel;
-
+    for (const { id, upgrade, cost, isMaxLevel } of costs.chrono) {
       chronoUpgradeRow.addComponents(
         new ButtonBuilder()
           .setCustomId(`idle_chrono_upgrade_${id}`)
@@ -1953,11 +1950,7 @@ export function generateEternityButtons(uiData) {
           .setDisabled(chronoPoints_d.lt(cost) || isMaxLevel)
       );
     }
-    const hasPurchasedAny = Object.values(currentChronoUpgrades).some(
-      (lv) => lv > 0
-    );
-
-    if (hasPurchasedAny) {
+    if (costs.hasPurchasedAny) {
       chronoUpgradeRow.addComponents(
         new ButtonBuilder()
           .setCustomId("idle_chrono_reset")

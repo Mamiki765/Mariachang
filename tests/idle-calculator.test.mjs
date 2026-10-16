@@ -432,3 +432,212 @@ test("IU embed and buttons agree at the first unfinished tier and after all purc
     );
   }
 });
+
+test("challenge descriptions and controls keep IC9 gating, status and abort behavior", async () => {
+  const h = await harness();
+  const firstEight = Array.from({ length: 8 }, (_, i) => `IC${i + 1}`);
+  for (const [completedChallenges, activeChallenge, showIC9] of [
+    [[], null, false],
+    [firstEight.slice(0, 7), null, false],
+    [[...firstEight.slice(0, 7), "IC1"], null, false],
+    [firstEight, null, true],
+    [[...firstEight, "IC9"], null, true],
+    [firstEight, "IC9", true],
+    [["IC1"], "IC2", false],
+  ]) {
+    const input = fixture({
+      challenges: {
+        completedChallenges,
+        activeChallenge,
+        IC9: { bestTime: 3661 },
+      },
+    });
+    const before = plain(input);
+    const rendered = plain(h.ui.buildChallengeView({ idleGame: input }));
+    const fields = rendered.embeds[0].fields;
+    const buttons = rendered.components.flatMap((row) => row.components);
+    const starts = buttons.filter((button) =>
+      button.custom_id.startsWith("idle_start_challenge_")
+    );
+    const expected = showIC9 ? [...firstEight, "IC9"] : firstEight;
+    assert.deepEqual(
+      fields.map((field) => field.name.split(":")[0]),
+      expected
+    );
+    assert.deepEqual(
+      starts.map((button) => button.custom_id),
+      expected.map((id) => `idle_start_challenge_${id}`)
+    );
+    for (const [i, id] of expected.entries()) {
+      const status =
+        id === activeChallenge
+          ? "挑戦中"
+          : completedChallenges.includes(id)
+            ? "✅ 達成済み"
+            : "未挑戦";
+      assert.ok(fields[i].name.endsWith(`[${status}]`));
+      assert.equal(
+        starts[i].disabled,
+        Boolean(activeChallenge) ||
+          (id !== "IC9" && completedChallenges.includes(id))
+      );
+    }
+    assert.equal(
+      buttons.some((button) => button.custom_id === "idle_abort_challenge"),
+      Boolean(activeChallenge)
+    );
+    if (showIC9)
+      assert.ok(fields.at(-1).value.includes("自己ベスト（現実時間)"));
+    assert.deepEqual(plain(input), before);
+  }
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("eternity CP prices agree with buttons at Decimal cost boundaries and refresh from new state", async () => {
+  const h = await harness();
+  const resourceKeys = {
+    nyowamiya: "population",
+    ip: "infinityPoints",
+    ep: "eternityPoints",
+  };
+  for (const times of [0, 1, 3, 10]) {
+    for (const [type, key] of Object.entries(resourceKeys)) {
+      const cost = h.calc.calculateCpGainCost(type, times);
+      for (const factor of [0.5, 1, 2]) {
+        const input = fixture({
+          [key]: cost.mul(factor).toString(),
+          eternityCount: 2,
+          epUpgrades: { cpGainedFrom: { [type]: times }, chronoPoints: "0" },
+        });
+        const before = plain(input);
+        const rendered = plain(h.ui.buildEternityView({ idleGame: input }));
+        const buttons = rendered.components.flatMap((row) => row.components);
+        assert.equal(
+          buttons.find(
+            (button) => button.custom_id === `idle_gain_max_cp_${type}`
+          ).disabled,
+          factor < 1
+        );
+        assert.ok(
+          rendered.embeds[0].fields[0].value.includes(
+            h.calc.formatNumberDynamic_Decimal(cost)
+          )
+        );
+        assert.deepEqual(
+          plain(h.ui.generateEternityButtons({ idleGame: input })),
+          rendered.components
+        );
+        assert.deepEqual(plain(input), before);
+      }
+    }
+  }
+  const input = fixture({ infinityPoints: "1", epUpgrades: {} });
+  const ipButton = () =>
+    plain(h.ui.buildEternityView({ idleGame: input }))
+      .components.flatMap((row) => row.components)
+      .find((button) => button.custom_id === "idle_gain_max_cp_ip");
+  assert.equal(ipButton().disabled, false);
+  input.epUpgrades.cpGainedFrom = { ip: 1 };
+  assert.equal(ipButton().disabled, true);
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("chrono display, max levels and reset controls keep their state without carrying prices between renders", async () => {
+  const h = await harness();
+  for (const [id, upgrade] of Object.entries(
+    config.idle.eternity.chronoUpgrades
+  )) {
+    for (const level of [
+      0,
+      upgrade.maxLevel - 1,
+      upgrade.maxLevel,
+      upgrade.maxLevel + 1,
+    ]) {
+      for (const chronoPoints of ["0", "1", "2"]) {
+        const input = fixture({
+          epUpgrades: { chronoPoints, chronoUpgrades: { [id]: level } },
+        });
+        const before = plain(input);
+        const rendered = plain(h.ui.buildEternityView({ idleGame: input }));
+        const buttons = rendered.components.flatMap((row) => row.components);
+        const cost = upgrade.cost(level);
+        const isMax = level >= upgrade.maxLevel;
+        assert.equal(
+          buttons.find(
+            (button) => button.custom_id === `idle_chrono_upgrade_${id}`
+          ).disabled,
+          Number(chronoPoints) < cost || isMax
+        );
+        const text = rendered.embeds[0].fields.find((field) =>
+          field.name.includes("クロノアップグレード")
+        ).value;
+        assert.ok(
+          text.includes(
+            `**${upgrade.name}** [Lv.${level}] (${isMax ? "✅" : `${cost} CP`})`
+          )
+        );
+        assert.equal(
+          buttons.some((button) => button.custom_id === "idle_chrono_reset"),
+          level > 0
+        );
+        assert.deepEqual(plain(input), before);
+      }
+    }
+  }
+  // A legacy key still makes the existing reset action available.
+  const legacy = fixture({ epUpgrades: { chronoUpgrades: { legacy: 1 } } });
+  assert.ok(
+    plain(h.ui.generateEternityButtons({ idleGame: legacy }))
+      .flatMap((row) => row.components)
+      .some((button) => button.custom_id === "idle_chrono_reset")
+  );
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("chrono purchases validate the current locked model after an affordable screen was rendered", async () => {
+  const input = fixture({
+    epUpgrades: { chronoPoints: "1", chronoUpgrades: {} },
+  });
+  const h = await harness();
+  const rendered = plain(h.ui.buildEternityView({ idleGame: input }));
+  assert.equal(
+    rendered.components
+      .flatMap((row) => row.components)
+      .find(
+        (button) => button.custom_id === "idle_chrono_upgrade_realityDiscount"
+      ).disabled,
+    false
+  );
+  for (const [chronoPoints, level, success] of [
+    ["0", 0, false],
+    ["1", 1000, false],
+    ["1", 999, true],
+  ]) {
+    const purchase = await purchaseHarness(input, 0);
+    purchase.model.epUpgrades = {
+      chronoPoints,
+      chronoUpgrades: { realityDiscount: level },
+    };
+    assert.equal(
+      await purchase.handlers.handleChronoUpgradePurchase(
+        purchase.interaction,
+        "realityDiscount"
+      ),
+      success
+    );
+    assert.equal(purchase.state.saves, Number(success));
+    assert.equal(purchase.state.commits, Number(success));
+    assert.equal(purchase.state.rollbacks, Number(!success));
+    assert.equal(
+      purchase.model.epUpgrades.chronoPoints,
+      success ? "0" : chronoPoints
+    );
+    assert.equal(
+      purchase.model.epUpgrades.chronoUpgrades.realityDiscount,
+      success ? 1000 : level
+    );
+  }
+});
