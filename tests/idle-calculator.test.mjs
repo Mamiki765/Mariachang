@@ -399,40 +399,6 @@ test("bulk generators preserve unbought priority, Decimal balances and the 1000-
   }
 });
 
-test("IU embed and buttons agree at the first unfinished tier and after all purchases", async () => {
-  const h = await harness();
-  for (const [upgrades, expectedButtons, expectedTier] of [
-    [["IU11", "IU12", "IU13", "IU14"], ["IU21", "IU22", "IU23", "IU24"], 2],
-    [
-      config.idle.infinityUpgrades.tiers.flatMap((tier) =>
-        Object.keys(tier.upgrades)
-      ),
-      ["IU91"],
-      9,
-    ],
-  ]) {
-    const rendered = plain(
-      h.ui.buildInfinityUpgradesView({
-        idleGame: fixture({ infinityCount: 1, ipUpgrades: { upgrades } }),
-        point: { legacy_pizza: 0 },
-      })
-    );
-    const buttons = rendered.components
-      .flatMap((row) => row.components)
-      .filter((button) => button.custom_id.startsWith("idle_iu_purchase_"));
-    assert.deepEqual(
-      buttons.map((button) => button.custom_id),
-      expectedButtons.map((id) => `idle_iu_purchase_${id}`)
-    );
-    assert.ok(buttons.every((button) => button.disabled));
-    assert.ok(
-      rendered.embeds[0].fields.some((field) =>
-        field.name.includes(`Tier ${expectedTier}`)
-      )
-    );
-  }
-});
-
 test("challenge descriptions and controls keep IC9 gating, status and abort behavior", async () => {
   const h = await harness();
   const firstEight = Array.from({ length: 8 }, (_, i) => `IC${i + 1}`);
@@ -641,3 +607,38 @@ test("chrono purchases validate the current locked model after an affordable scr
     );
   }
 });
+
+test("IU embed and buttons agree at the first unfinished tier and after all purchases", async () => {
+  const h = await harness();
+  for (const [upgrades, expectedButtons, expectedTier] of [
+    [["IU11", "IU12", "IU13", "IU14"], ["IU21", "IU22", "IU23", "IU24"], 2],
+    [
+      config.idle.infinityUpgrades.tiers.flatMap((tier) =>
+        Object.keys(tier.upgrades)
+      ),
+      ["IU91"],
+      9,
+    ],
+  ]) {
+    const rendered = plain(
+      h.ui.buildInfinityUpgradesView({
+        idleGame: fixture({ infinityCount: 1, ipUpgrades: { upgrades } }),
+        point: { legacy_pizza: 0 },
+      })
+    );
+    const buttons = rendered.components
+      .flatMap((row) => row.components)
+      .filter((button) => button.custom_id.startsWith("idle_iu_purchase_"));
+    assert.deepEqual(
+      buttons.map((button) => button.custom_id),
+      expectedButtons.map((id) => `idle_iu_purchase_${id}`)
+    );
+    assert.ok(buttons.every((button) => button.disabled));
+    assert.ok(
+      rendered.embeds[0].fields.some((field) =>
+        field.name.includes(`Tier ${expectedTier}`)
+      )
+    );
+  }
+});
+
