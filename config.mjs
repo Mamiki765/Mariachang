@@ -251,22 +251,69 @@ export default {
       },
       // 倍率は掛け金込みの「受け取る合計」。ツーペアの1倍は掛け金が戻るだけ
       // 役の判定は casino.mjs の evaluatePokerHand。ここは名前と倍率と表示順
+      // example は「配当・遊び方」に出す手札の例 (X1 = ジョーカー、T = 10)
       // (Double Jokerのフルペイ表。最善手で遊び続けた場合の還元率は約99.97%)
       payouts: [
         {
           id: "natural_royal",
           name: "ロイヤルストレートフラッシュ",
           payout: 800,
+          example: ["ST", "SJ", "SQ", "SK", "SA"],
         },
-        { id: "wild_royal", name: "ジョーカー入りロイヤル", payout: 100 },
-        { id: "five_of_a_kind", name: "ファイブカード", payout: 50 },
-        { id: "straight_flush", name: "ストレートフラッシュ", payout: 25 },
-        { id: "four_of_a_kind", name: "フォーカード", payout: 9 },
-        { id: "full_house", name: "フルハウス", payout: 5 },
-        { id: "flush", name: "フラッシュ", payout: 4 },
-        { id: "straight", name: "ストレート", payout: 3 },
-        { id: "three_of_a_kind", name: "スリーカード", payout: 2 },
-        { id: "two_pair", name: "ツーペア", payout: 1 },
+        {
+          id: "wild_royal",
+          name: "ジョーカー入りロイヤル",
+          payout: 100,
+          example: ["HT", "HJ", "X1", "HK", "HA"],
+        },
+        {
+          id: "five_of_a_kind",
+          name: "ファイブカード",
+          payout: 50,
+          example: ["S7", "H7", "D7", "C7", "X1"],
+        },
+        {
+          id: "straight_flush",
+          name: "ストレートフラッシュ",
+          payout: 25,
+          example: ["D5", "D6", "D7", "D8", "D9"],
+        },
+        {
+          id: "four_of_a_kind",
+          name: "フォーカード",
+          payout: 9,
+          example: ["S9", "H9", "D9", "C9", "SK"],
+        },
+        {
+          id: "full_house",
+          name: "フルハウス",
+          payout: 5,
+          example: ["SQ", "HQ", "DQ", "C4", "H4"],
+        },
+        {
+          id: "flush",
+          name: "フラッシュ",
+          payout: 4,
+          example: ["C2", "C6", "C9", "CJ", "CK"],
+        },
+        {
+          id: "straight",
+          name: "ストレート",
+          payout: 3,
+          example: ["HA", "S2", "D3", "C4", "H5"],
+        },
+        {
+          id: "three_of_a_kind",
+          name: "スリーカード",
+          payout: 2,
+          example: ["S8", "H8", "X1", "CK", "S3"],
+        },
+        {
+          id: "two_pair",
+          name: "ツーペア",
+          payout: 1,
+          example: ["SJ", "HJ", "D5", "C5", "H9"],
+        },
       ],
     },
     //ルーレット
