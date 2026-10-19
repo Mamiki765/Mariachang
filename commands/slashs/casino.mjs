@@ -35,7 +35,7 @@ export const help = {
       name: "poker",
       description: "ジョーカー入りのポーカーです。",
       notes:
-        "配られた5枚から交換したい札を選んで、1回だけ交換して勝負します。ツーペアから配当があります。",
+        "配られた5枚から残したい札を選んで、残りを1回だけ交換して勝負します。ツーペアから配当があります。",
     },
     {
       name: "roulette",
@@ -1527,7 +1527,7 @@ async function handlePoker(interaction) {
       bet: betAmount,
       hand: deck.splice(0, 5),
       deck: deck, // 残り49枚。交換はこの先頭から順に引く
-      selected: [false, false, false, false, false], // true = 交換する札
+      held: [false, false, false, false, false], // true = 残す札。押していない札は交換する
       deadline: Date.now() + pokerConfig.timeLimitMs,
       messageUrl: replyMessage.url,
     };
@@ -1640,14 +1640,14 @@ function startPokerCollector(message, interaction, activeGame) {
 
     queue = queue
       .then(async () => {
-        // 時間切れは、その時に選んでいる札を交換して勝負する(返金も強制負けもしない)
+        // 時間切れは、その時に残している札以外を交換して勝負する(返金も強制負けもしない)
         const result = await settlePokerGame(userId, gameId);
         if (!result) return;
         const count = result.exchanged.length;
         await message.edit({
           content:
             count > 0
-              ? `時間切れのため、選択していた${count}枚を交換して勝負しました。`
+              ? `時間切れのため、残していない${count}枚を交換して勝負しました。`
               : "時間切れのため、交換せずに勝負しました。",
           embeds: [renderPokerResult(result, pokerConfig)],
           components: [],
@@ -1681,7 +1681,7 @@ async function togglePokerCard(userId, gameId, index) {
     }
     // 締切を過ぎたら選択は変えない(そのまま時間切れ処理で使う)
     if (Date.now() < game.deadline) {
-      game.selected[index] = !game.selected[index];
+      game.held[index] = !game.held[index];
       stats.changed("gameData", true);
       await stats.save({ transaction: t });
     }
@@ -1718,11 +1718,14 @@ async function settlePokerGame(userId, gameId) {
       return null;
     }
 
-    // 交換する位置を左から順に、山札の次の札で置き換える(札の位置は動かさない)
+    // 4.34.0までの卓は「交換する札(selected)」で保存されているので、残す札に読み替える
+    const held = game.held ?? game.selected.map((isSelected) => !isSelected);
+
+    // 残さない位置を左から順に、山札の次の札で置き換える(札の位置は動かさない)
     const finalHand = [...game.hand];
     const exchanged = [];
-    game.selected.forEach((isSelected, index) => {
-      if (isSelected) {
+    held.forEach((isHeld, index) => {
+      if (!isHeld) {
         finalHand[index] = game.deck.shift();
         exchanged.push(index);
       }
@@ -1908,9 +1911,10 @@ function formatPokerPositions(indexes) {
 
 /** 札を選んでいる途中の画面 */
 function renderPokerTable(game, pokerConfig) {
-  const selectedIndexes = [];
-  game.selected.forEach((isSelected, index) => {
-    if (isSelected) selectedIndexes.push(index);
+  const heldIndexes = [];
+  const exchangeIndexes = [];
+  game.held.forEach((isHeld, index) => {
+    (isHeld ? heldIndexes : exchangeIndexes).push(index);
   });
   const handLine = game.hand
     .map(
@@ -1924,11 +1928,11 @@ function renderPokerTable(game, pokerConfig) {
     .setColor("#11806A")
     .setDescription(
       [
-        "交換したい札を押してください。もう一度押すと取り消せます。",
+        "残したい札を押してください。もう一度押すと取り消せます。押していない札は交換します。",
         `### ${handLine}`,
-        `**交換する札：${formatPokerPositions(selectedIndexes)}**`,
+        `**残す札：${formatPokerPositions(heldIndexes)}　／　交換する札：${formatPokerPositions(exchangeIndexes)}**`,
         "",
-        `締切 <t:${Math.floor(game.deadline / 1000)}:R>。時間切れになると、その時に選んでいる札を交換して自動で勝負します。`,
+        `締切 <t:${Math.floor(game.deadline / 1000)}:R>。時間切れになると、その時に残している札以外を交換して自動で勝負します。`,
       ].join("\n")
     )
     .setFooter({
@@ -1940,11 +1944,11 @@ function renderPokerTable(game, pokerConfig) {
 function createPokerButtons(game, pokerConfig) {
   const cardRow = new ActionRowBuilder();
   game.hand.forEach((card, index) => {
-    const isSelected = game.selected[index];
-    const mark = `${isSelected ? "✓" : ""}${POKER_POSITION_MARKS[index]}`;
+    const isHeld = game.held[index];
+    const mark = `${isHeld ? "✓" : ""}${POKER_POSITION_MARKS[index]}`;
     const button = new ButtonBuilder()
       .setCustomId(`poker_card_${index}`)
-      .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
+      .setStyle(isHeld ? ButtonStyle.Primary : ButtonStyle.Secondary);
     if (card.startsWith("X")) {
       button.setLabel(mark).setEmoji(pokerConfig.jokerEmoji);
     } else {
@@ -1953,12 +1957,12 @@ function createPokerButtons(game, pokerConfig) {
     cardRow.addComponents(button);
   });
 
-  const selectedCount = game.selected.filter(Boolean).length;
+  const exchangeCount = game.held.filter((isHeld) => !isHeld).length;
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("poker_draw")
       .setLabel(
-        selectedCount > 0 ? `${selectedCount}枚交換して勝負` : "交換せず勝負"
+        exchangeCount > 0 ? `${exchangeCount}枚交換して勝負` : "交換せず勝負"
       )
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
@@ -2031,12 +2035,12 @@ function buildPokerHelpText(pokerConfig) {
   return [
     `**${pokerConfig.displayName} 配当・遊び方**`,
     "",
-    "1. 交換したい札を押します (もう一度押すと取り消し)",
-    "2. 勝負ボタンで、選んだ札だけを山札から引き直して役が決まります",
+    "1. 残したい札を押します (もう一度押すと取り消し)。何も押さなければ5枚とも交換します",
+    "2. 勝負ボタンで、残さなかった札を山札から引き直して役が決まります",
     "- 交換は1回だけ、0〜5枚。捨てた札は山札に戻りません",
     "- ジョーカー(2枚)は一番高い役になる札の代わりになります",
     "- A は 10-J-Q-K-A と A-2-3-4-5 のどちらのストレートにも使えます",
-    `- ${pokerConfig.timeLimitMs / 1000}秒で時間切れ。その時に選んでいる札を交換して勝負します`,
+    `- ${pokerConfig.timeLimitMs / 1000}秒で時間切れ。その時に残している札以外を交換して勝負します`,
     "- 掛け金は開始時に払います。途中でやめても戻りません",
     "",
     "倍率は掛け金込みの受取額です (ツーペアの1倍 = 掛け金が戻るだけ)",
