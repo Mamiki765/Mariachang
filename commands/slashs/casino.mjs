@@ -243,9 +243,11 @@ async function handleSlots(interaction, slotConfig) {
     }
     const t = await sequelize.transaction();
     try {
+      // 演出の間に他のゲームがコインを動かしても上書きしないよう、保存まで行をロックしておく
       const userPoint = await Point.findOne({
         where: { userId },
         transaction: t,
+        lock: t.LOCK.UPDATE,
       });
 
       if (!userPoint || userPoint.coin < totalBetAmount) {
