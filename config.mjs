@@ -239,6 +239,36 @@ export default {
         increment: 2, // 2枚単位
       },
     },
+    //ポーカー（ジョーカー2枚入り、1回だけ交換できる一人用）
+    poker: {
+      gameName: "poker",
+      displayName: "ジョーカーポーカー",
+      jokerEmoji: "<:nyowamiyarika:1264010111970574408>",
+      timeLimitMs: 120_000, // BJと同じ2分。時間切れはその時選んでいる札で勝負
+      betting: {
+        min: 1,
+        max: 100, // BJ・ルーレットと同じ上限。800倍で最大80,000枚
+      },
+      // 倍率は掛け金込みの「受け取る合計」。ツーペアの1倍は掛け金が戻るだけ
+      // 役の判定は casino.mjs の evaluatePokerHand。ここは名前と倍率と表示順
+      // (Double Jokerのフルペイ表。最善手で遊び続けた場合の還元率は約99.97%)
+      payouts: [
+        {
+          id: "natural_royal",
+          name: "ロイヤルストレートフラッシュ",
+          payout: 800,
+        },
+        { id: "wild_royal", name: "ジョーカー入りロイヤル", payout: 100 },
+        { id: "five_of_a_kind", name: "ファイブカード", payout: 50 },
+        { id: "straight_flush", name: "ストレートフラッシュ", payout: 25 },
+        { id: "four_of_a_kind", name: "フォーカード", payout: 9 },
+        { id: "full_house", name: "フルハウス", payout: 5 },
+        { id: "flush", name: "フラッシュ", payout: 4 },
+        { id: "straight", name: "ストレート", payout: 3 },
+        { id: "three_of_a_kind", name: "スリーカード", payout: 2 },
+        { id: "two_pair", name: "ツーペア", payout: 1 },
+      ],
+    },
     //ルーレット
     roulette: {
       gameName: "roulette",

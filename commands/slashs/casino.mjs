@@ -32,6 +32,12 @@ export const help = {
       notes: "ボーナスがあったり難易度の低い設計になっております。",
     },
     {
+      name: "poker",
+      description: "ジョーカー入りのポーカーです。",
+      notes:
+        "配られた5枚から交換したい札を選んで、1回だけ交換して勝負します。ツーペアから配当があります。",
+    },
+    {
       name: "roulette",
       description: "ヨーロピアンスタイルのルーレットで遊びます。",
       notes: "ニョワコインやニョボチップを賭けて遊べます。",
@@ -111,6 +117,22 @@ export const data = new SlashCommandBuilder()
           )
           .setMinValue(config.casino.blackjack.betting.min)
           .setMaxValue(config.casino.blackjack.betting.max)
+          .setRequired(true)
+      )
+  )
+  //ポーカー
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("poker")
+      .setDescription("ジョーカー入りのポーカー。1回だけ交換して勝負！")
+      .addIntegerOption((option) =>
+        option
+          .setName("bet")
+          .setDescription(
+            `賭けるコインの枚数 (${config.casino.poker.betting.min}~${config.casino.poker.betting.max}枚)`
+          )
+          .setMinValue(config.casino.poker.betting.min)
+          .setMaxValue(config.casino.poker.betting.max)
           .setRequired(true)
       )
   )
@@ -199,6 +221,8 @@ export async function execute(interaction) {
     await handleSlots(interaction, config.casino.slot_lowrisk);
   } else if (subcommand === "blackjack") {
     await handleBlackjack(interaction);
+  } else if (subcommand === "poker") {
+    await handlePoker(interaction);
   } else if (subcommand === "roulette") {
     await handleRoulette(interaction);
   } else if (subcommand === "stats") {
@@ -1440,6 +1464,584 @@ async function handleDealerTurnAndSettle(
   }
 }
 // ==================================================================
+//
+//                        ポーカー機能
+//
+// ==================================================================
+// ジョーカー2枚入りの54枚で、1回だけ交換できる一人用ポーカー。
+// 流れ: 開始(掛け金を引いて配る) → 札を選ぶ → 交換 → 役判定 → 支払い
+// 山札は開始時に順番まで決めてDBに保存しておくので、再起動しても札は引き直しにならない。
+
+async function handlePoker(interaction) {
+  const pokerConfig = config.casino.poker;
+  const betAmount = interaction.options.getInteger("bet");
+  const userId = interaction.user.id;
+
+  await interaction.deferReply();
+  // 進行中の卓へ案内するために、このメッセージのURLも保存しておく
+  const replyMessage = await interaction.fetchReply();
+
+  let activeGame;
+  const t = await sequelize.transaction();
+  try {
+    // Pointの行をロックしておけば、同じ人が同時に2回始めても順番に1回ずつしか通らない
+    const userPoint = await Point.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const [stats] = await CasinoStats.findOrCreate({
+      where: { userId, gameName: pokerConfig.gameName },
+      transaction: t,
+    });
+
+    const oldGame = stats.gameData?.active_game;
+    if (oldGame) {
+      await t.rollback();
+      if (Date.now() < oldGame.deadline) {
+        return interaction.editReply({
+          content: `進行中のポーカーがあります。まずはそちらで勝負してください。(締切 <t:${Math.floor(oldGame.deadline / 1000)}:R>)\n${oldGame.messageUrl}`,
+        });
+      }
+      // 再起動などで時間切れ処理が走らなかった卓は、保存済みの選択でここで精算する
+      const result = await settlePokerGame(userId, oldGame.id);
+      return interaction.editReply({
+        content:
+          "前回のポーカーが時間切れのまま残っていたので、選んでいた札で勝負しました。もう一度遊ぶ時はコマンドからどうぞ。",
+        embeds: result ? [renderPokerResult(result, pokerConfig)] : [],
+      });
+    }
+
+    if (!userPoint || userPoint.coin < betAmount) {
+      await t.rollback();
+      return interaction.editReply({
+        content: `${betAmount}コインを払えません！\n現在の所持${config.nyowacoin}: ${userPoint?.coin || 0}枚\n-# /bankでどんぐりやRPをコインに交換できます。`,
+      });
+    }
+
+    // 掛け金はここで1回だけ引く。あとは精算で受取を足すだけ
+    userPoint.coin -= betAmount;
+    const deck = createPokerDeck();
+    activeGame = {
+      id: `${Date.now()}`, // 精算・返金が別のゲームに混ざらないための目印
+      bet: betAmount,
+      hand: deck.splice(0, 5),
+      deck: deck, // 残り49枚。交換はこの先頭から順に引く
+      selected: [false, false, false, false, false], // true = 交換する札
+      deadline: Date.now() + pokerConfig.timeLimitMs,
+      messageUrl: replyMessage.url,
+    };
+
+    const persistentData = stats.gameData || {};
+    persistentData.active_game = activeGame;
+    stats.gameData = persistentData;
+    stats.totalBet = BigInt(stats.totalBet.toString()) + BigInt(betAmount);
+    stats.changed("gameData", true);
+
+    await userPoint.save({ transaction: t });
+    await stats.save({ transaction: t });
+    await t.commit();
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    console.error("ポーカー開始エラー:", error);
+    return interaction
+      .editReply({
+        content:
+          "エラーが発生したため、処理を中断しました。コインは消費されていません。",
+      })
+      .catch(() => {});
+  }
+
+  let message;
+  try {
+    message = await interaction.editReply({
+      content: "",
+      embeds: [renderPokerTable(activeGame, pokerConfig)],
+      components: createPokerButtons(activeGame, pokerConfig),
+    });
+  } catch (error) {
+    // 手札を見せられなかったなら遊べていないので、掛け金を返してなかったことにする
+    console.error("ポーカーの手札表示に失敗:", error);
+    await refundPokerGame(userId, activeGame.id);
+    return;
+  }
+
+  startPokerCollector(message, interaction, activeGame);
+}
+
+// ▼▼▼ ポーカーのボタン待ち受け ▼▼▼
+function startPokerCollector(message, interaction, activeGame) {
+  const pokerConfig = config.casino.poker;
+  const userId = interaction.user.id;
+  const gameId = activeGame.id;
+
+  const collector = message.createMessageComponentCollector({
+    time: Math.max(activeGame.deadline - Date.now(), 1000),
+  });
+
+  // ボタンの処理は届いた順に1つずつ行う。
+  // 連打しても表示が巻き戻ったり、勝負と時間切れが二重に走ったりしないように
+  let queue = Promise.resolve();
+
+  collector.on("collect", (i) => {
+    if (i.user.id !== userId) {
+      i.reply({
+        content: "このポーカーは始めた人だけが操作できます。",
+        flags: 64,
+      }).catch(() => {});
+      return;
+    }
+    if (i.customId === "poker_help") {
+      // 説明を見ても手札や締切は変わらない
+      i.reply({ content: buildPokerHelpText(pokerConfig), flags: 64 }).catch(
+        () => {}
+      );
+      return;
+    }
+
+    const deferred = i.deferUpdate();
+    queue = queue
+      .then(async () => {
+        await deferred;
+        if (i.customId === "poker_draw") {
+          collector.stop("settled");
+          const result = await settlePokerGame(userId, gameId);
+          if (!result) {
+            return i.followUp({
+              content: "このゲームは既に終了しています。",
+              flags: 64,
+            });
+          }
+          await i.editReply({
+            embeds: [renderPokerResult(result, pokerConfig)],
+            components: [],
+          });
+        } else if (i.customId.startsWith("poker_card_")) {
+          const index = Number(i.customId.slice("poker_card_".length));
+          const game = await togglePokerCard(userId, gameId, index);
+          if (!game) {
+            return i.followUp({
+              content: "このゲームは既に終了しています。",
+              flags: 64,
+            });
+          }
+          await i.editReply({
+            embeds: [renderPokerTable(game, pokerConfig)],
+            components: createPokerButtons(game, pokerConfig),
+          });
+        }
+      })
+      .catch((error) => console.error("ポーカーのボタン処理でエラー:", error));
+  });
+
+  collector.on("end", (collected, reason) => {
+    // 勝負ボタンで終わった時は何もしない
+    if (reason !== "time") return;
+
+    queue = queue
+      .then(async () => {
+        // 時間切れは、その時に選んでいる札を交換して勝負する(返金も強制負けもしない)
+        const result = await settlePokerGame(userId, gameId);
+        if (!result) return;
+        const count = result.exchanged.length;
+        await message.edit({
+          content:
+            count > 0
+              ? `時間切れのため、選択していた${count}枚を交換して勝負しました。`
+              : "時間切れのため、交換せずに勝負しました。",
+          embeds: [renderPokerResult(result, pokerConfig)],
+          components: [],
+        });
+      })
+      .catch((error) =>
+        console.error("ポーカーの時間切れ処理でエラー:", error)
+      );
+  });
+}
+
+// ==================================================================
+//
+//                      ポーカー用ヘルパー関数
+//
+// ==================================================================
+
+/** 札の選択を切り替えてDBに保存し、新しいゲーム状態を返す。終了済みならnull */
+async function togglePokerCard(userId, gameId, index) {
+  const t = await sequelize.transaction();
+  try {
+    const stats = await CasinoStats.findOne({
+      where: { userId, gameName: config.casino.poker.gameName },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const game = stats?.gameData?.active_game;
+    if (!game || game.id !== gameId) {
+      await t.rollback();
+      return null;
+    }
+    // 締切を過ぎたら選択は変えない(そのまま時間切れ処理で使う)
+    if (Date.now() < game.deadline) {
+      game.selected[index] = !game.selected[index];
+      stats.changed("gameData", true);
+      await stats.save({ transaction: t });
+    }
+    await t.commit();
+    return game;
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    throw error;
+  }
+}
+
+/**
+ * 選択中の札を交換して役を判定し、支払いまで行う。
+ * 精算済み(または別のゲーム)ならnullを返すので、勝負ボタンと時間切れが重なっても払うのは1回だけ。
+ */
+async function settlePokerGame(userId, gameId) {
+  const pokerConfig = config.casino.poker;
+  const t = await sequelize.transaction();
+  try {
+    // ロックの順番は開始時と同じく Point → CasinoStats
+    const userPoint = await Point.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const stats = await CasinoStats.findOne({
+      where: { userId, gameName: pokerConfig.gameName },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const game = stats?.gameData?.active_game;
+    if (!game || game.id !== gameId) {
+      await t.rollback();
+      return null;
+    }
+
+    // 交換する位置を左から順に、山札の次の札で置き換える(札の位置は動かさない)
+    const finalHand = [...game.hand];
+    const exchanged = [];
+    game.selected.forEach((isSelected, index) => {
+      if (isSelected) {
+        finalHand[index] = game.deck.shift();
+        exchanged.push(index);
+      }
+    });
+
+    const prize = evaluatePokerHand(finalHand, pokerConfig);
+    const winAmount = game.bet * prize.payout; // 倍率は掛け金込みなので、そのまま足すだけ
+
+    userPoint.coin += winAmount;
+    stats.gamesPlayed = BigInt(stats.gamesPlayed.toString()) + 1n;
+    stats.totalWin = BigInt(stats.totalWin.toString()) + BigInt(winAmount);
+
+    const persistentData = stats.gameData;
+    if (prize.id !== "none") {
+      const prizeKey = `wins_${prize.id}`;
+      persistentData[prizeKey] = (persistentData[prizeKey] || 0) + 1;
+    }
+    delete persistentData.active_game;
+    stats.gameData = persistentData;
+    stats.changed("gameData", true);
+
+    await userPoint.save({ transaction: t });
+    await stats.save({ transaction: t });
+    await t.commit();
+
+    return {
+      bet: game.bet,
+      finalHand,
+      exchanged,
+      prize,
+      winAmount,
+      coin: userPoint.coin,
+    };
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    throw error;
+  }
+}
+
+/** 手札を表示できずに遊べなかったゲームを取り消して、掛け金を返す */
+async function refundPokerGame(userId, gameId) {
+  const t = await sequelize.transaction();
+  try {
+    const userPoint = await Point.findOne({
+      where: { userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const stats = await CasinoStats.findOne({
+      where: { userId, gameName: config.casino.poker.gameName },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const game = stats?.gameData?.active_game;
+    // 既に精算・返金済みなら何もしない(二重返金を防ぐ)
+    if (!game || game.id !== gameId) {
+      await t.rollback();
+      return;
+    }
+    userPoint.coin += game.bet;
+    stats.totalBet = BigInt(stats.totalBet.toString()) - BigInt(game.bet);
+    delete stats.gameData.active_game;
+    stats.changed("gameData", true);
+    await userPoint.save({ transaction: t });
+    await stats.save({ transaction: t });
+    await t.commit();
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    console.error("ポーカーの返金に失敗:", error);
+  }
+}
+
+/** 52枚+ジョーカー2枚(X1, X2)のシャッフル済み山札を作る */
+function createPokerDeck() {
+  const deck = createShuffledDeck(1);
+  // シャッフル済みの山のランダムな位置に差し込めば、54枚を混ぜ直したのと同じになる
+  for (const joker of ["X1", "X2"]) {
+    const position = Math.floor(Math.random() * (deck.length + 1));
+    deck.splice(position, 0, joker);
+  }
+  return deck;
+}
+
+const POKER_RANK_VALUES = {
+  A: 14,
+  K: 13,
+  Q: 12,
+  J: 11,
+  T: 10,
+  9: 9,
+  8: 8,
+  7: 7,
+  6: 6,
+  5: 5,
+  4: 4,
+  3: 3,
+  2: 2,
+};
+
+/**
+ * 5枚の手札から一番高い役を返す。
+ * ジョーカーは「一番高い役になる札」として扱うので、何の代わりにするかは指定しなくていい。
+ * 既にある札と同じ札の代わりにもなる(だからファイブカードが成立する)。
+ */
+function evaluatePokerHand(cards, pokerConfig) {
+  const jokerCount = cards.filter((card) => card.startsWith("X")).length;
+  const normalCards = cards.filter((card) => !card.startsWith("X"));
+  const values = normalCards.map((card) => POKER_RANK_VALUES[card.slice(1)]);
+
+  // 同じ数字の枚数を多い順に (例: [3, 1] = スリーカード+1枚)
+  const rankCounts = {};
+  for (const value of values) {
+    rankCounts[value] = (rankCounts[value] || 0) + 1;
+  }
+  const counts = Object.values(rankCounts).sort((a, b) => b - a);
+  const top = counts[0] || 0;
+  const second = counts[1] || 0;
+
+  // ジョーカーは何のマークにもなれるので、ジョーカー以外が全部同じマークならフラッシュ
+  const isFlush = normalCards.every((card) => card[0] === normalCards[0][0]);
+
+  // ストレート: 数字の重複がなく、ジョーカー以外が「lowから始まる5連」に全部収まるか。
+  // 足りない所はジョーカーが埋める。Aは A-2-3-4-5 の時だけ1として数える(K-A-2のような巡回はなし)
+  const fitsInStraightFrom = (low) =>
+    values.every((value) => {
+      const v = low === 1 && value === 14 ? 1 : value;
+      return v >= low && v <= low + 4;
+    });
+  const noDuplicate = top <= 1;
+  const isRoyalRange = noDuplicate && fitsInStraightFrom(10);
+  let isStraight = false;
+  for (let low = 1; low <= 10; low++) {
+    if (noDuplicate && fitsInStraightFrom(low)) isStraight = true;
+  }
+
+  let prizeId = "none";
+  if (isFlush && isRoyalRange) {
+    prizeId = jokerCount === 0 ? "natural_royal" : "wild_royal";
+  } else if (top + jokerCount >= 5) {
+    prizeId = "five_of_a_kind";
+  } else if (isFlush && isStraight) {
+    prizeId = "straight_flush";
+  } else if (top + jokerCount >= 4) {
+    prizeId = "four_of_a_kind";
+  } else if (Math.max(0, 3 - top) + Math.max(0, 2 - second) <= jokerCount) {
+    // 3枚組と2枚組を作るのに足りない枚数を、ジョーカーで埋められるか
+    prizeId = "full_house";
+  } else if (isFlush) {
+    prizeId = "flush";
+  } else if (isStraight) {
+    prizeId = "straight";
+  } else if (top + jokerCount >= 3) {
+    prizeId = "three_of_a_kind";
+  } else if (top === 2 && second === 2) {
+    // ジョーカーがあればワンペアはスリーカードになるので、ツーペアはジョーカーなしの時だけ
+    prizeId = "two_pair";
+  }
+
+  return (
+    pokerConfig.payouts.find((prize) => prize.id === prizeId) || {
+      id: "none",
+      name: "役なし",
+      payout: 0,
+    }
+  );
+}
+
+const POKER_POSITION_MARKS = ["①", "②", "③", "④", "⑤"];
+
+/** 札1枚の表示 (Tは10に、ジョーカーは絵文字+JOKER) */
+function formatPokerCard(card, pokerConfig) {
+  if (card.startsWith("X")) return `${pokerConfig.jokerEmoji}JOKER`;
+  const suitMap = { H: "♥", S: "♠", D: "♦", C: "♣" };
+  const rank = card.slice(1) === "T" ? "10" : card.slice(1);
+  return `${suitMap[card[0]]}${rank}`;
+}
+
+/** 選んでいる札の番号を「②・④」の形にする */
+function formatPokerPositions(indexes) {
+  if (indexes.length === 0) return "なし";
+  return indexes.map((index) => POKER_POSITION_MARKS[index]).join("・");
+}
+
+/** 札を選んでいる途中の画面 */
+function renderPokerTable(game, pokerConfig) {
+  const selectedIndexes = [];
+  game.selected.forEach((isSelected, index) => {
+    if (isSelected) selectedIndexes.push(index);
+  });
+  const handLine = game.hand
+    .map(
+      (card, index) =>
+        `${POKER_POSITION_MARKS[index]} ${formatPokerCard(card, pokerConfig)}`
+    )
+    .join("　");
+
+  return new EmbedBuilder()
+    .setTitle(`🃏 ${pokerConfig.displayName}　掛け金 ${game.bet}枚`)
+    .setColor("#11806A")
+    .setDescription(
+      [
+        "交換したい札を押してください。もう一度押すと取り消せます。",
+        `### ${handLine}`,
+        `**交換する札：${formatPokerPositions(selectedIndexes)}**`,
+        "",
+        `締切 <t:${Math.floor(game.deadline / 1000)}:R>。時間切れになると、その時に選んでいる札を交換して自動で勝負します。`,
+      ].join("\n")
+    )
+    .setFooter({
+      text: "ジョーカーは好きな札の代わりになります。ツーペアから配当あり。",
+    });
+}
+
+/** 札5枚のボタンと、勝負・説明のボタン */
+function createPokerButtons(game, pokerConfig) {
+  const cardRow = new ActionRowBuilder();
+  game.hand.forEach((card, index) => {
+    const isSelected = game.selected[index];
+    const mark = `${isSelected ? "✓" : ""}${POKER_POSITION_MARKS[index]}`;
+    const button = new ButtonBuilder()
+      .setCustomId(`poker_card_${index}`)
+      .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    if (card.startsWith("X")) {
+      button.setLabel(mark).setEmoji(pokerConfig.jokerEmoji);
+    } else {
+      button.setLabel(`${mark} ${formatPokerCard(card, pokerConfig)}`);
+    }
+    cardRow.addComponents(button);
+  });
+
+  const selectedCount = game.selected.filter(Boolean).length;
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("poker_draw")
+      .setLabel(
+        selectedCount > 0 ? `${selectedCount}枚交換して勝負` : "交換せず勝負"
+      )
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("poker_help")
+      .setLabel("配当・遊び方")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return [cardRow, actionRow];
+}
+
+/** 勝負の結果画面。受取と収支を分けて書いて、配当を利益と取り違えないようにする */
+function renderPokerResult(result, pokerConfig) {
+  const handLine = result.finalHand
+    .map(
+      (card, index) =>
+        `${POKER_POSITION_MARKS[index]} ${formatPokerCard(card, pokerConfig)}`
+    )
+    .join("　");
+  const profit = result.winAmount - result.bet;
+
+  let comment = "";
+  if (result.prize.id === "none") {
+    comment = "今回は役なし";
+  } else if (profit === 0) {
+    comment = "掛け金が戻りました";
+  }
+
+  return new EmbedBuilder()
+    .setTitle(
+      result.prize.id === "none"
+        ? "🃏 役なし"
+        : `🃏 ${result.prize.name}　${result.prize.payout}倍`
+    )
+    .setColor(profit > 0 ? "#57F287" : profit === 0 ? "#99AAB5" : "#ED4245")
+    .setDescription(
+      [
+        `### ${handLine}`,
+        `交換した札：${formatPokerPositions(result.exchanged)}`,
+        comment,
+      ].join("\n")
+    )
+    .addFields(
+      {
+        name: "掛け金 → 受取",
+        value: `${result.bet}枚 → ${result.winAmount}枚`,
+        inline: true,
+      },
+      {
+        name: "今回の収支",
+        value: `${profit > 0 ? "+" : ""}${profit}枚`,
+        inline: true,
+      },
+      {
+        name: "所持コイン",
+        value: `**${result.coin}**${config.nyowacoin}`,
+        inline: true,
+      }
+    );
+}
+
+/** 「配当・遊び方」ボタンで本人にだけ見せる説明 */
+function buildPokerHelpText(pokerConfig) {
+  const payoutLines = pokerConfig.payouts
+    .map((prize) => `**${prize.name}**: ${prize.payout}倍`)
+    .join("\n");
+  return [
+    `**${pokerConfig.displayName} 配当・遊び方**`,
+    "",
+    "1. 交換したい札を押します (もう一度押すと取り消し)",
+    "2. 勝負ボタンで、選んだ札だけを山札から引き直して役が決まります",
+    "- 交換は1回だけ、0〜5枚。捨てた札は山札に戻りません",
+    "- ジョーカー(2枚)は一番高い役になる札の代わりになります",
+    "- A は 10-J-Q-K-A と A-2-3-4-5 のどちらのストレートにも使えます",
+    `- ${pokerConfig.timeLimitMs / 1000}秒で時間切れ。その時に選んでいる札を交換して勝負します`,
+    "- 掛け金は開始時に払います。途中でやめても戻りません",
+    "",
+    "倍率は掛け金込みの受取額です (ツーペアの1倍 = 掛け金が戻るだけ)",
+    payoutLines,
+    "ワンペア・役なし: 0倍",
+  ].join("\n");
+}
+// ==================================================================
 // ルーレット
 // ==================================================================
 async function handleRoulette(interaction) {
@@ -1726,6 +2328,24 @@ async function handleStats(interaction) {
       embed.addFields({
         name: `🎰 ${config.casino.slot_lowrisk.displayname}`,
         value: `**プレイ記録:** ${slot_easy.gamesPlayed.toLocaleString()}ライン  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${slotEasyDetails}`,
+      });
+    }
+
+    // --- ポーカーの成績 (データがあれば追加) ---
+    if (stats.poker) {
+      const poker = stats.poker;
+      const netProfit = BigInt(poker.totalWin) - BigInt(poker.totalBet);
+      const sign = netProfit >= 0 ? "+" : "";
+      let pokerDetails = "";
+      for (const prize of config.casino.poker.payouts) {
+        const prizeCount = poker.gameData[`wins_${prize.id}`] || 0;
+        if (prizeCount > 0) {
+          pokerDetails += `${prize.name}: ${prizeCount}回\n`;
+        }
+      }
+      embed.addFields({
+        name: `🃏 ${config.casino.poker.displayName}`,
+        value: `**プレイ回数:** ${poker.gamesPlayed.toLocaleString()}回  **総収支:** ${sign}${netProfit.toLocaleString()}コイン\n${pokerDetails}`,
       });
     }
 
