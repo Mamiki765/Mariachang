@@ -17,6 +17,8 @@ import {
   calculatePotentialTP,
   calculateAllCosts,
   calculateDiscountMultiplier,
+  calculateSPSkillCost,
+  calculateTPSkillCost,
   formatNumberDynamic,
   formatInfinityTime,
   calculateAscensionRequirements,
@@ -77,12 +79,29 @@ export function buildFactoryView(uiData, isFinal = false) {
  * @returns {object}
  */
 export function buildSkillView(uiData) {
+  // 同じ描画の説明とボタンで価格を共有する。購入時は最新のモデルから再計算する。
+  const skillLevels = {};
+  const costs = {};
+  for (let skillNum = 1; skillNum <= 8; skillNum++) {
+    const key = `s${skillNum}`;
+    const level = uiData.idleGame[`skillLevel${skillNum}`] || 0;
+    skillLevels[key] = level;
+    costs[key] =
+      skillNum <= 4
+        ? calculateSPSkillCost(level)
+        : calculateTPSkillCost(skillNum, level);
+  }
   return {
     content: " ", // スキル画面に固有のメッセージがあればここに書く
     embeds: [
-      generateSkillEmbed(uiData.idleGame, uiData.displayData.radianceMultiplier),
+      generateSkillEmbed(
+        uiData.idleGame,
+        uiData.displayData.radianceMultiplier,
+        skillLevels,
+        costs
+      ),
     ],
-    components: generateSkillButtons(uiData.idleGame),
+    components: generateSkillButtons(uiData.idleGame, costs),
   };
 }
 
@@ -149,10 +168,19 @@ function getInfinityUpgradeDisplayTier(purchasedUpgrades) {
  * @returns {object}
  */
 export function buildChallengeView(uiData) {
+  // IC9は異なるチャレンジを8種類クリアすると表示するため、重複を除いて数える。
+  const completed = new Set(uiData.idleGame.challenges?.completedChallenges || []);
+  const challengeState = {
+    completed,
+    active: uiData.idleGame.challenges?.activeChallenge || null,
+    challengesToShow: config.idle.infinityChallenges.filter(
+      (challenge) => challenge.id !== "IC9" || completed.size >= 8
+    ),
+  };
   return {
     content: " ",
-    embeds: [generateChallengeEmbed(uiData.idleGame)],
-    components: generateChallengeButtons(uiData.idleGame),
+    embeds: [generateChallengeEmbed(uiData.idleGame, challengeState)],
+    components: generateChallengeButtons(challengeState),
   };
 }
 
@@ -162,10 +190,11 @@ export function buildChallengeView(uiData) {
  * @returns {object}
  */
 export function buildEternityView(uiData) {
+  const costs = getEternityViewCosts(uiData.idleGame);
   return {
     content: " ",
-    embeds: [generateEternityEmbed(uiData)],
-    components: generateEternityButtons(uiData),
+    embeds: [generateEternityEmbed(uiData, costs)],
+    components: generateEternityButtons(uiData, costs),
   };
 }
 
@@ -199,6 +228,7 @@ function generateFactoryEmbed(uiData, costs, isFinal = false) {
     singleFactoryMult_d,
     radianceMultiplier,
     eternityBonuses: bonuses,
+    ascensionEffect_d,
   } = displayData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
@@ -214,33 +244,6 @@ function generateFactoryEmbed(uiData, costs, isFinal = false) {
   };
   //アセンション回数
   const ascensionCount = idleGame.ascensionCount || 0;
-  let ascensionBaseEffect = config.idle.ascension.effect; // 1.125
-  if (idleGame.infinityCount > 0) {
-    if (completedChallenges.includes("IC7")) {
-      ascensionBaseEffect += 0.025;
-    }
-    if (purchasedUpgrades.has("IU23")) {
-      ascensionBaseEffect +=
-        config.idle.infinityUpgrades.tiers[1].upgrades.IU23.bonus;
-    }
-    if (completedChallenges.includes("IC8")) {
-      ascensionBaseEffect *= 1.2;
-    }
-    // IU65 の効果を適用
-    if (purchasedUpgrades.has("IU65")) {
-      const iu65Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU65;
-      const infinityCount = idleGame.infinityCount || 0;
-      const multiplier =
-        Math.log10(infinityCount + 1) / iu65Config.bonusDivisor + 1.0;
-      ascensionBaseEffect *= multiplier;
-    }
-  }
-  if (bonuses.ascension > 1) {
-    ascensionBaseEffect *= bonuses.ascension;
-  }
-  // ★ 修正: Math.pow ではなく Decimal の pow を使う ★
-  const ascensionEffect_d = 
-    ascensionCount > 0 ? new Decimal(ascensionBaseEffect).pow(ascensionCount) : new Decimal(1);
   //GP効果をDecimalで取得
   const gpEffect_d = singleFactoryMult_d;
 
@@ -839,49 +842,16 @@ function generateFactoryButtons(uiData, costs, isDisabled = false) {
  * スキル強化画面のEmbedを生成する
  * @param {object} idleGame - IdleGameモデルのインスタンス
  * @param {number} radianceMultiplier - 計算済みの光輝倍率
+ * @param {object} skillLevels - 描画内で共有するスキルレベル
+ * @param {object} costs - 描画内で共有する次レベルのコスト
  * @returns {EmbedBuilder}
  */
-function generateSkillEmbed(idleGame, radianceMultiplier) {
-  const skillLevels = {
-    s1: idleGame.skillLevel1 || 0,
-    s2: idleGame.skillLevel2 || 0,
-    s3: idleGame.skillLevel3 || 0,
-    s4: idleGame.skillLevel4 || 0,
-  };
-
-  const costs = {
-    s1: Math.pow(2, skillLevels.s1),
-    s2: Math.pow(2, skillLevels.s2),
-    s3: Math.pow(2, skillLevels.s3),
-    s4: Math.pow(2, skillLevels.s4),
-  };
-
+function generateSkillEmbed(idleGame, radianceMultiplier, skillLevels, costs) {
   const effects = {
     radianceMultiplier,
   };
 
-  // --- TPスキル計算 (新規) ---
-  const tp_levels = {
-    s5: idleGame.skillLevel5 || 0,
-    s6: idleGame.skillLevel6 || 0,
-    s7: idleGame.skillLevel7 || 0,
-    s8: idleGame.skillLevel8 || 0,
-  };
   const tp_configs = config.idle.tp_skills;
-  const tp_costs = {
-    s5:
-      tp_configs.skill5.baseCost *
-      Math.pow(tp_configs.skill5.costMultiplier, tp_levels.s5),
-    s6:
-      tp_configs.skill6.baseCost *
-      Math.pow(tp_configs.skill6.costMultiplier, tp_levels.s6),
-    s7:
-      tp_configs.skill7.baseCost *
-      Math.pow(tp_configs.skill7.costMultiplier, tp_levels.s7),
-    s8:
-      tp_configs.skill8.baseCost *
-      Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
-  };
 
   let descriptionText = `SP: **${idleGame.skillPoints.toFixed(2)}** TP: **${formatNumberDynamic(idleGame.transcendencePoints)}**`;
 
@@ -928,8 +898,8 @@ function generateSkillEmbed(idleGame, radianceMultiplier) {
       }
     );
   if (idleGame.prestigePower >= 16) {
-    const currentDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6);
-    const nextDiscount = 1 - calculateDiscountMultiplier(tp_levels.s6 + 1);
+    const currentDiscount = 1 - calculateDiscountMultiplier(skillLevels.s6);
+    const nextDiscount = 1 - calculateDiscountMultiplier(skillLevels.s6 + 1);
     // ▼▼▼ #7で表示するための消費チップ量を計算 ▼▼▼
     // BigInt を Decimal に変換し、新しいフォーマッターを使い、更にIC1のクリアでeternity依存になる
     const completedChallenges = new Set(
@@ -947,25 +917,25 @@ function generateSkillEmbed(idleGame, radianceMultiplier) {
     const spentChipsFormatted = formatNumberJapanese_Decimal(
       spentChipsForDisplay_d
     );
-    const skill7power = 0.1 * tp_levels.s7;
+    const skill7power = 0.1 * skillLevels.s7;
 
     embed.addFields(
       { name: "---TPスキル---", value: "\u200B" },
       {
-        name: `#5 熱々ポテト x${tp_levels.s5}`,
-        value: `${tp_configs.skill5.description} コスト: ${formatNumberDynamic(tp_costs.s5, 1)} TP`,
+        name: `#5 熱々ポテト x${skillLevels.s5}`,
+        value: `${tp_configs.skill5.description} コスト: ${formatNumberDynamic(costs.s5, 1)} TP`,
       },
       {
-        name: `#6 スパイシーコーラ x${tp_levels.s6}`,
-        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(tp_costs.s6, 1)} TP`,
+        name: `#6 スパイシーコーラ x${skillLevels.s6}`,
+        value: `${tp_configs.skill6.description} **${(currentDiscount * 100).toFixed(2)}%** → **${(nextDiscount * 100).toFixed(2)}%** コスト: ${formatNumberDynamic(costs.s6, 1)} TP`,
       },
       {
-        name: `#7 山盛りのチキンナゲット x${tp_levels.s7}`,
-        value: `${descriptionForSkill7}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(tp_costs.s7, 1)} TP`,
+        name: `#7 山盛りのチキンナゲット x${skillLevels.s7}`,
+        value: `${descriptionForSkill7}(**${spentChipsFormatted}枚**)^${skill7power.toFixed(1)} コスト: ${formatNumberDynamic(costs.s7, 1)} TP`,
       },
       {
-        name: `#8 至高の天ぷら x${tp_levels.s8}`, // TenPura
-        value: `${tp_configs.skill8.description} コスト: ${formatNumberDynamic(tp_costs.s8, 1)} TP`,
+        name: `#8 至高の天ぷら x${skillLevels.s8}`, // TenPura
+        value: `${tp_configs.skill8.description} コスト: ${formatNumberDynamic(costs.s8, 1)} TP`,
       }
     );
   }
@@ -976,44 +946,10 @@ function generateSkillEmbed(idleGame, radianceMultiplier) {
 /**
  * スキル強化画面のボタンを生成する
  * @param {object} idleGame - IdleGameモデルのインスタンス
+ * @param {object} costs - 描画内で共有する次レベルのコスト
  * @returns {ActionRowBuilder[]}
  */
-function generateSkillButtons(idleGame) {
-  // スキルレベルとコストをここで一括計算
-  const skillLevels = {
-    s1: idleGame.skillLevel1 || 0,
-    s2: idleGame.skillLevel2 || 0,
-    s3: idleGame.skillLevel3 || 0,
-    s4: idleGame.skillLevel4 || 0,
-  };
-  const costs = {
-    s1: Math.pow(2, skillLevels.s1),
-    s2: Math.pow(2, skillLevels.s2),
-    s3: Math.pow(2, skillLevels.s3),
-    s4: Math.pow(2, skillLevels.s4),
-  };
-  const tp_levels = {
-    s5: idleGame.skillLevel5 || 0,
-    s6: idleGame.skillLevel6 || 0,
-    s7: idleGame.skillLevel7 || 0,
-    s8: idleGame.skillLevel8 || 0,
-  };
-  const tp_configs = config.idle.tp_skills;
-  const tp_costs = {
-    s5:
-      tp_configs.skill5.baseCost *
-      Math.pow(tp_configs.skill5.costMultiplier, tp_levels.s5),
-    s6:
-      tp_configs.skill6.baseCost *
-      Math.pow(tp_configs.skill6.costMultiplier, tp_levels.s6),
-    s7:
-      tp_configs.skill7.baseCost *
-      Math.pow(tp_configs.skill7.costMultiplier, tp_levels.s7),
-    s8:
-      tp_configs.skill8.baseCost *
-      Math.pow(tp_configs.skill8.costMultiplier, tp_levels.s8),
-  };
-
+function generateSkillButtons(idleGame, costs) {
   const activeChallenge = idleGame.challenges?.activeChallenge;
 
   const skillRow = new ActionRowBuilder().addComponents(
@@ -1061,22 +997,22 @@ function generateSkillButtons(idleGame) {
         .setCustomId("idle_upgrade_skill_5")
         .setLabel("#5強化(TP)")
         .setStyle(ButtonStyle.Success) // TPスキルは緑色に
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s5),
+        .setDisabled(idleGame.transcendencePoints < costs.s5),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_6")
         .setLabel("#6強化(TP)")
         .setStyle(ButtonStyle.Success)
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s6),
+        .setDisabled(idleGame.transcendencePoints < costs.s6),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_7")
         .setLabel("#7強化(TP)")
         .setStyle(ButtonStyle.Success)
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s7),
+        .setDisabled(idleGame.transcendencePoints < costs.s7),
       new ButtonBuilder()
         .setCustomId("idle_upgrade_skill_8")
         .setLabel("#8強化(TP)")
         .setStyle(ButtonStyle.Success)
-        .setDisabled(idleGame.transcendencePoints < tp_costs.s8)
+        .setDisabled(idleGame.transcendencePoints < costs.s8)
     );
     components.push(tpSkillRow);
   }
@@ -1679,9 +1615,8 @@ function generateInfinityUpgradesButtons(
  * @param {object} idleGame - ユーザーの放置ゲームデータ (`IdleGame` モデルのインスタンス)
  * @returns {EmbedBuilder}
  */
-function generateChallengeEmbed(idleGame) {
-  const completed = new Set(idleGame.challenges?.completedChallenges || []);
-  const active = idleGame.challenges?.activeChallenge || null;
+function generateChallengeEmbed(idleGame, challengeState) {
+  const { completed, active, challengesToShow } = challengeState;
 
   const embed = new EmbedBuilder()
     .setTitle("⚔️ インフィニティチャレンジ ⚔️")
@@ -1689,16 +1624,6 @@ function generateChallengeEmbed(idleGame) {
     .setDescription(
       "呪い(縛り)を受けながらインフィニティを目指す試練です。\nチャレンジを開始すると、強制的にインフィニティリセットが行われます。\n【注意】現在ICは難易度調整期間です。クリアは保障されていません"
     );
-
-  const completedCount = completed.size;
-  const challengesToShow = config.idle.infinityChallenges.filter((chal) => {
-    // もしチャレンジがIC9なら、クリア数が8以上の時だけ表示する
-    if (chal.id === "IC9") {
-      return completedCount >= 8;
-    }
-    // それ以外のチャレンジは常に表示
-    return true;
-  });
 
   for (const chal of challengesToShow) {
     let status = "未挑戦";
@@ -1724,24 +1649,13 @@ function generateChallengeEmbed(idleGame) {
 
 /**
  * インフィニティチャレンジ画面のボタンを生成する
- * @param {object} idleGame - ユーザーの放置ゲームデータ (`IdleGame` モデルのインスタンス)
+ * @param {object} challengeState - この描画で共有する達成状況と表示対象
  * @returns {ActionRowBuilder[]}
  */
-function generateChallengeButtons(idleGame) {
-  const completed = new Set(idleGame.challenges?.completedChallenges || []);
-  const active = idleGame.challenges?.activeChallenge || null;
+function generateChallengeButtons(challengeState) {
+  const { completed, active, challengesToShow } = challengeState;
   const components = [];
 
-  // ▼▼▼ 1. 表示するチャレンジを動的にフィルタリング ▼▼▼
-  const completedCount = completed.size;
-  const challengesToShow = config.idle.infinityChallenges.filter((chal) => {
-    if (chal.id === "IC9") {
-      return completedCount >= 8;
-    }
-    return true;
-  });
-
-  // ▼▼▼ 2. フィルタリングされたリストでボタンを生成 ▼▼▼
   for (let i = 0; i < challengesToShow.length; i += 4) {
     const row = new ActionRowBuilder();
     const chunk = challengesToShow.slice(i, i + 4);
@@ -1790,12 +1704,39 @@ function generateChallengeButtons(idleGame) {
 //--------------------------
 //エタニティ
 //--------------------------
+// 説明とボタンの価格を描画ごとにまとめる。購入・画面更新をまたいで保持しない。
+function getEternityViewCosts(idleGame) {
+  const epUpgrades = idleGame.epUpgrades || {};
+  const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
+  return {
+    cp: Object.fromEntries(
+      ["nyowamiya", "ip", "ep"].map((type) => [
+        type,
+        calculateCpGainCost(type, epUpgrades.cpGainedFrom?.[type] || 0),
+      ])
+    ),
+    chrono: Object.entries(config.idle.eternity.chronoUpgrades).map(
+      ([id, upgrade]) => {
+        const level = currentChronoUpgrades[id] || 0;
+        return {
+          id,
+          upgrade,
+          level,
+          cost: upgrade.cost(level),
+          isMaxLevel: level >= upgrade.maxLevel,
+        };
+      }
+    ),
+    hasPurchasedAny: Object.values(currentChronoUpgrades).some((level) => level > 0),
+  };
+}
+
 /**
  * エタニティ画面のEmbedを生成する
  * @param {object} uiData
  * @returns {EmbedBuilder}
  */
-function generateEternityEmbed(uiData) {
+function generateEternityEmbed(uiData, costs) {
   const { idleGame } = uiData;
   const eternityCount = idleGame.eternityCount || 0;
   const eternityPoints = new Decimal(idleGame.eternityPoints || "0");
@@ -1810,13 +1751,7 @@ function generateEternityEmbed(uiData) {
         `**${formatNumberDynamic_Decimal(chronoPoints)} CP** を所持しています。`
     );
   //CP
-  const timesNyo = epUpgrades.cpGainedFrom?.nyowamiya || 0;
-  const timesIp = epUpgrades.cpGainedFrom?.ip || 0;
-  const timesEp = epUpgrades.cpGainedFrom?.ep || 0;
-
-  const costNyo = calculateCpGainCost("nyowamiya", timesNyo);
-  const costIp = calculateCpGainCost("ip", timesIp);
-  const costEp = calculateCpGainCost("ep", timesEp);
+  const { nyowamiya: costNyo, ip: costIp, ep: costEp } = costs.cp;
 
   embed.addFields({
     name: "🕰️ クロノポイント獲得",
@@ -1840,14 +1775,9 @@ function generateEternityEmbed(uiData) {
   });
 
   // CPアップグレードの表示を追加
-  const chronoUpgradesConfig = config.idle.eternity.chronoUpgrades;
-  const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
   let chronoFieldsText = "";
 
-  for (const [id, upgrade] of Object.entries(chronoUpgradesConfig)) {
-    const level = currentChronoUpgrades[id] || 0;
-    const cost = upgrade.cost(level);
-    const isMaxLevel = level >= upgrade.maxLevel;
+  for (const { upgrade, level, cost, isMaxLevel } of costs.chrono) {
     const costText = isMaxLevel ? "✅" : `${cost} CP`;
 
     chronoFieldsText += `**${upgrade.name}** [Lv.${level}] (${costText})\n${upgrade.description(level)}\n`;
@@ -1884,7 +1814,10 @@ function generateEternityEmbed(uiData) {
  * @param {object} uiData
  * @returns {ActionRowBuilder[]}
  */
-export function generateEternityButtons(uiData) {
+export function generateEternityButtons(
+  uiData,
+  costs = getEternityViewCosts(uiData.idleGame)
+) {
   const components = [];
   const { idleGame } = uiData;
 
@@ -1897,8 +1830,7 @@ export function generateEternityButtons(uiData) {
   const cpGainRow = new ActionRowBuilder();
 
   // --- CP購入ボタン (ニョワミヤ) ---
-  const nyoTimes = epUpgrades.cpGainedFrom?.nyowamiya || 0;
-  const nyoCost = calculateCpGainCost("nyowamiya", nyoTimes);
+  const nyoCost = costs.cp.nyowamiya;
   cpGainRow.addComponents(
     new ButtonBuilder()
       .setCustomId("idle_gain_max_cp_nyowamiya")
@@ -1909,8 +1841,7 @@ export function generateEternityButtons(uiData) {
   );
 
   // --- CP購入ボタン (IP) ---
-  const ipTimes = epUpgrades.cpGainedFrom?.ip || 0;
-  const ipCost = calculateCpGainCost("ip", ipTimes);
+  const ipCost = costs.cp.ip;
   cpGainRow.addComponents(
     new ButtonBuilder()
       .setCustomId("idle_gain_max_cp_ip")
@@ -1921,8 +1852,7 @@ export function generateEternityButtons(uiData) {
   );
 
   // --- CP購入ボタン (EP) ---
-  const epTimes = epUpgrades.cpGainedFrom?.ep || 0;
-  const epCost = calculateCpGainCost("ep", epTimes);
+  const epCost = costs.cp.ep;
   cpGainRow.addComponents(
     new ButtonBuilder()
       .setCustomId("idle_gain_max_cp_ep")
@@ -1935,16 +1865,10 @@ export function generateEternityButtons(uiData) {
   components.push(cpGainRow);
 
   // ★★★ CPアップグレードボタンを追加 ★★★
-  const chronoUpgradesConfig = config.idle.eternity.chronoUpgrades;
-  if (Object.keys(chronoUpgradesConfig).length > 0) {
+  if (costs.chrono.length > 0) {
     const chronoUpgradeRow = new ActionRowBuilder();
-    const currentChronoUpgrades = epUpgrades.chronoUpgrades || {};
 
-    for (const [id, upgrade] of Object.entries(chronoUpgradesConfig)) {
-      const level = currentChronoUpgrades[id] || 0;
-      const cost = upgrade.cost(level);
-      const isMaxLevel = level >= upgrade.maxLevel;
-
+    for (const { id, upgrade, cost, isMaxLevel } of costs.chrono) {
       chronoUpgradeRow.addComponents(
         new ButtonBuilder()
           .setCustomId(`idle_chrono_upgrade_${id}`)
@@ -1953,11 +1877,7 @@ export function generateEternityButtons(uiData) {
           .setDisabled(chronoPoints_d.lt(cost) || isMaxLevel)
       );
     }
-    const hasPurchasedAny = Object.values(currentChronoUpgrades).some(
-      (lv) => lv > 0
-    );
-
-    if (hasPurchasedAny) {
+    if (costs.hasPurchasedAny) {
       chronoUpgradeRow.addComponents(
         new ButtonBuilder()
           .setCustomId("idle_chrono_reset")
