@@ -2023,7 +2023,10 @@ function renderPokerResult(result, pokerConfig) {
 /** 「配当・遊び方」ボタンで本人にだけ見せる説明 */
 function buildPokerHelpText(pokerConfig) {
   const payoutLines = pokerConfig.payouts
-    .map((prize) => `**${prize.name}**: ${prize.payout}倍`)
+    .map(
+      (prize) =>
+        `**${prize.name}**: ${prize.payout}倍\n-# 例: ${prize.example.map((card) => formatPokerCard(card, pokerConfig)).join(" ")}`
+    )
     .join("\n");
   return [
     `**${pokerConfig.displayName} 配当・遊び方**`,
