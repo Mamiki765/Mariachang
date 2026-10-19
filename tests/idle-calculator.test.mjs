@@ -136,13 +136,23 @@ async function harness(input = fixture(), unlocked = [], models = {}) {
 }
 
 async function purchaseHarness(input, budget, unlocked = []) {
-  const state = { saves: 0, commits: 0, rollbacks: 0, replies: [] };
+  const state = {
+    saves: 0,
+    commits: 0,
+    rollbacks: 0,
+    replies: [],
+    updates: [],
+  };
   const model = {
     ...structuredClone(input),
     get: () => structuredClone(input),
     changed: () => {},
     save: async () => {
       state.saves++;
+    },
+    update: async (data) => {
+      state.updates.push(plain(data));
+      Object.assign(model, data);
     },
   };
   const point = {
@@ -175,6 +185,132 @@ async function purchaseHarness(input, budget, unlocked = []) {
   };
   return { handlers: await h.loadHandlers(), model, point, state, interaction };
 }
+
+test("skill view preserves affordability, TP unlock, IC5 and SP reset gates", async () => {
+  const { ui, state } = await harness();
+  const render = (input) =>
+    plain(
+      ui.buildSkillView({
+        idleGame: input,
+        displayData: { radianceMultiplier: 1 },
+      })
+    );
+  const buttons = (view) => view.components.flatMap((row) => row.components);
+  const levelCosts = [
+    [1, 1, 1, 1, 1, 10, 10, 40],
+    [2, 2, 2, 2, 1.5, 20, 18, 120],
+  ];
+  for (const [level, costs] of levelCosts.entries()) {
+    for (const [index, cost] of costs.entries()) {
+      const skillNum = index + 1;
+      const balanceKey = skillNum <= 4 ? "skillPoints" : "transcendencePoints";
+      for (const delta of [-0.25, 0, 0.25]) {
+        const input = fixture({
+          prestigePower: 16,
+          [`skillLevel${skillNum}`]: level,
+          [balanceKey]: cost + delta,
+        });
+        const before = plain(input);
+        const button = buttons(render(input)).find(
+          (b) => b.custom_id === `idle_upgrade_skill_${skillNum}`
+        );
+        assert.equal(button.disabled, delta < 0);
+        assert.deepEqual(plain(input), before);
+      }
+    }
+  }
+  for (const prestigePower of [15, 16]) {
+    const view = render(fixture({ prestigePower }));
+    assert.equal(
+      buttons(view).some((b) => b.custom_id === "idle_upgrade_skill_5"),
+      prestigePower === 16
+    );
+    assert.equal(view.embeds[0].fields.length, prestigePower === 16 ? 9 : 4);
+  }
+  const ic5 = buttons(
+    render(
+      fixture({ skillPoints: 100, challenges: { activeChallenge: "IC5" } })
+    )
+  );
+  assert.equal(
+    ic5.find((b) => b.custom_id === "idle_upgrade_skill_4").disabled,
+    true
+  );
+  assert.equal(
+    ic5.find((b) => b.custom_id === "idle_upgrade_skill_3").disabled,
+    false
+  );
+  for (const [overrides, disabled] of [
+    [{ skillPoints: 0 }, true],
+    [{ skillPoints: 1 }, false],
+    [{ skillPoints: 0, skillLevel3: 1 }, false],
+  ]) {
+    assert.equal(
+      buttons(render(fixture(overrides))).find(
+        (b) => b.custom_id === "idle_skill_reset"
+      ).disabled,
+      disabled
+    );
+  }
+  assert.equal(state.reads, 0);
+  assert.equal(state.writes.length, 0);
+});
+
+test("skill purchases recalculate from the latest level and preserve balances", async () => {
+  const { ui } = await harness();
+  const levelCosts = [
+    [1, 2],
+    [1, 2],
+    [1, 2],
+    [1, 2],
+    [1, 1.5],
+    [10, 20],
+    [10, 18],
+    [40, 120],
+  ];
+  for (const [index, [oldCost, latestCost]] of levelCosts.entries()) {
+    const skillNum = index + 1;
+    const levelKey = `skillLevel${skillNum}`;
+    const balanceKey = skillNum <= 4 ? "skillPoints" : "transcendencePoints";
+    const input = fixture({ prestigePower: 16, [balanceKey]: oldCost });
+    const view = plain(
+      ui.buildSkillView({
+        idleGame: input,
+        displayData: { radianceMultiplier: 1 },
+      })
+    );
+    assert.equal(
+      view.components
+        .flatMap((row) => row.components)
+        .find((b) => b.custom_id === `idle_upgrade_skill_${skillNum}`).disabled,
+      false
+    );
+    const h = await purchaseHarness(input, 0);
+    h.model[levelKey] = 1;
+    const before = plain(h.model);
+    assert.equal(
+      await h.handlers.handleSkillUpgrade(h.interaction, skillNum),
+      false
+    );
+    assert.deepEqual(plain(h.model), before);
+    assert.equal(h.state.saves, 0);
+    assert.equal(
+      h.state.replies.at(-1).content,
+      skillNum <= 4 ? "SPが足りません！" : "TPが足りません！"
+    );
+    for (const surplus of [0, 0.25]) {
+      h.model[levelKey] = 1;
+      h.model[balanceKey] = latestCost + surplus;
+      assert.equal(
+        await h.handlers.handleSkillUpgrade(h.interaction, skillNum),
+        true
+      );
+      assert.equal(h.model[levelKey], 2);
+      assert.equal(h.model[balanceKey], surplus);
+    }
+    assert.equal(h.state.saves, 2);
+  }
+});
 
 test("offline income, buff expiry and game time retain the master results", async () => {
   const { calc } = await harness();
@@ -342,6 +478,79 @@ test("a fresh display reflects a facility upgrade without mutating or saving sta
   assert.equal(h.state.writes.length, 0);
 });
 
+test("ascension bonuses retain production and factory display across Infinity and IC9", async () => {
+  const h = await harness();
+  const external = {
+    mee6Level: 7,
+    achievementCount: 3,
+    unlockedSet: new Set([65, 66, 78]),
+  };
+  // master 74c55f8の結果。Infinity前はIC/IU報酬を適用せず、Eternity倍率は適用する。
+  for (const [infinityCount, activeChallenge, production, ovenEffect] of [
+    [0, null, "3.5882634634027966e+62", "4,632,809"],
+    [0, "IC9", "1.0333663091314638e+41", "4,632,809"],
+    [1, null, "1.7313330794508084e+68", "12,080,670"],
+    [1, "IC9", "5.399390623696908e+43", "12,080,670"],
+    [100, null, "3.2716291558705235e+83", "350,127,119"],
+    [100, "IC9", "1.9058310571833972e+53", "350,127,119"],
+  ]) {
+    const input = fixture({
+      ascensionCount: 3,
+      infinityCount,
+      eternityCount: 5,
+      population: "1e100",
+      highestPopulation: "1e200",
+      prestigePower: 10,
+      skillLevel2: 3,
+      skillLevel4: 2,
+      generatorPower: "1e8",
+      buffMultiplier: 4,
+      buffExpiresAt: new Date(now + 60000),
+      challenges: {
+        activeChallenge,
+        completedChallenges: ["IC2", "IC7", "IC8"],
+      },
+      ipUpgrades: {
+        upgrades: ["IU24", "IU23", "IU65"],
+        generators: [
+          { amount: "4", bought: 1 },
+          { amount: "2", bought: 1 },
+        ],
+      },
+    });
+    const before = plain(input);
+    const displayData = h.calc.calculateDisplayData(input, external);
+    assert.equal(displayData.productionRate_d.toString(), production);
+    const rendered = plain(
+      h.ui.buildFactoryView({
+        idleGame: input,
+        displayData,
+        point: { legacy_pizza: 1000000 },
+        userAchievement: { achievements: { unlocked: [65, 66, 78] } },
+        mee6Level: 7,
+        achievementCount: 3,
+      })
+    );
+    assert.equal(
+      rendered.embeds[0].fields[0].value,
+      `Lv. 3 (${ovenEffect}) Next.125©`
+    );
+    assert.deepEqual(plain(input), before);
+  }
+
+  // 再描画では最新の回数を使い、Numberの上限を超える倍率も保持する。
+  const input = fixture();
+  const initial = h.calc.calculateDisplayData(input, external);
+  input.ascensionCount = 10000;
+  const refreshed = h.calc.calculateDisplayData(input, external);
+  assert.equal(initial.ascensionEffect_d.toString(), "1");
+  assert.ok(refreshed.ascensionEffect_d.gt(Number.MAX_VALUE));
+  assert.ok(Number.isFinite(refreshed.ascensionEffect_d.log10()));
+  assert.ok(refreshed.productionRate_d.gt(initial.productionRate_d));
+  assert.equal(h.state.reads, 0);
+  assert.equal(h.state.writes.length, 0);
+});
+
 test("bulk facility allocation preserves discounted costs, locks and chip accounting", async () => {
   const input = fixture({
     ...Object.fromEntries(
@@ -399,6 +608,215 @@ test("bulk generators preserve unbought priority, Decimal balances and the 1000-
   }
 });
 
+test("challenge descriptions and controls keep IC9 gating, status and abort behavior", async () => {
+  const h = await harness();
+  const firstEight = Array.from({ length: 8 }, (_, i) => `IC${i + 1}`);
+  for (const [completedChallenges, activeChallenge, showIC9] of [
+    [[], null, false],
+    [firstEight.slice(0, 7), null, false],
+    [[...firstEight.slice(0, 7), "IC1"], null, false],
+    [firstEight, null, true],
+    [[...firstEight, "IC9"], null, true],
+    [firstEight, "IC9", true],
+    [["IC1"], "IC2", false],
+  ]) {
+    const input = fixture({
+      challenges: {
+        completedChallenges,
+        activeChallenge,
+        IC9: { bestTime: 3661 },
+      },
+    });
+    const before = plain(input);
+    const rendered = plain(h.ui.buildChallengeView({ idleGame: input }));
+    const fields = rendered.embeds[0].fields;
+    const buttons = rendered.components.flatMap((row) => row.components);
+    const starts = buttons.filter((button) =>
+      button.custom_id.startsWith("idle_start_challenge_")
+    );
+    const expected = showIC9 ? [...firstEight, "IC9"] : firstEight;
+    assert.deepEqual(
+      fields.map((field) => field.name.split(":")[0]),
+      expected
+    );
+    assert.deepEqual(
+      starts.map((button) => button.custom_id),
+      expected.map((id) => `idle_start_challenge_${id}`)
+    );
+    for (const [i, id] of expected.entries()) {
+      const status =
+        id === activeChallenge
+          ? "挑戦中"
+          : completedChallenges.includes(id)
+            ? "✅ 達成済み"
+            : "未挑戦";
+      assert.ok(fields[i].name.endsWith(`[${status}]`));
+      assert.equal(
+        starts[i].disabled,
+        Boolean(activeChallenge) ||
+          (id !== "IC9" && completedChallenges.includes(id))
+      );
+    }
+    assert.equal(
+      buttons.some((button) => button.custom_id === "idle_abort_challenge"),
+      Boolean(activeChallenge)
+    );
+    if (showIC9)
+      assert.ok(fields.at(-1).value.includes("自己ベスト（現実時間)"));
+    assert.deepEqual(plain(input), before);
+  }
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("eternity CP prices agree with buttons at Decimal cost boundaries and refresh from new state", async () => {
+  const h = await harness();
+  const resourceKeys = {
+    nyowamiya: "population",
+    ip: "infinityPoints",
+    ep: "eternityPoints",
+  };
+  for (const times of [0, 1, 3, 10]) {
+    for (const [type, key] of Object.entries(resourceKeys)) {
+      const cost = h.calc.calculateCpGainCost(type, times);
+      for (const factor of [0.5, 1, 2]) {
+        const input = fixture({
+          [key]: cost.mul(factor).toString(),
+          eternityCount: 2,
+          epUpgrades: { cpGainedFrom: { [type]: times }, chronoPoints: "0" },
+        });
+        const before = plain(input);
+        const rendered = plain(h.ui.buildEternityView({ idleGame: input }));
+        const buttons = rendered.components.flatMap((row) => row.components);
+        assert.equal(
+          buttons.find(
+            (button) => button.custom_id === `idle_gain_max_cp_${type}`
+          ).disabled,
+          factor < 1
+        );
+        assert.ok(
+          rendered.embeds[0].fields[0].value.includes(
+            h.calc.formatNumberDynamic_Decimal(cost)
+          )
+        );
+        assert.deepEqual(
+          plain(h.ui.generateEternityButtons({ idleGame: input })),
+          rendered.components
+        );
+        assert.deepEqual(plain(input), before);
+      }
+    }
+  }
+  const input = fixture({ infinityPoints: "1", epUpgrades: {} });
+  const ipButton = () =>
+    plain(h.ui.buildEternityView({ idleGame: input }))
+      .components.flatMap((row) => row.components)
+      .find((button) => button.custom_id === "idle_gain_max_cp_ip");
+  assert.equal(ipButton().disabled, false);
+  input.epUpgrades.cpGainedFrom = { ip: 1 };
+  assert.equal(ipButton().disabled, true);
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("chrono display, max levels and reset controls keep their state without carrying prices between renders", async () => {
+  const h = await harness();
+  for (const [id, upgrade] of Object.entries(
+    config.idle.eternity.chronoUpgrades
+  )) {
+    for (const level of [
+      0,
+      upgrade.maxLevel - 1,
+      upgrade.maxLevel,
+      upgrade.maxLevel + 1,
+    ]) {
+      for (const chronoPoints of ["0", "1", "2"]) {
+        const input = fixture({
+          epUpgrades: { chronoPoints, chronoUpgrades: { [id]: level } },
+        });
+        const before = plain(input);
+        const rendered = plain(h.ui.buildEternityView({ idleGame: input }));
+        const buttons = rendered.components.flatMap((row) => row.components);
+        const cost = upgrade.cost(level);
+        const isMax = level >= upgrade.maxLevel;
+        assert.equal(
+          buttons.find(
+            (button) => button.custom_id === `idle_chrono_upgrade_${id}`
+          ).disabled,
+          Number(chronoPoints) < cost || isMax
+        );
+        const text = rendered.embeds[0].fields.find((field) =>
+          field.name.includes("クロノアップグレード")
+        ).value;
+        assert.ok(
+          text.includes(
+            `**${upgrade.name}** [Lv.${level}] (${isMax ? "✅" : `${cost} CP`})`
+          )
+        );
+        assert.equal(
+          buttons.some((button) => button.custom_id === "idle_chrono_reset"),
+          level > 0
+        );
+        assert.deepEqual(plain(input), before);
+      }
+    }
+  }
+  // A legacy key still makes the existing reset action available.
+  const legacy = fixture({ epUpgrades: { chronoUpgrades: { legacy: 1 } } });
+  assert.ok(
+    plain(h.ui.generateEternityButtons({ idleGame: legacy }))
+      .flatMap((row) => row.components)
+      .some((button) => button.custom_id === "idle_chrono_reset")
+  );
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("chrono purchases validate the current locked model after an affordable screen was rendered", async () => {
+  const input = fixture({
+    epUpgrades: { chronoPoints: "1", chronoUpgrades: {} },
+  });
+  const h = await harness();
+  const rendered = plain(h.ui.buildEternityView({ idleGame: input }));
+  assert.equal(
+    rendered.components
+      .flatMap((row) => row.components)
+      .find(
+        (button) => button.custom_id === "idle_chrono_upgrade_realityDiscount"
+      ).disabled,
+    false
+  );
+  for (const [chronoPoints, level, success] of [
+    ["0", 0, false],
+    ["1", 1000, false],
+    ["1", 999, true],
+  ]) {
+    const purchase = await purchaseHarness(input, 0);
+    purchase.model.epUpgrades = {
+      chronoPoints,
+      chronoUpgrades: { realityDiscount: level },
+    };
+    assert.equal(
+      await purchase.handlers.handleChronoUpgradePurchase(
+        purchase.interaction,
+        "realityDiscount"
+      ),
+      success
+    );
+    assert.equal(purchase.state.saves, Number(success));
+    assert.equal(purchase.state.commits, Number(success));
+    assert.equal(purchase.state.rollbacks, Number(!success));
+    assert.equal(
+      purchase.model.epUpgrades.chronoPoints,
+      success ? "0" : chronoPoints
+    );
+    assert.equal(
+      purchase.model.epUpgrades.chronoUpgrades.realityDiscount,
+      success ? 1000 : level
+    );
+  }
+});
+
 test("IU embed and buttons agree at the first unfinished tier and after all purchases", async () => {
   const h = await harness();
   for (const [upgrades, expectedButtons, expectedTier] of [
@@ -430,5 +848,66 @@ test("IU embed and buttons agree at the first unfinished tier and after all purc
         field.name.includes(`Tier ${expectedTier}`)
       )
     );
+  }
+});
+
+test("prestige automatic skill allocation preserves SP priority and the iteration limit", async () => {
+  for (const [priority, budget] of [
+    ["1234", 3.25],
+    ["4321", 3.25],
+    ["3412", 1e300],
+  ]) {
+    const input = fixture({
+      population: "1e20",
+      highestPopulation: "1e19",
+      prestigeCount: 1,
+      prestigePower: 20,
+      skillPoints: budget,
+      ipUpgrades: { upgrades: ["IU12"], generators: [] },
+      settings: {
+        skipPrestigeConfirmation: true,
+        autoAssignSpPriority: priority,
+        autoAssignTpEnabled: false,
+      },
+    });
+    const before = plain(input);
+    const h = await purchaseHarness(input, 0);
+    const order = [];
+    let allocating = true;
+    for (let skillNum = 1; skillNum <= 4; skillNum++) {
+      let level = h.model[`skillLevel${skillNum}`];
+      Object.defineProperty(h.model, `skillLevel${skillNum}`, {
+        enumerable: true,
+        get: () => level,
+        set: (next) => {
+          if (allocating) order.push(String(skillNum));
+          level = next;
+        },
+      });
+    }
+    const update = h.model.update;
+    h.model.update = async (...args) => {
+      allocating = false;
+      return update(...args);
+    };
+    assert.equal(await h.handlers.handlePrestige(h.interaction), true);
+    assert.equal(h.state.updates.length, 1);
+    const saved = h.state.updates[0];
+    for (let skillNum = 1; skillNum <= 4; skillNum++) {
+      assert.equal(
+        saved[`skillLevel${skillNum}`],
+        h.model[`skillLevel${skillNum}`]
+      );
+    }
+    if (budget < 4) {
+      assert.deepEqual(order, priority.slice(0, 3).split(""));
+      assert.equal(saved.skillPoints, budget - order.length);
+    } else {
+      assert.equal(order.length, 500);
+      const levels = [1, 2, 3, 4].map((n) => saved[`skillLevel${n}`]);
+      assert.ok(Math.max(...levels) - Math.min(...levels) <= 1);
+    }
+    assert.deepEqual(plain(input), before);
+    assert.equal(h.state.rollbacks, 0);
   }
 });
