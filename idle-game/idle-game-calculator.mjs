@@ -297,9 +297,45 @@ export function formatProductionRate(n) {
   }
 }
 
-// =========================================================================
-// ★★★ ここからが新しいリファクタリングの核心部です ★★★
-// =========================================================================
+/**
+ * 1工場あたりのアセンション倍率。生産量と工場表示で同じ値を使う。
+ * 加算（IC7・IU23）→乗算（IC8・IU65・Eternity）の順を維持する。
+ */
+function calculateAscensionEffect(idleGameData, eternityBonuses) {
+  const ascensionCount = idleGameData.ascensionCount || 0;
+  if (ascensionCount <= 0) return new Decimal(1);
+
+  const completedChallenges =
+    idleGameData.challenges?.completedChallenges || [];
+  const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
+  let ascensionBaseEffect = config.idle.ascension.effect;
+  if (idleGameData.infinityCount > 0) {
+    if (completedChallenges.includes("IC7")) {
+      ascensionBaseEffect += 0.025;
+    }
+    if (purchasedIUs.has("IU23")) {
+      ascensionBaseEffect +=
+        config.idle.infinityUpgrades.tiers[1].upgrades.IU23.bonus;
+    }
+    if (completedChallenges.includes("IC8")) {
+      ascensionBaseEffect *= 1.2;
+    }
+    if (purchasedIUs.has("IU65")) {
+      const iu65Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU65;
+      const infinityCount = idleGameData.infinityCount || 0;
+      const multiplier =
+        Math.log10(infinityCount + 1) / iu65Config.bonusDivisor + 1.0;
+      ascensionBaseEffect *= multiplier;
+    }
+  }
+  if (eternityBonuses.ascension > 1) {
+    ascensionBaseEffect *= eternityBonuses.ascension;
+  }
+
+  // 回数が多いとNumberの範囲を超えるため、累乗はDecimalで行う。
+  return new Decimal(ascensionBaseEffect).pow(ascensionCount);
+}
+
 /**
  * 同じ状態の生産量と表示で使う効果をまとめて計算する。
  * オフライン進行後は状態が変わるため、進行前の結果は再利用しない。
@@ -323,6 +359,7 @@ function calculateProductionFactors(
     skill2Effect: (1 + (idleGameData.skillLevel2 || 0)) * radianceMultiplier,
     radianceMultiplier,
     eternityBonuses,
+    ascensionEffect_d: calculateAscensionEffect(idleGameData, eternityBonuses),
   };
 }
 
@@ -336,8 +373,14 @@ function calculateProductionRate(idleGameData, factors, gpEffect_d = null) {
   const completedChallenges =
     idleGameData.challenges?.completedChallenges || [];
   const purchasedIUs = new Set(idleGameData.ipUpgrades?.upgrades || []);
-  const { meatEffect, factoryEffects, skill1Effect, skill2Effect, eternityBonuses } =
-    factors;
+  const {
+    meatEffect,
+    factoryEffects,
+    skill1Effect,
+    skill2Effect,
+    eternityBonuses,
+    ascensionEffect_d,
+  } = factors;
   const finalSkill2Effect = Math.pow(skill2Effect, 2); // 時間加速
 
   //IC2報酬
@@ -374,42 +417,10 @@ function calculateProductionRate(idleGameData, factors, gpEffect_d = null) {
     .times(factoryEffects.pineapple || 1.0)
     .times(ic2Bonus);
   if (ascensionCount > 0) {
-    //0でも1-8だけど軽量化のため
-    let ascensionBaseEffect = config.idle.ascension.effect; // 1.125
-    if (idleGameData.infinityCount > 0) {
-      //infinity後のアセ強化系
-      if (completedChallenges.includes("IC7")) {
-        ascensionBaseEffect += 0.025;
-      }
-      if (purchasedIUs.has("IU23")) {
-        // configからボーナス値を取得して加算
-        ascensionBaseEffect +=
-          config.idle.infinityUpgrades.tiers[1].upgrades.IU23.bonus;
-      }
-      if (completedChallenges.includes("IC8")) {
-        ascensionBaseEffect *= 1.2;
-      }
-      // IU65 の効果を適用
-      if (purchasedIUs.has("IU65")) {
-        const iu65Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU65; // Tier 6はindex 5
-        const infinityCount = idleGameData.infinityCount || 0;
-        // 仕様: log10(∞ + 1) / 9 + 1.0
-        const multiplier =
-          Math.log10(infinityCount + 1) / iu65Config.bonusDivisor + 1.0;
-        ascensionBaseEffect *= multiplier;
-      }
-    }
-
-    if (eternityBonuses.ascension > 1) {
-      ascensionBaseEffect *= eternityBonuses.ascension;
-    }
-    // 1. アセンション1回あたりの効果を、現在のアセンション回数分だけ累乗する
-// ★ 修正: Math.pow ではなく Decimal の pow を使う ★
-    const ascensionFactor_d = new Decimal(ascensionBaseEffect).pow(ascensionCount);
-    // 8つの工場すべてに適用されるため、その効果を8乗したものを baseProduction に乗算する
-    const ascensionPower = activeChallenge === "IC9" ? 5 : 8; //IC9は５乗
+    // 1工場分の倍率を、通常は8施設、上位3施設が無効なIC9中は5施設に適用する。
+    const ascensionPower = activeChallenge === "IC9" ? 5 : 8;
     baseProduction = baseProduction.times(
-      ascensionFactor_d.pow(ascensionPower)
+      ascensionEffect_d.pow(ascensionPower)
     );
   }
   // IC9挑戦中は上位3施設が無効になるため、効果は5乗。それ以外は8乗。
@@ -990,6 +1001,7 @@ export function calculateDisplayData(idleGameData, externalData) {
     meatEffect: factors.meatEffect,
     radianceMultiplier: factors.radianceMultiplier,
     eternityBonuses: factors.eternityBonuses,
+    ascensionEffect_d: factors.ascensionEffect_d,
     baseGpExponent: finalGpExponent,
     singleFactoryMult_d: singleFactoryMult_d,
   };
@@ -1266,6 +1278,15 @@ export function calculateGainedIP(idleGame, completedChallengeCount = 0) {
 
   // ブレイクしていない場合は、今までの基本値だけを返す
   return baseIP.floor();
+}
+
+/**
+ * SPスキルの次のレベルのコストを計算する
+ * @param {number} currentLevel - そのスキルの現在のレベル
+ * @returns {number} 次のレベルのコスト
+ */
+export function calculateSPSkillCost(currentLevel) {
+  return Math.pow(2, currentLevel);
 }
 
 /**

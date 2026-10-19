@@ -1,12 +1,14 @@
 {
   "name": "mariachang",
-  "version": "4.33.1",
+  "version": "4.33.2",
   "private": true,
   "author": "Rika Amamiya",
   "description": "Alter from MiniPotato Bot by EOi",
   "main": "main.mjs",
   "type": "module",
   "scripts": {
+    "test": "node --experimental-vm-modules --test tests/*.test.mjs",
+    "check": "node --check idle-game/ui-builder.mjs && node --check idle-game/idle-game-calculator.mjs && node --check idle-game/handlers.mjs && node --check commands/slashs/idle.mjs",
     "start": "node --trace-warnings main.mjs",
     "startenv": "node --env-file=.env --trace-warnings main.mjs",
     "local_start": "node --env-file=.env.local --trace-warnings main.mjs",
