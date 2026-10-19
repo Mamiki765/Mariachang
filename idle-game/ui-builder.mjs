@@ -199,6 +199,7 @@ function generateFactoryEmbed(uiData, costs, isFinal = false) {
     singleFactoryMult_d,
     radianceMultiplier,
     eternityBonuses: bonuses,
+    ascensionEffect_d,
   } = displayData;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const purchasedUpgrades = new Set(idleGame.ipUpgrades?.upgrades || []);
@@ -214,33 +215,6 @@ function generateFactoryEmbed(uiData, costs, isFinal = false) {
   };
   //アセンション回数
   const ascensionCount = idleGame.ascensionCount || 0;
-  let ascensionBaseEffect = config.idle.ascension.effect; // 1.125
-  if (idleGame.infinityCount > 0) {
-    if (completedChallenges.includes("IC7")) {
-      ascensionBaseEffect += 0.025;
-    }
-    if (purchasedUpgrades.has("IU23")) {
-      ascensionBaseEffect +=
-        config.idle.infinityUpgrades.tiers[1].upgrades.IU23.bonus;
-    }
-    if (completedChallenges.includes("IC8")) {
-      ascensionBaseEffect *= 1.2;
-    }
-    // IU65 の効果を適用
-    if (purchasedUpgrades.has("IU65")) {
-      const iu65Config = config.idle.infinityUpgrades.tiers[5].upgrades.IU65;
-      const infinityCount = idleGame.infinityCount || 0;
-      const multiplier =
-        Math.log10(infinityCount + 1) / iu65Config.bonusDivisor + 1.0;
-      ascensionBaseEffect *= multiplier;
-    }
-  }
-  if (bonuses.ascension > 1) {
-    ascensionBaseEffect *= bonuses.ascension;
-  }
-  // ★ 修正: Math.pow ではなく Decimal の pow を使う ★
-  const ascensionEffect_d = 
-    ascensionCount > 0 ? new Decimal(ascensionBaseEffect).pow(ascensionCount) : new Decimal(1);
   //GP効果をDecimalで取得
   const gpEffect_d = singleFactoryMult_d;
 

@@ -342,6 +342,79 @@ test("a fresh display reflects a facility upgrade without mutating or saving sta
   assert.equal(h.state.writes.length, 0);
 });
 
+test("ascension bonuses retain production and factory display across Infinity and IC9", async () => {
+  const h = await harness();
+  const external = {
+    mee6Level: 7,
+    achievementCount: 3,
+    unlockedSet: new Set([65, 66, 78]),
+  };
+  // master 74c55f8の結果。Infinity前はIC/IU報酬を適用せず、Eternity倍率は適用する。
+  for (const [infinityCount, activeChallenge, production, ovenEffect] of [
+    [0, null, "3.5882634634027966e+62", "4,632,809"],
+    [0, "IC9", "1.0333663091314638e+41", "4,632,809"],
+    [1, null, "1.7313330794508084e+68", "12,080,670"],
+    [1, "IC9", "5.399390623696908e+43", "12,080,670"],
+    [100, null, "3.2716291558705235e+83", "350,127,119"],
+    [100, "IC9", "1.9058310571833972e+53", "350,127,119"],
+  ]) {
+    const input = fixture({
+      ascensionCount: 3,
+      infinityCount,
+      eternityCount: 5,
+      population: "1e100",
+      highestPopulation: "1e200",
+      prestigePower: 10,
+      skillLevel2: 3,
+      skillLevel4: 2,
+      generatorPower: "1e8",
+      buffMultiplier: 4,
+      buffExpiresAt: new Date(now + 60000),
+      challenges: {
+        activeChallenge,
+        completedChallenges: ["IC2", "IC7", "IC8"],
+      },
+      ipUpgrades: {
+        upgrades: ["IU24", "IU23", "IU65"],
+        generators: [
+          { amount: "4", bought: 1 },
+          { amount: "2", bought: 1 },
+        ],
+      },
+    });
+    const before = plain(input);
+    const displayData = h.calc.calculateDisplayData(input, external);
+    assert.equal(displayData.productionRate_d.toString(), production);
+    const rendered = plain(
+      h.ui.buildFactoryView({
+        idleGame: input,
+        displayData,
+        point: { legacy_pizza: 1000000 },
+        userAchievement: { achievements: { unlocked: [65, 66, 78] } },
+        mee6Level: 7,
+        achievementCount: 3,
+      })
+    );
+    assert.equal(
+      rendered.embeds[0].fields[0].value,
+      `Lv. 3 (${ovenEffect}) Next.125©`
+    );
+    assert.deepEqual(plain(input), before);
+  }
+
+  // 再描画では最新の回数を使い、Numberの上限を超える倍率も保持する。
+  const input = fixture();
+  const initial = h.calc.calculateDisplayData(input, external);
+  input.ascensionCount = 10000;
+  const refreshed = h.calc.calculateDisplayData(input, external);
+  assert.equal(initial.ascensionEffect_d.toString(), "1");
+  assert.ok(refreshed.ascensionEffect_d.gt(Number.MAX_VALUE));
+  assert.ok(Number.isFinite(refreshed.ascensionEffect_d.log10()));
+  assert.ok(refreshed.productionRate_d.gt(initial.productionRate_d));
+  assert.equal(h.state.reads, 0);
+  assert.equal(h.state.writes.length, 0);
+});
+
 test("bulk facility allocation preserves discounted costs, locks and chip accounting", async () => {
   const input = fixture({
     ...Object.fromEntries(
