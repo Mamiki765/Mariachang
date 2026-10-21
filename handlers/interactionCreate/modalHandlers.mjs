@@ -16,6 +16,7 @@ import { sendWebhookAsCharacter } from "../../utils/webhook.mjs";
 import { Character, Icon, Point, sequelize } from "../../models/database.mjs";
 import { updatePoints } from "../../commands/slashs/roleplay.mjs"; // updatePointsをインポート
 import { uploadFile, deleteFile } from "../../utils/localStorage.mjs";
+import { readImageAttachment } from "../../utils/imageAttachment.mjs";
 //RP周りここまで
 
 export default async function handleModalInteraction(interaction) {
@@ -276,25 +277,13 @@ async function handleRoleplayRegisterModal(interaction) {
     let uploadedFileSize = 0;
 
     const existingIcon = await Icon.findOne({ where: { userId: charaslot } });
-    if (existingIcon?.deleteHash) {
-      await deleteFile(existingIcon.deleteHash);
-    }
-
     if (files && files.size > 0) {
-      const icon = files.first();
-      const fetched = await fetch(icon.url);
-      const buffer = Buffer.from(await fetched.arrayBuffer());
-
-      if (buffer.length > 1024 * 1024) {
-        throw new Error("アイコンファイルのサイズが1MBを超えています。");
-      }
-
-      const fileExt = icon.name.split(".").pop()?.toLowerCase();
-      if (!["png", "webp", "jpg", "jpeg"].includes(fileExt)) {
-        throw new Error(
-          "対応していないファイル形式です。PNG, WebP, JPG のいずれかでアップロードしてください。"
-        );
-      }
+      const { buffer, fileExt } = await readImageAttachment(files.first(), {
+        maxBytes: 1024 * 1024,
+        allowedTypes: ["png", "jpg", "webp"],
+      });
+      // Reject bad uploads before removing the current icon.
+      if (existingIcon?.deleteHash) await deleteFile(existingIcon.deleteHash);
 
       const result = await uploadFile(
         buffer,
@@ -311,6 +300,8 @@ async function handleRoleplayRegisterModal(interaction) {
       iconUrl = result.url;
       deleteHash = result.path;
       uploadedFileSize = buffer.length;
+    } else if (existingIcon?.deleteHash) {
+      await deleteFile(existingIcon.deleteHash);
     }
 
     // --- 4. データベースにトランザクションで保存 ---
@@ -385,21 +376,19 @@ async function handleRoleplayPostModal(interaction) {
       throw new Error(`スロット${slot}のキャラクターが見つかりませんでした。`);
     }
 
+    // Finish bounded image validation before opening a DB transaction.
+    const uploadedImage = files && files.size > 0
+      ? await readImageAttachment(files.first(), {
+          maxBytes: 1024 * 1024,
+          allowedTypes: ["png", "jpg", "webp"],
+        })
+      : null;
+
     // --- 3. アイコンやイラストレーターの更新処理 ---
-    // (トランザクションで囲むとより堅牢になります)
     await sequelize.transaction(async (t) => {
       // ▼ アイコンファイルの更新がある場合 ▼
-      if (files && files.size > 0) {
-        const icon = files.first();
-        const fetched = await fetch(icon.url);
-        const buffer = Buffer.from(await fetched.arrayBuffer());
-
-        // バリデーション
-        if (buffer.length > 1024 * 1024)
-          throw new Error("アイコンファイルのサイズが1MBを超えています。");
-        const fileExt = icon.name.split(".").pop()?.toLowerCase();
-        if (!["png", "webp", "jpg", "jpeg"].includes(fileExt))
-          throw new Error("対応していないファイル形式です。");
+      if (uploadedImage) {
+        const { buffer, fileExt } = uploadedImage;
 
         // 古いファイルを削除
         if (loadicon?.deleteHash) await deleteFile(loadicon.deleteHash);

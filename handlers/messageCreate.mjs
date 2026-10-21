@@ -1,5 +1,6 @@
 //handlers/messageCreate.mjs
 import config from "../config.mjs";
+import { authorizedQuoteSource } from "../utils/quotePermissions.mjs";
 //ドミノ並べ
 import { dominoeffect } from "../commands/utils/domino.mjs";
 //　メッセージ周り
@@ -219,21 +220,16 @@ async function handleMessageLinkFeatures(message) {
   if (guildId !== message.guild.id) return;
 
   try {
-    const channel = await message.guild.channels.fetch(channelId);
+    const channel = await authorizedQuoteSource(message, channelId, config.privatecategory);
+    if (!channel) {
+      await message.reply({
+        content: "閲覧権限と公開範囲を確認できないため、引用を展開しませんでした。元のリンクから確認してください。",
+        allowedMentions: { parse: [], repliedUser: false },
+      });
+      return;
+    }
     const fetchedMessage = await channel.messages.fetch(messageId);
     if (!fetchedMessage) return;
-
-    if (channel.isThread() && channel.type === 12 && message.channel.id !== channel.id) return;
-    if (
-      (channel.parent?.nsfw || channel.nsfw) &&
-      !(message.channel.parent?.nsfw || message.channel.nsfw)
-    )
-      return;
-    if (
-      config.privatecategory.includes(channel.parentId) &&
-      message.channel.id !== channel.id
-    )
-      return;
 
     const images = await getImagesFromMessage(fetchedMessage);
     const files = fetchedMessage.attachments.map((attachment) => attachment.url).join("\n");
@@ -286,7 +282,11 @@ async function handleMessageLinkFeatures(message) {
       console.log(fetchedMessage.embeds[0]);
     }
 
-    if (fetchedMessage.reference) {
+    if (
+      fetchedMessage.reference?.messageId &&
+      fetchedMessage.reference.channelId === channel.id &&
+      (!fetchedMessage.reference.guildId || fetchedMessage.reference.guildId === guildId)
+    ) {
       const refMessage = await channel.messages.fetch(fetchedMessage.reference.messageId);
       if (refMessage) {
         const refMatch = `https://discord.com/channels/${guildId}/${channelId}/${fetchedMessage.reference.messageId}`;
