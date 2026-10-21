@@ -4,6 +4,9 @@ import { readImageAttachment } from "../utils/imageAttachment.mjs";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=", "base64");
 const gif = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+// Complete tiny images, not just signatures: 2x3 JPEG and 1x1 lossy WebP.
+const jpeg = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAADAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8rZ55LmaSaaRpZZGLvI7EszE5JJPUmiiijbRDbcm23ds//9k=", "base64");
+const webp = Buffer.from("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA", "base64");
 const attachment = (extra = {}) => ({ name: "image.png", size: 1, url: "https://cdn.discordapp.com/attachments/1/2/image.png?ex=signed", ...extra });
 const options = { maxBytes: 1024, maxDimension: 800 };
 
@@ -30,6 +33,26 @@ test("metadata and URL rejection happens before a request", async (t) => {
     { url: "https://user:pass@cdn.discordapp.com/attachments/1/2/a.png" },
   ]) await assert.rejects(readImageAttachment(attachment(extra), options));
   assert.equal(fetch.mock.callCount(), 0);
+});
+
+test("valid JPEG uploads retain bytes and support both jpg and jpeg extensions", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => new Response(jpeg));
+  for (const fileExt of ["jpg", "jpeg"]) {
+    const result = await readImageAttachment(attachment({ name: `image.${fileExt}`, size: jpeg.length }), {
+      ...options, allowedTypes: ["png", "jpg", "webp"], maxDimension: 3,
+    });
+    assert.deepEqual(result.buffer, jpeg);
+    assert.equal(result.fileExt, fileExt);
+  }
+});
+
+test("valid WebP uploads retain bytes and normalize the file extension", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => new Response(webp));
+  const result = await readImageAttachment(attachment({ name: "image.WEBP", size: webp.length }), {
+    ...options, allowedTypes: ["png", "jpg", "webp"], maxDimension: 1,
+  });
+  assert.deepEqual(result.buffer, webp);
+  assert.equal(result.fileExt, "webp");
 });
 
 test("stream limit is enforced without trusting attachment size or Content-Length", async (t) => {
@@ -98,4 +121,42 @@ test("concurrent downloads are bounded and failed requests release all slots", a
   await Promise.all(active);
   t.mock.method(globalThis, "fetch", async () => new Response(png));
   await readImageAttachment(attachment(), options);
+});
+
+test("deadline aborts a partially received body and restores all download slots", { timeout: 1000 }, async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const receivingBody = Promise.withResolvers();
+  let signal;
+  let pulls = 0;
+  let settled = false;
+  t.mock.method(globalThis, "fetch", async (_, init) => {
+    signal = init.signal;
+    return new Response(new ReadableStream({
+      start(controller) {
+        // Model fetch's abort propagation into an already-open response body.
+        signal.addEventListener("abort", () => controller.error(signal.reason), { once: true });
+      },
+      pull(controller) {
+        pulls++;
+        if (pulls === 1) controller.enqueue(png.subarray(0, 20));
+        else receivingBody.resolve(); // No further bytes and no EOF.
+      },
+    }, { highWaterMark: 0 }), { headers: { "content-length": String(png.length) } });
+  });
+  const download = readImageAttachment(attachment(), options);
+  download.then(() => { settled = true; }, () => { settled = true; });
+  const rejected = assert.rejects(download, /タイムアウト/);
+  await receivingBody.promise;
+  assert.equal(pulls, 2, "one chunk was consumed before waiting for the rest of the body");
+  t.mock.timers.tick(14_999);
+  assert.equal(signal.aborted, false);
+  assert.equal(settled, false);
+  t.mock.timers.tick(1);
+  await rejected;
+  assert.equal(signal.aborted, true);
+
+  // Filling all four slots catches a leaked slot after a body-read failure.
+  t.mock.method(globalThis, "fetch", async () => new Response(png));
+  const next = await Promise.all(Array.from({ length: 4 }, () => readImageAttachment(attachment(), options)));
+  for (const result of next) assert.deepEqual(result.buffer, png);
 });
