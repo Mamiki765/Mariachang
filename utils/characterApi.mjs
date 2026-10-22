@@ -1,5 +1,5 @@
 // utils/characterApi.mjs
-import axios from "axios";
+import { postRev2Graphql } from "./rev2Graphql.mjs";
 import { getSupabaseClient } from "./supabaseClient.mjs";
 import fs from "fs"; // Node.jsのファイルシステムモジュール
 import path from "path"; // Node.jsのパス操作モジュール
@@ -22,8 +22,6 @@ const characterDetailQuery = fs.readFileSync(
  * @returns {Promise<object|null>}
  */
 async function getCharacterDetail(characterId) {
-  const url = "https://rev2.reversion.jp/graphql?opname=GetCharacterDetail";
-
   // cURLコマンドを参考にヘッダーを更新・追加
   const headers = {
     "content-type": "application/json",
@@ -49,9 +47,8 @@ async function getCharacterDetail(characterId) {
   };
 
   try {
-    const response = await axios.post(url, data, {
+    const response = await postRev2Graphql(data, {
       headers,
-      timeout: 15000,
       validateStatus: () => true,
     });
 

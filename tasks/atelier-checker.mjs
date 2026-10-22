@@ -1,7 +1,7 @@
 // tasks/atelier-checker.mjs
 // APIアクセスとDiscord通知を、このファイル一つで完結させます。
 
-import axios from "axios";
+import { postRev2Graphql } from "../utils/rev2Graphql.mjs";
 import { EmbedBuilder } from "discord.js";
 import config from "../config.mjs";
 import { getSupabaseClient } from "../utils/supabaseClient.mjs";
@@ -86,8 +86,6 @@ export async function checkAtelierCards(client, forceCheck = false) {
     // このtry...catchブロックは、外部APIとの通信の安定性を担保します。
     let cards;
     try {
-      const url =
-        "https://rev2.reversion.jp/graphql?opname=GetOnSellingIllustExtraCardList";
       const headers = {
         "Content-Type": "application/json",
         "User-Agent":
@@ -100,9 +98,8 @@ export async function checkAtelierCards(client, forceCheck = false) {
         query: atelierCardsQuery, // ← 長い文字列の代わりにこの変数を指定
       };
 
-      const response = await axios.post(url, payload, {
+      const response = await postRev2Graphql(payload, {
         headers,
-        timeout: 15000,
       });
       cards = response.data.data.rev2IllustExtraCardsOnSale.data;
     } catch (error) {

@@ -1,6 +1,6 @@
 // tasks/scenario-checker.mjs
 // ES Modules形式のインポート
-import axios from "axios";
+import { postRev2Graphql } from "../utils/rev2Graphql.mjs";
 import { EmbedBuilder } from "discord.js";
 import config from "../config.mjs";
 // 250809【変更点】Sequelizeの代わりに、新しいSupabaseクライアントをインポート
@@ -83,7 +83,6 @@ export async function checkNewScenarios(client, forceResync = false) {
   try {
     // 1. 最新のシナリオリストをAPIから取得
     // (あなたがスラッシュコマンドで完成させた、APIのURL、ペイロード、ヘッダーを含む、あのコードをここに持ってきます)
-    const apiUrl = "https://rev2.reversion.jp/graphql?opname=OpeningList";
     // curlの --data-raw に相当するリクエスト本体（ペイロード）
     const payload = {
       operationName: "OpeningList",
@@ -113,9 +112,8 @@ export async function checkNewScenarios(client, forceResync = false) {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
     };
-    const response = await axios.post(apiUrl, payload, {
+    const response = await postRev2Graphql(payload, {
       headers,
-      timeout: 15000,
     });
 
     const fetchedScenarios = response.data.data.rev2OpeningList;
