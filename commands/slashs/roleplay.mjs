@@ -200,34 +200,7 @@ export async function autocomplete(interaction) {
 
   const choices = [];
 
-  // ---ここからが、Supabaseくんを笑顔にする、エレガントなデータ取得方法です---
-
-  // 1. Supabaseに何度も電話する代わりに、まず「買い物リスト」を作ります。
-  // これからチェックしたい、全スロットのIDを、一度にまとめてしまいます。
-  const potentialSlotIds = [];
-  for (let i = 0; i < MAX_SLOTS; i++) {
-    potentialSlotIds.push(`${userId}${i > 0 ? `-${i}` : ""}`);
-  }
-
-  // 2. 作った「買い物リスト」をSupabaseに一度だけ渡して、
-  // 「このリストに載っているキャラクターの情報、全部ください！」と、一括でお願いしてしまいます。
-  // これで、25回の通信が、たった1回で済みます。
-  const existingCharacters = await Character.findAll({
-    where: {
-      userId: {
-        [Op.in]: potentialSlotIds, // [Op.in]が「このリストの中にあるもの」という意味です。
-      },
-    },
-  });
-
-  // 3. Supabaseから受け取ったキャラクターリストを、
-  // スロットIDをキーにして、すぐに見つけられる「地図（Map）」に変換しておきます。
-  // これで、この後のループ処理で、もう一度DBに問い合わせる必要がなくなります。
-  const characterMap = new Map(
-    existingCharacters.map((char) => [char.userId, char])
-  );
-
-  // ---これ以降、DBとの通信は一切発生しません。全て手元の「地図」を見て判断します---
+  const { potentialSlotIds, characterMap } = await getCharacterSlots(userId);
 
   if (subcommand === "register") {
     let firstEmptySlotFound = false;
@@ -284,19 +257,8 @@ export async function execute(interaction) {
     // ==========================================================
     try {
       // --- 1. スロット選択肢を動的に生成 ---
-      // 以前autocompleteで使っていた効率的なデータ取得ロジックを流用します。
       const userId = interaction.user.id;
-      const potentialSlotIds = Array.from(
-        { length: MAX_SLOTS },
-        (_, i) => `${userId}${i > 0 ? `-${i}` : ""}`
-      );
-
-      const existingCharacters = await Character.findAll({
-        where: { userId: { [Op.in]: potentialSlotIds } },
-      });
-      const characterMap = new Map(
-        existingCharacters.map((char) => [char.userId, char])
-      );
+      const { potentialSlotIds, characterMap } = await getCharacterSlots(userId);
 
       const slotOptions = [];
       let firstEmptySlotFound = false;
@@ -432,26 +394,16 @@ export async function execute(interaction) {
     try {
       // --- 1. 投稿可能なキャラクターリストを作成 ---
       const userId = interaction.user.id;
-      const potentialSlotIds = Array.from(
-        { length: MAX_SLOTS },
-        (_, i) => `${userId}${i > 0 ? `-${i}` : ""}`
-      );
       // modalは3秒しか猶予がないのでPromise.all で「キャラ一覧取得」と「ユーザー設定取得」を同時に取得。
-      const [existingCharacters, userPointData] = await Promise.all([
+      const [{ potentialSlotIds, characterMap }, userPointData] = await Promise.all([
         // タスク1: キャラ一覧
-        Character.findAll({
-          where: { userId: { [Op.in]: potentialSlotIds } },
-        }),
+        getCharacterSlots(userId),
         // タスク2: ユーザー設定（最後に使ったスロット）
         Point.findOne({
           where: { userId },
           attributes: ["lastRoleplaySlot", "lastCreditChoice"], // 必要なカラムだけ指定すると更に高速
         }),
       ]);
-      // 取得結果を展開
-      const characterMap = new Map(
-        existingCharacters.map((char) => [char.userId, char])
-      );
       const lastUsedSlot = userPointData ? userPointData.lastRoleplaySlot : 0;
       //取得した設定を変数に入れる（なければ'display'）
       const lastCreditChoice = userPointData?.lastCreditChoice || "display";
@@ -868,6 +820,20 @@ export async function execute(interaction) {
 //ロードするデータを選択
 function dataslot(id, slot) {
   return slot >= 0 ? `${id}${slot > 0 ? `-${slot}` : ""}` : `${id}`;
+}
+
+// 自分の全スロットを1回のクエリで取得し、番号順の参照に使うMapを返す。
+async function getCharacterSlots(userId) {
+  const potentialSlotIds = Array.from({ length: MAX_SLOTS }, (_, i) =>
+    dataslot(userId, i)
+  );
+  const existingCharacters = await Character.findAll({
+    where: { userId: { [Op.in]: potentialSlotIds } },
+  });
+  const characterMap = new Map(
+    existingCharacters.map((character) => [character.userId, character])
+  );
+  return { potentialSlotIds, characterMap };
 }
 
 //発言するたびにポイント+1、最終発言キャラを更新
