@@ -2,6 +2,7 @@ import { simpleGit } from "simple-git";
 import fs from "fs/promises";
 import path from "path";
 import { Sticker } from "../models/database.mjs";
+import { renderStickerCard } from "./stickerHtml.mjs";
 
 // この関数が、HTML生成からデプロイまでの全てを行います
 export async function deployStickerListPage() {
@@ -157,18 +158,7 @@ export async function deployStickerListPage() {
 </div>
 
 <div class="stamp-grid">
-  ${publicStickers
-        .map(
-          (sticker) => `
-        <a class="stamp-link" href="${sticker.imageUrl}" target="_blank" rel="noopener noreferrer">
-          <div class="stamp-card">
-            <img src="${sticker.imageUrl}" alt="${sticker.name}" loading="lazy">
-            <div class="stamp-name">${sticker.name}</div>
-          </div>
-        </a>
-      `
-        )
-        .join("")}
+  ${publicStickers.map(renderStickerCard).join("")}
 </div>
         </body>
       </html>
