@@ -1,6 +1,6 @@
 // tasks/scenario-checker.mjs
 // ES Modules形式のインポート
-import axios from "axios";
+import { postRev2Graphql } from "../utils/rev2Graphql.mjs";
 import { EmbedBuilder } from "discord.js";
 import config from "../config.mjs";
 // 250809【変更点】Sequelizeの代わりに、新しいSupabaseクライアントをインポート
@@ -83,7 +83,6 @@ export async function checkNewScenarios(client, forceResync = false) {
   try {
     // 1. 最新のシナリオリストをAPIから取得
     // (あなたがスラッシュコマンドで完成させた、APIのURL、ペイロード、ヘッダーを含む、あのコードをここに持ってきます)
-    const apiUrl = "https://rev2.reversion.jp/graphql?opname=OpeningList";
     // curlの --data-raw に相当するリクエスト本体（ペイロード）
     const payload = {
       operationName: "OpeningList",
@@ -113,9 +112,8 @@ export async function checkNewScenarios(client, forceResync = false) {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
     };
-    const response = await axios.post(apiUrl, payload, {
+    const response = await postRev2Graphql(payload, {
       headers,
-      timeout: 15000,
     });
 
     const fetchedScenarios = response.data.data.rev2OpeningList;
@@ -392,13 +390,6 @@ export async function checkNewScenarios(client, forceResync = false) {
       );
 
       if (scenariosToAnnounce.length > 0) {
-        const actionTypeMap = {
-          RESERVABLE: "予約期間中",
-          JOINABLE: "参加受付中",
-          SUPPORTABLE: "サポート可",
-          OUT_OF_ACTION: "事前公開中",
-        };
-
         // 【新戦略】レイドと一般シナリオを分離する
         //レイドEX も増えたので後で増やさないとなあ分岐（レイドと一括で）
         const raidTypes = ["レイド", "レイドEX"]; // レイド系タイプを配列で管理
@@ -415,56 +406,12 @@ export async function checkNewScenarios(client, forceResync = false) {
             `${raidScenarios.length}件のレイドシナリオを発見！個別に通知します。`
           );
 
-          // レイドシナリオの通知（見た目は通常とほぼ同じ、でも箱は別）
-          let descriptionText = "";
-          const embedsToSend = [];
-          const charLimit = 4000;
-
-          for (const s of raidScenarios) {
-            const difficultyEmoji =
-              config.scenarioChecker.difficultyEmojis[s.difficulty] ||
-              config.scenarioChecker.difficultyEmojis.DEFAULT;
-            const statusText = actionTypeMap[s.action_type] || "不明";
-            const sourceNameDisplay =
-              s.source_name && s.source_name.trim() !== ""
-                ? `<${s.source_name}> `
-                : "";
-            const maxMemberText =
-              s.max_member_count === null ? "∞" : s.max_member_count;
-            const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
-            const specialTimeText = `|**${s.time_type}: ${timePart}**`; //レイドは時間を必ず表示
-            //レイドは特別に帯書きを入れる
-            let catchphraseText = "";
-            if (s.catchphrase) {
-              catchphraseText = `-# > *${s.catchphrase.replace(/\n/g, " ")}*\n`;
-            }
-            let joinConditionsText = "";
-            if (s.join_conditions && s.join_conditions.length > 0) {
-              joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
-            }
-            const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
-            const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${s.current_member_count}/${maxMemberText}人|**${statusText}**${specialTimeText}`;
-            const line = titleLine + joinConditionsText + infoLine;
-
-            if (
-              descriptionText.length + line.length + 2 > charLimit &&
-              descriptionText !== ""
-            ) {
-              embedsToSend.push(
-                new EmbedBuilder().setDescription(descriptionText)
-              ); // 色は後で設定
-              descriptionText = line;
-            } else {
-              descriptionText +=
-                (descriptionText ? "\n-# \u200b\n" : "") + line;
-            }
-          }
-
-          if (descriptionText !== "") {
-            embedsToSend.push(
-              new EmbedBuilder().setDescription(descriptionText)
-            );
-          }
+          const descriptions = splitNewScenarioDescriptions(
+            raidScenarios.map((s) => formatNewScenarioLine(s, true, formatDateTime))
+          );
+          const embedsToSend = descriptions.map((description) =>
+            new EmbedBuilder().setDescription(description)
+          );
 
           for (let i = 0; i < embedsToSend.length; i++) {
             const embed = embedsToSend[i];
@@ -493,71 +440,12 @@ export async function checkNewScenarios(client, forceResync = false) {
 
         // ■■■ 一般シナリオの通知（従来通り） ■■■
         if (normalScenarios.length > 0) {
-          let descriptionText = "";
-          const embedsToSend = [];
-          const charLimit = 4000;
-
-          for (const s of normalScenarios) {
-            const difficultyEmoji =
-              config.scenarioChecker.difficultyEmojis[s.difficulty] ||
-              config.scenarioChecker.difficultyEmojis.DEFAULT;
-            const statusText = actionTypeMap[s.action_type] || "不明";
-            const sourceNameDisplay =
-              s.source_name && s.source_name.trim() !== ""
-                ? `<${s.source_name}> `
-                : "";
-            let memberText;
-            let playingPeriodText = ""; // プレイング期間用の変数
-
-            if (s.type === "ラリー") {
-              // ラリーの場合: 現在参加中 / 既返却済
-              memberText = `${s.current_member_count}/${s.rally_member_count}人`;
-              // プレイング期間を整形して追加
-              playingPeriodText = `-# > **プレイング期間:** ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
-            } else {
-              // それ以外の場合: 現在 / 最大
-              const maxMemberText =
-                s.max_member_count === null ? "∞" : s.max_member_count;
-              memberText = `${s.current_member_count}/${maxMemberText}人`;
-            }
-            const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
-            const specialTimeText =
-              (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
-              timePart !== config.scenarioChecker.defaultReserveTime
-                ? `|**予約抽選: ${timePart}**`
-                : "";
-            let joinConditionsText = "";
-            if (s.join_conditions && s.join_conditions.length > 0) {
-              joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
-            }
-            const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
-            const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${memberText}|**${statusText}**${specialTimeText}`;
-            const line =
-              titleLine + joinConditionsText + playingPeriodText + infoLine;
-
-            if (
-              descriptionText.length + line.length + 2 > charLimit &&
-              descriptionText !== ""
-            ) {
-              embedsToSend.push(
-                new EmbedBuilder()
-                  .setColor("Green")
-                  .setDescription(descriptionText)
-              );
-              descriptionText = line;
-            } else {
-              descriptionText +=
-                (descriptionText ? "\n-# \u200b\n" : "") + line;
-            }
-          }
-
-          if (descriptionText !== "") {
-            embedsToSend.push(
-              new EmbedBuilder()
-                .setColor("Green")
-                .setDescription(descriptionText)
-            );
-          }
+          const descriptions = splitNewScenarioDescriptions(
+            normalScenarios.map((s) => formatNewScenarioLine(s, false, formatDateTime))
+          );
+          const embedsToSend = descriptions.map((description) =>
+            new EmbedBuilder().setColor("Green").setDescription(description)
+          );
 
           for (let i = 0; i < embedsToSend.length; i++) {
             const embed = embedsToSend[i];
@@ -761,6 +649,67 @@ export async function checkNewScenarios(client, forceResync = false) {
 }
 
 // ヘルパー関数
+function formatNewScenarioLine(s, isRaid, formatDateTime) {
+  const actionTypeMap = {
+    RESERVABLE: "予約期間中",
+    JOINABLE: "参加受付中",
+    SUPPORTABLE: "サポート可",
+    OUT_OF_ACTION: "事前公開中",
+  };
+  const difficultyEmoji =
+    config.scenarioChecker.difficultyEmojis[s.difficulty] ||
+    config.scenarioChecker.difficultyEmojis.DEFAULT;
+  const statusText = actionTypeMap[s.action_type] || "不明";
+  const sourceNameDisplay =
+    s.source_name && s.source_name.trim() !== "" ? `<${s.source_name}> ` : "";
+
+  let memberText;
+  let playingPeriodText = "";
+  if (!isRaid && s.type === "ラリー") {
+    memberText = `${s.current_member_count}/${s.rally_member_count}人`;
+    playingPeriodText = `-# > **プレイング期間:** ${formatDateTime(s.rally_playing_start)} ～ ${formatDateTime(s.rally_playing_end)}\n`;
+  } else {
+    const maxMemberText = s.max_member_count === null ? "∞" : s.max_member_count;
+    memberText = `${s.current_member_count}/${maxMemberText}人`;
+  }
+
+  const timePart = s.time ? s.time.split(" ")[1].slice(0, 5) : "";
+  let specialTimeText = "";
+  if (isRaid) {
+    specialTimeText = `|**${s.time_type}: ${timePart}**`;
+  } else if (
+    (s.time_type === "予約抽選" || s.time_type === "予約開始") &&
+    timePart !== config.scenarioChecker.defaultReserveTime
+  ) {
+    specialTimeText = `|**予約抽選: ${timePart}**`;
+  }
+  let joinConditionsText = "";
+  if (s.join_conditions && s.join_conditions.length > 0) {
+    joinConditionsText = `-# > **参加条件:** ${s.join_conditions.join(" / ")}\n`;
+  }
+  // 帯書きは従来どおり新規通知には含めない。
+  const titleLine = `${difficultyEmoji}${sourceNameDisplay}[${s.title}](https://rev2.reversion.jp/scenario/opening/${s.id})\n`;
+  const infoLine = `-# 📖${s.creator.penname}${s.creator.type}|${s.type}|${s.difficulty}|${memberText}|**${statusText}**${specialTimeText}`;
+  return titleLine + joinConditionsText + playingPeriodText + infoLine;
+}
+
+function splitNewScenarioDescriptions(lines) {
+  const descriptions = [];
+  let descriptionText = "";
+  const charLimit = 4000;
+  for (const line of lines) {
+    // 分割判定と区切り文字は既存の表示を維持する。
+    if (descriptionText.length + line.length + 2 > charLimit && descriptionText !== "") {
+      descriptions.push(descriptionText);
+      descriptionText = line;
+    } else {
+      descriptionText += (descriptionText ? "\n-# \u200b\n" : "") + line;
+    }
+  }
+  if (descriptionText !== "") descriptions.push(descriptionText);
+  return descriptions;
+}
+
 function parseUtcDate(str) {
   return str ? new Date(str + "Z") : null;
 }

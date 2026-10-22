@@ -10,7 +10,7 @@ import { Sticker } from "../../models/database.mjs"; // あなたのデータベ
 import { uploadFile, deleteFile } from "../../utils/localStorage.mjs";
 import { deployStickerListPage } from "../../utils/gitHubDeployer.mjs";
 import { Op } from "sequelize"; // Sequelizeの「OR」検索などを使うためにインポート
-import sizeOf from "image-size";
+import { readImageAttachment } from "../../utils/imageAttachment.mjs";
 import config from "../../config.mjs";
 // スタンプの登録、投稿、削除を行うスラッシュコマンド
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -227,22 +227,14 @@ export async function execute(interaction) {
       });
     }
 
-    const fetched = await fetch(image.url);
-    const buffer = Buffer.from(await fetched.arrayBuffer());
-
+    let buffer;
     try {
-      const dimensions = sizeOf(buffer);
-      if (dimensions.width > 800 || dimensions.height > 800) {
-        return interaction.editReply({
-          content: `画像のサイズが大きすぎます。幅と高さは、それぞれ800ピクセル以下にしてください。\n(現在のサイズ: ${dimensions.width}x${dimensions.height})`,
-        });
-      }
-    } catch (e) {
-      console.error("画像サイズの取得に失敗:", e);
-      return interaction.editReply({
-        content:
-          "画像のメタデータを読み取れませんでした。ファイルが破損している可能性があります。",
-      });
+      ({ buffer } = await readImageAttachment(image, {
+        maxBytes: MAX_FILE_SIZE,
+        maxDimension: 800,
+      }));
+    } catch (error) {
+      return interaction.editReply({ content: error.message });
     }
 
     const existingSticker = await Sticker.findOne({
@@ -255,7 +247,7 @@ export async function execute(interaction) {
       });
     }
 
-    const newFileSize = image.size;
+    const newFileSize = buffer.length;
     const sizeLimit = config.sticker.directorySizeLimit;
     const currentStickersSize = (await Sticker.sum("fileSize")) || 0;
 
