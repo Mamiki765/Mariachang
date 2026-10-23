@@ -111,19 +111,72 @@ export function buildSkillView(uiData) {
  * @returns {object}
  */
 export function buildInfinityView(uiData) {
-  const costs = new Map();
-  const getCost = (id, bought) => {
-    if (!costs.has(id)) {
-      costs.set(id, calculateGeneratorCost(id, bought));
-    }
-    return costs.get(id);
-  };
+  const viewState = getInfinityViewState(uiData.idleGame);
   return {
     content:
       "ジェネレーターは、一つ下のジェネレーターを生む。追加購入をする度に、その効果は倍になる。\n一番下のジェネレーターは、∞に応じたGPを生む。GPはMultを強化する。",
-    embeds: [generateInfinityEmbed(uiData, getCost)],
-    components: generateInfinityButtons(uiData, getCost),
+    embeds: [generateInfinityEmbed(uiData, viewState)],
+    components: generateInfinityButtons(uiData, viewState),
   };
+}
+
+// 同じ描画の説明とボタンで、表示対象・レベル・費用を共有する。
+// 購入処理と次回の描画は、その時点の状態から再計算する。
+function getInfinityViewState(idleGame) {
+  const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
+  const userGenerators = idleGame.ipUpgrades?.generators || [];
+  const generators = [];
+  for (const generatorConfig of config.idle.infinityGenerators) {
+    const index = generatorConfig.id - 1;
+    const previous = userGenerators[index - 1];
+    if (index > 0 && (!previous || previous.bought === 0)) break;
+    const generatorData = userGenerators[index] || { amount: "0", bought: 0 };
+    generators.push({
+      generatorConfig,
+      generatorData,
+      cost: calculateGeneratorCost(generatorConfig.id, generatorData.bought),
+    });
+  }
+  let galaxy = null;
+  if (purchasedIUs.has("IU91")) {
+    const data = idleGame.ipUpgrades?.galaxy || {
+      count: 0,
+      baseValueUpgrades: 0,
+      gravityExponentUpgrades: 0,
+      chipBaseValueUpgrades: 0,
+    };
+    galaxy = {
+      data,
+      cost: calculateGalaxyCost(data.count),
+      baseValueCost: calculateGalaxyUpgradeCost(
+        "baseValue",
+        data.baseValueUpgrades
+      ),
+      chipCost: calculateGalaxyUpgradeCost(
+        "chipBaseValue",
+        data.chipBaseValueUpgrades || 0,
+        idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0
+      ),
+      gravityExponentCost: calculateGalaxyUpgradeCost(
+        "gravityExponent",
+        data.gravityExponentUpgrades
+      ),
+    };
+  }
+  const levels = idleGame.ipUpgrades?.gravityUpgrades || {};
+  const gravityUpgrades = Object.entries(config.idle.gravityUpgrades).map(
+    ([id, upgradeConfig]) => {
+      const level = levels[id] || 0;
+      return {
+        id,
+        config: upgradeConfig,
+        level,
+        cost: calculateGravityUpgradeCost(id, level),
+        isMaxLevel: level >= upgradeConfig.maxLevel,
+      };
+    }
+  );
+  return { purchasedIUs, generators, galaxy, gravityUpgrades };
 }
 
 /**
@@ -1037,9 +1090,10 @@ function generateSkillButtons(idleGame, costs) {
  * @param {object} uiData - getSingleUserUIDataから取得したUI描画用データ
  * @returns {EmbedBuilder}
  */
-function generateInfinityEmbed(uiData, getCost) {
+function generateInfinityEmbed(uiData, viewState) {
   //データを取り出す
   const { idleGame, userAchievement, displayData } = uiData;
+  const { generators, galaxy, gravityUpgrades } = viewState;
   const unlockedSet = new Set(userAchievement?.achievements?.unlocked || []);
   const ip_d = new Decimal(idleGame.infinityPoints);
   const infinityCount = idleGame.infinityCount || 0;
@@ -1071,25 +1125,16 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
     .setColor("Aqua")
     .setDescription(infinityDescription);
 
-  // ユーザーのジェネレーター進行状況を取得 (データがない場合は空の配列)
-  const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
-  const userGenerators = idleGame.ipUpgrades?.generators || [];
-
   let galaxyCount;
   let currentGalaxyBase;
   let currentGravityExponent;
   let galaxyData;
   const galaxyConfig = config.idle.galaxy;
-  if (purchasedIUs.has("IU91")) {
+  if (galaxy) {
     const currentGravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
     // TODO: calculatorからグラビティ産出量を計算する関数を呼び出す
     // 一旦ここで組み立てる。
-    galaxyData = idleGame.ipUpgrades?.galaxy || {
-      count: 0,
-      baseValueUpgrades: 0,
-      gravityExponentUpgrades: 0,
-      chipBaseValueUpgrades: 0,
-    };
+    galaxyData = galaxy.data;
     galaxyCount = galaxyData.count;
     // config と 購入回数 から現在の値を計算
     const chipLv = galaxyData.chipBaseValueUpgrades || 0;
@@ -1118,27 +1163,9 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
   }
 
   // configをループしてフィールドを動的に生成
-  for (const generatorConfig of config.idle.infinityGenerators) {
-    const index = generatorConfig.id - 1;
-
-    // --- 表示条件のチェック ---
-    if (index > 0) {
-      // ジェネレーターII (index=1) 以降が対象
-      const prevGeneratorData = userGenerators[index - 1];
-      // 1つ前のジェネレーターの購入数(bought)が0なら、このジェネレーターは表示しない
-      if (!prevGeneratorData || prevGeneratorData.bought === 0) {
-        break; // 以降のジェネレーターも表示しないのでループを抜ける
-      }
-    }
-
-    // --- 表示するデータを準備 ---
-    const generatorData = userGenerators[index] || { amount: "0", bought: 0 };
+  for (const { generatorConfig, generatorData, cost } of generators) {
     const amount_d = new Decimal(generatorData.amount);
     const bought = generatorData.bought;
-    const cost = getCost(generatorConfig.id, bought);
-
-    //レートを取得
-    // productionRatesは[G1レート, G2レート,...]の順なので、(id-1)でアクセス
     const rate_d = productionRates[generatorConfig.id - 1] || new Decimal(0);
     const targetName =
       generatorConfig.id === 1 ? "GP" : `G${generatorConfig.id - 1}`;
@@ -1153,17 +1180,13 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
     });
   }
 
-  if (purchasedIUs.has("IU91")) {
+  if (galaxy) {
     // ギャラクシーのコスト計算
-    const nextGalaxyCost = calculateGalaxyCost(galaxyCount);
-    const nextBaseValueCost = calculateGalaxyUpgradeCost(
-      "baseValue",
-      galaxyData.baseValueUpgrades
-    );
-    const nextGravityExponentCost = calculateGalaxyUpgradeCost(
-      "gravityExponent",
-      galaxyData.gravityExponentUpgrades
-    );
+    const {
+      cost: nextGalaxyCost,
+      baseValueCost: nextBaseValueCost,
+      gravityExponentCost: nextGravityExponentCost,
+    } = galaxy;
 
     embed.addFields([
       {
@@ -1185,22 +1208,14 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
   }
 
   // --- グラビティアップグレードの情報を表示 ---
-  const gravityUpgradesConfig = config.idle.gravityUpgrades;
   // 全てのアップグレードを一度に表示すると長すぎるので、購入可能なものやレベルが上がっているものを優先して表示する
-  if (Object.keys(gravityUpgradesConfig).length > 0) {
+  if (gravityUpgrades.length > 0) {
     embed.addFields({
       name: "🪐 グラビティアップグレード",
       value: "グラビティを消費してアップグレードできます",
     });
 
-    const gravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
-    const upgrades = idleGame.ipUpgrades?.gravityUpgrades || {};
-
-    for (const [id, config] of Object.entries(gravityUpgradesConfig)) {
-      const level = upgrades[id] || 0;
-      const cost = calculateGravityUpgradeCost(id, level);
-      const isMaxLevel = level >= config.maxLevel;
-
+    for (const { config, level, cost, isMaxLevel } of gravityUpgrades) {
       const status = isMaxLevel
         ? "✅ 最大"
         : `コスト: ${formatNumberDynamic_Decimal(cost)}`;
@@ -1221,27 +1236,13 @@ GP: ${formatNumberDynamic_Decimal(gp_d)}^${baseGpExponent.toFixed(3)} (全工場
  * @param {object} uiData - getSingleUserUIDataから取得したUI描画用データ
  * @returns {ActionRowBuilder[]}
  */
-function generateInfinityButtons(uiData, getCost) {
+function generateInfinityButtons(uiData, viewState) {
   const { idleGame, point } = uiData;
+  const { purchasedIUs, generators, galaxy, gravityUpgrades } = viewState;
   const components = [];
   let currentRow = new ActionRowBuilder();
-  const userGenerators = idleGame.ipUpgrades?.generators || [];
   const ip_d = new Decimal(idleGame.infinityPoints);
-  for (const generatorConfig of config.idle.infinityGenerators) {
-    const index = generatorConfig.id - 1;
-
-    // --- 表示条件のチェック ---
-    if (index > 0) {
-      const prevGeneratorData = userGenerators[index - 1];
-      if (!prevGeneratorData || prevGeneratorData.bought === 0) {
-        break;
-      }
-    }
-
-    // --- ボタンのデータを準備 ---
-    const generatorData = userGenerators[index] || { amount: "0", bought: 0 };
-    const cost = getCost(generatorConfig.id, generatorData.bought);
-
+  for (const { generatorConfig, cost } of generators) {
     currentRow.addComponents(
       new ButtonBuilder()
         // IDの命名規則を意識
@@ -1263,33 +1264,9 @@ function generateInfinityButtons(uiData, getCost) {
     components.push(currentRow);
   }
 
-  const purchasedIUs = new Set(idleGame.ipUpgrades?.upgrades || []);
-  if (purchasedIUs.has("IU91")) {
+  if (galaxy) {
     const galaxyRow = new ActionRowBuilder();
-    const galaxyData = idleGame.ipUpgrades?.galaxy || {
-      count: 0,
-      baseValueUpgrades: 0,
-      gravityExponentUpgrades: 0,
-      chipBaseValueUpgrades: 0,
-    };
-    const realityDiscountLevel =
-      idleGame.epUpgrades?.chronoUpgrades?.realityDiscount || 0;
-
-    // 各コストを計算
-    const galaxyCost = calculateGalaxyCost(galaxyData.count);
-    const baseValueCost = calculateGalaxyUpgradeCost(
-      "baseValue",
-      galaxyData.baseValueUpgrades
-    );
-    const chipCost = calculateGalaxyUpgradeCost(
-      "chipBaseValue",
-      galaxyData.chipBaseValueUpgrades || 0,
-      realityDiscountLevel
-    );
-    const gravityExponentCost = calculateGalaxyUpgradeCost(
-      "gravityExponent",
-      galaxyData.gravityExponentUpgrades
-    );
+    const { cost: galaxyCost, baseValueCost, chipCost, gravityExponentCost } = galaxy;
 
     galaxyRow.addComponents(
       new ButtonBuilder()
@@ -1328,21 +1305,17 @@ function generateInfinityButtons(uiData, getCost) {
     components.push(galaxyRow);
   }
 
-  const gravityUpgradesConfig = config.idle.gravityUpgrades;
-  if (Object.keys(gravityUpgradesConfig).length > 0) {
+  if (gravityUpgrades.length > 0) {
     const gravityUpgradeRow = new ActionRowBuilder();
     const gravity_d = new Decimal(idleGame.ipUpgrades?.gravity || "1");
-    const upgrades = idleGame.ipUpgrades?.gravityUpgrades || {};
 
-    for (const [id, config] of Object.entries(gravityUpgradesConfig)) {
-      const level = upgrades[id] || 0;
-      const cost = calculateGravityUpgradeCost(id, level);
+    for (const { id, config, cost, isMaxLevel } of gravityUpgrades) {
       gravityUpgradeRow.addComponents(
         new ButtonBuilder()
           .setCustomId(`idle_gravity_upgrade_${id}`)
           .setLabel(config.name)
           .setStyle(ButtonStyle.Success)
-          .setDisabled(gravity_d.lt(cost) || level >= config.maxLevel)
+          .setDisabled(gravity_d.lt(cost) || isMaxLevel)
       );
     }
     components.push(gravityUpgradeRow);

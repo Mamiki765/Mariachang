@@ -608,6 +608,228 @@ test("bulk generators preserve unbought priority, Decimal balances and the 1000-
   }
 });
 
+function renderInfinity(h, idleGame, chips = 0) {
+  return plain(
+    h.ui.buildInfinityView({
+      idleGame,
+      point: { legacy_pizza: chips },
+      userAchievement: { achievements: { unlocked: [] } },
+      displayData: h.calc.calculateDisplayData(idleGame, {
+        mee6Level: 0,
+        achievementCount: 0,
+        unlockedSet: new Set(),
+      }),
+    })
+  );
+}
+
+test("Infinity generator fields and buttons retain visibility and exact affordability", async () => {
+  const h = await harness();
+  const count = config.idle.infinityGenerators.length;
+  for (let unlocked = 0; unlocked <= count; unlocked++) {
+    const generators = Array.from({ length: count }, (_, index) => ({
+      amount: "2",
+      bought: index < unlocked ? 1 : 0,
+    }));
+    for (const factor of [0.5, 1, 2]) {
+      const cost = h.calc.calculateGeneratorCost(1, generators[0].bought);
+      const input = fixture({
+        infinityCount: 1,
+        infinityPoints: cost.mul(factor).toString(),
+        ipUpgrades: { upgrades: [], generators },
+      });
+      const before = plain(input);
+      const rendered = renderInfinity(h, input);
+      const fields = rendered.embeds[0].fields.filter((field) =>
+        /^G\d+ /.test(field.name)
+      );
+      const buttons = rendered.components
+        .flatMap((row) => row.components)
+        .filter((button) => /^idle_generator_buy_\d+$/.test(button.custom_id));
+      const expectedCount = Math.min(unlocked + 1, count);
+      assert.equal(fields.length, expectedCount);
+      assert.equal(buttons.length, expectedCount);
+      assert.deepEqual(
+        buttons.map((button) => button.custom_id),
+        Array.from(
+          { length: expectedCount },
+          (_, index) => `idle_generator_buy_${index + 1}`
+        )
+      );
+      assert.equal(buttons[0].disabled, factor < 1);
+      assert.ok(
+        fields[0].value.includes(h.calc.formatNumberDynamic_Decimal(cost))
+      );
+      assert.deepEqual(plain(input), before);
+    }
+  }
+  for (const ipUpgrades of [
+    undefined,
+    {},
+    { generators: [{ amount: "0", bought: 0 }] },
+    {
+      generators: [
+        { amount: "1", bought: 1 },
+        null,
+        { amount: "1", bought: 1 },
+      ],
+    },
+  ]) {
+    const input = fixture({ infinityCount: 1, ipUpgrades });
+    const buttons = renderInfinity(h, input).components.flatMap(
+      (row) => row.components
+    );
+    assert.equal(
+      buttons.filter((button) =>
+        /^idle_generator_buy_\d+$/.test(button.custom_id)
+      ).length,
+      ipUpgrades?.generators?.[0]?.bought ? 2 : 1
+    );
+    assert.equal(
+      buttons.some((button) => button.custom_id.startsWith("idle_galaxy_")),
+      false
+    );
+  }
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("Infinity galaxy controls retain IU91 gating, IP boundaries and chip discounts", async () => {
+  const h = await harness();
+  for (const galaxy of [
+    undefined,
+    {
+      count: 2,
+      baseValueUpgrades: 1,
+      gravityExponentUpgrades: 2,
+      chipBaseValueUpgrades: 3,
+    },
+  ]) {
+    for (const discount of [0, 1, 1000]) {
+      const data = galaxy || {
+        count: 0,
+        baseValueUpgrades: 0,
+        gravityExponentUpgrades: 0,
+        chipBaseValueUpgrades: 0,
+      };
+      const prices = {
+        idle_galaxy_buy_galaxy: h.calc.calculateGalaxyCost(data.count),
+        idle_galaxy_upgrade_baseValue: h.calc.calculateGalaxyUpgradeCost(
+          "baseValue",
+          data.baseValueUpgrades
+        ),
+        idle_galaxy_upgrade_gravityExponent: h.calc.calculateGalaxyUpgradeCost(
+          "gravityExponent",
+          data.gravityExponentUpgrades
+        ),
+      };
+      const chipCost = h.calc.calculateGalaxyUpgradeCost(
+        "chipBaseValue",
+        data.chipBaseValueUpgrades,
+        discount
+      );
+      for (const [id, cost] of Object.entries(prices)) {
+        for (const factor of [0.5, 1, 2]) {
+          const input = fixture({
+            infinityCount: 1,
+            infinityPoints: cost.mul(factor).toString(),
+            ipUpgrades: { upgrades: ["IU91"], galaxy },
+            epUpgrades: { chronoUpgrades: { realityDiscount: discount } },
+          });
+          const before = plain(input);
+          const rendered = renderInfinity(h, input, chipCost * factor);
+          const buttons = rendered.components.flatMap((row) => row.components);
+          assert.equal(
+            buttons.find((button) => button.custom_id === id).disabled,
+            factor < 1
+          );
+          const chipButton = buttons.find(
+            (button) => button.custom_id === "idle_galaxy_upgrade_chipBaseValue"
+          );
+          assert.equal(chipButton.disabled, factor < 1 && chipCost > 0);
+          assert.ok(
+            chipButton.label.includes(
+              h.calc.formatNumberJapanese_Decimal(new Decimal(chipCost))
+            )
+          );
+          assert.ok(
+            rendered.embeds[0].fields.some((field) =>
+              field.value.includes(h.calc.formatNumberDynamic_Decimal(cost))
+            )
+          );
+          assert.deepEqual(plain(input), before);
+        }
+      }
+    }
+  }
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
+test("Infinity gravity limits and prices refresh after the model changes without mutating a render", async () => {
+  const h = await harness();
+  for (const [id, upgrade] of Object.entries(config.idle.gravityUpgrades)) {
+    const levels = Number.isFinite(upgrade.maxLevel)
+      ? [0, upgrade.maxLevel - 1, upgrade.maxLevel, upgrade.maxLevel + 1]
+      : [0, 3];
+    for (const level of levels) {
+      const cost = h.calc.calculateGravityUpgradeCost(id, level);
+      for (const factor of [0.5, 1, 2]) {
+        const input = fixture({
+          infinityCount: 1,
+          ipUpgrades: {
+            gravity: cost.mul(factor).toString(),
+            gravityUpgrades: { [id]: level },
+          },
+        });
+        const before = plain(input);
+        const rendered = renderInfinity(h, input);
+        const button = rendered.components
+          .flatMap((row) => row.components)
+          .find((entry) => entry.custom_id === `idle_gravity_upgrade_${id}`);
+        assert.equal(button.disabled, factor < 1 || level >= upgrade.maxLevel);
+        const field = rendered.embeds[0].fields.find(
+          (entry) => entry.name === `${upgrade.name} [Lv.${level}]`
+        );
+        assert.ok(field);
+        if (level < upgrade.maxLevel)
+          assert.ok(
+            field.value.includes(h.calc.formatNumberDynamic_Decimal(cost))
+          );
+        assert.deepEqual(plain(input), before);
+      }
+    }
+  }
+  const input = fixture({
+    infinityCount: 1,
+    infinityPoints: "1",
+    ipUpgrades: { generators: [], gravity: "1e6", gravityUpgrades: {} },
+  });
+  const first = renderInfinity(h, input);
+  const unchanged = structuredClone(first);
+  input.ipUpgrades.generators.push({ amount: "1", bought: 1 });
+  input.ipUpgrades.gravityUpgrades.infBonusOnGen = 1;
+  const second = renderInfinity(h, input);
+  const buttons = second.components.flatMap((row) => row.components);
+  assert.equal(
+    buttons.find((button) => button.custom_id === "idle_generator_buy_1")
+      .disabled,
+    true
+  );
+  assert.ok(
+    buttons.find((button) => button.custom_id === "idle_generator_buy_2")
+  );
+  assert.equal(
+    buttons.find(
+      (button) => button.custom_id === "idle_gravity_upgrade_infBonusOnGen"
+    ).disabled,
+    true
+  );
+  assert.deepEqual(first, unchanged);
+  assert.equal(h.state.reads, 0);
+  assert.deepEqual(h.state.writes, []);
+});
+
 test("challenge descriptions and controls keep IC9 gating, status and abort behavior", async () => {
   const h = await harness();
   const firstEight = Array.from({ length: 8 }, (_, i) => `IC${i + 1}`);
