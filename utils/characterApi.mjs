@@ -363,6 +363,19 @@ function createLevelInfoString(character, gameParams, targetLevel = null) {
   }
 }
 
+// PC表示4経路でレベル行とTestament警告を揃える。末尾の改行は呼び出し側で付ける。
+// 予算表示は従来の警告なし表記を維持し、この関数を使わない。
+function createPcLevelSummary(character, gameParams, targetLevel = null) {
+  const levelplus = createLevelInfoString(character, gameParams, targetLevel);
+  const testa =
+    character.testament < 50 || character.testament >= 100
+      ? `${character.testament}`
+      : character.testament < 80
+        ? `⚠️${character.testament}`
+        : `⚠️${character.testament}⚠️`;
+  return `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}`;
+}
+
 /**
  * 【NEW】基本情報のみ（ステシURL＋名前＋レベル等）を生成する関数
  * @param {string} characterId 
@@ -397,17 +410,10 @@ export async function getCharacterBasicInfo(characterId) {
 
       const gameParams = await getGameParameters();
       // 目標レベルは未指定(null)でカンストを目標として文字列を生成
-      const levelplus = createLevelInfoString(character, gameParams, null);
-
-      const testa =
-        character.testament < 50 || character.testament >= 100
-          ? `${character.testament}`
-          : character.testament < 80
-            ? `⚠️${character.testament}`
-            : `⚠️${character.testament}⚠️`;
+      const levelSummary = createPcLevelSummary(character, gameParams, null);
 
       // 3行目: レベル、経験値、必要経験値、Testament
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}`;
+      reply += levelSummary;
 
       return reply;
     }
@@ -478,16 +484,10 @@ export async function getCharacterNextInfo(characterId, targetLevel = null) {
     } else {
       const licenseDisplay = formatLicenseDisplay(character.licenses);
       const gameParams = await getGameParameters();
-      const levelplus = createLevelInfoString(character, gameParams, targetLevel);
-      const testa =
-        character.testament < 50 || character.testament >= 100
-          ? `${character.testament}`
-          : character.testament < 80
-            ? `⚠️${character.testament}`
-            : `⚠️${character.testament}⚠️`;
+      const levelSummary = createPcLevelSummary(character, gameParams, targetLevel);
 
       reply = `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}`;
+      reply += levelSummary;
     }
 
     const nextSection = createNextAbilitySection(character);
@@ -538,19 +538,8 @@ export async function getCharacterSummary(characterId, targetLevel = null) {
       let reply = `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
-      const levelplus = createLevelInfoString(
-        character,
-        gameParams,
-        targetLevel
-      );
-      //levelplusここまで
-      const testa =
-        character.testament < 50 || character.testament >= 100
-          ? `${character.testament}`
-          : character.testament < 80
-            ? `⚠️${character.testament}`
-            : `⚠️${character.testament}⚠️`;
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}\n`;
+      const levelSummary = createPcLevelSummary(character, gameParams, targetLevel);
+      reply += `${levelSummary}\n`;
 
       const displayOrder = [1, 2, 3, 4, 13, 9, 10, 5, 6, 7, 8, 11, 12, 14];
       const targetStatusIds = new Set(displayOrder);
@@ -811,19 +800,8 @@ export async function getCharacterSummaryCompact(
       let reply = `${statePrefix}「${character.name}」${rootsDisplay}×${character.generation.name}${licenseDisplay}\n`;
       //経験値プールしてたらレベル概算も出す、なんとなく
       const gameParams = await getGameParameters();
-      const levelplus = createLevelInfoString(
-        character,
-        gameParams,
-        targetLevel
-      );
-      //levelplusここまで
-      const testa =
-        character.testament < 50 || character.testament >= 100
-          ? `${character.testament}`
-          : character.testament < 80
-            ? `⚠️${character.testament}`
-            : `⚠️${character.testament}⚠️`;
-      reply += `Lv.${character.level} Exp.${character.exp}/${character.exp_to_next}${levelplus} Testament.${testa}\n`;
+      const levelSummary = createPcLevelSummary(character, gameParams, targetLevel);
+      reply += `${levelSummary}\n`;
       if (character.sub_status && character.sub_status.length > 0) {
         reply += `\`\`\`ansi\nP:${character.p} M:${character.m} T:${character.t} C:${character.c}`;
 
