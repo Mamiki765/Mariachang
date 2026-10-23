@@ -1,0 +1,2 @@
+# Keep the dependencies installed by npm ci; never copy host dependencies over them.
+**/node_modules
