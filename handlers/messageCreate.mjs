@@ -224,13 +224,17 @@ async function handleMessageLinkFeatures(message) {
     if (!fetchedMessage) return;
 
     if (channel.isThread() && channel.type === 12 && message.channel.id !== channel.id) return;
+    const sourceParent = channel.isThread()
+      ? channel.parent ?? await message.guild.channels.fetch(channel.parentId).catch(() => null)
+      : channel.parent;
+    if (channel.isThread() && !sourceParent) return;
     if (
-      (channel.parent?.nsfw || channel.nsfw) &&
+      (sourceParent?.nsfw || channel.nsfw) &&
       !(message.channel.parent?.nsfw || message.channel.nsfw)
     )
       return;
     if (
-      config.privatecategory.includes(channel.parentId) &&
+      config.privatecategory.includes(channel.isThread() ? sourceParent.parentId : channel.parentId) &&
       message.channel.id !== channel.id
     )
       return;

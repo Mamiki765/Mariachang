@@ -41,9 +41,11 @@ function fixture() {
     },
   };
   const destination = { id: "300", parent: null, nsfw: false };
+  const parent = { id: "400", parentId: null, nsfw: false };
   const channels = new Map([
     [source.id, source],
     [destination.id, destination],
+    [parent.id, parent],
   ]);
   const guild = {
     id: "100",
@@ -76,6 +78,7 @@ function fixture() {
     calls,
     config,
     source,
+    parent,
     destination,
     channels,
     guild,
@@ -83,6 +86,12 @@ function fixture() {
     body,
     bodies,
   };
+}
+
+function makeThread(f, type = 11, cachedParent = true) {
+  f.source.type = type;
+  f.source.parentId = f.parent.id;
+  f.source.parent = cachedParent ? f.parent : null;
 }
 
 async function handler(f) {
@@ -175,7 +184,7 @@ test("configured private categories still skip cross-channel quotes silently", a
 
 test("private threads still skip cross-channel quotes but allow same-thread quotes", async () => {
   const f = fixture();
-  f.source.type = 12;
+  makeThread(f, 12);
   await handler(f);
   assertQuiet(f);
 
@@ -185,13 +194,49 @@ test("private threads still skip cross-channel quotes but allow same-thread quot
   assert.equal(f.calls.filter(([type]) => type === "send").length, 1);
 });
 
+test("private categories also exclude public and announcement threads, with or without cached parents", async () => {
+  for (const type of [10, 11]) {
+    for (const cachedParent of [false, true]) {
+      const f = fixture();
+      makeThread(f, type, cachedParent);
+      f.parent.parentId = "private";
+      f.config.privatecategory = ["private"];
+      await handler(f);
+      assertQuiet(f);
+
+      f.calls.length = 0;
+      f.message.channel = f.source;
+      await handler(f);
+      assert.equal(f.calls.filter(([kind]) => kind === "send").length, 1);
+      assert.equal(f.calls.filter(([kind]) => kind === "notice").length, 0);
+    }
+  }
+});
+
+test("an unavailable thread parent leaves the link intact without a notice", async () => {
+  for (const throws of [false, true]) {
+    const f = fixture();
+    makeThread(f, 11, false);
+    f.channels.delete(f.parent.id);
+    if (throws) {
+      const fetch = f.guild.channels.fetch;
+      f.guild.channels.fetch = async (id) => {
+        if (id === f.parent.id) throw Error("Parent unavailable");
+        return fetch(id);
+      };
+    }
+    await handler(f);
+    assertQuiet(f);
+  }
+});
+
 test("NSFW channels and threads still skip safe destinations silently", async () => {
   for (const sourceIsThread of [false, true]) {
     for (const destinationIsThread of [false, true]) {
       const f = fixture();
       if (sourceIsThread) {
-        f.source.type = 11;
-        f.source.parent = { nsfw: true };
+        makeThread(f, 11, false);
+        f.parent.nsfw = true;
       } else {
         f.source.nsfw = true;
       }
@@ -211,7 +256,7 @@ test("NSFW channels and threads still skip safe destinations silently", async ()
 test("public and announcement threads retain normal quote expansion", async () => {
   for (const type of [10, 11]) {
     const f = fixture();
-    f.source.type = type;
+    makeThread(f, type);
     await handler(f);
     assert.equal(f.calls.filter(([kind]) => kind === "send").length, 1);
   }
