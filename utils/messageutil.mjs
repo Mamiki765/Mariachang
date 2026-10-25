@@ -80,13 +80,17 @@ export async function sendMessage(message, newmessage, fileUrls, embeds, flag) {
       ? await message.channel.messages.fetch(message.reference.messageId)
       : null;
   }
+  // 送信のたびに内容を読み直し、flagsも新しい配列にする
+  const createMessagePayload = () => ({
+    content: `<@${message.author.id}>:\n${newmessage}`,
+    files: fileUrls,
+    embeds: embeds,
+    flags: [flag],
+  });
   //返信ならwebhookを用いず
   if (replyToMessage) {
     await replyToMessage.reply({
-      content: `<@${message.author.id}>:\n${newmessage}`,
-      files: fileUrls,
-      embeds: embeds,
-      flags: [flag],
+      ...createMessagePayload(),
       threadId: Threadid,
       components: [deletebutton],
     });
@@ -95,10 +99,7 @@ export async function sendMessage(message, newmessage, fileUrls, embeds, flag) {
     try {
       await webhook.send({
         // ★ awaitがないと送信完了を待たず、エラー捕捉やメッセージ削除に影響
-        content: `<@${message.author.id}>:\n${newmessage}`,
-        files: fileUrls,
-        embeds: embeds,
-        flags: [flag],
+        ...createMessagePayload(),
         components: [deletebutton],
         username: nickname,
         threadId: Threadid,
@@ -106,10 +107,7 @@ export async function sendMessage(message, newmessage, fileUrls, embeds, flag) {
       });
     } catch (e) {
       message.channel.send({
-        content: `<@${message.author.id}>:\n${newmessage}`,
-        files: fileUrls,
-        embeds: embeds,
-        flags: [flag],
+        ...createMessagePayload(),
         components: [deletebutton],
       });
       console.error("Error fetching message:", e);
